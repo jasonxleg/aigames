@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的 AI 遊戲中心</title>
+    <style>
+        /* 全域設定：讓字型好看一點，背景設為淺灰色 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* 標題區塊 */
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 2rem;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        h1 { margin: 0; font-weight: 300; letter-spacing: 2px; }
+        p { opacity: 0.8; margin-top: 10px; }
+
+        /* 容器：這是擴充性的關鍵，使用 CSS Grid */
+        .container {
+            display: grid;
+            /* 自動填滿：依據螢幕寬度自動決定一行放幾個，最小寬度 250px */
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 1000px;
+            box-sizing: border-box;
+        }
+
+        /* 按鈕卡片樣式 */
+        .game-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            text-decoration: none; /* 移除超連結底線 */
+            color: #333;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid #e1e1e1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 150px;
+        }
+
+        /* 滑鼠移過去的特效 */
+        .game-card:hover {
+            transform: translateY(-5px); /* 輕微上浮 */
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+            border-color: #3498db;
+        }
+
+        .game-card h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: #2c3e50;
+        }
+
+        .game-card span {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+
+        /* 頁尾 */
+        footer {
+            margin-top: auto;
+            padding: 20px;
+            color: #7f8c8d;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>AI Game Portal</h1>
+        <p>點選下方卡片開始遊戲</p>
+    </header>
+
+    <div class="container">
+        <a href="https://jasonxleg.github.io/aigames/whiteblack.html" class="game-card" target="_blank">
+            <h2>White & Black</h2>
+            <span>點擊開始遊戲</span>
+        </a>
+
+        <a href="https://jasonxleg.github.io/aigames/aigo.html" class="game-card" target="_blank">
+            <h2>AI Go</h2>
+            <span>點擊開始圍棋對弈</span>
+        </a>
+
+        </div>
+
+    <footer>
+        &copy; 2024 AI Games Hub
+    </footer>
+
+</body>
+</html>
