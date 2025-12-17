@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>©¯¹B¸¹½X¤j§]¾½</title>
+    <title>Lucky Num 305</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
 
@@ -37,10 +37,10 @@
             text-align: center;
         }
 
-        /* ³]©w°Ï¶ô¼Ë¦¡ */
+        /* è¨­å®šå€å¡Šæ¨£å¼ */
         .settings-area {
             display: flex;
-            flex-wrap: wrap; /* Åı¤â¾÷ª©¥i¥H´«¦æ */
+            flex-wrap: wrap; /* è®“æ‰‹æ©Ÿç‰ˆå¯ä»¥æ›è¡Œ */
             justify-content: center;
             gap: 15px;
             margin-bottom: 20px;
@@ -78,7 +78,7 @@
             width: 60px;
         }
         
-        /* ±Æ°£¸¹½Xªº¿é¤J®Øªø¤@ÂI */
+        /* æ’é™¤è™Ÿç¢¼çš„è¼¸å…¥æ¡†é•·ä¸€é» */
         input[type="text"] {
             width: 150px;
             text-align: left;
@@ -122,7 +122,7 @@
             box-shadow: none;
         }
 
-        /* ¹CÀ¸°Ï°ì */
+        /* éŠæˆ²å€åŸŸ */
         #game-board {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
@@ -229,7 +229,7 @@
 </head>
 <body>
 
-    <h1>?? ©¯¹B¸¹½X¤j§]¾½ ??</h1>
+    <h1> Lucky Number 305 </h1>
 
     <div class="settings-area">
         <div class="input-group">
@@ -238,17 +238,17 @@
         </div>
         <div class="input-group">
             <label>MAX:</label>
-            <input type="number" id="max-val" value="49" min="1">
+            <input type="number" id="max-val" value="44" min="1">
         </div>
         <div class="input-group" style="flex-grow: 1; justify-content: center;">
-            <label>±Æ°£:</label>
-            <input type="text" id="exclude-val" placeholder="¨Ò¦p: 4, 13, 22">
+            <label>ExCulde:</label>
+            <input type="text" id="exclude-val" value="19,20,21,22,23,24,25" placeholder="ä¾‹å¦‚: 4, 13, 22">
         </div>
     </div>
     
     <div class="controls">
-        <button id="set-btn" class="secondary" onclick="initBoard()">³]©w/­«¸m (Set)</button>
-        <button id="start-btn" onclick="startGame()">¶}©l§]¾½ (Start)</button>
+        <button id="set-btn" class="secondary" onclick="initBoard()">è¨­å®š/é‡ç½® (Set)</button>
+        <button id="start-btn" onclick="startGame()">é–‹å§‹åå™¬ (Start)</button>
     </div>
 
     <div id="game-board">
@@ -256,9 +256,9 @@
     </div>
 
     <div id="result-display">
-        <h2>³Ì«á­Æ¦sªº¬O...</h2>
+        <h2>æœ€å¾Œå€–å­˜çš„æ˜¯...</h2>
         <div class="win-num" id="winner-text">?</div>
-        <button onclick="resetGame()">¦A¨Ó¤@¦¸</button>
+        <button onclick="resetGame()">å†ä¾†ä¸€æ¬¡</button>
     </div>
 
     <script>
@@ -275,38 +275,38 @@
         function initBoard() {
             if (isPlaying) return;
 
-            // Åª¨ú¼Æ­È
+            // è®€å–æ•¸å€¼
             let min = parseInt(document.getElementById('min-val').value);
             let max = parseInt(document.getElementById('max-val').value);
             let excludeStr = document.getElementById('exclude-val').value;
 
-            // ³B²z±Æ°£¦W³æ¡G±N¦r¦ê¤À³Î¨ÃÂà¬°¼Æ¦r°}¦C
-            // ¤ä´©³r¸¹¡BªÅ®æ¤À¹j
+            // è™•ç†æ’é™¤åå–®ï¼šå°‡å­—ä¸²åˆ†å‰²ä¸¦è½‰ç‚ºæ•¸å­—é™£åˆ—
+            // æ”¯æ´é€—è™Ÿã€ç©ºæ ¼åˆ†éš”
             let excludeList = excludeStr.split(/[, ]+/)
                                 .map(s => parseInt(s.trim()))
                                 .filter(n => !isNaN(n));
             
-            // ¨Ï¥Î Set ¨Ó¥[³t¬d¸ß
+            // ä½¿ç”¨ Set ä¾†åŠ é€ŸæŸ¥è©¢
             let excludeSet = new Set(excludeList);
 
             if (isNaN(min) || isNaN(max)) {
-                alert("½Ğ¿é¤J¦³®Äªº½d³ò¼Æ¦r¡I");
+                alert("è«‹è¼¸å…¥æœ‰æ•ˆçš„ç¯„åœæ•¸å­—ï¼");
                 return;
             }
             if (min >= max) {
-                alert("³Ì¤p­È (MIN) ¥²¶·¤p©ó ³Ì¤j­È (MAX)¡I");
+                alert("æœ€å°å€¼ (MIN) å¿…é ˆå°æ–¼ æœ€å¤§å€¼ (MAX)ï¼");
                 return;
             }
 
-            // ²M°£ª©­±
+            // æ¸…é™¤ç‰ˆé¢
             const ghostElem = board.querySelector('#ghost');
             board.innerHTML = '';
             board.appendChild(ghostElem);
             numbers = [];
 
-            // ²£¥Í¸¹½X
+            // ç”¢ç”Ÿè™Ÿç¢¼
             for (let i = min; i <= max; i++) {
-                // ¦pªG¸Ó¼Æ¦r¦b±Æ°£¦W³æ¤¤¡A´N¸õ¹L
+                // å¦‚æœè©²æ•¸å­—åœ¨æ’é™¤åå–®ä¸­ï¼Œå°±è·³é
                 if (excludeSet.has(i)) {
                     continue;
                 }
@@ -319,15 +319,15 @@
                 numbers.push(i);
             }
 
-            // ¨¾§b¡G¦pªG¥ş³¡³£±Æ°£¤F
+            // é˜²å‘†ï¼šå¦‚æœå…¨éƒ¨éƒ½æ’é™¤äº†
             if (numbers.length === 0) {
-                alert("©Ò¦³¸¹½X³£³Q±Æ°£¤F¡I½Ğ½Õ¾ã½d³ò©Î´î¤Ö±Æ°£ªº¸¹½X¡C");
+                alert("æ‰€æœ‰è™Ÿç¢¼éƒ½è¢«æ’é™¤äº†ï¼è«‹èª¿æ•´ç¯„åœæˆ–æ¸›å°‘æ’é™¤çš„è™Ÿç¢¼ã€‚");
                 return;
             }
 
             if (numbers.length > 150) {
-                alert("¸¹½X¼Æ¶q¤Ó¦hÅo¡I«ØÄ³µ²ªG¦b 150 ­Ó¸¹½X¥H¤º¡C");
-                // ³o¸Ì¤£²MªÅ¡A¥uÄµ§i¡A¨Ï¥ÎªÌ¤´¥i¹Á¸Õ
+                alert("è™Ÿç¢¼æ•¸é‡å¤ªå¤šå›‰ï¼å»ºè­°çµæœåœ¨ 150 å€‹è™Ÿç¢¼ä»¥å…§ã€‚");
+                // é€™è£¡ä¸æ¸…ç©ºï¼Œåªè­¦å‘Šï¼Œä½¿ç”¨è€…ä»å¯å˜—è©¦
             }
             
             resetGhostPosition();
@@ -354,7 +354,7 @@
         async function startGame() {
             if (numbers.length === 0) {
                 initBoard();
-                if (numbers.length === 0) return; // ­Yªì©l¤Æ¥¢±Ñ(¨Ò¦p¥ş±Æ°£)«h°±¤î
+                if (numbers.length === 0) return; // è‹¥åˆå§‹åŒ–å¤±æ•—(ä¾‹å¦‚å…¨æ’é™¤)å‰‡åœæ­¢
             }
             if (isPlaying) return;
             
@@ -427,4 +427,5 @@
 
     </script>
 </body>
+
 </html>
