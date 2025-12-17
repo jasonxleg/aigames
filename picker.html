@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lucky Number Picker</title>
+    <title> LuckyNumber Ghost</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
 
@@ -25,7 +25,9 @@
             justify-content: center;
             min-height: 100vh;
             margin: 0;
-            overflow: hidden; /* ¨¾¤î«ÕÆF­¸¥X®É¥X²{¨÷¶b */
+            /* å…è¨±æ²å‹•ï¼Œä»¥é˜²çƒå¤ªå¤šè¶…å‡ºç•«é¢ */
+            overflow-y: auto; 
+            padding: 20px 0;
         }
 
         h1 {
@@ -33,24 +35,62 @@
             margin-bottom: 10px;
             font-weight: normal;
             letter-spacing: 2px;
+            text-align: center;
+        }
+
+        /* è¨­å®šå€å¡Šæ¨£å¼ */
+        .settings-area {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px 20px;
+            border-radius: 50px;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        input[type="number"] {
+            width: 60px;
+            padding: 8px;
+            border-radius: 10px;
+            border: 2px solid #3333ff;
+            background: #0f3460;
+            color: white;
+            text-align: center;
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
         }
 
         .controls {
             margin-bottom: 20px;
             z-index: 100;
+            display: flex;
+            gap: 10px;
         }
 
         button {
             background: linear-gradient(45deg, #ff00cc, #3333ff);
             border: none;
-            padding: 15px 40px;
+            padding: 12px 30px;
             color: white;
-            font-size: 1.2rem;
+            font-size: 1rem;
             border-radius: 50px;
             cursor: pointer;
             box-shadow: 0 0 20px rgba(51, 51, 255, 0.5);
             transition: transform 0.2s, box-shadow 0.2s;
             font-family: inherit;
+        }
+
+        button.secondary {
+            background: linear-gradient(45deg, #444, #666);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
         }
 
         button:hover {
@@ -65,22 +105,25 @@
             box-shadow: none;
         }
 
-        /* ¹CÀ¸°Ï°ì */
+        /* éŠæˆ²å€åŸŸ - æ”¹ç‚ºè‡ªå‹•é©æ‡‰å¯¬åº¦ */
         #game-board {
             display: grid;
-            grid-template-columns: repeat(7, 1fr);
+            /* é—œéµä¿®æ”¹ï¼šè‡ªå‹•å¡«æ»¿ï¼Œæ¯é¡†çƒæœ€å° 50px */
+            grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
             gap: 10px;
             background: var(--grid-color);
             padding: 20px;
             border-radius: 20px;
             box-shadow: 0 0 30px rgba(0,0,0,0.5);
             position: relative;
-            max-width: 90vw;
+            width: 90vw;
+            max-width: 800px; /* é™åˆ¶æœ€å¤§å¯¬åº¦ */
+            justify-content: center;
         }
 
         .number-ball {
-            width: 45px;
-            height: 45px;
+            width: 50px;
+            height: 50px;
             background: var(--number-bg);
             border-radius: 50%;
             display: flex;
@@ -90,6 +133,7 @@
             box-shadow: 0 0 10px rgba(255,255,255,0.1);
             transition: all 0.3s ease;
             position: relative;
+            margin: auto; /* è®“çƒåœ¨ç¶²æ ¼ä¸­ç½®ä¸­ */
         }
 
         .number-ball.eaten {
@@ -105,11 +149,9 @@
             z-index: 50;
         }
 
-        /* «ÕÆF¼Ë¦¡ */
+        /* å¹½éˆæ¨£å¼ */
         #ghost {
             position: absolute;
-            top: 50%;
-            left: 50%;
             width: 60px;
             height: 60px;
             font-size: 50px;
@@ -120,20 +162,23 @@
             transition: top 0.3s linear, left 0.3s linear;
             z-index: 100;
             filter: drop-shadow(0 0 15px rgba(255,255,255,0.8));
-            opacity: 0; /* ¹CÀ¸¶}©l«eÁôÂÃ */
+            opacity: 0;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
         }
 
         #ghost.active {
             opacity: 1;
         }
 
-        /* µ²ªGÅã¥Ü */
+        /* çµæœé¡¯ç¤º */
         #result-display {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) scale(0);
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 0, 0, 0.95);
             padding: 40px;
             border-radius: 20px;
             text-align: center;
@@ -141,6 +186,7 @@
             z-index: 200;
             transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             pointer-events: none;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
         }
 
         #result-display.show {
@@ -165,64 +211,79 @@
             font-size: 1rem;
             padding: 10px 30px;
         }
-
-        @media (max-width: 600px) {
-            #game-board {
-                gap: 5px;
-                padding: 10px;
-            }
-            .number-ball {
-                width: 35px;
-                height: 35px;
-                font-size: 0.9rem;
-            }
-            #ghost {
-                width: 40px;
-                height: 40px;
-                font-size: 35px;
-            }
-        }
     </style>
 </head>
 <body>
 
-    
+    <h1>ğŸ‘» å¹¸é‹è™Ÿç¢¼å¤§åå™¬ ğŸ‘»</h1>
 
-    <h1>?? Lucky Number ??</h1>
+    <div class="settings-area">
+        <div class="input-group">
+            <label>MIN:</label>
+            <input type="number" id="min-val" value="1" min="0">
+        </div>
+        <div class="input-group">
+            <label>MAX:</label>
+            <input type="number" id="max-val" value="49" min="1">
+        </div>
+    </div>
     
     <div class="controls">
-        <button id="start-btn" onclick="startGame()">(Start)</button>
+        <button id="set-btn" class="secondary" onclick="initBoard()">è¨­å®š/é‡ç½® (Set)</button>
+        <button id="start-btn" onclick="startGame()">é–‹å§‹åå™¬ (Start)</button>
     </div>
 
     <div id="game-board">
-        <div id="ghost">??</div>
+        <div id="ghost">ğŸ‘»</div>
     </div>
 
     <div id="result-display">
-        <h2>³Ì«á³Q¦Y±¼ªº¬O...</h2>
+        <h2>æœ€å¾Œå€–å­˜çš„æ˜¯...</h2>
         <div class="win-num" id="winner-text">?</div>
-        <button onclick="resetGame()">¦A¨Ó¤@¦¸</button>
+        <button onclick="resetGame()">å†ä¾†ä¸€æ¬¡</button>
     </div>
 
     <script>
         const board = document.getElementById('game-board');
         const ghost = document.getElementById('ghost');
         const startBtn = document.getElementById('start-btn');
+        const setBtn = document.getElementById('set-btn');
         const resultDisplay = document.getElementById('result-display');
         const winnerText = document.getElementById('winner-text');
         
         let numbers = [];
         let isPlaying = false;
 
-        // ªì©l¤Æ 1-49 ­Ó¸¹½X
+        // åˆå§‹åŒ–è™Ÿç¢¼ç›¤
         function initBoard() {
-            // ²M°£°£¤F ghost ¥H¥~ªº©Ò¦³¤º®e
+            if (isPlaying) return;
+
+            // è®€å–è¼¸å…¥æ¡†æ•¸å€¼
+            let min = parseInt(document.getElementById('min-val').value);
+            let max = parseInt(document.getElementById('max-val').value);
+
+            // é˜²å‘†æª¢æŸ¥
+            if (isNaN(min) || isNaN(max)) {
+                alert("è«‹è¼¸å…¥æœ‰æ•ˆçš„æ•¸å­—ï¼");
+                return;
+            }
+            if (min >= max) {
+                alert("æœ€å°å€¼ (MIN) å¿…é ˆå°æ–¼ æœ€å¤§å€¼ (MAX)ï¼");
+                return;
+            }
+            if ((max - min + 1) > 150) {
+                alert("è™Ÿç¢¼æ•¸é‡å¤ªå¤šå›‰ï¼å»ºè­°ç¯„åœåœ¨ 150 å€‹è™Ÿç¢¼ä»¥å…§ï¼Œä»¥å…è·‘ä¸å‹•ã€‚");
+                return;
+            }
+
+            // æ¸…é™¤é™¤äº† ghost ä»¥å¤–çš„æ‰€æœ‰å…§å®¹
             const ghostElem = board.querySelector('#ghost');
             board.innerHTML = '';
             board.appendChild(ghostElem);
             numbers = [];
 
-            for (let i = 1; i <= 49; i++) {
+            // ç”¢ç”ŸæŒ‡å®šç¯„åœçš„è™Ÿç¢¼
+            for (let i = min; i <= max; i++) {
                 const ball = document.createElement('div');
                 ball.classList.add('number-ball');
                 ball.id = `ball-${i}`;
@@ -231,18 +292,20 @@
                 numbers.push(i);
             }
             
-            // ±N«ÕÆF­«¸m¨ìµe­±¤¤¥¡
             resetGhostPosition();
+            resultDisplay.classList.remove('show');
+            startBtn.disabled = false;
         }
 
         function resetGhostPosition() {
             ghost.classList.remove('active');
+            ghost.style.transform = 'translate(-50%, -50%)';
             ghost.style.top = '50%';
             ghost.style.left = '50%';
-            ghost.style.transform = 'translate(-50%, -50%)';
+            ghost.style.transition = 'none'; // é‡ç½®æ™‚ä¸è¦æœ‰å‹•ç•«
         }
 
-        // ¬~µPºtºâªk (Fisher-Yates)
+        // æ´—ç‰Œæ¼”ç®—æ³• (Fisher-Yates)
         function shuffle(array) {
             for (let i = array.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -252,71 +315,70 @@
         }
 
         async function startGame() {
+            if (numbers.length === 0) {
+                initBoard(); // å¦‚æœæ²’æœ‰çƒï¼Œå…ˆåˆå§‹åŒ–
+            }
             if (isPlaying) return;
+            
             isPlaying = true;
             startBtn.disabled = true;
-            resultDisplay.classList.remove('show');
+            setBtn.disabled = true; // éŠæˆ²ä¸­ä¸èƒ½æ”¹è¨­å®š
             
-            // ­«¸m½L­±
-            initBoard();
+            // æ¢å¾©å¹½éˆçš„å‹•ç•«å±¬æ€§
+            ghost.style.transition = 'top 0.3s linear, left 0.3s linear';
             
-            // ÀH¾÷¥´¶Ã¸¹½X¶¶§Ç¡A³Ì«á¤@­Ó´N¬OÄ¹®a¡]¦]¬°¬O³Ì«á¤@­Ó³Q¦Y±¼ªº¡^
+            // éš¨æ©Ÿæ‰“äº‚è™Ÿç¢¼é †åº
             let sequence = shuffle([...numbers]);
             
             ghost.classList.add('active');
             
-            // ¶}©l§]¾½°Êµe
-            // §Ú­Ì§â©Ò¦³¸¹½X³£¦Y±¼¡Asequence ¤¤³Ì«á¤@­Ó¤¸¯Àªº "¦Y±¼" °Ê§@·|Ä²µo¤¤¼ú
-            
-            let speed = 200; // ªì©l³t«× (²@¬í)
+            // æ ¹æ“šçƒçš„æ•¸é‡å‹•æ…‹èª¿æ•´é€Ÿåº¦ï¼Œçƒè¶Šå¤šï¼Œåˆå§‹é€Ÿåº¦è¶Šå¿«
+            let speed = sequence.length > 50 ? 100 : 200; 
             
             for (let i = 0; i < sequence.length; i++) {
                 const targetNum = sequence[i];
                 const targetBall = document.getElementById(`ball-${targetNum}`);
                 const isLastOne = (i === sequence.length - 1);
 
-                // 1. ²¾°Ê«ÕÆF¨ì¥Ø¼Ğ²yªº¦ì¸m
+                if (!targetBall) continue; // å®‰å…¨æª¢æŸ¥
+
+                // 1. ç§»å‹•å¹½éˆåˆ°ç›®æ¨™çƒçš„ä½ç½®
                 await moveGhostTo(targetBall);
                 
-                // 2. ¦pªG¬O³Ì«á¤@­Ó¡A°µ¯S®í³B²z¡A§_«h¦Y±¼
+                // 2. å¦‚æœæ˜¯æœ€å¾Œä¸€å€‹ï¼Œåšç‰¹æ®Šè™•ç†
                 if (isLastOne) {
-                    // ³Ì«á¤@­Ó³Q¦Y±¼¡I
-                    targetBall.classList.add('eaten'); // ®ø¥¢
+                    // æœ€å¾Œä¸€å€‹è¢«åƒæ‰ (è§¸ç™¼ä¸­ç)
+                    targetBall.classList.add('eaten');
                     
-                    // µu¼È©µ¿ğ«áÅã¥Üµ²ªG
                     setTimeout(() => {
                         showResult(targetNum);
                     }, 500);
                 } else {
-                    // ´¶³q¦Y±¼
+                    // æ™®é€šåƒæ‰
                     targetBall.classList.add('eaten');
                 }
 
-                // ¥[³tÅŞ¿è¡G¶V¦Y¶V§Ö
-                if (speed > 50) speed -= 3;
+                // åŠ é€Ÿé‚è¼¯
+                if (speed > 40) speed -= 2;
                 
-                // µ¥«İ®É¶¡ (¥]§t²¾°Ê®É¶¡)
+                // ç­‰å¾…
                 await new Promise(r => setTimeout(r, speed));
             }
         }
 
         function moveGhostTo(element) {
             return new Promise(resolve => {
-                // ¨ú±o¥Ø¼Ğ²y¬Û¹ï©ó game-board ªº¦ì¸m
                 const boardRect = board.getBoundingClientRect();
                 const ballRect = element.getBoundingClientRect();
 
-                // ­pºâ¬Û¹ï®y¼Ğ (¥[¤W²yªº¤@¥b¼e«×Åı«ÕÆF¦b²y¥¿¤¤¶¡)
+                // è¨ˆç®—ç›¸å°åº§æ¨™
                 const left = ballRect.left - boardRect.left + (ballRect.width / 2) - (ghost.offsetWidth / 2);
                 const top = ballRect.top - boardRect.top + (ballRect.height / 2) - (ghost.offsetHeight / 2);
 
-                // ³]©w«ÕÆF¦ì¸m
-                ghost.style.transform = 'none'; // ²¾°£¸m¤¤ transform
+                ghost.style.transform = 'none';
                 ghost.style.left = `${left}px`;
                 ghost.style.top = `${top}px`;
 
-                // Åı²¾°Ê¬İ°_¨Ó¥­·Æ¡A³o¸Ì¤£»İµ¥«İ transition µ²§ô¡A¦]¬°°j°é¦³ delay
-                // ¦ı¬°¤F½T«OµøÄ±¦P¨B¡A§Ú­Ìª½±µ resolve
                 resolve();
             });
         }
@@ -324,18 +386,17 @@
         function showResult(num) {
             winnerText.textContent = num;
             resultDisplay.classList.add('show');
-            
-            // ¼y¯¬®ÄªG (¥i¿ï)
             isPlaying = false;
         }
 
         function resetGame() {
             resultDisplay.classList.remove('show');
             startBtn.disabled = false;
-            initBoard();
+            setBtn.disabled = false;
+            initBoard(); // é‡æ–°ç”¢ç”Ÿçƒ
         }
 
-        // ­¶­±¸ü¤J®Éªì©l¤Æ
+        // é é¢è¼‰å…¥æ™‚åˆå§‹åŒ–
         window.onload = initBoard;
 
     </script>
