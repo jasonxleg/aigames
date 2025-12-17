@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucky Number Picker</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
+
+        :root {
+            --bg-color: #1a1a2e;
+            --grid-color: #16213e;
+            --number-bg: #0f3460;
+            --number-glow: #e94560;
+            --ghost-color: #ffffff;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: white;
+            font-family: 'Fredoka One', cursive, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden; /* 防止幽靈飛出時出現卷軸 */
+        }
+
+        h1 {
+            text-shadow: 0 0 10px #fff;
+            margin-bottom: 10px;
+            font-weight: normal;
+            letter-spacing: 2px;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            z-index: 100;
+        }
+
+        button {
+            background: linear-gradient(45deg, #ff00cc, #3333ff);
+            border: none;
+            padding: 15px 40px;
+            color: white;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(51, 51, 255, 0.5);
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-family: inherit;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(51, 51, 255, 0.8);
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* 遊戲區域 */
+        #game-board {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            background: var(--grid-color);
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+            position: relative;
+            max-width: 90vw;
+        }
+
+        .number-ball {
+            width: 45px;
+            height: 45px;
+            background: var(--number-bg);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 0 10px rgba(255,255,255,0.1);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .number-ball.eaten {
+            transform: scale(0);
+            opacity: 0;
+        }
+
+        .number-ball.winner {
+            background: #ffd700;
+            color: #000;
+            transform: scale(1.5);
+            box-shadow: 0 0 50px #ffd700;
+            z-index: 50;
+        }
+
+        /* 幽靈樣式 */
+        #ghost {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 60px;
+            height: 60px;
+            font-size: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            transition: top 0.3s linear, left 0.3s linear;
+            z-index: 100;
+            filter: drop-shadow(0 0 15px rgba(255,255,255,0.8));
+            opacity: 0; /* 遊戲開始前隱藏 */
+        }
+
+        #ghost.active {
+            opacity: 1;
+        }
+
+        /* 結果顯示 */
+        #result-display {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            border: 2px solid #ffd700;
+            z-index: 200;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+        }
+
+        #result-display.show {
+            transform: translate(-50%, -50%) scale(1);
+            pointer-events: auto;
+        }
+
+        #result-display h2 {
+            font-size: 2rem;
+            margin: 0 0 20px 0;
+            color: #fff;
+        }
+
+        #result-display .win-num {
+            font-size: 5rem;
+            color: #ffd700;
+            text-shadow: 0 0 30px #ffd700;
+        }
+
+        #result-display button {
+            margin-top: 20px;
+            font-size: 1rem;
+            padding: 10px 30px;
+        }
+
+        @media (max-width: 600px) {
+            #game-board {
+                gap: 5px;
+                padding: 10px;
+            }
+            .number-ball {
+                width: 35px;
+                height: 35px;
+                font-size: 0.9rem;
+            }
+            #ghost {
+                width: 40px;
+                height: 40px;
+                font-size: 35px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    
+
+    <h1>?? Lucky Number ??</h1>
+    
+    <div class="controls">
+        <button id="start-btn" onclick="startGame()">(Start)</button>
+    </div>
+
+    <div id="game-board">
+        <div id="ghost">??</div>
+    </div>
+
+    <div id="result-display">
+        <h2>最後被吃掉的是...</h2>
+        <div class="win-num" id="winner-text">?</div>
+        <button onclick="resetGame()">再來一次</button>
+    </div>
+
+    <script>
+        const board = document.getElementById('game-board');
+        const ghost = document.getElementById('ghost');
+        const startBtn = document.getElementById('start-btn');
+        const resultDisplay = document.getElementById('result-display');
+        const winnerText = document.getElementById('winner-text');
+        
+        let numbers = [];
+        let isPlaying = false;
+
+        // 初始化 1-49 個號碼
+        function initBoard() {
+            // 清除除了 ghost 以外的所有內容
+            const ghostElem = board.querySelector('#ghost');
+            board.innerHTML = '';
+            board.appendChild(ghostElem);
+            numbers = [];
+
+            for (let i = 1; i <= 49; i++) {
+                const ball = document.createElement('div');
+                ball.classList.add('number-ball');
+                ball.id = `ball-${i}`;
+                ball.textContent = i;
+                board.appendChild(ball);
+                numbers.push(i);
+            }
+            
+            // 將幽靈重置到畫面中央
+            resetGhostPosition();
+        }
+
+        function resetGhostPosition() {
+            ghost.classList.remove('active');
+            ghost.style.top = '50%';
+            ghost.style.left = '50%';
+            ghost.style.transform = 'translate(-50%, -50%)';
+        }
+
+        // 洗牌演算法 (Fisher-Yates)
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        async function startGame() {
+            if (isPlaying) return;
+            isPlaying = true;
+            startBtn.disabled = true;
+            resultDisplay.classList.remove('show');
+            
+            // 重置盤面
+            initBoard();
+            
+            // 隨機打亂號碼順序，最後一個就是贏家（因為是最後一個被吃掉的）
+            let sequence = shuffle([...numbers]);
+            
+            ghost.classList.add('active');
+            
+            // 開始吞噬動畫
+            // 我們把所有號碼都吃掉，sequence 中最後一個元素的 "吃掉" 動作會觸發中獎
+            
+            let speed = 200; // 初始速度 (毫秒)
+            
+            for (let i = 0; i < sequence.length; i++) {
+                const targetNum = sequence[i];
+                const targetBall = document.getElementById(`ball-${targetNum}`);
+                const isLastOne = (i === sequence.length - 1);
+
+                // 1. 移動幽靈到目標球的位置
+                await moveGhostTo(targetBall);
+                
+                // 2. 如果是最後一個，做特殊處理，否則吃掉
+                if (isLastOne) {
+                    // 最後一個被吃掉！
+                    targetBall.classList.add('eaten'); // 消失
+                    
+                    // 短暫延遲後顯示結果
+                    setTimeout(() => {
+                        showResult(targetNum);
+                    }, 500);
+                } else {
+                    // 普通吃掉
+                    targetBall.classList.add('eaten');
+                }
+
+                // 加速邏輯：越吃越快
+                if (speed > 50) speed -= 3;
+                
+                // 等待時間 (包含移動時間)
+                await new Promise(r => setTimeout(r, speed));
+            }
+        }
+
+        function moveGhostTo(element) {
+            return new Promise(resolve => {
+                // 取得目標球相對於 game-board 的位置
+                const boardRect = board.getBoundingClientRect();
+                const ballRect = element.getBoundingClientRect();
+
+                // 計算相對座標 (加上球的一半寬度讓幽靈在球正中間)
+                const left = ballRect.left - boardRect.left + (ballRect.width / 2) - (ghost.offsetWidth / 2);
+                const top = ballRect.top - boardRect.top + (ballRect.height / 2) - (ghost.offsetHeight / 2);
+
+                // 設定幽靈位置
+                ghost.style.transform = 'none'; // 移除置中 transform
+                ghost.style.left = `${left}px`;
+                ghost.style.top = `${top}px`;
+
+                // 讓移動看起來平滑，這裡不需等待 transition 結束，因為迴圈有 delay
+                // 但為了確保視覺同步，我們直接 resolve
+                resolve();
+            });
+        }
+
+        function showResult(num) {
+            winnerText.textContent = num;
+            resultDisplay.classList.add('show');
+            
+            // 慶祝效果 (可選)
+            isPlaying = false;
+        }
+
+        function resetGame() {
+            resultDisplay.classList.remove('show');
+            startBtn.disabled = false;
+            initBoard();
+        }
+
+        // 頁面載入時初始化
+        window.onload = initBoard;
+
+    </script>
+</body>
+</html>
