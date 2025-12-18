@@ -2,35 +2,45 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>極速賽車 HTML版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>極速賽車 iOS優化版</title>
     <style>
-        body {
+        /* 禁止整個頁面的預設觸控行為，防止 iPhone 橡皮筋滾動效果 */
+        html, body {
             margin: 0;
             padding: 0;
             background-color: #333;
             color: white;
             font-family: Arial, sans-serif;
-            overflow: hidden; /* 防止滾動 */
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            touch-action: none; /* 關鍵：禁止瀏覽器處理手勢 */
+            -webkit-user-select: none; /* 禁止選取文字 (Safari) */
+            user-select: none;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
         }
 
-        h2 { margin: 10px; text-shadow: 2px 2px #000; }
+        h2 { 
+            margin: 10px; 
+            text-shadow: 2px 2px #000; 
+            pointer-events: none; /* 防止點擊標題 */
+        }
 
         #gameArea {
             position: relative;
             width: 100%;
-            max-width: 400px; /* 手機版寬度 */
-            height: 80vh;
+            max-width: 400px;
+            height: 80vh; /* 使用 80% 視窗高度 */
             background-color: #555;
             border-left: 10px solid #2c3e50;
             border-right: 10px solid #2c3e50;
             overflow: hidden;
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            touch-action: none; /* 再次確保遊戲區域不觸發瀏覽器手勢 */
         }
 
         /* 道路標線 */
@@ -58,90 +68,64 @@
             color: rgba(0,0,0,0.5);
         }
 
-        /* 車窗與裝飾 */
         .car::before {
-            content: '';
-            position: absolute;
-            top: 20%;
-            width: 80%;
-            height: 20%;
-            background: rgba(0,0,0,0.3);
-            border-radius: 2px;
+            content: ''; position: absolute; top: 20%; width: 80%; height: 20%;
+            background: rgba(0,0,0,0.3); border-radius: 2px;
         }
         .car::after {
-            content: '';
-            position: absolute;
-            bottom: 20%;
-            width: 80%;
-            height: 15%;
-            background: rgba(0,0,0,0.3);
-            border-radius: 2px;
+            content: ''; position: absolute; bottom: 20%; width: 80%; height: 15%;
+            background: rgba(0,0,0,0.3); border-radius: 2px;
         }
 
-        /* 玩家車 */
         #player {
             bottom: 20px;
-            left: calc(50% - 25px); /* 初始置中 */
-            background-color: #e74c3c; /* 紅色 */
+            left: calc(50% - 25px);
+            background-color: #e74c3c;
             z-index: 10;
+            transition: left 0.1s ease-out; /* 讓移動稍微平滑一點 */
         }
 
-        /* 對手車顏色定義 */
-        .rival1 { background-color: #3498db; } /* 藍 */
-        .rival2 { background-color: #2ecc71; } /* 綠 */
-        .rival3 { background-color: #f1c40f; } /* 黃 */
-        .rival4 { background-color: #9b59b6; } /* 紫 */
-        .rival5 { background-color: #ecf0f1; } /* 白 */
+        /* 對手車顏色 */
+        .rival1 { background-color: #3498db; }
+        .rival2 { background-color: #2ecc71; }
+        .rival3 { background-color: #f1c40f; }
+        .rival4 { background-color: #9b59b6; }
+        .rival5 { background-color: #ecf0f1; }
 
-        /* 分數板 */
         #scoreBoard {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            font-size: 20px;
-            background: rgba(0,0,0,0.6);
-            padding: 5px 10px;
-            border-radius: 5px;
-            z-index: 20;
+            position: absolute; top: 10px; left: 10px;
+            font-size: 20px; background: rgba(0,0,0,0.6);
+            padding: 5px 10px; border-radius: 5px; z-index: 20;
+            pointer-events: none;
         }
 
-        /* 開始/結束 畫面 */
         #menu {
-            position: absolute;
-            top: 0; left: 0;
+            position: absolute; top: 0; left: 0;
             width: 100%; height: 100%;
             background: rgba(0,0,0,0.85);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 30;
-            text-align: center;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            z-index: 30; text-align: center;
         }
 
         button {
-            padding: 15px 30px;
-            font-size: 20px;
-            background: #e74c3c;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 20px;
+            padding: 15px 40px; /* 加大按鈕方便手指點擊 */
+            font-size: 22px;
+            background: #e74c3c; color: white;
+            border: none; border-radius: 8px;
+            cursor: pointer; margin-top: 20px;
+            touch-action: manipulation; /* 優化點擊 */
         }
-        button:hover { background: #c0392b; }
+        button:active { background: #c0392b; transform: scale(0.95); }
 
         .controls-hint {
-            margin-top: 20px;
-            font-size: 14px;
-            color: #ccc;
+            margin-top: 25px; font-size: 16px; color: #ccc; line-height: 1.5;
         }
-
     </style>
 </head>
 <body>
 
-    <h2>簡易賽車 HTML</h2>
+    <h2>極速賽車 iOS版</h2>
 
     <div id="gameArea">
         <div id="scoreBoard">Score: 0</div>
@@ -150,10 +134,11 @@
         <div id="menu">
             <h1 id="title">極速賽車</h1>
             <p id="finalScore" style="display:none; font-size:24px; color:yellow;">0</p>
+            <p id="bestScore" style="display:block; font-size:16px; color:#aaa; margin-top:5px;">最高紀錄: 0</p>
             <button onclick="startGame()">開始遊戲</button>
             <div class="controls-hint">
-                電腦：按 ← → 鍵移動<br>
-                手機：點擊螢幕 左/右 側
+                點擊螢幕<br>
+                <span style="color:#e74c3c">左側</span> ← 轉向 → <span style="color:#e74c3c">右側</span>
             </div>
         </div>
     </div>
@@ -165,26 +150,23 @@
         const menu = document.getElementById('menu');
         const title = document.getElementById('title');
         const finalScoreDisplay = document.getElementById('finalScore');
+        const bestScoreDisplay = document.getElementById('bestScore');
         
-        // 遊戲參數
-        let playerX = 50; // 0-100% (相對位置)
+        let playerX = 50; 
         let gameSpeed = 5;
         let score = 0;
         let isGameOver = false;
         let animationFrame;
         let keys = { ArrowLeft: false, ArrowRight: false };
-
-        // 道路線條陣列
         let lines = [];
-        // 對手車輛陣列
         let rivals = [];
-
-        // 5種對手樣式 (對應CSS class)
         const rivalTypes = ['rival1', 'rival2', 'rival3', 'rival4', 'rival5'];
+        
+        // 讀取最高分
+        let highScore = localStorage.getItem('racingHighScore') || 0;
+        bestScoreDisplay.innerText = "最高紀錄: " + highScore;
 
-        // --- 初始化 ---
         function init() {
-            // 清空舊元素
             document.querySelectorAll('.line, .enemy').forEach(e => e.remove());
             lines = [];
             rivals = [];
@@ -194,8 +176,7 @@
             playerX = 50;
             updatePlayerPosition();
             scoreBoard.innerText = "Score: " + score;
-
-            // 建立初始道路線
+            
             for(let i=0; i<5; i++){
                 createLine(i * 150);
             }
@@ -207,30 +188,22 @@
             gameLoop();
         }
 
-        // --- 核心迴圈 ---
         function gameLoop() {
             if(isGameOver) return;
 
-            // 1. 移動玩家
-            if (keys.ArrowLeft && playerX > 10) playerX -= 1.5; // 速度
-            if (keys.ArrowRight && playerX < 90) playerX += 1.5;
+            // 加大轉向靈敏度，適應手機操作
+            if (keys.ArrowLeft && playerX > 10) playerX -= 2.0; 
+            if (keys.ArrowRight && playerX < 90) playerX += 2.0;
             updatePlayerPosition();
-
-            // 2. 移動道路線 (製造速度感)
             moveLines();
-
-            // 3. 移動與生成對手
             moveRivals();
 
-            // 4. 分數與難度
             score++;
-            if(score % 500 === 0) gameSpeed++; // 每500分加速
+            if(score % 500 === 0) gameSpeed++;
             scoreBoard.innerText = "Score: " + Math.floor(score/10);
 
             animationFrame = requestAnimationFrame(gameLoop);
         }
-
-        // --- 輔助函式 ---
 
         function updatePlayerPosition() {
             player.style.left = `calc(${playerX}% - 25px)`;
@@ -247,55 +220,42 @@
         function moveLines() {
             lines.forEach(line => {
                 let currentTop = parseInt(line.style.top);
-                if (currentTop > gameArea.clientHeight) {
-                    currentTop = -100; // 移回頂部循環
-                }
+                if (currentTop > gameArea.clientHeight) currentTop = -100;
                 line.style.top = (currentTop + gameSpeed) + 'px';
             });
         }
 
         function createRival() {
             let rival = document.createElement('div');
-            // 隨機選一個對手類型
             let type = rivalTypes[Math.floor(Math.random() * rivalTypes.length)];
             rival.className = 'car enemy ' + type;
             
-            // 隨機位置 (3個車道大致位置: 20%, 50%, 80%)
             let lane = Math.floor(Math.random() * 3); 
             let positions = [20, 50, 80];
             
             rival.style.left = `calc(${positions[lane]}% - 25px)`;
-            rival.style.top = '-100px'; // 從上方畫面外生成
+            rival.style.top = '-100px';
             gameArea.appendChild(rival);
             rivals.push(rival);
         }
 
         function moveRivals() {
-            // 移動現有對手
             rivals.forEach((rival, index) => {
                 let top = parseInt(rival.style.top || -100);
-                // 敵人速度比路面稍微慢一點，或者隨機快一點
-                rival.style.top = (top + gameSpeed + 1) + 'px'; // 比路面快一點點
+                rival.style.top = (top + gameSpeed + 1) + 'px';
 
-                // 碰撞檢測
-                if(isColliding(player, rival)) {
-                    gameOver();
-                }
+                if(isColliding(player, rival)) gameOver();
 
-                // 移除超出畫面的車
                 if(top > gameArea.clientHeight) {
                     rival.remove();
                     rivals.splice(index, 1);
                 }
             });
 
-            // 生成新對手 (機率)
-            // 確保場上不會太擠，且距離拉開
             let lastRival = rivals[rivals.length - 1];
             let lastRivalTop = lastRival ? parseInt(lastRival.style.top) : 1000;
 
             if (rivals.length < 3 && lastRivalTop > 150) { 
-                // 隨機生成 (約 2% 機率每幀)
                 if(Math.random() < 0.02) createRival();
             } else if (rivals.length === 0) {
                 createRival();
@@ -317,14 +277,26 @@
             isGameOver = true;
             cancelAnimationFrame(animationFrame);
             title.innerText = "撞車了!";
-            finalScoreDisplay.innerText = "最終分數: " + Math.floor(score/10);
+            
+            let currentScore = Math.floor(score/10);
+            finalScoreDisplay.innerText = "最終分數: " + currentScore;
+            
+            if (currentScore > highScore) {
+                highScore = currentScore;
+                localStorage.setItem('racingHighScore', highScore);
+                bestScoreDisplay.innerText = "新紀錄！最高紀錄: " + highScore;
+                bestScoreDisplay.style.color = "#e74c3c";
+            } else {
+                bestScoreDisplay.innerText = "歷史最高紀錄: " + highScore;
+                bestScoreDisplay.style.color = "#aaa";
+            }
+
             finalScoreDisplay.style.display = 'block';
             menu.style.display = 'flex';
         }
 
-        // --- 控制輸入監聽 ---
+        // --- 控制輸入監聽 (針對 iOS 優化) ---
         
-        // 鍵盤
         document.addEventListener('keydown', (e) => {
             if(e.key === 'ArrowLeft') keys.ArrowLeft = true;
             if(e.key === 'ArrowRight') keys.ArrowRight = true;
@@ -334,25 +306,45 @@
             if(e.key === 'ArrowRight') keys.ArrowRight = false;
         });
 
-        // 手機觸控 (點擊螢幕左半邊往左，右半邊往右)
-        gameArea.addEventListener('touchstart', (e) => {
-            e.preventDefault(); // 防止滾動
-            let touchX = e.touches[0].clientX;
-            let screenWidth = window.innerWidth;
-            if(touchX < screenWidth / 2) {
-                keys.ArrowLeft = true;
-                keys.ArrowRight = false;
-            } else {
-                keys.ArrowLeft = false;
-                keys.ArrowRight = true;
+        // 處理 iPhone 觸控邏輯
+        function handleTouch(e) {
+            // 加上 preventDefault 並配合 { passive: false } 是關鍵
+            if (e.type !== 'touchend') {
+                e.preventDefault(); 
             }
-        });
-        
-        gameArea.addEventListener('touchend', (e) => {
-            e.preventDefault();
+
+            // 取得觸控點，如果有多點觸控，取第一個
+            let touch = e.touches[0] || e.changedTouches[0];
+            
+            if (!touch) return;
+
+            // 計算相對於遊戲區域的位置，而非整個螢幕
+            let rect = gameArea.getBoundingClientRect();
+            let touchX = touch.clientX - rect.left;
+            let gameWidth = rect.width;
+
+            if(e.type === 'touchstart' || e.type === 'touchmove') {
+                if(touchX < gameWidth / 2) {
+                    keys.ArrowLeft = true;
+                    keys.ArrowRight = false;
+                } else {
+                    keys.ArrowLeft = false;
+                    keys.ArrowRight = true;
+                }
+            }
+        }
+
+        // 當手指離開螢幕
+        function handleTouchEnd(e) {
+            // e.preventDefault(); // 這裡不一定要加，視情況而定
             keys.ArrowLeft = false;
             keys.ArrowRight = false;
-        });
+        }
+
+        // 綁定事件：注意這裡的 { passive: false } 是讓 iPhone 聽話的關鍵
+        gameArea.addEventListener('touchstart', handleTouch, { passive: false });
+        gameArea.addEventListener('touchmove', handleTouch, { passive: false });
+        gameArea.addEventListener('touchend', handleTouchEnd, { passive: false });
 
     </script>
 </body>
