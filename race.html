@@ -3,405 +3,412 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>極速賽車 終極修復版</title>
+    <title>音速衝刺 HTML版</title>
     <style>
-        /* 全域設定：鎖定畫面，防止滑動 */
-        html, body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100dvh; /* 針對手機瀏覽器的動態高度 */
-            background-color: #222;
-            overflow: hidden;
-            font-family: 'Arial', sans-serif;
-            touch-action: none; /* 禁止預設手勢 */
-            user-select: none;  /* 禁止選取文字 */
-            -webkit-user-select: none;
+        /* --- 基礎設定 --- */
+        :root {
+            --sky-color: #87CEEB;
+            --grass-color: #00aa00;
+            --sonic-blue: #2980b9;
         }
 
-        /* 遊戲主容器 */
+        html, body {
+            margin: 0; padding: 0;
+            width: 100%; height: 100dvh;
+            background-color: var(--sky-color);
+            overflow: hidden;
+            font-family: 'Verdana', sans-serif;
+            touch-action: none;
+            user-select: none; -webkit-user-select: none;
+        }
+
+        /* --- 遊戲容器與背景 --- */
         #game-container {
             position: relative;
-            width: 100%;
-            max-width: 480px; /* 手機直式標準寬度 */
-            height: 100%;
+            width: 100%; max-width: 480px; height: 100%;
             margin: 0 auto;
-            background-color: #555;
+            background: linear-gradient(to bottom, #87CEEB 0%, #bffff6 50%, #006400 50%, #004400 100%);
             overflow: hidden;
-            border-left: 5px solid #333;
-            border-right: 5px solid #333;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
         }
 
-        /* 道路與標線 */
-        .road-line {
+        /* 偽 3D 棋盤格地板 (透視感) */
+        #ground-grid {
             position: absolute;
-            width: 10px;
-            height: 80px;
-            background-color: rgba(255, 255, 255, 0.8);
-            left: 50%;
-            transform: translateX(-50%);
+            bottom: 0; left: -50%; width: 200%; height: 50%;
+            background-image: 
+                linear-gradient(90deg, rgba(255,255,255,0.2) 2px, transparent 2px),
+                linear-gradient(0deg, rgba(255,255,255,0.2) 2px, transparent 2px);
+            background-size: 100px 100px;
+            transform-origin: 50% 0%;
+            transform: perspective(300px) rotateX(60deg);
+            z-index: 0;
         }
 
-        /* 玩家車輛 */
-        #player-car {
-            position: absolute;
-            bottom: 100px;
-            width: 50px;
-            height: 90px;
-            background: linear-gradient(to bottom, #ff416c, #ff4b2b);
-            border-radius: 8px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-            z-index: 10;
-            left: 50%; /* 初始位置 */
-            transform: translateX(-50%);
-            transition: left 0.1s linear; /* 平滑移動 */
-        }
+        /* --- 遊戲物件 --- */
         
-        /* 車燈裝飾 */
-        #player-car::after {
-            content: ''; position: absolute; top: 5px; left: 5px; right: 5px; height: 15px;
-            background: #333; border-radius: 2px;
+        /* 音速小子 (滾動衝刺狀態) */
+        #player {
+            position: absolute;
+            bottom: 80px; left: 50%;
+            width: 50px; height: 50px;
+            background: radial-gradient(circle at 30% 30%, #3498db, #00008B);
+            border-radius: 50%;
+            box-shadow: 0 0 15px #3498db;
+            z-index: 20;
+            transform: translateX(-50%);
+            transition: left 0.08s linear;
+        }
+        /* 刺蝟的刺 (旋轉動畫) */
+        #player::after {
+            content: ''; position: absolute; top: -5px; left: -5px; right: -5px; bottom: -5px;
+            border: 4px dashed rgba(255,255,255,0.6);
+            border-radius: 50%;
+            animation: spin 0.2s linear infinite;
         }
 
-        /* 敵人車輛 */
+        /* 敵人 (螃蟹機器人風格) */
         .enemy {
             position: absolute;
-            width: 50px;
-            height: 90px;
-            border-radius: 8px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            z-index: 5;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: rgba(0,0,0,0.3);
-            font-weight: bold;
+            width: 50px; height: 40px;
+            background: #e74c3c; /* 紅色 */
+            border-radius: 10px 10px 5px 5px;
+            border-bottom: 5px solid #333;
+            z-index: 10;
+            display: flex; justify-content: center;
+        }
+        /* 眼睛 */
+        .enemy::before {
+            content: ''; position: absolute; top: 10px; width: 30px; height: 10px;
+            background: #fff; border-radius: 5px;
+            box-shadow: inset 10px 0 0 #000; /* 瞳孔 */
+        }
+        /* 爪子 */
+        .enemy::after {
+            content: ''; position: absolute; top: -10px; width: 100%; height: 10px;
+            border-left: 5px solid #c0392b; border-right: 5px solid #c0392b;
         }
 
-        /* UI 層：分數板 */
-        #ui-layer {
+        /* 金環 */
+        .ring {
             position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; /* 讓點擊穿透到下方，除非是按鈕 */
-            z-index: 100;
+            width: 30px; height: 30px;
+            border: 4px solid #f1c40f;
+            border-radius: 50%;
+            box-shadow: 0 0 5px #f1c40f, inset 0 0 5px #f1c40f;
+            z-index: 9;
+            animation: ringSpin 1s infinite linear;
         }
 
-        #score-display {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: white;
-            font-size: 24px;
-            font-weight: bold;
-            text-shadow: 2px 2px 0 #000;
+        /* --- UI 與 特效 --- */
+        
+        /* 資訊欄 (HUD) */
+        #hud {
+            position: absolute; top: 10px; left: 10px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold; font-style: italic;
+            color: #f1c40f; text-shadow: 2px 2px #000;
+            z-index: 50; font-size: 20px;
+            pointer-events: none;
+        }
+        
+        .hud-row { margin-bottom: 5px; }
+        .red-text { color: #e74c3c !important; animation: blink 0.2s infinite; }
+
+        /* 受傷閃爍層 */
+        #flash-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: white; opacity: 0; pointer-events: none; z-index: 90;
         }
 
-        /* 選單畫面 (開始/結束) */
+        /* 選單介面 */
         #menu-screen {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            pointer-events: auto; /* 恢復選單的可點擊性 */
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
             z-index: 200;
         }
 
-        h1 { color: white; margin-bottom: 10px; font-size: 32px; text-transform: uppercase; letter-spacing: 2px; }
-        
+        h1 {
+            color: #3498db; font-size: 40px; margin-bottom: 0;
+            text-transform: uppercase; font-style: italic;
+            text-shadow: 4px 4px #e74c3c;
+            transform: skew(-10deg);
+        }
+
         button {
-            background: #27ae60;
-            color: white;
-            border: none;
-            padding: 20px 60px;
-            font-size: 24px;
-            font-weight: bold;
-            border-radius: 50px;
-            cursor: pointer;
-            box-shadow: 0 5px 0 #219150;
-            transition: transform 0.1s;
-            margin-top: 20px;
-            touch-action: manipulation; /* 優化觸控反應 */
+            background: #f1c40f; color: #000;
+            border: 4px solid #fff;
+            padding: 15px 50px; font-size: 24px; font-weight: bold; font-style: italic;
+            border-radius: 50px; cursor: pointer; margin-top: 30px;
+            box-shadow: 0 5px 0 #c27c0e;
+            pointer-events: auto; touch-action: manipulation;
         }
-        
-        button:active { transform: translateY(5px); box-shadow: none; }
+        button:active { transform: translateY(4px); box-shadow: none; }
 
-        .info-text { color: #aaa; margin-top: 15px; font-size: 14px; line-height: 1.5; text-align: center; }
-
-        /* --- 關鍵修改：隱形觸控區 --- */
-        /* 這兩個區域只在遊戲進行時生效，負責接收左右轉指令 */
+        /* 隱形觸控區 */
         .touch-zone {
-            position: absolute;
-            top: 0;
-            height: 100%;
-            width: 50%;
-            z-index: 50; /* 在遊戲物件之上，但在選單之下 */
-            /* background: rgba(255,0,0,0.1);  除錯用，可看見紅色區塊 */ 
+            position: absolute; top: 0; height: 100%; width: 50%;
+            z-index: 100; display: none; /* 遊戲開始才顯示 */
         }
-        #touch-left { left: 0; }
-        #touch-right { right: 0; }
+        #t-left { left: 0; }
+        #t-right { right: 0; }
+
+        /* --- 動畫 --- */
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes ringSpin { 0% { transform: scaleX(1); } 50% { transform: scaleX(0.2); } 100% { transform: scaleX(1); } }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
     </style>
 </head>
 <body>
 
     <div id="game-container">
-        <div id="road-lines"></div>
+        <div id="ground-grid"></div>
 
-        <div id="player-car"></div>
-
-        <div id="touch-left" class="touch-zone"></div>
-        <div id="touch-right" class="touch-zone"></div>
-
-        <div id="ui-layer">
-            <div id="score-display">SCORE: 0</div>
+        <div id="player"></div>
+        
+        <div id="hud">
+            <div class="hud-row">SCORE: <span id="score-val">0</span></div>
+            <div class="hud-row" id="ring-box">RINGS: <span id="rings-val">0</span></div>
         </div>
 
+        <div id="flash-screen"></div>
+
+        <div id="t-left" class="touch-zone"></div>
+        <div id="t-right" class="touch-zone"></div>
+
         <div id="menu-screen">
-            <h1 id="game-title">極速狂飆</h1>
-            <p id="final-score" style="color:#f1c40f; font-size:28px; display:none; margin:10px 0;">0</p>
-            <p id="best-score" style="color:#ccc;">最佳紀錄: 0</p>
-            
-            <button id="start-btn">GO!</button>
-            
-            <div class="info-text">
-                點擊螢幕<br>
-                <span style="color:#3498db">左半邊</span> ← 控制 → <span style="color:#3498db">右半邊</span>
+            <h1>SONIC<br>RUSH</h1>
+            <p id="final-msg" style="color:white; margin-top:10px; display:none;">GAME OVER</p>
+            <button id="start-btn">START</button>
+            <div style="color:#ccc; margin-top:20px; font-size:12px; text-align:center;">
+                點擊左側 ← 移動 → 點擊右側<br>
+                <span style="color:#f1c40f">收集金環來抵擋傷害!</span>
             </div>
         </div>
     </div>
 
     <script>
-        // --- 變數設定 ---
-        const player = document.getElementById('player-car');
-        const gameContainer = document.getElementById('game-container');
-        const roadLinesContainer = document.getElementById('road-lines');
-        const menuScreen = document.getElementById('menu-screen');
-        const scoreDisplay = document.getElementById('score-display');
-        const startBtn = document.getElementById('start-btn');
-        const finalScoreText = document.getElementById('final-score');
-        const bestScoreText = document.getElementById('best-score');
-        const touchLeft = document.getElementById('touch-left');
-        const touchRight = document.getElementById('touch-right');
-
-        let isGameRunning = false;
+        // --- 變數宣告 ---
+        const player = document.getElementById('player');
+        const container = document.getElementById('game-container');
+        const ground = document.getElementById('ground-grid');
+        const menu = document.getElementById('menu-screen');
+        const scoreEl = document.getElementById('score-val');
+        const ringsEl = document.getElementById('rings-val');
+        const ringBox = document.getElementById('ring-box');
+        const flashScreen = document.getElementById('flash-screen');
+        const finalMsg = document.getElementById('final-msg');
+        
+        let isRunning = false;
         let score = 0;
-        let speed = 5;
-        let playerX = 50; // 百分比 0-100
-        let gameLoopId;
+        let rings = 0;
+        let speed = 8;
+        let playerX = 50;
+        let invulnerable = false; // 無敵時間
         
-        let enemies = [];
-        let lines = [];
+        let items = []; // 包含敵人和金環
+        let animationId;
         
-        // 控制狀態
-        let controls = { left: false, right: false };
+        // 控制變數
+        let keys = { left: false, right: false };
 
-        // 讀取最高分
-        let highScore = localStorage.getItem('racing_best') || 0;
-        bestScoreText.innerText = `最佳紀錄: ${highScore}`;
-
-        // --- 初始化遊戲 ---
-        function initGame() {
-            // 清除舊物件
-            enemies.forEach(e => e.remove());
-            lines.forEach(l => l.remove());
-            enemies = [];
-            lines = [];
+        // --- 遊戲初始化 ---
+        function init() {
+            // 清理場景
+            document.querySelectorAll('.enemy, .ring').forEach(e => e.remove());
+            items = [];
             
-            // 重置參數
             score = 0;
-            speed = 7; // 稍微快一點的初始速度
+            rings = 0; // 初始 0 環
+            speed = 8;
             playerX = 50;
-            controls.left = false;
-            controls.right = false;
-            isGameRunning = true;
+            player.style.opacity = '1';
             
-            updatePlayerPos();
-            scoreDisplay.innerText = `SCORE: 0`;
+            updateUI();
+            
+            menu.style.display = 'none';
+            document.getElementById('t-left').style.display = 'block';
+            document.getElementById('t-right').style.display = 'block';
+            
+            isRunning = true;
+            animationId = requestAnimationFrame(gameLoop);
+        }
 
-            // 預先建立道路線
-            for(let i=0; i<6; i++) {
-                createLine(i * 160);
+        // --- 核心迴圈 ---
+        function gameLoop() {
+            if(!isRunning) return;
+
+            // 1. 玩家移動
+            if(keys.left && playerX > 10) playerX -= 2.5;
+            if(keys.right && playerX < 90) playerX += 2.5;
+            player.style.left = `${playerX}%`;
+
+            // 2. 地板移動效果 (增加速度感)
+            let groundY = (Date.now() * (speed / 10)) % 100;
+            ground.style.backgroundPosition = `0px ${groundY}px`;
+
+            // 3. 物件生成與移動
+            manageItems();
+
+            // 4. 分數
+            score++;
+            if(score % 600 === 0) speed += 1; // 加速
+            updateUI();
+
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        // --- 物件管理 (金環與敵人) ---
+        function manageItems() {
+            // 生成 (隨機決定是敵人還是金環)
+            if(Math.random() < 0.03) {
+                // 70% 機率是金環，30% 是敵人
+                let isEnemy = Math.random() > 0.7;
+                createItem(isEnemy);
             }
 
-            // 隱藏選單，顯示觸控區
-            menuScreen.style.display = 'none';
-            touchLeft.style.display = 'block';
-            touchRight.style.display = 'block';
-
-            // 啟動迴圈
-            gameLoopId = requestAnimationFrame(gameLoop);
-        }
-
-        // --- 核心遊戲迴圈 ---
-        function gameLoop() {
-            if(!isGameRunning) return;
-
-            // 1. 移動玩家
-            if(controls.left && playerX > 10) playerX -= 2.0;
-            if(controls.right && playerX < 90) playerX += 2.0;
-            updatePlayerPos();
-
-            // 2. 移動場景 (線條)
-            moveLines();
-
-            // 3. 敵人管理
-            manageEnemies();
-
-            // 4. 分數增加
-            score++;
-            if(score % 500 === 0) speed += 0.5; // 每500分加速
-            scoreDisplay.innerText = `SCORE: ${Math.floor(score/10)}`;
-
-            gameLoopId = requestAnimationFrame(gameLoop);
-        }
-
-        // --- 輔助功能 ---
-        function updatePlayerPos() {
-            player.style.left = `${playerX}%`;
-            // 加入車身傾斜效果 (視覺優化)
-            if(controls.left) player.style.transform = `translateX(-50%) rotate(-5deg)`;
-            else if(controls.right) player.style.transform = `translateX(-50%) rotate(5deg)`;
-            else player.style.transform = `translateX(-50%) rotate(0deg)`;
-        }
-
-        function createLine(y) {
-            const line = document.createElement('div');
-            line.className = 'road-line';
-            line.style.top = y + 'px';
-            roadLinesContainer.appendChild(line);
-            lines.push(line);
-        }
-
-        function moveLines() {
-            lines.forEach(line => {
-                let y = parseFloat(line.style.top);
+            items.forEach((item, index) => {
+                let y = parseFloat(item.el.style.top);
                 y += speed;
-                if(y > gameContainer.offsetHeight) y = -100;
-                line.style.top = y + 'px';
-            });
-        }
-
-        function manageEnemies() {
-            // 移動與碰撞檢測
-            enemies.forEach((enemy, index) => {
-                let y = parseFloat(enemy.style.top);
-                y += (speed + 2); // 敵人相對速度
-                enemy.style.top = y + 'px';
+                item.el.style.top = y + 'px';
 
                 // 碰撞檢測
-                if(checkCollision(player, enemy)) {
-                    gameOver();
+                if(checkCollision(player, item.el)) {
+                    if(item.type === 'enemy') {
+                        hitEnemy();
+                    } else {
+                        collectRing(item.el, index);
+                    }
                 }
 
-                // 移除
-                if(y > gameContainer.offsetHeight) {
-                    enemy.remove();
-                    enemies.splice(index, 1);
+                // 移除超出畫面的
+                if(y > container.offsetHeight) {
+                    item.el.remove();
+                    items.splice(index, 1);
                 }
             });
+        }
 
-            // 生成新敵人
-            if(Math.random() < 0.02 && enemies.length < 3) {
-                // 檢查最後一個敵人的距離，避免重疊
-                let lastEnemyY = enemies.length > 0 ? parseFloat(enemies[enemies.length-1].style.top) : 1000;
-                if(lastEnemyY > 150) {
-                    createEnemy();
-                }
+        function createItem(isEnemy) {
+            let el = document.createElement('div');
+            let lane = [20, 50, 80][Math.floor(Math.random()*3)];
+            
+            // 避免重疊太近，簡單處理
+            if(items.length > 0) {
+                let last = items[items.length-1];
+                if(parseFloat(last.el.style.top) < 100) return; 
+            }
+
+            el.style.left = `calc(${lane}% - ${isEnemy ? 25 : 15}px)`;
+            el.style.top = '-100px';
+            
+            if(isEnemy) {
+                el.className = 'enemy';
+            } else {
+                el.className = 'ring';
+            }
+            
+            container.appendChild(el);
+            items.push({ el: el, type: isEnemy ? 'enemy' : 'ring' });
+        }
+
+        // --- 遊戲邏輯 (音速小子機制) ---
+
+        function collectRing(el, index) {
+            rings++;
+            el.remove();
+            items.splice(index, 1);
+            // 簡單的音效替代品：視覺放大
+            ringsEl.style.transform = "scale(1.5)";
+            setTimeout(() => ringsEl.style.transform = "scale(1)", 100);
+        }
+
+        function hitEnemy() {
+            if(invulnerable) return; // 無敵中
+
+            if(rings > 0) {
+                // 有環：噴環機制
+                rings = 0;
+                invulnerable = true;
+                player.style.opacity = '0.5';
+                ringBox.classList.add('red-text'); // 紅字警告
+                
+                // 畫面閃爍
+                flashScreen.style.opacity = '0.8';
+                setTimeout(() => flashScreen.style.opacity = '0', 100);
+
+                // 2秒後解除無敵
+                setTimeout(() => {
+                    invulnerable = false;
+                    player.style.opacity = '1';
+                    ringBox.classList.remove('red-text');
+                }, 2000);
+            } else {
+                // 沒環：Game Over
+                gameOver();
             }
         }
 
-        function createEnemy() {
-            const enemy = document.createElement('div');
-            const colors = ['#3498db', '#9b59b6', '#f1c40f', '#e67e22', '#ecf0f1'];
-            const randColor = colors[Math.floor(Math.random() * colors.length)];
+        function gameOver() {
+            isRunning = false;
+            cancelAnimationFrame(animationId);
             
-            enemy.className = 'enemy';
-            enemy.style.background = randColor;
+            finalMsg.innerText = `GAME OVER\nSCORE: ${Math.floor(score/10)}`;
+            finalMsg.style.display = 'block';
+            menu.style.display = 'flex';
             
-            // 隨機三個車道 (20%, 50%, 80%)
-            const lanes = [20, 50, 80];
-            const lane = lanes[Math.floor(Math.random() * lanes.length)];
-            
-            enemy.style.left = `calc(${lane}% - 25px)`;
-            enemy.style.top = '-100px';
-            
-            // 簡單的車窗裝飾
-            enemy.innerHTML = '<div style="width:80%; height:20%; background:rgba(0,0,0,0.5); margin-bottom:20px; border-radius:2px;"></div>';
-            
-            gameContainer.appendChild(enemy);
-            enemies.push(enemy);
+            document.getElementById('t-left').style.display = 'none';
+            document.getElementById('t-right').style.display = 'none';
         }
 
         function checkCollision(a, b) {
-            const rect1 = a.getBoundingClientRect();
-            const rect2 = b.getBoundingClientRect();
-            // 碰撞箱稍微縮小一點，讓手感好一點 (寬度縮減 10px)
-            return !(rect1.bottom < rect2.top || 
-                     rect1.top > rect2.bottom || 
+            if (b.style.display === 'none') return false;
+            let rect1 = a.getBoundingClientRect();
+            let rect2 = b.getBoundingClientRect();
+            // 縮小碰撞箱讓手感更好
+            return !(rect1.bottom - 10 < rect2.top || 
+                     rect1.top + 10 > rect2.bottom || 
                      rect1.right - 10 < rect2.left || 
                      rect1.left + 10 > rect2.right);
         }
 
-        function gameOver() {
-            isGameRunning = false;
-            cancelAnimationFrame(gameLoopId);
-            
-            // 計算分數
-            let finalScore = Math.floor(score/10);
-            finalScoreText.innerText = `最終分數: ${finalScore}`;
-            finalScoreText.style.display = 'block';
-
-            if(finalScore > highScore) {
-                highScore = finalScore;
-                localStorage.setItem('racing_best', highScore);
-                bestScoreText.innerText = `新紀錄! ${highScore}`;
-                bestScoreText.style.color = '#e74c3c';
-            } else {
-                bestScoreText.innerText = `最佳紀錄: ${highScore}`;
-                bestScoreText.style.color = '#ccc';
-            }
-
-            // 顯示選單，隱藏觸控區 (防止誤觸)
-            menuScreen.style.display = 'flex';
-            touchLeft.style.display = 'none';
-            touchRight.style.display = 'none';
+        function updateUI() {
+            scoreEl.innerText = Math.floor(score/10);
+            ringsEl.innerText = rings;
         }
 
-        // --- 事件監聽 (iPhone 修復關鍵) ---
+        // --- 輸入控制 (iPhone 優化) ---
 
-        // 1. 開始按鈕：單純使用 click，因為我們沒有全螢幕的 preventDefault
-        startBtn.addEventListener('click', () => {
-            initGame();
+        const btn = document.getElementById('start-btn');
+        btn.addEventListener('click', init);
+
+        // 鍵盤
+        document.addEventListener('keydown', e => {
+            if(e.key === 'ArrowLeft') keys.left = true;
+            if(e.key === 'ArrowRight') keys.right = true;
+        });
+        document.addEventListener('keyup', e => {
+            if(e.key === 'ArrowLeft') keys.left = false;
+            if(e.key === 'ArrowRight') keys.right = false;
         });
 
-        // 2. 鍵盤控制 (電腦版)
-        document.addEventListener('keydown', (e) => {
-            if(e.key === 'ArrowLeft') controls.left = true;
-            if(e.key === 'ArrowRight') controls.right = true;
-        });
-        document.addEventListener('keyup', (e) => {
-            if(e.key === 'ArrowLeft') controls.left = false;
-            if(e.key === 'ArrowRight') controls.right = false;
-        });
-
-        // 3. 觸控控制 (手機版) - 使用獨立的 DIV 區域
-        // 這些事件只會綁定在透明的左右區塊上，不會影響中間的選單按鈕
-        
-        const handleTouch = (side, isPress) => {
-            if(side === 'left') controls.left = isPress;
-            if(side === 'right') controls.right = isPress;
+        // 觸控
+        const handleTouch = (side, active) => {
+            if(side === 'left') keys.left = active;
+            if(side === 'right') keys.right = active;
         };
 
-        // 左側觸控
-        touchLeft.addEventListener('touchstart', (e) => { e.preventDefault(); handleTouch('left', true); });
-        touchLeft.addEventListener('touchend', (e) => { e.preventDefault(); handleTouch('left', false); });
+        const tLeft = document.getElementById('t-left');
+        const tRight = document.getElementById('t-right');
 
-        // 右側觸控
-        touchRight.addEventListener('touchstart', (e) => { e.preventDefault(); handleTouch('right', true); });
-        touchRight.addEventListener('touchend', (e) => { e.preventDefault(); handleTouch('right', false); });
+        tLeft.addEventListener('touchstart', (e) => { e.preventDefault(); handleTouch('left', true); });
+        tLeft.addEventListener('touchend', (e) => { e.preventDefault(); handleTouch('left', false); });
+        
+        tRight.addEventListener('touchstart', (e) => { e.preventDefault(); handleTouch('right', true); });
+        tRight.addEventListener('touchend', (e) => { e.preventDefault(); handleTouch('right', false); });
 
     </script>
 </body>
