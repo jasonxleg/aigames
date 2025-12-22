@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>極速甩竿釣魚 (圖鑑版)</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(to bottom, #87CEEB 30%, #1E90FF 30%);
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        /* 圖鑑按鈕 */
+        #pokedex-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            border: 2px solid white;
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 1rem;
+            z-index: 100;
+            cursor: pointer;
+        }
+
+        /* 圖鑑視窗 (Modal) */
+        #pokedex-modal {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 200;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            overflow-y: auto;
+        }
+        
+        #pokedex-content {
+            width: 90%;
+            max-width: 400px;
+            background: #333;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        .fish-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .fish-slot {
+            background: #444;
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+            aspect-ratio: 1/1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .fish-icon { font-size: 2rem; margin-bottom: 5px; }
+        .fish-name { font-size: 0.8rem; color: #ccc; }
+        
+        /* 未解鎖樣式 */
+        .locked .fish-icon { filter: brightness(0) invert(0.3); } /* 變黑 */
+        .locked .fish-name { visibility: hidden; }
+
+        .close-btn {
+            margin-top: 20px;
+            padding: 10px 30px;
+            background: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.2rem;
+        }
+
+        /* 遊戲元素 */
+        #bobber {
+            width: 30px;
+            height: 30px;
+            background-color: #ff4444;
+            border-radius: 50%;
+            border: 2px solid white;
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: bottom 1s cubic-bezier(0.25, 1, 0.5, 1);
+            z-index: 10;
+            display: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        
+        #bobber::after {
+            content: '';
+            width: 30px;
+            height: 15px;
+            background-color: white;
+            position: absolute;
+            bottom: 0;
+            border-radius: 0 0 15px 15px;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 15%;
+            width: 90%;
+            text-align: center;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        h1 { margin: 0; font-size: 2rem; margin-bottom: 10px;}
+        p { font-size: 1.2rem; line-height: 1.5; }
+
+        #action-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+        }
+
+        #player {
+            width: 100px;
+            height: 100px;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="80" font-size="80">🎣</text></svg>') no-repeat center;
+            position: absolute;
+            bottom: 20px;
+            z-index: 15;
+            transition: transform 0.1s;
+        }
+
+        .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both infinite; }
+        @keyframes shake {
+            10%, 90% { transform: translateX(-51%); }
+            20%, 80% { transform: translateX(-49%); }
+            30%, 50%, 70% { transform: translateX(-52%); }
+            40%, 60% { transform: translateX(-48%); }
+        }
+
+        .click-effect {
+            position: absolute;
+            font-size: 2rem;
+            color: #FFD700;
+            font-weight: bold;
+            pointer-events: none;
+            animation: floatUp 0.5s ease-out forwards;
+            z-index: 30;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(-80px) scale(1.5) rotate(10deg); opacity: 0; }
+        }
+
+        .btn {
+            padding: 15px 30px; 
+            font-size: 1.2rem; 
+            border-radius: 50px; 
+            border: none; 
+            background: white; 
+            color: #1E90FF; 
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            font-weight: bold;
+            pointer-events: auto;
+            margin-top: 10px;
+        }
+        
+        /* NEW 標籤特效 */
+        .new-badge {
+            display: inline-block;
+            background: #ff0000;
+            color: white;
+            font-size: 0.8rem;
+            padding: 2px 6px;
+            border-radius: 5px;
+            animation: blink 0.5s infinite alternate;
+            vertical-align: middle;
+            margin-left: 5px;
+        }
+        @keyframes blink { from { opacity: 1; } to { opacity: 0.5; } }
+
+    </style>
+</head>
+<body>
+
+    <div id="pokedex-btn" onclick="openPokedex()">📖 圖鑑</div>
+
+    <div id="pokedex-modal">
+        <div id="pokedex-content">
+            <h2 style="margin:0; text-align:center;">漁獲圖鑑</h2>
+            <div style="text-align:center; color:#888; font-size:0.9rem; margin-top:5px;">收集進度: <span id="progress-text">0/6</span></div>
+            <div class="fish-grid" id="fish-grid">
+                </div>
+            <div style="text-align:center;">
+                <button class="close-btn" onclick="closePokedex()">關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <div id="ui-layer">
+            <h1 id="status-text">極速甩竿釣魚</h1>
+            <p id="sub-text">向上快速滑動螢幕來拋竿！</p>
+        </div>
+        <div id="bobber"></div>
+        <div id="player"></div>
+        <div id="action-area"></div>
+    </div>
+
+    <script>
+        // 遊戲變數
+        const bobber = document.getElementById('bobber');
+        const statusText = document.getElementById('status-text');
+        const subText = document.getElementById('sub-text');
+        const actionArea = document.getElementById('action-area');
+        const player = document.getElementById('player');
+        const pokedexModal = document.getElementById('pokedex-modal');
+
+        let gameState = 'IDLE'; 
+        let startY = 0;
+        let startTime = 0;
+        let castDistance = 0; 
+        let clickCount = 0;
+        let reelingTimer = null;
+
+        // --- 魚種資料庫 ---
+        const FISH_DB = [
+            { id: 0, name: "濕掉的襪子", icon: "🧦", min: 0, max: 40 },
+            { id: 1, name: "普通鯖魚", icon: "🐟", min: 40, max: 70 },
+            { id: 2, name: "大石斑魚", icon: "🐠", min: 70, max: 110 },
+            { id: 3, name: "黃金鮪魚", icon: "🦈", min: 110, max: 160 },
+            { id: 4, name: "深海大烏賊", icon: "🦑", min: 160, max: 220 },
+            { id: 5, name: "尼斯湖水怪", icon: "🐉", min: 220, max: 9999 }
+        ];
+
+        // 讀取存檔
+        let savedCollection = JSON.parse(localStorage.getItem('fishingCollection')) || [];
+
+        // --- 震動輔助 ---
+        function vibrate(pattern) {
+            if ("vibrate" in navigator) navigator.vibrate(pattern);
+        }
+
+        // --- 圖鑑系統邏輯 ---
+        function openPokedex() {
+            pokedexModal.style.display = 'flex';
+            renderPokedex();
+        }
+
+        function closePokedex() {
+            pokedexModal.style.display = 'none';
+        }
+
+        function renderPokedex() {
+            const grid = document.getElementById('fish-grid');
+            const progress = document.getElementById('progress-text');
+            grid.innerHTML = '';
+            
+            let unlockedCount = 0;
+
+            FISH_DB.forEach(fish => {
+                const isUnlocked = savedCollection.includes(fish.id);
+                if (isUnlocked) unlockedCount++;
+
+                const slot = document.createElement('div');
+                slot.className = `fish-slot ${isUnlocked ? '' : 'locked'}`;
+                slot.innerHTML = `
+                    <div class="fish-icon">${fish.icon}</div>
+                    <div class="fish-name">${fish.name}</div>
+                `;
+                grid.appendChild(slot);
+            });
+
+            progress.innerText = `${unlockedCount}/${FISH_DB.length}`;
+        }
+
+        // --- 遊戲核心 ---
+        
+        // 1. 甩竿
+        actionArea.addEventListener('touchstart', (e) => {
+            if (gameState !== 'IDLE') return;
+            startY = e.touches[0].clientY;
+            startTime = new Date().getTime();
+        });
+        actionArea.addEventListener('touchend', (e) => {
+            if (gameState !== 'IDLE') return;
+            let endY = e.changedTouches[0].clientY;
+            handleSwipe(startY, endY, new Date().getTime());
+        });
+        actionArea.addEventListener('mousedown', (e) => {
+            if (gameState !== 'IDLE') return;
+            startY = e.clientY;
+            startTime = new Date().getTime();
+        });
+        actionArea.addEventListener('mouseup', (e) => {
+            if (gameState !== 'IDLE') return;
+            let endY = e.clientY;
+            handleSwipe(startY, endY, new Date().getTime());
+        });
+
+        function handleSwipe(start, end, endTime) {
+            let distance = start - end;
+            let timeDiff = endTime - startTime;
+            if (distance > 50 && timeDiff < 600) {
+                let speed = distance / timeDiff;
+                performCast(speed);
+            }
+        }
+
+        function performCast(speed) {
+            gameState = 'CASTING';
+            let percent = Math.min((speed / 2.0) * 100, 90); 
+            if (percent < 20) percent = 20;
+            castDistance = percent;
+
+            bobber.style.display = 'block';
+            bobber.style.bottom = '100px';
+            statusText.innerText = "咻————！";
+            subText.innerText = `距離: ${Math.floor(percent)}m`;
+            vibrate(50);
+
+            setTimeout(() => { bobber.style.bottom = `${percent}%`; }, 50);
+            setTimeout(() => { startWaiting(); }, 1000);
+        }
+
+        // 2. 等待
+        function startWaiting() {
+            gameState = 'WAITING';
+            statusText.innerText = "...";
+            subText.innerText = "等待魚兒上鉤";
+            bobber.style.transition = "bottom 0.5s ease-in-out";
+            let waitTime = 2000 + Math.random() * 2000;
+            setTimeout(() => { triggerBite(); }, waitTime);
+        }
+
+        // 3. 上鉤
+        function triggerBite() {
+            gameState = 'REELING';
+            clickCount = 0;
+            statusText.innerText = "魚上鉤了！！";
+            subText.innerText = "快點擊螢幕收線！";
+            statusText.style.color = "#FFD700";
+            bobber.classList.add('shake');
+            vibrate([200, 100, 200]);
+
+            actionArea.addEventListener('touchstart', countClick);
+            actionArea.addEventListener('mousedown', countClick);
+
+            reelingTimer = setTimeout(() => { finishFishing(); }, 5000);
+        }
+
+        function countClick(e) {
+            if (gameState !== 'REELING') return;
+            if (e.type === 'touchstart') e.preventDefault();
+            clickCount++;
+            vibrate(30); 
+            createClickEffect(e);
+            
+            player.style.transform = `scale(${1 + (clickCount%2)*0.1})`;
+            let currentBottom = parseFloat(bobber.style.bottom);
+            if (currentBottom > 10) bobber.style.bottom = (currentBottom - 1.5) + '%';
+            
+            statusText.innerText = `拉力值: ${clickCount}`;
+        }
+
+        function createClickEffect(e) {
+            const el = document.createElement('div');
+            el.classList.add('click-effect');
+            el.innerText = 'PULL!';
+            let x = (e.touches ? e.touches[0].clientX : e.clientX) + (Math.random()-0.5)*40;
+            let y = (e.touches ? e.touches[0].clientY : e.clientY) + (Math.random()-0.5)*40;
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 500);
+        }
+
+        // 4. 結算
+        function finishFishing() {
+            gameState = 'SHOW_RESULT';
+            bobber.classList.remove('shake');
+            bobber.style.display = 'none';
+            player.style.transform = 'scale(1)';
+            actionArea.removeEventListener('touchstart', countClick);
+            actionArea.removeEventListener('mousedown', countClick);
+
+            // 計算尺寸
+            let baseSize = 10;
+            let distBonus = castDistance * 0.3;
+            let clickBonus = clickCount * 1.8;
+            let fishSize = Math.floor(baseSize + distBonus + clickBonus);
+
+            vibrate(400);
+
+            // 判斷魚種
+            let caughtFish = determineFishType(fishSize);
+            
+            // 檢查是否為新紀錄
+            let isNew = false;
+            if (!savedCollection.includes(caughtFish.id)) {
+                savedCollection.push(caughtFish.id);
+                localStorage.setItem('fishingCollection', JSON.stringify(savedCollection));
+                isNew = true;
+            }
+
+            statusText.innerText = "收竿！";
+            statusText.style.color = "white";
+            
+            let newBadgeHTML = isNew ? '<span class="new-badge">NEW!</span>' : '';
+
+            subText.style.pointerEvents = 'auto';
+            subText.innerHTML = `
+                <div style="background: rgba(0,0,0,0.6); padding: 20px; border-radius: 15px; border: 1px solid #fff;">
+                    你釣到了${newBadgeHTML}<br>
+                    <span style="color:#FFD700; font-size: 1.8rem;">${caughtFish.icon} ${caughtFish.name}</span><br>
+                    尺寸: <strong>${fishSize} cm</strong><br>
+                    <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.3); margin: 10px 0;">
+                    拋竿距離: ${Math.floor(castDistance)}m<br>
+                    瘋狂連點: ${clickCount}次<br>
+                    <br>
+                    <button class="btn" onclick="resetGame()">🎣 再釣一次</button>
+                    <button class="btn" onclick="openPokedex()" style="background:#444; color:white; font-size:1rem; padding:10px 20px;">📖 打開圖鑑</button>
+                </div>
+            `;
+        }
+
+        function determineFishType(size) {
+            // 從大到小判斷，符合區間就回傳
+            for (let i = FISH_DB.length - 1; i >= 0; i--) {
+                if (size >= FISH_DB[i].min) return FISH_DB[i];
+            }
+            return FISH_DB[0]; // 預設最小
+        }
+
+        window.resetGame = function() {
+            gameState = 'IDLE';
+            statusText.innerText = "極速甩竿釣魚";
+            statusText.style.color = "white";
+            subText.innerText = "向上快速滑動螢幕來拋竿！";
+            subText.style.pointerEvents = 'none';
+            bobber.style.bottom = '100px';
+            clickCount = 0;
+            castDistance = 0;
+        }
+    </script>
+</body>
+</html>
