@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Beat - Fixed Version</title>
+    <style>
+        /* CSS STYLES - How the game looks */
+        body {
+            margin: 0;
+            background-color: #050505;
+            color: white;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none; /* Prevents highlighting text */
+        }
+
+        #game-container {
+            position: relative;
+            width: 400px;
+            height: 600px;
+            background: linear-gradient(180deg, #1a1a1a 0%, #000 100%);
+            border: 4px solid #333;
+            box-shadow: 0 0 20px cyan;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .lanes {
+            display: flex;
+            height: 100%;
+            width: 100%;
+        }
+
+        .lane {
+            flex: 1;
+            border-right: 1px solid #333;
+            position: relative;
+            display: flex;
+            justify-content: center;
+        }
+        .lane:last-child { border-right: none; }
+
+        /* The Hit Line */
+        .hit-line {
+            position: absolute;
+            bottom: 50px;
+            width: 100%;
+            height: 10px;
+            background-color: rgba(0, 255, 255, 0.3);
+            border-top: 2px solid cyan;
+            border-bottom: 2px solid cyan;
+            z-index: 10;
+        }
+
+        /* The Keys Labels (D, F, J, K) */
+        .key-label {
+            position: absolute;
+            bottom: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        /* The Falling Notes */
+        .note {
+            position: absolute;
+            width: 70px;
+            height: 20px;
+            background-color: #ff0055;
+            border-radius: 5px;
+            box-shadow: 0 0 10px #ff0055;
+            z-index: 5;
+            /* Notes start invisible until JS moves them */
+            top: -30px; 
+        }
+
+        /* Hit Feedback (Perfect/Miss) */
+        #feedback {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            font-weight: 900;
+            opacity: 0;
+            z-index: 20;
+            text-shadow: 0 0 10px black;
+            pointer-events: none;
+        }
+
+        /* Start Screen Overlay */
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        button {
+            padding: 20px 40px;
+            font-size: 24px;
+            background: cyan;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 50px;
+            box-shadow: 0 0 15px cyan;
+        }
+        button:hover { transform: scale(1.1); }
+
+        /* Lane flash when key pressed */
+        .lane-active {
+            background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.1));
+        }
+
+        #ui { margin-top: 10px; font-size: 20px; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="feedback">HIT</div>
+        
+        <div id="overlay">
+            <h1 style="color:cyan; margin-bottom: 20px;">NEON BEAT</h1>
+            <button id="start-btn">PLAY</button>
+            <p style="color:#aaa; margin-top:20px;">Press <b>D F J K</b> when notes hit the line.</p>
+        </div>
+
+        <div class="hit-line"></div>
+
+        <div class="lanes">
+            <div class="lane" id="lane-0"><div class="key-label">D</div></div>
+            <div class="lane" id="lane-1"><div class="key-label">F</div></div>
+            <div class="lane" id="lane-2"><div class="key-label">J</div></div>
+            <div class="lane" id="lane-3"><div class="key-label">K</div></div>
+        </div>
+    </div>
+
+    <div id="ui">Score: <span id="score">0</span></div>
+
+    <script>
+        // --- GAME VARIABLES ---
+        let gameRunning = false;
+        let score = 0;
+        let notes = []; // Holds the note data
+        let audioCtx = null; // The audio engine
+        let lastTime = 0;
+        let spawnTimer = 0;
+        const SPAWN_RATE = 600; // Milliseconds between notes (Lower = Faster)
+        const FALL_SPEED = 5;   // Pixels per frame (Higher = Faster)
+
+        // --- AUDIO SYSTEM (Fixed for Browser Security) ---
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playTone(freq, type) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        // --- GAME LOOP ---
+        function gameLoop(timestamp) {
+            if (!gameRunning) return;
+            
+            // Calculate time difference
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+
+            // 1. Spawn Notes
+            spawnTimer += deltaTime;
+            if (spawnTimer >= SPAWN_RATE) {
+                createNote();
+                spawnTimer = 0;
+            }
+
+            // 2. Move Notes
+            for (let i = 0; i < notes.length; i++) {
+                let noteObj = notes[i];
+                noteObj.y += FALL_SPEED;
+                noteObj.element.style.top = noteObj.y + "px";
+
+                // Remove if it goes off screen (Miss)
+                if (noteObj.y > 600) {
+                    gameContainer.removeChild(noteObj.element);
+                    notes.splice(i, 1);
+                    i--; // Adjust index
+                    showFeedback("MISS", "red");
+                    score -= 50;
+                    updateScore();
+                }
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function createNote() {
+            const laneIndex = Math.floor(Math.random() * 4);
+            const laneElement = document.getElementById("lane-" + laneIndex);
+            
+            // Create Visual Note
+            const noteDiv = document.createElement("div");
+            noteDiv.classList.add("note");
+            // Center the note in the lane
+            noteDiv.style.left = (laneElement.offsetLeft + 15) + "px"; 
+            
+            const gameContainer = document.getElementById("game-container");
+            gameContainer.appendChild(noteDiv);
+
+            // Add to data array
+            notes.push({
+                element: noteDiv,
+                lane: laneIndex,
+                y: -50 // Start above screen
+            });
+
+            // Play a soft beat sound
+            playTone(150, 'triangle'); 
+        }
+
+        // --- INPUT HANDLING ---
+        const keys = { 'd': 0, 'f': 1, 'j': 2, 'k': 3 };
+
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            
+            const key = e.key.toLowerCase();
+            if (keys.hasOwnProperty(key)) {
+                const laneIdx = keys[key];
+                
+                // Visual Flash
+                const laneDiv = document.getElementById("lane-" + laneIdx);
+                laneDiv.classList.add("lane-active");
+                setTimeout(() => laneDiv.classList.remove("lane-active"), 100);
+
+                checkHit(laneIdx);
+            }
+        });
+
+        function checkHit(laneIndex) {
+            // Find a note in this lane that is near the bottom (between 500px and 580px)
+            // The hit line is around 550px
+            const hitZoneStart = 500;
+            const hitZoneEnd = 580;
+
+            const noteIndex = notes.findIndex(n => 
+                n.lane === laneIndex && n.y > hitZoneStart && n.y < hitZoneEnd
+            );
+
+            if (noteIndex !== -1) {
+                // HIT!
+                const note = notes[noteIndex];
+                note.element.remove();
+                notes.splice(noteIndex, 1);
+                
+                score += 100;
+                updateScore();
+                showFeedback("PERFECT!", "#00ff00");
+                playTone(600, 'sine'); // High pitch hit sound
+            }
+        }
+
+        // --- UI FUNCTIONS ---
+        function showFeedback(text, color) {
+            const fb = document.getElementById("feedback");
+            fb.innerText = text;
+            fb.style.color = color;
+            fb.style.opacity = 1;
+            setTimeout(() => fb.style.opacity = 0, 300);
+        }
+
+        function updateScore() {
+            document.getElementById("score").innerText = score;
+        }
+
+        // --- START GAME ---
+        document.getElementById("start-btn").addEventListener("click", () => {
+            // 1. Initialize Audio (Must be done on user click)
+            initAudio();
+
+            // 2. Hide Overlay
+            document.getElementById("overlay").style.display = "none";
+            
+            // 3. Start Loop
+            gameRunning = true;
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        });
+    </script>
+</body>
+</html>
