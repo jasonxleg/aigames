@@ -1,23 +1,23 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neon Beat - Fixed Version</title>
+    <title>Neon Beat - 限時挑戰版</title>
     <style>
-        /* CSS STYLES - How the game looks */
+        /* --- CSS 樣式 --- */
         body {
             margin: 0;
             background-color: #050505;
             color: white;
-            font-family: sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             height: 100vh;
             overflow: hidden;
-            user-select: none; /* Prevents highlighting text */
+            user-select: none;
         }
 
         #game-container {
@@ -46,7 +46,7 @@
         }
         .lane:last-child { border-right: none; }
 
-        /* The Hit Line */
+        /* 判定線 */
         .hit-line {
             position: absolute;
             bottom: 50px;
@@ -58,16 +58,16 @@
             z-index: 10;
         }
 
-        /* The Keys Labels (D, F, J, K) */
+        /* 按鍵標示 (方向鍵) */
         .key-label {
             position: absolute;
             bottom: 10px;
-            font-size: 24px;
+            font-size: 30px;
             font-weight: bold;
             color: #555;
         }
 
-        /* The Falling Notes */
+        /* 音符 */
         .note {
             position: absolute;
             width: 70px;
@@ -76,11 +76,10 @@
             border-radius: 5px;
             box-shadow: 0 0 10px #ff0055;
             z-index: 5;
-            /* Notes start invisible until JS moves them */
             top: -30px; 
         }
 
-        /* Hit Feedback (Perfect/Miss) */
+        /* 擊中回饋文字 */
         #feedback {
             position: absolute;
             top: 40%;
@@ -92,10 +91,21 @@
             z-index: 20;
             text-shadow: 0 0 10px black;
             pointer-events: none;
+            white-space: nowrap;
         }
 
-        /* Start Screen Overlay */
-        #overlay {
+        /* 遊戲介面 (時間與分數) */
+        #ui-bar {
+            display: flex;
+            justify-content: space-between;
+            width: 400px;
+            margin-top: 10px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        /* 全螢幕覆蓋層 (開始與結束畫面) */
+        .overlay {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9);
@@ -107,7 +117,7 @@
         }
 
         button {
-            padding: 20px 40px;
+            padding: 15px 40px;
             font-size: 24px;
             background: cyan;
             border: none;
@@ -115,56 +125,72 @@
             font-weight: bold;
             border-radius: 50px;
             box-shadow: 0 0 15px cyan;
+            margin-top: 20px;
+            transition: transform 0.1s;
         }
         button:hover { transform: scale(1.1); }
 
-        /* Lane flash when key pressed */
         .lane-active {
-            background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.1));
+            background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.2));
         }
-
-        #ui { margin-top: 10px; font-size: 20px; }
+        
+        /* 隱藏元素 */
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
     <div id="game-container">
-        <div id="feedback">HIT</div>
+        <div id="feedback">PERFECT</div>
         
-        <div id="overlay">
-            <h1 style="color:cyan; margin-bottom: 20px;">NEON BEAT</h1>
-            <button id="start-btn">PLAY</button>
-            <p style="color:#aaa; margin-top:20px;">Press <b>D F J K</b> when notes hit the line.</p>
+        <div id="start-screen" class="overlay">
+            <h1 style="color:cyan; margin-bottom: 10px;">NEON BEAT</h1>
+            <h2 style="color:white; margin:0;">60秒挑戰</h2>
+            <button id="start-btn">開始遊戲</button>
+            <p style="color:#aaa; margin-top:20px;">使用方向鍵操作：<br><b>← &nbsp; ↓ &nbsp; ↑ &nbsp; →</b></p>
+        </div>
+
+        <div id="game-over-screen" class="overlay hidden">
+            <h1 style="color:#ff0055;">時間到!</h1>
+            <p style="font-size: 20px;">最終得分</p>
+            <h2 id="final-score" style="font-size: 60px; margin: 10px 0; color: cyan;">0</h2>
+            <button id="restart-btn">再玩一次</button>
         </div>
 
         <div class="hit-line"></div>
 
         <div class="lanes">
-            <div class="lane" id="lane-0"><div class="key-label">D</div></div>
-            <div class="lane" id="lane-1"><div class="key-label">F</div></div>
-            <div class="lane" id="lane-2"><div class="key-label">J</div></div>
-            <div class="lane" id="lane-3"><div class="key-label">K</div></div>
+            <div class="lane" id="lane-0"><div class="key-label">←</div></div>
+            <div class="lane" id="lane-1"><div class="key-label">↓</div></div>
+            <div class="lane" id="lane-2"><div class="key-label">↑</div></div>
+            <div class="lane" id="lane-3"><div class="key-label">→</div></div>
         </div>
     </div>
 
-    <div id="ui">Score: <span id="score">0</span></div>
+    <div id="ui-bar">
+        <div style="color: cyan;">分數: <span id="score">0</span></div>
+        <div style="color: #ff0055;">時間: <span id="timer">60</span></div>
+    </div>
 
     <script>
-        // --- GAME VARIABLES ---
+        // --- 遊戲變數 ---
         let gameRunning = false;
         let score = 0;
-        let notes = []; // Holds the note data
-        let audioCtx = null; // The audio engine
+        let notes = []; 
+        let audioCtx = null;
         let lastTime = 0;
         let spawnTimer = 0;
-        const SPAWN_RATE = 600; // Milliseconds between notes (Lower = Faster)
-        const FALL_SPEED = 5;   // Pixels per frame (Higher = Faster)
+        
+        // 設定
+        const SPAWN_RATE = 500; // 音符生成速度 (毫秒)
+        const FALL_SPEED = 6;   // 下落速度
+        const GAME_DURATION = 60; // 遊戲時間 (秒)
+        let timeLeft = GAME_DURATION;
 
-        // --- AUDIO SYSTEM (Fixed for Browser Security) ---
+        // --- 音效系統 ---
         function initAudio() {
             if (!audioCtx) {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                audioCtx = new AudioContext();
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
             if (audioCtx.state === 'suspended') {
                 audioCtx.resume();
@@ -185,34 +211,43 @@
             osc.stop(audioCtx.currentTime + 0.1);
         }
 
-        // --- GAME LOOP ---
+        // --- 遊戲主循環 ---
         function gameLoop(timestamp) {
             if (!gameRunning) return;
             
-            // Calculate time difference
             const deltaTime = timestamp - lastTime;
             lastTime = timestamp;
 
-            // 1. Spawn Notes
+            // 1. 倒數計時邏輯
+            timeLeft -= deltaTime / 1000; // 轉換為秒
+            if (timeLeft <= 0) {
+                timeLeft = 0;
+                endGame();
+                return;
+            }
+            document.getElementById("timer").innerText = Math.ceil(timeLeft);
+
+            // 2. 生成音符
             spawnTimer += deltaTime;
             if (spawnTimer >= SPAWN_RATE) {
                 createNote();
                 spawnTimer = 0;
             }
 
-            // 2. Move Notes
+            // 3. 移動音符
             for (let i = 0; i < notes.length; i++) {
                 let noteObj = notes[i];
                 noteObj.y += FALL_SPEED;
                 noteObj.element.style.top = noteObj.y + "px";
 
-                // Remove if it goes off screen (Miss)
+                // Miss 判定 (超出畫面)
                 if (noteObj.y > 600) {
-                    gameContainer.removeChild(noteObj.element);
+                    noteObj.element.remove();
                     notes.splice(i, 1);
-                    i--; // Adjust index
+                    i--; 
                     showFeedback("MISS", "red");
-                    score -= 50;
+                    // 扣分機制 (可選)
+                    if (score > 0) score -= 10;
                     updateScore();
                 }
             }
@@ -224,37 +259,54 @@
             const laneIndex = Math.floor(Math.random() * 4);
             const laneElement = document.getElementById("lane-" + laneIndex);
             
-            // Create Visual Note
             const noteDiv = document.createElement("div");
             noteDiv.classList.add("note");
-            // Center the note in the lane
-            noteDiv.style.left = (laneElement.offsetLeft + 15) + "px"; 
+            // 修正位置計算以確保對齊
+            noteDiv.style.left = "15px"; 
             
-            const gameContainer = document.getElementById("game-container");
-            gameContainer.appendChild(noteDiv);
+            laneElement.appendChild(noteDiv);
 
-            // Add to data array
             notes.push({
                 element: noteDiv,
                 lane: laneIndex,
-                y: -50 // Start above screen
+                y: -50 
             });
 
-            // Play a soft beat sound
-            playTone(150, 'triangle'); 
+            // 伴奏節拍聲
+            playTone(100, 'triangle'); 
         }
 
-        // --- INPUT HANDLING ---
-        const keys = { 'd': 0, 'f': 1, 'j': 2, 'k': 3 };
+        function endGame() {
+            gameRunning = false;
+            document.getElementById("timer").innerText = "0";
+            
+            // 顯示結算畫面
+            document.getElementById("final-score").innerText = score;
+            document.getElementById("game-over-screen").classList.remove("hidden");
+            
+            // 清除場上所有音符
+            notes.forEach(n => n.element.remove());
+            notes = [];
+        }
+
+        // --- 按鍵操作 (方向鍵) ---
+        // 對應: 左(0), 下(1), 上(2), 右(3)
+        const keys = { 
+            'arrowleft': 0, 
+            'arrowdown': 1, 
+            'arrowup': 2, 
+            'arrowright': 3 
+        };
 
         document.addEventListener('keydown', (e) => {
             if (!gameRunning) return;
             
             const key = e.key.toLowerCase();
             if (keys.hasOwnProperty(key)) {
+                e.preventDefault(); // 防止按上下鍵時滾動網頁
                 const laneIdx = keys[key];
                 
-                // Visual Flash
+                // 視覺閃爍
                 const laneDiv = document.getElementById("lane-" + laneIdx);
                 laneDiv.classList.add("lane-active");
                 setTimeout(() => laneDiv.classList.remove("lane-active"), 100);
@@ -264,8 +316,7 @@
         });
 
         function checkHit(laneIndex) {
-            // Find a note in this lane that is near the bottom (between 500px and 580px)
-            // The hit line is around 550px
+            // 判定區間 (500px ~ 580px)
             const hitZoneStart = 500;
             const hitZoneEnd = 580;
 
@@ -274,7 +325,7 @@
             );
 
             if (noteIndex !== -1) {
-                // HIT!
+                // 擊中!
                 const note = notes[noteIndex];
                 note.element.remove();
                 notes.splice(noteIndex, 1);
@@ -282,36 +333,43 @@
                 score += 100;
                 updateScore();
                 showFeedback("PERFECT!", "#00ff00");
-                playTone(600, 'sine'); // High pitch hit sound
+                playTone(600, 'sine'); 
             }
         }
 
-        // --- UI FUNCTIONS ---
         function showFeedback(text, color) {
             const fb = document.getElementById("feedback");
             fb.innerText = text;
             fb.style.color = color;
             fb.style.opacity = 1;
-            setTimeout(() => fb.style.opacity = 0, 300);
+            setTimeout(() => fb.style.opacity = 0, 200);
         }
 
         function updateScore() {
             document.getElementById("score").innerText = score;
         }
 
-        // --- START GAME ---
-        document.getElementById("start-btn").addEventListener("click", () => {
-            // 1. Initialize Audio (Must be done on user click)
+        // --- 按鈕邏輯 ---
+        function startGame() {
             initAudio();
-
-            // 2. Hide Overlay
-            document.getElementById("overlay").style.display = "none";
+            score = 0;
+            timeLeft = GAME_DURATION;
+            notes = [];
+            updateScore();
+            document.getElementById("timer").innerText = timeLeft;
             
-            // 3. Start Loop
+            // 隱藏所有覆蓋層
+            document.getElementById("start-screen").classList.add("hidden");
+            document.getElementById("game-over-screen").classList.add("hidden");
+            
             gameRunning = true;
             lastTime = performance.now();
             requestAnimationFrame(gameLoop);
-        });
+        }
+
+        document.getElementById("start-btn").addEventListener("click", startGame);
+        document.getElementById("restart-btn").addEventListener("click", startGame);
+
     </script>
 </body>
 </html>
