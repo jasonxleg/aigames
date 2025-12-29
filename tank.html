@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Milo TANK 1990 (Fixed Input)</title>
+    <title>Milo TANK 1990 (Final Fix)</title>
     <style>
-        /* 全域鎖定，防止畫面滑動 */
+        /* 全域鎖定 */
         html, body {
             position: fixed; 
             width: 100%;
@@ -20,7 +20,6 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            /* 預設禁止選取，但按鈕會覆蓋此設定 */
             user-select: none;
             -webkit-user-select: none;
             touch-action: none; 
@@ -47,7 +46,6 @@
             image-rendering: pixelated;
         }
 
-        /* UI 層 - 確保 z-index 最高 */
         #ui-layer {
             position: absolute;
             top: 0; left: 0;
@@ -58,28 +56,26 @@
             align-items: center;
             background: rgba(0, 0, 0, 0.85);
             display: none;
-            z-index: 100; /* 確保在最上層 */
+            z-index: 100;
         }
         #ui-layer.active { display: flex; }
 
-        /* --- 修正重點：讓按鈕和輸入框可以被點擊 --- */
         input, button.game-btn {
-            /* 允許原生的點擊和操作 */
             pointer-events: auto !important;
             touch-action: manipulation !important;
-            z-index: 101; /* 比 UI 層更高 */
+            z-index: 101;
         }
 
         input { 
             padding: 10px; font-size: 16px; border: 2px solid #e69138; 
             background: #222; color: white; width: 60%; text-align: center; 
             font-family: 'Courier New'; margin-bottom: 10px;
-            user-select: text !important; /* 允許輸入文字 */
+            user-select: text !important;
             -webkit-user-select: text !important;
         }
 
         button.game-btn { 
-            padding: 15px 30px; /* 加大按鈕點擊範圍 */
+            padding: 15px 30px; 
             font-size: 20px; 
             background: #e69138; color: black; 
             border: 2px solid #fff; 
@@ -95,7 +91,6 @@
             box-shadow: none;
         }
 
-        /* 手機控制器 */
         #mobile-controls {
             display: flex;
             width: 100%;
@@ -119,7 +114,7 @@
             color: #ccc; font-size: 20px;
             display: flex; justify-content: center; align-items: center;
             box-shadow: 0 4px 0 #222; cursor: pointer;
-            touch-action: none; /* 控制器保持不觸發原生行為 */
+            touch-action: none; 
         }
         .control-btn:active, .control-btn.pressed {
             background: #666; transform: translateY(4px); box-shadow: none;
@@ -194,29 +189,51 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        // --- 修正重點：變數宣告移到最上方 (防止 ReferenceError) ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const BLOCK_SIZE = 32; 
 
+        // 這些變數必須在 resizeGame 被呼叫前宣告
+        let gameRunning = false;
+        let score = 0;
+        let animationId;
+        let frameCount = 0;
+        let player, bullets=[], enemies=[], walls=[], base={}, enemySpawnTimer=0;
+        const DIR = { UP: 0, RIGHT: 1, DOWN: 2, LEFT: 3 };
+        const keys = {};
+
+        // --- 畫面縮放邏輯 ---
         function resizeGame() {
             const winW = window.innerWidth;
             const winH = window.innerHeight;
+            // 預留標題和控制器的空間
             const availableH = winH - 170; 
             const availableW = winW - 20; 
+            
             let gameSize = Math.min(availableW, availableH);
+            // 限制最大尺寸
             if (gameSize > 520) gameSize = 520;
+            
+            // 確保是 BLOCK_SIZE 的倍數
             const cols = Math.floor(gameSize / BLOCK_SIZE);
             const finalSize = cols * BLOCK_SIZE;
+            
             canvas.width = finalSize;
             canvas.height = finalSize;
+            
+            // 這裡使用了 gameRunning，所以 gameRunning 必須在上面宣告
             if (!gameRunning) {
                 ctx.fillStyle = "#000";
                 ctx.fillRect(0,0, canvas.width, canvas.height);
             }
         }
+        
+        // 立即執行一次，並監聽視窗變動
         resizeGame();
         window.addEventListener('resize', resizeGame);
 
+        // UI 綁定
         const uiLayer = document.getElementById('ui-layer');
         const startBtn = document.getElementById('start-btn');
         const saveBtn = document.getElementById('save-btn');
@@ -226,14 +243,7 @@
         const playerNameInput = document.getElementById('player-name');
         const miniLeaderboard = document.getElementById('mini-leaderboard');
 
-        let gameRunning = false;
-        let score = 0;
-        let animationId;
-        let frameCount = 0;
-        let player, bullets=[], enemies=[], walls=[], base={}, enemySpawnTimer=0;
-        const DIR = { UP: 0, RIGHT: 1, DOWN: 2, LEFT: 3 };
-        const keys = {};
-
+        // --- 遊戲邏輯 ---
         function resetGame() {
             const size = canvas.width / 13; 
             player = { x: size * 4, y: canvas.height - size, size: size, speed: size * 0.1, dir: DIR.UP, moving: false, color: '#e69138' };
@@ -257,32 +267,21 @@
             }
         }
 
-        // --- 修正：通用按鈕綁定函式 (支援 Touch 和 Click) ---
+        // --- 按鈕綁定 ---
         function bindBtn(elem, callback) {
-            // 防止重複觸發的旗標
             let triggered = false;
-
             const handler = (e) => {
-                // 如果是觸控事件，阻止預設行為以避免點擊穿透，但允許按鈕本身的行為
-                if(e.type === 'touchstart') {
-                    e.stopPropagation();
-                    // e.preventDefault(); // 註解掉，因為某些瀏覽器需要 preventDefault 才能阻擋滑鼠模擬，但也可能阻擋 input focus
-                }
-                
+                if(e.type === 'touchstart') e.stopPropagation();
                 if (!triggered) {
                     triggered = true;
                     callback();
-                    // 300ms 後重置，避免連點太快
                     setTimeout(() => triggered = false, 300);
                 }
             };
-
-            // 綁定兩種事件確保一定會觸發
             elem.addEventListener('touchstart', handler, {passive: false});
             elem.addEventListener('click', handler);
         }
 
-        // 綁定 Start 按鈕
         bindBtn(startBtn, () => {
             resetGame(); 
             gameRunning = true; 
@@ -292,7 +291,6 @@
             animate();
         });
 
-        // 綁定 Save 按鈕
         bindBtn(saveBtn, async () => {
             const name = playerNameInput.value || "AAA";
             saveBtn.innerText = "...";
@@ -309,13 +307,13 @@
             } catch(e) { alert("Error"); saveBtn.innerText = "TRY AGAIN"; }
         });
 
-        // 遊戲控制器 (D-Pad & Fire)
+        // 控制器
         window.addEventListener('keydown', e => { keys[e.key] = true; if(e.code==='Space'&&gameRunning) shoot(player); });
         window.addEventListener('keyup', e => keys[e.key] = false);
 
         document.querySelectorAll('.control-btn').forEach(btn => {
             const handlePress = (e) => {
-                if(e.cancelable) e.preventDefault(); // 控制器依然需要阻止預設行為(防止捲動)
+                if(e.cancelable) e.preventDefault();
                 const key = btn.getAttribute('data-key');
                 keys[key] = true;
                 btn.classList.add('pressed');
