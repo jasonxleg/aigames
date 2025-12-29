@@ -1,331 +1,498 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JOSH PRIME CUTS | Premium Chaos</title>
-    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
+    <title>JOSH'S VIEW | 日常視角</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
+        /* --- 1. 核心變數設定 (Maruyoshi 風格色票) --- */
         :root {
-            --bg-color: #1a1918; /* 炭黑色 */
-            --text-main: #f3f0eb; /* 米白色 */
-            --accent-color: #d64933; /* 燒烤紅/火焰色 */
-            --paper-color: #e3decb; /* 牛皮紙色 */
-            --border-thick: 3px solid var(--text-main);
+            --bg-color: #F9F8F5;       /* 溫潤米白背景 */
+            --text-main: #333333;      /* 深炭灰文字 */
+            --text-light: #666666;     /* 淺灰說明文字 */
+            --accent-color: #E09F7D;   /* 暖橘強調色 */
+            --secondary-color: #AABDB3;/* 鼠尾草綠 (裝飾用) */
+            --white: #FFFFFF;
+            --border-radius: 12px;
+            --transition: all 0.3s ease;
         }
 
-        /* --- 基礎設定 & 材質感 --- */
-        body {
-            background-color: var(--bg-color);
-            background-image: radial-gradient(circle, #2a2928 1px, transparent 1px);
-            background-size: 20px 20px; /* 模擬網點材質 */
-            color: var(--text-main);
-            font-family: 'Roboto Condensed', sans-serif;
+        /* --- 2. 基礎重置 (Reset & Base) --- */
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            overflow-x: hidden;
         }
 
-        h1, h2, h3, .btn {
-            font-family: 'Oswald', sans-serif;
-            text-transform: uppercase;
-            letter-spacing: 2px;
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.8; /* 寬鬆行距增加呼吸感 */
+            letter-spacing: 0.05em;
         }
 
-        /* --- 導航欄 --- */
+        a {
+            text-decoration: none;
+            color: var(--text-main);
+            transition: var(--transition);
+        }
+
+        ul {
+            list-style: none;
+        }
+
+        img {
+            max-width: 100%;
+            display: block;
+            border-radius: var(--border-radius);
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* --- 3. 導覽列 (Header) --- */
+        header {
+            padding: 24px 0;
+            position: sticky;
+            top: 0;
+            background-color: rgba(249, 248, 245, 0.95); /* 半透明背景 */
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+
         nav {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 20px 40px;
-            border-bottom: 1px solid rgba(255,255,255,0.2);
-            position: sticky;
-            top: 0;
-            background: rgba(26, 25, 24, 0.95);
-            z-index: 1000;
         }
+
         .logo {
             font-size: 1.5rem;
-            font-weight: bold;
-            border: 2px solid var(--text-main);
-            padding: 5px 15px;
-        }
-        .nav-links a {
-            color: var(--text-main);
-            text-decoration: none;
-            margin-left: 20px;
-            font-weight: bold;
-            font-size: 1.1rem;
-            transition: color 0.3s;
-        }
-        .nav-links a:hover {
-            color: var(--accent-color);
+            font-weight: 700;
+            letter-spacing: 0.1em;
         }
 
-        /* --- Hero Section (主視覺) --- */
-        .hero {
-            height: 90vh;
+        .nav-links {
             display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
+            gap: 32px;
+        }
+
+        .nav-links a {
+            font-size: 0.95rem;
             position: relative;
-            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg'); /* 這裡換成 Josh 影片截圖 */
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed; /* 視差滾動效果 */
-        }
-        
-        .hero h1 {
-            font-size: 8vw; /* 巨大標題 */
-            line-height: 0.9;
-            margin: 0;
-            text-shadow: 5px 5px 0px #000;
-            transform: skewY(-2deg); /* 微微傾斜，增加動感 */
         }
 
-        .hero span {
-            display: block;
-            color: var(--accent-color);
-        }
-
-        .stamp {
+        .nav-links a::after {
+            content: '';
             position: absolute;
-            top: 20%;
-            right: 10%;
-            border: 4px solid var(--accent-color);
-            color: var(--accent-color);
-            padding: 10px 20px;
-            font-size: 2rem;
-            font-weight: bold;
-            transform: rotate(15deg);
-            opacity: 0.8;
-            font-family: 'Oswald', sans-serif;
-            mask-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='); /* 簡單模擬印章磨損感 */
+            width: 0;
+            height: 1px;
+            bottom: -4px;
+            left: 0;
+            background-color: var(--accent-color);
+            transition: var(--transition);
         }
 
-        /* --- 跑馬燈條 --- */
-        .marquee-strip {
-            background: var(--accent-color);
-            color: var(--bg-color);
-            padding: 15px 0;
-            overflow: hidden;
-            font-family: 'Oswald', sans-serif;
-            font-size: 1.5rem;
-            font-weight: bold;
-            white-space: nowrap;
-            border-top: 3px solid black;
-            border-bottom: 3px solid black;
-        }
-
-        /* --- 菜單區 (影片網格) --- */
-        .menu-section {
-            max-width: 1200px;
-            margin: 80px auto;
-            padding: 0 20px;
-        }
-        
-        .section-title {
-            font-size: 4rem;
-            border-bottom: 5px solid var(--accent-color);
-            display: inline-block;
-            margin-bottom: 40px;
-            color: var(--paper-color);
-        }
-
-        .grid-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 30px;
-        }
-
-        .menu-item {
-            background: #2a2928;
-            border: 1px solid #444;
-            transition: transform 0.3s, box-shadow 0.3s;
-            position: relative;
-        }
-
-        .menu-item:hover {
-            transform: translateY(-10px);
-            box-shadow: 10px 10px 0px var(--accent-color);
-        }
-
-        .video-thumb {
+        .nav-links a:hover::after {
             width: 100%;
-            height: 200px;
-            background: #000;
+        }
+
+        /* --- 4. Hero Section (主視覺) --- */
+        .hero {
+            padding: 80px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 40px;
+            min-height: 80vh;
+        }
+
+        .hero-text {
+            flex: 1;
+        }
+
+        .hero-tag {
+            display: inline-block;
+            background-color: var(--secondary-color);
+            color: var(--white);
+            padding: 4px 12px;
+            font-size: 0.8rem;
+            border-radius: 20px;
+            margin-bottom: 20px;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 300; /* 輕盈的字體重 */
+            margin-bottom: 24px;
+            line-height: 1.2;
+        }
+
+        .hero p {
+            color: var(--text-light);
+            font-size: 1.1rem;
+            margin-bottom: 32px;
+        }
+
+        .btn-primary {
+            display: inline-block;
+            padding: 12px 32px;
+            background-color: var(--text-main);
+            color: var(--white);
+            border-radius: 30px;
+            font-size: 0.9rem;
+            transition: var(--transition);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--accent-color);
+            transform: translateY(-2px);
+        }
+
+        .hero-image {
+            flex: 1.2;
             position: relative;
-            overflow: hidden;
         }
         
-        .video-thumb img {
+        /* 模擬極簡風格的圖片裝飾 */
+        .hero-image::before {
+            content: '';
+            position: absolute;
+            top: -20px;
+            right: -20px;
+            width: 100%;
+            height: 100%;
+            border: 1px solid var(--accent-color);
+            border-radius: var(--border-radius);
+            z-index: -1;
+        }
+
+        /* --- 5. About Section (關於) --- */
+        .section-padding {
+            padding: 100px 0;
+        }
+
+        .section-title {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-title h2 {
+            font-size: 2rem;
+            font-weight: 400;
+            margin-bottom: 16px;
+        }
+
+        .section-title span {
+            display: block;
+            width: 40px;
+            height: 2px;
+            background-color: var(--accent-color);
+            margin: 0 auto;
+        }
+
+        .about-content {
+            text-align: center;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .about-content p {
+            margin-bottom: 24px;
+            font-size: 1.05rem;
+        }
+
+        /* --- 6. Interests Section (特色分類) --- */
+        .interests-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 40px;
+        }
+
+        .interest-card {
+            background: var(--white);
+            padding: 40px;
+            border-radius: var(--border-radius);
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.03); /* 極淡的陰影 */
+            transition: var(--transition);
+            border: 1px solid transparent;
+        }
+
+        .interest-card:hover {
+            transform: translateY(-10px);
+            border-color: rgba(224, 159, 125, 0.3);
+        }
+
+        .icon-box {
+            width: 60px;
+            height: 60px;
+            background-color: #F2EFE9;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            color: var(--accent-color);
+            font-size: 1.5rem;
+        }
+
+        .interest-card h3 {
+            margin-bottom: 16px;
+            font-weight: 500;
+        }
+
+        .interest-card p {
+            color: var(--text-light);
+            font-size: 0.95rem;
+        }
+
+        /* --- 7. Latest Videos (影片網格) --- */
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 32px;
+        }
+
+        .video-card {
+            background: transparent;
+        }
+
+        .thumbnail-wrapper {
+            position: relative;
+            overflow: hidden;
+            border-radius: var(--border-radius);
+            margin-bottom: 16px;
+            aspect-ratio: 16/9;
+        }
+
+        .thumbnail-wrapper img {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            opacity: 0.8;
-            transition: opacity 0.3s;
+            transition: transform 0.5s ease;
         }
-        .menu-item:hover .video-thumb img {
+
+        .video-card:hover .thumbnail-wrapper img {
+            transform: scale(1.05);
+        }
+
+        .play-icon {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            background: rgba(255,255,255,0.8);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: var(--transition);
+        }
+
+        .video-card:hover .play-icon {
             opacity: 1;
         }
 
-        .item-info {
-            padding: 20px;
-            border-top: 5px solid var(--accent-color);
-        }
-
-        .item-title {
-            font-family: 'Oswald', sans-serif;
-            font-size: 1.8rem;
-            margin: 0 0 10px 0;
-            color: var(--paper-color);
-        }
-
-        .item-desc {
-            color: #888;
-            font-size: 0.9rem;
-            margin-bottom: 15px;
-            line-height: 1.5;
-        }
-
-        .price-tag {
-            font-weight: bold;
-            font-size: 1.2rem;
+        .video-meta {
+            font-size: 0.85rem;
             color: var(--accent-color);
-            float: right;
+            margin-bottom: 8px;
+            display: block;
         }
 
-        /* --- 行動呼籲按鈕 --- */
-        .cta-btn {
-            display: inline-block;
-            background: transparent;
-            color: var(--text-main);
-            border: 2px solid var(--text-main);
-            padding: 15px 40px;
-            font-size: 1.2rem;
-            text-decoration: none;
-            margin-top: 20px;
-            transition: all 0.3s;
-            position: relative;
-            overflow: hidden;
+        .video-title {
+            font-size: 1.1rem;
+            font-weight: 500;
+            line-height: 1.4;
         }
 
-        .cta-btn:hover {
-            background: var(--accent-color);
-            border-color: var(--accent-color);
-            color: black;
-        }
-
-        /* --- 頁腳 --- */
+        /* --- 8. Footer --- */
         footer {
-            background: #111;
-            color: #555;
-            padding: 50px 20px;
+            background-color: #F2EFE9;
+            padding: 60px 0 24px;
+            margin-top: 80px;
             text-align: center;
-            border-top: 1px solid #333;
-            margin-top: 100px;
-        }
-        
-        /* --- 裝飾線條 --- */
-        .decorative-line {
-            width: 100%;
-            height: 20px;
-            background: repeating-linear-gradient(
-                45deg,
-                #333,
-                #333 10px,
-                #1a1918 10px,
-                #1a1918 20px
-            );
-            margin: 50px 0;
         }
 
+        .footer-social {
+            margin-bottom: 32px;
+        }
+
+        .footer-social a {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            line-height: 40px;
+            border-radius: 50%;
+            background: var(--white);
+            margin: 0 8px;
+            color: var(--text-main);
+            transition: var(--transition);
+        }
+
+        .footer-social a:hover {
+            background: var(--accent-color);
+            color: var(--white);
+        }
+
+        .copyright {
+            font-size: 0.8rem;
+            color: var(--text-light);
+        }
+
+        /* --- RWD --- */
+        @media (max-width: 768px) {
+            .hero {
+                flex-direction: column-reverse;
+                text-align: center;
+                padding: 40px 0;
+                min-height: auto;
+            }
+
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+            
+            .nav-links {
+                display: none; /* 簡化版：手機隱藏選單 */
+            }
+        }
     </style>
 </head>
 <body>
 
-    <nav>
-        <div class="logo">JOSH.BBQ</div>
-        <div class="nav-links">
-            <a href="#">MENU</a>
-            <a href="#">RESERVATION</a>
-            <a href="https://www.youtube.com/@channeljosh3198" style="color:var(--accent-color)">SUBSCRIBE</a>
+    <header>
+        <div class="container">
+            <nav>
+                <a href="#" class="logo">JOSH'S VIEW</a>
+                <ul class="nav-links">
+                    <li><a href="#about">關於 Josh</a></li>
+                    <li><a href="#interests">生活切片</a></li>
+                    <li><a href="#videos">最新影片</a></li>
+                    <li><a href="https://www.youtube.com/@channeljosh3198" target="_blank" style="color: var(--accent-color);">訂閱頻道</a></li>
+                </ul>
+            </nav>
         </div>
-    </nav>
+    </header>
 
-    <div class="hero">
-        <div class="stamp">CERTIFIED<br>TRASH</div>
-        <h1>PREMIUM<br><span>BRAINROT</span></h1>
-        <p style="font-size: 1.5rem; letter-spacing: 3px; margin-top: 20px;">SINCE 20XX • 100% ORGANIC CHAOS</p>
-        <a href="https://www.youtube.com/@channeljosh3198/videos" class="cta-btn">WATCH THE MENU</a>
-    </div>
+    <section class="hero container">
+        <div class="hero-text">
+            <span class="hero-tag">Lifestyle & Vlogging</span>
+            <h1>不加濾鏡的<br>生活原色。</h1>
+            <p>在這裡，紀錄真實，分享觀點。<br>沒有劇本，只有那些平凡卻有趣的日常。</p>
+            <a href="https://www.youtube.com/@channeljosh3198" target="_blank" class="btn-primary">前往 YouTube 頻道</a>
+        </div>
+        <div class="hero-image">
+            <img src="https://placehold.co/600x450/e0e0e0/888888?text=JOSH+Profile+Shot" alt="Josh">
+        </div>
+    </section>
 
-    <div class="marquee-strip">
-        <marquee scrollamount="12">
-            FRESH GARBAGE UPLOADED WEEKLY • WARNING: MAY CAUSE IQ LOSS • TASTES LIKE REGRET • AUTHENTIC INTERNET CRINGE • 
-        </marquee>
-    </div>
+    <section id="about" class="section-padding container">
+        <div class="section-title">
+            <h2>為什麼要紀錄？</h2>
+            <span></span>
+        </div>
+        <div class="about-content">
+            <p>Hi，我是 Josh。這裡沒有華麗的剪輯特效，也沒有精心設計的劇本。</p>
+            <p>我只是一個拿著相機的普通人，喜歡紀錄吃過的美食、走過的街道，還有腦袋裡突然蹦出的一些想法。這個網站，就是這些生活切片的集合，就像是一個整理得乾淨舒適的客廳。</p>
+            <p style="color: var(--accent-color); font-weight: 500;">「其實生活裡大部分的時間都是無聊的，但就是要在這些無聊裡找到一點好玩的東西。」</p>
+        </div>
+    </section>
 
-    <div class="decorative-line"></div>
-
-    <div class="menu-section">
-        <h2 class="section-title">TODAY'S SPECIALS</h2>
-        <p style="margin-bottom: 40px; font-size: 1.2rem; color: #888;">Hand-picked low quality content for your consumption.</p>
-
-        <div class="grid-container">
-            <div class="menu-item">
-                <div class="video-thumb">
-                     <iframe width="100%" height="100%" src="https://www.youtube.com/embed/videoseries?list=UUchanneljosh3198" title="Josh Video" frameborder="0" style="pointer-events: none;"></iframe>
-                </div>
-                <div class="item-info">
-                    <h3 class="item-title">THE CLASSIC MESS</h3>
-                    <p class="item-desc">A delicate balance of screaming and glitchy editing. Served with a side of confusion.</p>
-                    <span class="price-tag">$0.00 (Free)</span>
-                    <div style="clear:both;"></div>
-                </div>
+    <section id="interests" class="section-padding" style="background-color: #F2EFE9;">
+        <div class="container">
+            <div class="section-title">
+                <h2>探索生活</h2>
+                <span></span>
             </div>
-
-            <div class="menu-item">
-                <div class="video-thumb">
-                    <div style="width:100%; height:100%; background: #333; display:flex; justify-content:center; align-items:center; color: #555; font-size: 3rem; font-weight:bold;">?</div>
+            <div class="interests-grid">
+                <div class="interest-card">
+                    <div class="icon-box">
+                        <i class="fa-solid fa-utensils"></i>
+                    </div>
+                    <h3>美食探針</h3>
+                    <p>不一定是米其林，但絕對真實。從街邊小吃到話題餐廳，分享最直接的味蕾體驗。</p>
                 </div>
-                <div class="item-info">
-                    <h3 class="item-title">ROBLOX SURPRISE</h3>
-                    <p class="item-desc">Deep fried textures with raw audio input. Not recommended for sensitive ears.</p>
-                    <span class="price-tag">SOLD OUT</span>
-                    <div style="clear:both;"></div>
+                <div class="interest-card">
+                    <div class="icon-box">
+                        <i class="fa-regular fa-comment-dots"></i>
+                    </div>
+                    <h3>生活雜談</h3>
+                    <p>關於時事、科技、或者僅僅是今天天氣的碎碎念。觀點未必正確，但絕對誠實。</p>
                 </div>
-            </div>
-
-            <div class="menu-item">
-                <div class="video-thumb">
-                    <div style="width:100%; height:100%; background: #333; display:flex; justify-content:center; align-items:center; color: #555; font-size: 3rem; font-weight:bold;">!</div>
-                </div>
-                <div class="item-info">
-                    <h3 class="item-title">MEME PLATTER</h3>
-                    <p class="item-desc">An assortment of dead memes aged for 3 years. Chewy and regrettable.</p>
-                    <span class="price-tag">HOT</span>
-                    <div style="clear:both;"></div>
+                <div class="interest-card">
+                    <div class="icon-box">
+                        <i class="fa-solid fa-plane-departure"></i>
+                    </div>
+                    <h3>出走紀錄</h3>
+                    <p>離開舒適圈的小旅行。紀錄沿途的風景、意外的插曲，和那些路上的故事。</p>
                 </div>
             </div>
         </div>
-    </div>
+    </section>
 
-    <div style="background-color: var(--paper-color); color: black; padding: 80px 20px; text-align: center;">
-        <h2 style="font-size: 3rem; margin-bottom: 20px;">HUNGRY FOR MORE?</h2>
-        <p style="font-size: 1.2rem; max-width: 600px; margin: 0 auto 40px auto;">
-            We don't actually serve food. We serve digital disappointment. Join the community to get notified when we burn the next batch.
-        </p>
-        <a href="https://www.youtube.com/@channeljosh3198" class="cta-btn" style="border-color: black; color: black;">
-            RESERVE YOUR SEAT (SUBSCRIBE)
-        </a>
-    </div>
+    <section id="videos" class="section-padding container">
+        <div class="section-title">
+            <h2>最新上傳</h2>
+            <span></span>
+        </div>
+        <div class="video-grid">
+            <a href="https://www.youtube.com/@channeljosh3198/videos" target="_blank" class="video-card">
+                <div class="thumbnail-wrapper">
+                    <img src="https://placehold.co/400x225/dddddd/999999?text=Vlog+Thumbnail+01" alt="Video 1">
+                    <div class="play-icon"><i class="fa-solid fa-play"></i></div>
+                </div>
+                <span class="video-meta">2024.05.20</span>
+                <h3 class="video-title">一個人去吃的巷弄拉麵，真的好吃嗎？</h3>
+            </a>
+
+            <a href="https://www.youtube.com/@channeljosh3198/videos" target="_blank" class="video-card">
+                <div class="thumbnail-wrapper">
+                    <img src="https://placehold.co/400x225/d5d5d5/999999?text=Vlog+Thumbnail+02" alt="Video 2">
+                    <div class="play-icon"><i class="fa-solid fa-play"></i></div>
+                </div>
+                <span class="video-meta">2024.05.15</span>
+                <h3 class="video-title">週末隨手拍：台北的雨天散步與思考</h3>
+            </a>
+
+            <a href="https://www.youtube.com/@channeljosh3198/videos" target="_blank" class="video-card">
+                <div class="thumbnail-wrapper">
+                    <img src="https://placehold.co/400x225/cccccc/999999?text=Vlog+Thumbnail+03" alt="Video 3">
+                    <div class="play-icon"><i class="fa-solid fa-play"></i></div>
+                </div>
+                <span class="video-meta">2024.05.08</span>
+                <h3 class="video-title">關於最近頻道的一些新想法，聊聊天。</h3>
+            </a>
+        </div>
+        
+        <div style="text-align: center; margin-top: 40px;">
+            <a href="https://www.youtube.com/@channeljosh3198/videos" target="_blank" class="btn-primary" style="background-color: transparent; border: 1px solid var(--text-main); color: var(--text-main);">查看更多影片</a>
+        </div>
+    </section>
 
     <footer>
-        <p>© 2024 JOSH INC. | NO REFUNDS | NOT A REAL RESTAURANT</p>
-        <p style="font-size: 0.8rem; margin-top: 10px;">DESIGN INSPIRED BY CASCADE BBQ</p>
+        <div class="container">
+            <div class="footer-social">
+                <a href="https://www.youtube.com/@channeljosh3198" target="_blank"><i class="fa-brands fa-youtube"></i></a>
+                <a href="#"><i class="fa-brands fa-instagram"></i></a>
+                <a href="#"><i class="fa-regular fa-envelope"></i></a>
+            </div>
+            <p class="copyright">&copy; 2024 Josh's View. All rights reserved.</p>
+        </div>
     </footer>
 
 </body>
