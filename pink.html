@@ -32,11 +32,8 @@
         }
 
         /* --- 遊戲素材 (使用 CSS Sprite 從原圖切割) --- */
-        /* 假設原圖的 URL。在實際應用中，請確保此連結有效，或下載圖片到本地 */
-        /* 為了演示，這裡使用一個佔位符，請在運行前替換為您的圖片實際路徑 */
+        /* 圖片連結將在 JavaScript 中動態設置 */
         .sprite {
-            /* 請將下方的 URL 替換為您上傳圖片後的真實連結 */
-            background-image: url('https://i.imgur.com/3J5y6zL.png'); /* 這裡暫時用 Imgur 的連結示意 */
             background-size: 200% 200%; /* 因為是 2x2 的格子圖 */
             position: absolute;
             background-repeat: no-repeat;
@@ -314,12 +311,9 @@
              }
         }
 
-        // --- 重要：請替換圖片連結 ---
-        // 由於無法直接讀取您上傳的圖片，我將圖片上傳到了一個臨時圖床以供演示。
-        // 實際使用時，請確保 CSS 中的 background-image 連結是正確的。
-        // 為了讓上面的程式碼能直接運作，我使用 JavaScript 動態替換 CSS 中的圖片 URL。
-        
-        const yourImageURL = 'https://i.imgur.com/3J5y6zL.png'; // 這是您提供的圖片的臨時連結
+        // --- 圖片連結替換區 ---
+        // 已經替換為您指定的 GitHub raw 連結
+        const yourImageURL = 'https://raw.githubusercontent.com/jasonxleg/aigames/main/pinker.jpg';
 
         // 遍歷所有帶有 'sprite' 類別的元素並設置背景圖
         document.querySelectorAll('.sprite').forEach(el => {
