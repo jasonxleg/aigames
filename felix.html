@@ -2,8 +2,8 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>麥洛的奇妙袋子 - 除錯版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>麥洛的奇妙袋子</title>
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -14,193 +14,127 @@
         :root {
             --bg-color: #e6e6e6;
             --ink-color: #0d0d0d;
-            --panel-border: 4px solid var(--ink-color);
+            --panel-border: 3px solid var(--ink-color);
         }
 
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body {
-            background-color: #222; /* 電腦版深色背景 */
+            background-color: #222;
             margin: 0;
             font-family: 'VT323', monospace;
             color: var(--ink-color);
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            height: 100vh; /* 使用 vh 兼容性較好 */
+            overflow: hidden;
         }
 
-        /* 遊戲主機本體 - 限制最大寬度以適應電腦螢幕 */
         #game-boy {
             position: relative;
             width: 100%;
-            max-width: 500px; /* 手機版寬度模擬 */
-            height: 100vh;
-            max-height: 900px; /* 避免在超長螢幕變形 */
+            max-width: 600px;
+            height: 100%;
             background-color: var(--bg-color);
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            box-shadow: 0 0 50px rgba(0,0,0,0.5); /* 電腦版陰影 */
         }
 
-        /* 膠卷雜訊 */
+        /* 膠卷雜訊濾鏡 */
         #grain-overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.1'/%3E%3C/svg%3E");
-            z-index: 100;
-            opacity: 0.3;
+            z-index: 100; opacity: 0.3;
         }
 
         /* 記分板 */
         #scoreboard {
-            background: #fff;
-            color: var(--ink-color);
-            border-bottom: var(--panel-border);
-            padding: 10px;
-            font-size: 1.2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-shrink: 0;
+            background: #fff; color: var(--ink-color); border-bottom: var(--panel-border);
+            padding: 10px; font-size: 1.2rem; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
         }
 
-        /* 漫畫區 */
+        /* 漫畫區域 */
         .comic-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: 1fr 1fr;
-            gap: 10px;
-            padding: 15px;
-            background: #fff;
-            aspect-ratio: 1 / 1;
-            flex-shrink: 0;
+            display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+            gap: 8px; padding: 10px; background: #fff; aspect-ratio: 1 / 1; width: 100%; flex-shrink: 0;
         }
 
         .panel {
-            border: var(--panel-border);
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 5px;
-            text-align: center;
-            opacity: 0.1;
-            transition: opacity 0.5s ease;
-            background: #fff;
+            border: var(--panel-border); position: relative; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; padding: 5px; text-align: center;
+            opacity: 0.1; transition: opacity 0.5s ease; background: #fff;
         }
         .panel.visible { opacity: 1; }
 
-        .panel-num { position: absolute; top: 0; left: 0; background: var(--ink-color); color: white; padding: 0 6px; }
-        .emoji-art { font-size: 3rem; margin-bottom: 5px; filter: grayscale(1); }
-        .desc-text { font-size: 1.2rem; line-height: 1.1; font-style: italic; }
+        .panel-num { position: absolute; top: 0; left: 0; background: var(--ink-color); color: white; padding: 0px 6px; font-size: 1rem; }
+        .emoji-art { font-size: 2.5rem; margin-bottom: 2px; filter: grayscale(1); }
+        .desc-text { font-size: 1.1rem; line-height: 1; font-style: italic; }
 
         /* 字幕卡 */
         .intertitle {
-            background: var(--ink-color);
-            color: var(--bg-color);
-            padding: 10px;
-            min-height: 60px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            font-size: 1.5rem;
-            border-top: 4px double var(--bg-color);
-            border-bottom: 4px double var(--bg-color);
-            flex-shrink: 0;
+            background: var(--ink-color); color: var(--bg-color); padding: 10px; min-height: 50px;
+            display: flex; justify-content: center; align-items: center; text-align: center;
+            font-size: 1.3rem; border-top: 4px double var(--bg-color); border-bottom: 4px double var(--bg-color); flex-shrink: 0;
         }
 
         /* 選項區 */
-        .controls {
-            flex-grow: 1;
-            padding: 15px;
-            background: var(--bg-color);
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            overflow-y: auto;
-        }
+        .controls { flex-grow: 1; padding: 10px; background: var(--bg-color); display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
 
         .btn {
-            background: white;
-            border: 3px solid var(--ink-color);
-            padding: 12px;
-            font-family: inherit;
-            font-size: 1.4rem;
-            cursor: pointer;
-            text-align: left;
-            transition: 0.1s;
-            width: 100%;
+            background: white; border: 3px solid var(--ink-color); padding: 15px;
+            font-family: inherit; font-size: 1.3rem; cursor: pointer; text-align: left; width: 100%; border-radius: 6px;
         }
-        .btn:hover { background: var(--ink-color); color: white; }
+        .btn:active { background: var(--ink-color); color: white; transform: scale(0.98); }
         .btn:disabled { opacity: 0.5; pointer-events: none; }
 
-        /* 轉場與彈窗 */
+        /* 轉場與結果層 */
         #iris-transition {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--ink-color);
-            z-index: 200;
-            clip-path: circle(0% at 50% 50%);
-            transition: clip-path 0.8s ease-in-out;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--ink-color); z-index: 200; clip-path: circle(0% at 50% 50%);
+            transition: clip-path 0.8s ease-in-out; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; color: white;
         }
         #iris-transition.open { clip-path: circle(150% at 50% 50%); }
 
-        .result-content { text-align: center; width: 100%; display: none; }
+        .result-content { text-align: center; width: 100%; display: none; padding: 20px; }
         .result-content.show { display: block; }
         
-        .next-btn {
-            margin-top: 20px; background: white; color: black; border: none; padding: 10px 30px;
-            font-size: 1.5rem; font-family: 'VT323'; cursor: pointer;
+        .next-btn { margin-top: 20px; background: white; color: black; border: none; padding: 15px; width: 100%; font-size: 1.5rem; font-family: 'VT323'; cursor: pointer; }
+
+        .fb-btn {
+            background: white; color: var(--ink-color); border: 3px solid var(--ink-color);
+            padding: 10px; font-family: 'VT323'; font-size: 1.4rem; cursor: pointer;
+            margin-top: 15px; width: 100%; display: flex; justify-content: center; gap: 10px;
         }
 
-        #new-record-modal {
-            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); z-index: 300;
-            justify-content: center; align-items: center;
-        }
-        .modal-content {
-            background: var(--bg-color); border: 6px double var(--ink-color); padding: 30px;
-            text-align: center; width: 80%;
-        }
-        #player-name-input {
-            background: transparent; border: none; border-bottom: 3px solid var(--ink-color);
-            font-family: 'VT323'; font-size: 2rem; text-align: center; width: 100%; margin: 20px 0;
-            color: var(--ink-color); text-transform: uppercase;
-        }
-
-        /* 錯誤提示 */
-        #error-msg {
-            color: red; font-size: 1rem; position: absolute; bottom: 5px; left: 0; width: 100%; text-align: center; z-index: 500;
-        }
+        #new-record-modal { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 300; justify-content: center; align-items: center; }
+        .modal-content { background: var(--bg-color); border: 6px double var(--ink-color); padding: 20px; text-align: center; width: 90%; max-width: 400px; }
+        #player-name-input { background: transparent; border: none; border-bottom: 3px solid var(--ink-color); font-family: 'VT323'; font-size: 2rem; text-align: center; width: 100%; margin: 20px 0; color: var(--ink-color); text-transform: uppercase; border-radius: 0; }
+        
+        /* 狀態指示燈 */
+        #status-indicator { font-size: 0.8rem; margin-right: 5px; }
     </style>
 </head>
 <body>
 
 <div id="game-boy">
     <div id="grain-overlay"></div>
-    <div id="error-msg"></div> <div id="scoreboard">
+    
+    <div id="scoreboard">
         <span>🏆 BEST: <span id="best-score">...</span></span>
-        <span>SCORE: <span id="current-score">0</span></span>
+        <span><span id="status-indicator">●</span>SCORE: <span id="current-score">0</span></span>
     </div>
 
     <div class="comic-container">
         <div class="panel" id="p1"><span class="panel-num">1</span><div class="emoji-art" id="e1"></div><div class="desc-text" id="d1"></div></div>
         <div class="panel" id="p2"><span class="panel-num">2</span><div class="emoji-art" id="e2"></div><div class="desc-text" id="d2"></div></div>
         <div class="panel" id="p3"><span class="panel-num">3</span><div class="emoji-art" id="e3"></div><div class="desc-text" id="d3"></div></div>
-        <div class="panel" id="p4"><span class="panel-num">4</span><div class="emoji-art">❓👜</div><div class="desc-text">你的選擇？</div></div>
+        <div class="panel" id="p4"><span class="panel-num">4</span><div class="emoji-art">❓👜</div><div class="desc-text" style="font-weight:bold">你的選擇？</div></div>
     </div>
 
-    <div class="intertitle" id="main-text">初始化系統...</div>
+    <div class="intertitle" id="main-text">載入中...</div>
 
     <div class="controls" id="choices-area"></div>
 
@@ -208,7 +142,8 @@
         <div class="result-content">
             <h1 id="res-title">LEVEL CLEAR</h1>
             <p id="res-desc">...</p>
-            <button class="next-btn" onclick="loadNextLevel()">NEXT >></button>
+            <button class="fb-btn" onclick="shareToFacebook()">f 分享劇情</button>
+            <button class="next-btn" onclick="loadNextLevel()">下一關 >></button>
         </div>
     </div>
 
@@ -216,14 +151,14 @@
         <div class="modal-content">
             <h2>NEW RECORD!</h2>
             <p>Score: <span id="final-score-display">0</span></p>
-            <input type="text" id="player-name-input" placeholder="NAME" maxlength="10">
-            <button class="btn" onclick="saveRecord()">SAVE</button>
+            <input type="text" id="player-name-input" placeholder="YOUR NAME" maxlength="10">
+            <button class="btn" onclick="saveRecord()">UPLOAD</button>
         </div>
     </div>
 </div>
 
 <script>
-    // --- 1. Firebase 設定 (請確保正確) ---
+    // --- 1. Firebase 設定 (你的專屬設定) ---
     const firebaseConfig = {
       apiKey: "AIzaSyDcHWsk6ffYC1XyKIga8GpHok_jUyPcNQc",
       authDomain: "milo-game-d238c.firebaseapp.com",
@@ -234,46 +169,48 @@
     };
 
     let db = null;
-    let isOffline = false;
+    let isOffline = false; // 離線模式旗標
 
-    // 安全初始化 Firebase
+    // --- 安全初始化 Firebase (防止黑屏的關鍵) ---
     try {
         firebase.initializeApp(firebaseConfig);
         db = firebase.firestore();
         console.log("Firebase initialized");
+        document.getElementById('status-indicator').style.color = 'green'; // 連線成功綠燈
     } catch (e) {
-        console.error("Firebase Init Failed:", e);
-        showError("資料庫連線失敗，啟動離線模式");
+        console.error("Firebase Init Failed (啟用離線模式):", e);
         isOffline = true;
+        document.getElementById('status-indicator').style.color = 'red'; // 連線失敗紅燈
     }
 
-    // --- 2. 遊戲資料庫 (Game Database) ---
-    // (為了節省空間，這裡使用縮減版，邏輯與之前相同)
+    // --- 2. 遊戲資料庫 ---
     const gameData = {
         "ep1": {
             title: "EP1: MOON CHEESE",
-            panels: [{ emoji: "😿", text: "麥洛餓了" }, { emoji: "🧀", text: "月亮是起司" }, { emoji: "🤕", text: "跳不上去" }],
-            question: "要怎麼上去？",
+            panels: [{ emoji: "😿", text: "麥洛餓扁了" }, { emoji: "🧀", text: "月亮是起司" }, { emoji: "🤕", text: "跳不上去" }],
+            question: "打開神奇袋子！",
             choices: [
-                { id: "A", text: "A. 彈弓", nextLevel: "ep2", result: "飛太快了！" },
-                { id: "B", text: "B. 氣球", nextLevel: "ep2", result: "變成氣球了！" }
+                { id: "A", text: "A. 彈弓 (暴力)", nextLevel: "ep2_sky", result: "飛太快撞到老鷹！" },
+                { id: "B", text: "B. 氣球 (變身)", nextLevel: "ep2_balloon", result: "變成氣球飄上去！" },
+                { id: "C", text: "C. 剪刀 (後設)", nextLevel: "ep2_meta", result: "剪開背景爬上去！" },
+                { id: "D", text: "D. 薩克斯風", nextLevel: "ep2_jazz", result: "月亮下來聽音樂！" }
             ]
         },
-        "ep2": {
-            title: "EP2: THE END",
-            panels: [{ emoji: "🏁", text: "演示結束" }, { emoji: "😺", text: "謝謝遊玩" }, { emoji: "🏆", text: "結算成績" }],
-            choices: []
-        }
+        "ep2_sky": { title: "EP2: SKY TRAFFIC", panels: [{ emoji: "🦅", text: "老鷹警察臨檢" }, { emoji: "🛑", text: "你超速了" }, { emoji: "👮", text: "開罰單" }], question: "怎麼辦？", choices: [{id:"A", text:"A. 假警徽", nextLevel:"ep3_end", result:"混過去了"}, {id:"B", text:"B. 逃跑", nextLevel:"ep3_end", result:"被抓住了"}]},
+        "ep2_balloon": { title: "EP2: NEEDLE PEAKS", panels: [{ emoji: "🎈", text: "飄到針尖山" }, { emoji: "🌵", text: "好多仙人掌" }, { emoji: "🐝", text: "蜜蜂來了" }], question: "怎麼辦？", choices: [{id:"A", text:"A. 噴氣加速", nextLevel:"ep3_end", result:"成功逃脫"}, {id:"B", text:"B. 變鐵皮", nextLevel:"ep3_end", result:"太重墜落"}]},
+        "ep2_meta": { title: "EP2: SKETCH WORLD", panels: [{ emoji: "✏️", text: "來到線稿世界" }, { emoji: "🖐️", text: "畫師的手出現" }, { emoji: "🧹", text: "要被擦掉了" }], question: "怎麼辦？", choices: [{id:"A", text:"A. 搶鉛筆", nextLevel:"ep3_end", result:"你變成畫師"}, {id:"B", text:"B. 裝死", nextLevel:"ep3_end", result:"被擦掉一半"}]},
+        "ep2_jazz": { title: "EP2: MOON PARTY", panels: [{ emoji: "🎷", text: "開派對" }, { emoji: "🧛", text: "吵醒吸血鬼" }, { emoji: "🦇", text: "他很生氣" }], question: "怎麼辦？", choices: [{id:"A", text:"A. 請喝番茄汁", nextLevel:"ep3_end", result:"變成好朋友"}, {id:"B", text:"B. 用光照他", nextLevel:"ep3_end", result:"他逃跑了"}]},
+        "ep3_end": { title: "THE END", panels: [{emoji:"🏁", text:"遊戲結束"}, {emoji:"😺", text:"感謝遊玩"}, {emoji:"🏆", text:"結算成績"}], choices: [] }
     };
 
-    // --- 3. 遊戲變數 ---
     let currentLevelId = 'ep1';
     let nextLevelId = ''; 
     let score = 0; 
+    let currentShareText = "";
     let globalHighScore = 0;
 
     const els = {
-        title: document.getElementById('main-text'), // 簡化
+        title: document.getElementById('main-text'),
         p1: document.getElementById('p1'), e1: document.getElementById('e1'), d1: document.getElementById('d1'),
         p2: document.getElementById('p2'), e2: document.getElementById('e2'), d2: document.getElementById('d2'),
         p3: document.getElementById('p3'), e3: document.getElementById('e3'), d3: document.getElementById('d3'),
@@ -291,25 +228,26 @@
         nameInput: document.getElementById('player-name-input')
     };
 
-    function showError(msg) {
-        document.getElementById('error-msg').innerText = msg;
-    }
-
     function initGame() {
         score = 0;
         updateScoreUI();
         loadGlobalHighscore();
-        els.iris.classList.add('open');
-        renderLevel('ep1');
+        
+        // 【關鍵】強制打開布幕，不管網路好壞，延遲 100ms 確保 DOM Ready
+        setTimeout(() => {
+            els.iris.classList.add('open');
+            renderLevel('ep1');
+        }, 100);
     }
 
     function loadGlobalHighscore() {
+        // 如果已經判定為離線，或 db 未初始化，直接顯示離線
         if (isOffline || !db) {
             els.bestScore.innerText = "OFFLINE";
             return;
         }
 
-        // 使用 catch 處理權限錯誤
+        // 嘗試連線
         db.collection("leaderboard")
           .orderBy("score", "desc")
           .limit(1)
@@ -322,15 +260,10 @@
                   els.bestScore.innerText = 0;
               }
           }, (error) => {
-              console.error("讀取排行榜失敗:", error);
-              // 如果是權限不足，顯示具體錯誤
-              if (error.code === 'permission-denied') {
-                  showError("權限錯誤：請檢查 Firebase Rules");
-              } else {
-                  showError("連線錯誤：" + error.message);
-              }
-              els.bestScore.innerText = "Error";
-              isOffline = true; // 切換到離線模式，避免卡住
+              // 這裡會攔截 QUIC Error 或權限錯誤
+              console.warn("排行榜讀取失敗 (切換為離線顯示):", error);
+              els.bestScore.innerText = "OFFLINE";
+              // 這裡不設定 isOffline = true，因為也許只是讀取失敗，寫入還能成功
           });
     }
 
@@ -342,15 +275,15 @@
         currentLevelId = levelId;
         const data = gameData[levelId];
         
-        // UI Reset
+        // Reset UI
         els.p1.classList.remove('visible');
         els.p2.classList.remove('visible');
         els.p3.classList.remove('visible');
         els.p4.classList.remove('visible');
         els.choicesArea.innerHTML = '';
-        els.mainText.innerText = data.title;
+        els.mainText.innerText = "讀取中...";
 
-        // Content
+        // Set Content
         if(data.panels[0]) { els.e1.innerText = data.panels[0].emoji; els.d1.innerText = data.panels[0].text; }
         if(data.panels[1]) { els.e2.innerText = data.panels[1].emoji; els.d2.innerText = data.panels[1].text; }
         if(data.panels[2]) { els.e3.innerText = data.panels[2].emoji; els.d3.innerText = data.panels[2].text; }
@@ -381,6 +314,7 @@
             const btn = document.createElement('button');
             btn.className = 'btn';
             btn.innerText = choice.text;
+            btn.ontouchstart = () => {}; 
             btn.onclick = () => handleChoice(choice);
             els.choicesArea.appendChild(btn);
         });
@@ -390,6 +324,7 @@
         nextLevelId = choice.nextLevel;
         score++;
         updateScoreUI();
+        currentShareText = `我在《麥洛的奇妙袋子》存活了 ${score} 關！結局：${choice.result}`;
 
         els.resTitle.innerText = "LEVEL CLEAR";
         els.resDesc.innerText = choice.result;
@@ -406,10 +341,9 @@
     };
 
     function checkEndGame() {
-        // 如果離線模式，直接顯示結束，不跳排行榜
-        if (isOffline) {
-            alert("遊戲結束！分數：" + score + "\n(離線模式無法儲存紀錄)");
-            location.reload();
+        // 如果是離線模式，直接結束，不跳上傳視窗
+        if (isOffline || !db) {
+            if(confirm("遊戲結束！分數：" + score + "\n(離線模式無法上傳排行榜)\n要重來嗎？")) location.reload();
             return;
         }
 
@@ -422,8 +356,16 @@
     }
 
     window.saveRecord = function() {
+        if (isOffline || !db) {
+            alert("目前處於離線模式，無法上傳。");
+            location.reload();
+            return;
+        }
+
         const name = els.nameInput.value.trim() || "UNKNOWN";
-        if (isOffline) return;
+        const btn = document.querySelector('#new-record-modal .btn');
+        btn.innerText = "UPLOADING...";
+        btn.disabled = true;
 
         db.collection("leaderboard").add({
             name: name, score: score, date: new Date().toISOString()
@@ -432,7 +374,15 @@
             location.reload();
         }).catch((e) => {
             alert("上傳失敗：" + e.message);
+            location.reload(); // 失敗也重整，避免卡住
         });
+    }
+
+    window.shareToFacebook = function() {
+        const gameUrl = window.location.href; 
+        const hashtag = "#MilosWonderBag";
+        const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(gameUrl)}&quote=${encodeURIComponent(currentShareText)}&hashtag=${encodeURIComponent(hashtag)}`;
+        window.open(fbUrl, 'FacebookShare', 'width=600,height=400,menubar=no,toolbar=no');
     }
 
     window.onload = initGame;
