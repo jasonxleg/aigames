@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>麥洛的奇妙袋子 (離線版)</title>
+    <title>麥洛的奇妙袋子 (無轉場版)</title>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
@@ -39,20 +39,18 @@
             overflow: hidden;
         }
 
-        /* 膠卷雜訊濾鏡 */
+        /* 膠卷雜訊 (保留復古感，但不會變黑) */
         #grain-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.1'/%3E%3C/svg%3E");
             z-index: 100; opacity: 0.3;
         }
 
-        /* 記分板 */
         #scoreboard {
             background: #fff; color: var(--ink-color); border-bottom: var(--panel-border);
             padding: 10px; font-size: 1.2rem; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
         }
 
-        /* 漫畫區域 */
         .comic-container {
             display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
             gap: 8px; padding: 10px; background: #fff; aspect-ratio: 1 / 1; width: 100%; flex-shrink: 0;
@@ -69,14 +67,12 @@
         .emoji-art { font-size: 2.5rem; margin-bottom: 2px; filter: grayscale(1); }
         .desc-text { font-size: 1.1rem; line-height: 1; font-style: italic; }
 
-        /* 字幕卡 */
         .intertitle {
             background: var(--ink-color); color: var(--bg-color); padding: 10px; min-height: 50px;
             display: flex; justify-content: center; align-items: center; text-align: center;
             font-size: 1.3rem; border-top: 4px double var(--bg-color); border-bottom: 4px double var(--bg-color); flex-shrink: 0;
         }
 
-        /* 選項區 */
         .controls { flex-grow: 1; padding: 10px; background: var(--bg-color); display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
 
         .btn {
@@ -86,31 +82,26 @@
         .btn:active { background: var(--ink-color); color: white; transform: scale(0.98); }
         .btn:disabled { opacity: 0.5; pointer-events: none; }
 
-        /* 轉場與結果層 */
-        #iris-transition {
+        /* --- 修改後的結果視窗 (不再是全黑遮罩，而是普通的彈出層) --- */
+        #result-overlay {
+            display: none; /* 預設隱藏 */
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--ink-color); z-index: 200; clip-path: circle(0% at 50% 50%);
-            transition: clip-path 0.8s ease-in-out; display: flex; flex-direction: column;
-            justify-content: center; align-items: center; color: white;
+            background: rgba(0,0,0,0.85); /* 半透明黑色 */
+            z-index: 200;
+            justify-content: center; align-items: center;
+            flex-direction: column;
+            color: white;
+            padding: 20px;
         }
-        #iris-transition.open { clip-path: circle(150% at 50% 50%); }
-
-        .result-content { text-align: center; width: 100%; display: none; padding: 20px; }
-        .result-content.show { display: block; }
+        
+        /* 破紀錄視窗 */
+        #new-record-modal { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 300; justify-content: center; align-items: center; }
+        
+        .modal-content { background: var(--bg-color); border: 6px double var(--ink-color); padding: 20px; text-align: center; width: 90%; max-width: 400px; color: var(--ink-color); }
         
         .next-btn { margin-top: 20px; background: white; color: black; border: none; padding: 15px; width: 100%; font-size: 1.5rem; font-family: 'VT323'; cursor: pointer; }
-
-        .fb-btn {
-            background: white; color: var(--ink-color); border: 3px solid var(--ink-color);
-            padding: 10px; font-family: 'VT323'; font-size: 1.4rem; cursor: pointer;
-            margin-top: 15px; width: 100%; display: flex; justify-content: center; gap: 10px;
-        }
-
-        #new-record-modal { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 300; justify-content: center; align-items: center; }
-        .modal-content { background: var(--bg-color); border: 6px double var(--ink-color); padding: 20px; text-align: center; width: 90%; max-width: 400px; }
+        .fb-btn { background: white; color: var(--ink-color); border: 3px solid var(--ink-color); padding: 10px; font-family: 'VT323'; font-size: 1.4rem; cursor: pointer; margin-top: 15px; width: 100%; display: flex; justify-content: center; gap: 10px; }
         #player-name-input { background: transparent; border: none; border-bottom: 3px solid var(--ink-color); font-family: 'VT323'; font-size: 2rem; text-align: center; width: 100%; margin: 20px 0; color: var(--ink-color); text-transform: uppercase; border-radius: 0; }
-        
-        #status-indicator { font-size: 0.8rem; margin-right: 5px; color: green; } /* 離線版永遠是綠燈 */
     </style>
 </head>
 <body>
@@ -120,7 +111,7 @@
     
     <div id="scoreboard">
         <span>🏆 BEST: <span id="best-score">0</span> <span id="best-player"></span></span>
-        <span><span id="status-indicator">●</span>SCORE: <span id="current-score">0</span></span>
+        <span>SCORE: <span id="current-score">0</span></span>
     </div>
 
     <div class="comic-container">
@@ -134,10 +125,10 @@
 
     <div class="controls" id="choices-area"></div>
 
-    <div id="iris-transition">
-        <div class="result-content">
-            <h1 id="res-title">LEVEL CLEAR</h1>
-            <p id="res-desc">...</p>
+    <div id="result-overlay">
+        <h1 id="res-title">LEVEL CLEAR</h1>
+        <p id="res-desc" style="font-size: 1.5rem; text-align: center;">...</p>
+        <div style="width: 100%; max-width: 400px;">
             <button class="fb-btn" onclick="shareToFacebook()">f 分享劇情</button>
             <button class="next-btn" onclick="loadNextLevel()">下一關 >></button>
         </div>
@@ -154,8 +145,7 @@
 </div>
 
 <script>
-    // --- 0. 讀取本機紀錄 (Local Storage) ---
-    // 這是離線版的靈魂，資料存在瀏覽器裡
+    // --- 0. 讀取本機紀錄 ---
     let localHighScore = parseInt(localStorage.getItem('milo_best_score')) || 0;
     let localBestName = localStorage.getItem('milo_best_name') || "";
 
@@ -192,8 +182,7 @@
         p4: document.getElementById('p4'),
         mainText: document.getElementById('main-text'),
         choicesArea: document.getElementById('choices-area'),
-        iris: document.getElementById('iris-transition'),
-        resContent: document.querySelector('.result-content'),
+        resultOverlay: document.getElementById('result-overlay'), // 以前叫 iris
         resTitle: document.getElementById('res-title'),
         resDesc: document.getElementById('res-desc'),
         bestScore: document.getElementById('best-score'),
@@ -212,11 +201,8 @@
         els.bestScore.innerText = localHighScore;
         if(localBestName) els.bestPlayer.innerText = `(${localBestName})`;
 
-        // 強制開啟畫面 (離線版不需要等網路，直接開)
-        setTimeout(() => {
-            els.iris.classList.add('open');
-            renderLevel('ep1');
-        }, 100);
+        // 直接渲染，不播動畫
+        renderLevel('ep1');
     }
 
     function updateScoreUI() {
@@ -280,20 +266,18 @@
 
         els.resTitle.innerText = "LEVEL CLEAR";
         els.resDesc.innerText = choice.result;
-        els.iris.classList.remove('open');
-        setTimeout(() => {
-             els.resContent.classList.add('show');
-        }, 800);
+        
+        // 顯示結果視窗 (直接顯示，不轉場)
+        els.resultOverlay.style.display = 'flex';
     }
 
     window.loadNextLevel = function() {
-        els.resContent.classList.remove('show');
+        // 隱藏結果視窗
+        els.resultOverlay.style.display = 'none';
         renderLevel(nextLevelId);
-        setTimeout(() => els.iris.classList.add('open'), 100);
     };
 
     function checkEndGame() {
-        // 檢查是否打破本機紀錄
         if (score > localHighScore) {
             els.finalScoreDisplay.innerText = score;
             els.recordModal.style.display = 'flex';
@@ -304,24 +288,12 @@
 
     window.saveRecord = function() {
         const name = els.nameInput.value.trim() || "YOU";
-        
-        // 儲存到瀏覽器 Local Storage
         localStorage.setItem('milo_best_score', score);
         localStorage.setItem('milo_best_name', name);
-
-        alert("新紀錄已儲存在本機！");
+        alert("紀錄已儲存！");
         location.reload();
     }
 
     window.shareToFacebook = function() {
         const gameUrl = window.location.href; 
-        const hashtag = "#MilosWonderBag";
-        const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(gameUrl)}&quote=${encodeURIComponent(currentShareText)}&hashtag=${encodeURIComponent(hashtag)}`;
-        window.open(fbUrl, 'FacebookShare', 'width=600,height=400,menubar=no,toolbar=no');
-    }
-
-    window.onload = initGame;
-</script>
-
-</body>
-</html>
+        const hashtag = "#
