@@ -3,493 +3,366 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>復仇者：多重宇宙袋子</title>
-    
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-
+    <title>漫威：五格大冒險</title>
     <style>
-        /* 引入美漫風格字體 */
-        @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Roboto+Condensed:wght@700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Noto+Sans+TC:wght@700&display=swap');
 
         :root {
             --marvel-red: #EC1D24;
-            --marvel-dark: #121212;
-            --marvel-yellow: #F7D919;
-            --comic-border: 3px solid #000;
-            --panel-bg: #fff;
+            --marvel-dark: #101010;
+            --comic-bg: #f2f2f2;
+            --panel-border: 4px solid #000;
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body {
-            background-color: #202020;
-            /* 漫畫網點背景 */
-            background-image: radial-gradient(#444 15%, transparent 16%), radial-gradient(#444 15%, transparent 16%);
-            background-size: 20px 20px;
-            background-position: 0 0, 10px 10px;
             margin: 0;
-            font-family: 'Roboto Condensed', sans-serif;
-            color: black;
+            background-color: #333;
+            font-family: 'Noto Sans TC', sans-serif;
             display: flex;
             justify-content: center;
-            align-items: center;
             height: 100vh;
             overflow: hidden;
         }
 
-        #comic-reader {
-            position: relative;
+        /* 手機框架 */
+        #game-device {
             width: 100%;
-            max-width: 500px;
+            max-width: 480px;
             height: 100%;
-            max-height: 850px;
-            background-color: var(--marvel-red);
+            background: var(--comic-bg);
             display: flex;
             flex-direction: column;
-            overflow: hidden;
-            border: 4px solid black;
-            box-shadow: 10px 10px 0px rgba(0,0,0,0.5);
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            /* 漫畫網點背景 */
+            background-image: radial-gradient(#ccc 15%, transparent 16%), radial-gradient(#ccc 15%, transparent 16%);
+            background-size: 20px 20px;
         }
 
-        /* 標題欄 */
-        #header-bar {
+        /* 標題列 */
+        header {
             background: var(--marvel-red);
             color: white;
             padding: 10px;
             text-align: center;
             font-family: 'Bangers', cursive;
-            font-size: 1.8rem;
-            letter-spacing: 2px;
-            text-transform: uppercase;
+            font-size: 1.5rem;
             border-bottom: 4px solid black;
-            text-shadow: 2px 2px 0px black;
+            z-index: 10;
             display: flex;
             justify-content: space-between;
             align-items: center;
-        }
-        
-        #score-box { font-size: 1.2rem; font-family: 'Roboto Condensed'; }
-        #status-indicator { font-size: 0.8rem; margin-right: 5px; text-shadow: none; }
-
-        /* 漫畫區域 */
-        .comic-container {
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            grid-template-rows: 1fr 1fr;
-            gap: 10px; 
-            padding: 15px; 
-            background: #fff; 
-            aspect-ratio: 1 / 1; 
-            width: 100%; 
             flex-shrink: 0;
-            /* 斜線背景紋理 */
-            background-image: repeating-linear-gradient(45deg, #fff 0, #fff 10px, #f0f0f0 10px, #f0f0f0 12px);
         }
+        .score-board { font-size: 1rem; font-family: 'Noto Sans TC'; }
 
-        .panel {
-            border: var(--comic-border); 
-            position: relative; 
-            display: flex; 
+        /* 漫畫捲動區 (垂直長條) */
+        #comic-strip {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px 15px;
+            display: flex;
             flex-direction: column;
-            justify-content: center; 
-            align-items: center; 
-            padding: 5px; 
-            text-align: center;
-            opacity: 0; 
-            transform: scale(0.9) rotate(-2deg);
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-            background: #fff;
-            box-shadow: 5px 5px 0px rgba(0,0,0,0.2);
-        }
-        .panel.visible { opacity: 1; transform: scale(1) rotate(0deg); }
-        /* 讓格子的角度稍微隨機一點，更有漫畫感 */
-        .panel:nth-child(2) { transform: rotate(2deg) scale(0.9); }
-        .panel:nth-child(2).visible { transform: rotate(1deg) scale(1); }
-        .panel:nth-child(3).visible { transform: rotate(-1deg) scale(1); }
-
-        .panel-num { 
-            position: absolute; top: -5px; left: -5px; 
-            background: var(--marvel-yellow); color: black; 
-            padding: 2px 8px; font-family: 'Bangers'; font-size: 1.2rem; 
-            border: 2px solid black; z-index: 2;
+            gap: 15px;
+            scroll-behavior: smooth;
         }
 
-        .emoji-art { font-size: 3.5rem; margin-bottom: 5px; filter: drop-shadow(3px 3px 0px rgba(0,0,0,0.3)); }
-        
-        /* 漫畫對話框文字樣式 */
-        .desc-text { 
-            font-size: 1.1rem; 
-            line-height: 1.1; 
-            font-weight: bold; 
+        /* 漫畫格子樣式 */
+        .panel {
             background: white;
-            padding: 2px;
-        }
-
-        /* 中間旁白條 */
-        .intertitle {
-            background: black; 
-            color: var(--marvel-yellow); 
-            padding: 8px; 
-            min-height: 40px;
-            display: flex; justify-content: center; align-items: center; text-align: center;
-            font-family: 'Bangers'; font-size: 1.5rem; 
-            border-top: 4px solid white; 
-            border-bottom: 4px solid white; 
-            flex-shrink: 0; letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        /* 選項區 */
-        .controls { 
-            flex-grow: 1; 
-            padding: 15px; 
-            background: #333; 
-            display: flex; flex-direction: column; gap: 12px; 
-            overflow-y: auto; 
-            /* 科技感網格 */
-            background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-            background-size: 20px 20px;
-        }
-
-        .btn {
-            background: white; 
-            border: 3px solid black; 
-            padding: 15px;
-            font-family: 'Bangers', cursive; 
-            font-size: 1.4rem; 
-            cursor: pointer; 
-            text-align: left; 
-            width: 100%; 
+            border: var(--panel-border);
+            box-shadow: 6px 6px 0px rgba(0,0,0,0.8);
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 140px;
+            opacity: 0;
+            transform: translateY(50px);
+            transition: all 0.5s ease-out;
             position: relative;
-            box-shadow: 4px 4px 0px var(--marvel-red);
-            transition: transform 0.1s;
         }
-        .btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0px var(--marvel-red); }
-        .btn::before { content: "▶ "; color: var(--marvel-red); }
 
-        /* 轉場與結果層 */
-        #iris-transition {
+        /* 格子出現動畫 */
+        .panel.show { opacity: 1; transform: translateY(0); }
+
+        /* 左上角編號 */
+        .panel-badge {
+            position: absolute; top: -10px; left: -5px;
+            background: #FFD700; color: black; border: 2px solid black;
+            padding: 2px 8px; font-family: 'Bangers'; font-size: 1.2rem;
+            transform: rotate(-10deg);
+        }
+
+        .emoji-art { font-size: 4rem; line-height: 1.2; filter: drop-shadow(2px 2px 0 #ccc); }
+        
+        .caption {
+            background: #fff;
+            border: 2px solid black;
+            padding: 5px 10px;
+            margin-top: 5px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            text-align: center;
+            width: 90%;
+            /* 漫畫對話框樣式 */
+            border-radius: 10px 10px 10px 0px;
+        }
+
+        /* 第五格：互動區 */
+        .panel.interactive {
+            border-color: var(--marvel-red);
+            background: #fff0f0;
+        }
+
+        .btn-group {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .choice-btn {
+            background: white;
+            border: 3px solid black;
+            padding: 12px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: left;
+            position: relative;
+            font-family: 'Noto Sans TC';
+            transition: 0.1s;
+        }
+        .choice-btn:active { background: black; color: white; transform: scale(0.98); }
+        .choice-btn::before { content: "▶ "; color: var(--marvel-red); }
+
+        /* 過場與結算 */
+        #overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--marvel-red); 
-            z-index: 200; 
-            clip-path: circle(0% at 50% 50%);
-            transition: clip-path 0.6s ease-in-out; 
-            display: flex; flex-direction: column;
-            justify-content: center; align-items: center; color: white;
-        }
-        #iris-transition.open { clip-path: circle(150% at 50% 50%); }
-
-        .result-content { text-align: center; width: 100%; display: none; padding: 20px; }
-        .result-content.show { display: block; animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        
-        @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-
-        h1#res-title { 
-            font-family: 'Bangers'; font-size: 4rem; margin: 0; 
-            text-shadow: 4px 4px 0px black; letter-spacing: 2px;
-            transform: rotate(-3deg);
+            background: rgba(0,0,0,0.9);
+            z-index: 100;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: white;
+            text-align: center;
         }
         
-        p#res-desc { font-size: 1.5rem; font-weight: bold; background: black; padding: 10px; display: inline-block; transform: rotate(2deg); }
-
-        .next-btn { 
-            margin-top: 30px; background: var(--marvel-yellow); color: black; border: 4px solid black; 
-            padding: 15px; width: 100%; font-size: 2rem; font-family: 'Bangers'; cursor: pointer; 
-            box-shadow: 5px 5px 0px black;
-        }
-        .next-btn:active { transform: translate(3px, 3px); box-shadow: 2px 2px 0px black; }
-
-        .fb-btn {
-            background: #3b5998; color: white; border: 3px solid black;
-            padding: 10px; font-family: 'Roboto Condensed'; font-weight: bold; font-size: 1.2rem; 
-            cursor: pointer; margin-top: 15px; width: 100%; 
-            display: flex; justify-content: center; gap: 10px;
+        .comic-word {
+            font-family: 'Bangers';
+            font-size: 5rem;
+            color: #FFD700;
+            text-shadow: 4px 4px var(--marvel-red);
+            transform: rotate(-5deg);
+            animation: zoomIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        /* 排行榜 Modal */
-        #new-record-modal { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 300; justify-content: center; align-items: center; }
-        .modal-content { 
-            background: white; border: 5px solid black; padding: 20px; text-align: center; width: 90%; max-width: 400px; 
-            box-shadow: 10px 10px 0px var(--marvel-red);
-        }
-        .modal-content h2 { font-family: 'Bangers'; font-size: 3rem; margin: 0; color: var(--marvel-red); text-shadow: 2px 2px 0px black; }
-        #player-name-input { 
-            background: #eee; border: 2px solid black; font-family: 'Bangers'; font-size: 2rem; 
-            text-align: center; width: 100%; margin: 20px 0; color: black; text-transform: uppercase; 
-        }
+        .result-text { margin: 20px; font-size: 1.4rem; line-height: 1.5; }
         
+        .action-btn {
+            background: var(--marvel-red); color: white; border: 3px solid white;
+            padding: 10px 30px; font-size: 1.5rem; font-family: 'Bangers';
+            cursor: pointer; margin-top: 20px;
+        }
+
+        @keyframes zoomIn { from { transform: scale(0) rotate(-20deg); } to { transform: scale(1) rotate(-5deg); } }
+
     </style>
 </head>
 <body>
 
-<div id="comic-reader">
-    
-    <div id="header-bar">
-        <span>MARVELOUS BAG</span>
-        <div id="score-box">
-            <span id="status-indicator">●</span>SCORE: <span id="current-score">0</span>
-            <br><span style="font-size:0.8rem; color: black;">BEST: <span id="best-score">...</span></span>
+<div id="game-device">
+    <header>
+        <span>MARVEL COMICS</span>
+        <div class="score-board">
+            SCORE: <span id="score">0</span> | BEST: <span id="best">0</span>
         </div>
-    </div>
+    </header>
 
-    <div class="comic-container">
-        <div class="panel" id="p1"><span class="panel-num">1</span><div class="emoji-art" id="e1"></div><div class="desc-text" id="d1"></div></div>
-        <div class="panel" id="p2"><span class="panel-num">2</span><div class="emoji-art" id="e2"></div><div class="desc-text" id="d2"></div></div>
-        <div class="panel" id="p3"><span class="panel-num">3</span><div class="emoji-art" id="e3"></div><div class="desc-text" id="d3"></div></div>
-        <div class="panel" id="p4"><span class="panel-num">4</span><div class="emoji-art">🎒⚡</div><div class="desc-text" style="font-weight:bold; color:var(--marvel-red)">WHAT NOW?</div></div>
-    </div>
-
-    <div class="intertitle" id="main-text">ASSEMBLE...</div>
-
-    <div class="controls" id="choices-area"></div>
-
-    <div id="iris-transition">
-        <div class="result-content">
-            <h1 id="res-title">BLAM!</h1>
-            <p id="res-desc">...</p>
-            <button class="fb-btn" onclick="shareToFacebook()">f 分享戰績</button>
-            <button class="next-btn" onclick="loadNextLevel()">NEXT ISSUE >></button>
+    <div id="comic-strip">
         </div>
-    </div>
 
-    <div id="new-record-modal">
-        <div class="modal-content">
-            <h2>NEW HERO!</h2>
-            <p>Score: <span id="final-score-display">0</span></p>
-            <input type="text" id="player-name-input" placeholder="HERO NAME" maxlength="10">
-            <button class="btn" style="background:var(--marvel-yellow); text-align:center;" onclick="saveRecord()">JOIN S.H.I.E.L.D.</button>
-        </div>
+    <div id="overlay">
+        <div class="comic-word" id="sfx">BOOM!</div>
+        <div class="result-text" id="result-msg">...</div>
+        <button class="action-btn" id="next-btn" onclick="nextLevel()">NEXT ISSUE >></button>
     </div>
 </div>
 
 <script>
-    // --- 1. Firebase 設定 (保持不變) ---
-    const firebaseConfig = {
-      apiKey: "AIzaSyDcHWsk6ffYC1XyKIga8GpHok_jUyPcNQc",
-      authDomain: "milo-game-d238c.firebaseapp.com",
-      projectId: "milo-game-d238c",
-      storageBucket: "milo-game-d238c.firebasestorage.app",
-      messagingSenderId: "64418915608",
-      appId: "1:64418915608:web:7a4c51bab0afcad8756a6d"
-    };
-
-    let db = null;
-    let isOffline = false;
-
-    try {
-        firebase.initializeApp(firebaseConfig);
-        db = firebase.firestore();
-        db.settings({ experimentalForceLongPolling: true });
-        console.log("Firebase initialized (Long Polling Mode)");
-        document.getElementById('status-indicator').style.color = '#00ff00'; 
-    } catch (e) {
-        console.error("Firebase Init Failed (啟用離線模式):", e);
-        isOffline = true;
-        document.getElementById('status-indicator').style.color = 'red'; 
-    }
-
-    // --- 2. 遊戲資料庫 (漫威化改寫) ---
-    const gameData = {
-        "ep1": {
-            title: "ISSUE #1: INFINITY THREAT",
-            panels: [{ emoji: "🏙️", text: "紐約市中心" }, { emoji: "😈", text: "薩諾斯出現了" }, { emoji: "🧤", text: "他想要彈指" }],
-            question: "打開多重宇宙袋！",
+    // --- 遊戲資料 (五格漫畫劇本) ---
+    const levels = {
+        1: {
+            panels: [
+                { e: "🏙️", t: "紐約市，晴朗的早晨..." },
+                { e: "🛸", t: "突然！巨型甜甜圈飛船出現！" },
+                { e: "👽", t: "烏木喉：『把寶石交出來！』" },
+                { e: "🧙‍♂️", t: "奇異博士正在買三明治，沒空！" },
+                { e: "🎒", t: "我是實習生，我該怎麼辦？" } // 第5格問題
+            ],
             choices: [
-                { id: "A", text: "A. 鋼鐵人手套 (科技)", nextLevel: "ep2_tech", result: "雷射光射偏了！" },
-                { id: "B", text: "B. 浩克短褲 (變身)", nextLevel: "ep2_hulk", result: "你變綠了但褲子太緊！" },
-                { id: "C", text: "C. 蜘蛛人發射器 (敏捷)", nextLevel: "ep2_spidey", result: "成功黏住無限手套！" },
-                { id: "D", text: "D. 星爵的隨身聽", nextLevel: "ep2_dance", result: "尷尬的跳舞對決..." }
+                { text: "丟出蜘蛛人噴絲", next: 2, score: 1, sfx: "THWIP!", res: "成功黏住飛船引擎！它墜毀了！" },
+                { text: "打電話給鋼鐵人", next: 2, score: 0, sfx: "RING...", res: "語音信箱...你被抓走了。" }
             ]
         },
-        "ep2_tech": { title: "ISSUE #2: STARK TOWER", panels: [{ emoji: "🤖", text: "奧創軍團來襲" }, { emoji: "⚠️", text: "系統被駭入" }, { emoji: "🔋", text: "能源不足" }], question: "反應爐怎麼辦？", choices: [{id:"A", text:"A. 用雷神之鎚充電", nextLevel:"ep3_end", result:"能量超載爆炸！"}, {id:"B", text:"B. 切換備用電源", nextLevel:"ep3_end", result:"勉強撐過去"}]},
-        "ep2_hulk": { title: "ISSUE #2: SMASH TIME", panels: [{ emoji: "😠", text: "你現在很生氣" }, { emoji: "🚓", text: "軍隊包圍你" }, { emoji: "🚁", text: "直升機來了" }], question: "HULK 做什麼？", choices: [{id:"A", text:"A. SMASH!!!", nextLevel:"ep3_end", result:"城市毀了一半"}, {id:"B", text:"B. 試著深呼吸", nextLevel:"ep3_end", result:"變回布鲁斯班纳"}]},
-        "ep2_spidey": { title: "ISSUE #2: PIZZA TIME", panels: [{ emoji: "🍕", text: "送披薩遲到了" }, { emoji: "🐙", text: "八爪博士擋路" }, { emoji: "🚆", text: "失控的電車" }], question: "彼得怎麼辦？", choices: [{id:"A", text:"A. 用網子停火車", nextLevel:"ep3_end", result:"你的背好痛"}, {id:"B", text:"B. 請博士吃披薩", nextLevel:"ep3_end", result:"意想不到的和平"}]},
-        "ep2_dance": { title: "ISSUE #2: GUARDIANS", panels: [{ emoji: "🦝", text: "火箭浣熊在笑你" }, { emoji: "🌱", text: "格魯特說我是格魯特" }, { emoji: "🛸", text: "飛船沒油了" }], question: "怎麼辦？", choices: [{id:"A", text:"A. 偷別人的電池", nextLevel:"ep3_end", result:"被全宇宙通緝"}, {id:"B", text:"B. 呼叫驚奇隊長", nextLevel:"ep3_end", result:"她一拳解決一切"}]},
-        "ep3_end": { title: "ENDGAME", panels: [{emoji:"🏁", text:"任務結束"}, {emoji:"🛡️", text:"神盾局報告"}, {emoji:"🎖️", text:"結算戰績"}], choices: [] }
+        2: {
+            panels: [
+                { e: "🏚️", t: "戰場轉移到泰坦星廢墟" },
+                { e: "😈", t: "薩諾斯走了出來，霸氣外露" },
+                { e: "🥊", t: "他舉起無限手套準備彈指" },
+                { e: "😴", t: "螳螂女正試著讓他睡著" },
+                { e: "⚡", t: "星爵看起來要爆氣了！" }
+            ],
+            choices: [
+                { text: "阻止星爵揍他", next: 3, score: 1, sfx: "STOP!", res: "手套順利脫下來了！宇宙得救！" },
+                { text: "幫星爵一起揍", next: 3, score: 0, sfx: "SMASH!", res: "薩諾斯醒了，半個宇宙再見。" }
+            ]
+        },
+        3: {
+            panels: [
+                { e: "🛡️", t: "最終戰役：復仇者基地" },
+                { e: "🌊", t: "洪水衝過來了！" },
+                { e: "🔨", t: "美國隊長需要武器" },
+                { e: "🕸️", t: "你看到地上有兩樣東西" },
+                { e: "🤔", t: "快丟給隊長！選一個！" }
+            ],
+            choices: [
+                { text: "雷神之鎚 Mjölnir", next: 'end', score: 1, sfx: "WHAM!", res: "隊長舉起鎚子！喊出了 ASSEMBLE！" },
+                { text: "無線電對講機", next: 'end', score: 0, sfx: "BZZT...", res: "隊長：『我需要武器，不是聊天！』" }
+            ]
+        },
+        'end': {
+            panels: [
+                { e: "🎬", t: "故事結束" },
+                { e: "🏆", t: "結算成績" },
+                { e: "😺", t: "感謝遊玩" },
+                { e: "🍔", t: "我們去吃沙威瑪吧" },
+                { e: "↺", t: "想再次挑戰嗎？" }
+            ],
+            choices: [
+                { text: "重新開始宇宙重啟", next: 1, score: 0, sfx: "REWIND", res: "時間寶石發動..." },
+                { text: "分享戰績", next: 1, score: 0, sfx: "SHARE", res: "你是真正的英雄！" } // 邏輯上這會重置
+            ]
+        }
     };
 
-    let currentLevelId = 'ep1';
-    let nextLevelId = ''; 
-    let score = 0; 
-    let currentShareText = "";
-    let globalHighScore = 0;
-
-    const els = {
-        title: document.getElementById('main-text'),
-        p1: document.getElementById('p1'), e1: document.getElementById('e1'), d1: document.getElementById('d1'),
-        p2: document.getElementById('p2'), e2: document.getElementById('e2'), d2: document.getElementById('d2'),
-        p3: document.getElementById('p3'), e3: document.getElementById('e3'), d3: document.getElementById('d3'),
-        p4: document.getElementById('p4'),
-        mainText: document.getElementById('main-text'),
-        choicesArea: document.getElementById('choices-area'),
-        iris: document.getElementById('iris-transition'),
-        resContent: document.querySelector('.result-content'),
-        resTitle: document.getElementById('res-title'),
-        resDesc: document.getElementById('res-desc'),
-        bestScore: document.getElementById('best-score'),
-        currScore: document.getElementById('current-score'),
-        recordModal: document.getElementById('new-record-modal'),
-        finalScoreDisplay: document.getElementById('final-score-display'),
-        nameInput: document.getElementById('player-name-input')
-    };
-
-    function initGame() {
-        score = 0;
-        updateScoreUI();
-        loadGlobalHighscore();
-        
-        setTimeout(() => {
-            els.iris.classList.add('open');
-            renderLevel('ep1');
-        }, 100);
-    }
-
-    function loadGlobalHighscore() {
-        if (isOffline || !db) {
-            els.bestScore.innerText = "OFFLINE";
-            return;
-        }
-
-        db.collection("leaderboard")
-          .orderBy("score", "desc")
-          .limit(1)
-          .onSnapshot((querySnapshot) => {
-              if (!querySnapshot.empty) {
-                  const doc = querySnapshot.docs[0].data();
-                  globalHighScore = doc.score;
-                  els.bestScore.innerText = globalHighScore + " (" + doc.name + ")";
-              } else {
-                  els.bestScore.innerText = 0;
-              }
-          }, (error) => {
-              console.warn("排行榜讀取失敗:", error);
-              els.bestScore.innerText = "OFFLINE";
-          });
-    }
-
-    function updateScoreUI() {
-        els.currScore.innerText = score;
-    }
-
-    function renderLevel(levelId) {
-        currentLevelId = levelId;
-        const data = gameData[levelId];
-        
-        els.p1.classList.remove('visible');
-        els.p2.classList.remove('visible');
-        els.p3.classList.remove('visible');
-        els.p4.classList.remove('visible');
-        els.choicesArea.innerHTML = '';
-        els.mainText.innerText = "LOADING MISSION...";
-
-        if(data.panels[0]) { els.e1.innerText = data.panels[0].emoji; els.d1.innerText = data.panels[0].text; }
-        if(data.panels[1]) { els.e2.innerText = data.panels[1].emoji; els.d2.innerText = data.panels[1].text; }
-        if(data.panels[2]) { els.e3.innerText = data.panels[2].emoji; els.d3.innerText = data.panels[2].text; }
-
-        setTimeout(() => { showPanel(1, data.panels[0].text) }, 500);
-        setTimeout(() => { showPanel(2, data.panels[1].text) }, 1500);
-        if(data.panels[2]) setTimeout(() => { showPanel(3, data.panels[2].text) }, 2500);
-
-        if (data.choices && data.choices.length > 0) {
-            setTimeout(() => {
-                els.p4.classList.add('visible');
-                els.mainText.innerText = data.question;
-                renderChoices(data.choices);
-            }, 3500);
-        } else {
-            setTimeout(() => { checkEndGame(); }, 3500);
-        }
-    }
-
-    function showPanel(num, text) {
-        document.getElementById(`p${num}`).classList.add('visible');
-        els.mainText.innerText = text;
-    }
-
-    function renderChoices(choices) {
-        choices.forEach(choice => {
-            const btn = document.createElement('button');
-            btn.className = 'btn';
-            btn.innerText = choice.text;
-            btn.ontouchstart = () => {}; 
-            btn.onclick = () => handleChoice(choice);
-            els.choicesArea.appendChild(btn);
-        });
-    }
-
-    function handleChoice(choice) {
-        nextLevelId = choice.nextLevel;
-        score++;
-        updateScoreUI();
-        currentShareText = `我在《漫威多重宇宙袋》存活了 ${score} 關！結局：${choice.result} #Marvel`;
-
-        els.resTitle.innerText = getRandomSoundEffect();
-        els.resDesc.innerText = choice.result;
-        els.iris.classList.remove('open');
-        setTimeout(() => {
-             els.resContent.classList.add('show');
-        }, 800);
-    }
+    // --- 遊戲狀態管理 ---
+    let currentLvl = 1;
+    let score = 0;
+    let bestScore = localStorage.getItem('marvel_best') || 0;
     
-    function getRandomSoundEffect() {
-        const sounds = ["BOOM!", "POW!", "ZAP!", "WHAM!", "SMASH!", "SNAP!"];
-        return sounds[Math.floor(Math.random() * sounds.length)];
-    }
-
-    window.loadNextLevel = function() {
-        els.resContent.classList.remove('show');
-        renderLevel(nextLevelId);
-        setTimeout(() => els.iris.classList.add('open'), 100);
+    const els = {
+        strip: document.getElementById('comic-strip'),
+        score: document.getElementById('score'),
+        best: document.getElementById('best'),
+        overlay: document.getElementById('overlay'),
+        sfx: document.getElementById('sfx'),
+        resultMsg: document.getElementById('result-msg'),
+        nextBtn: document.getElementById('next-btn')
     };
 
-    function checkEndGame() {
-        if (isOffline || !db) {
-            if(confirm("MISSION OVER! Score: " + score + "\n(Offline Mode)\nRetry?")) location.reload();
-            return;
-        }
-
-        if (score > globalHighScore) {
-            els.finalScoreDisplay.innerText = score;
-            els.recordModal.style.display = 'flex';
-        } else {
-            if(confirm("MISSION OVER! Score: " + score + ". Retry?")) location.reload();
-        }
+    function init() {
+        score = 0;
+        currentLvl = 1;
+        updateUI();
+        renderLevel(1);
     }
 
-    window.saveRecord = function() {
-        if (isOffline || !db) {
-            alert("Offline mode active.");
-            location.reload();
-            return;
-        }
+    function updateUI() {
+        els.score.innerText = score;
+        els.best.innerText = bestScore;
+    }
 
-        const name = els.nameInput.value.trim() || "AGENT X";
-        const btn = document.querySelector('#new-record-modal .btn');
-        btn.innerText = "SENDING...";
-        btn.disabled = true;
+    function renderLevel(lvlIdx) {
+        // 清空漫畫區
+        els.strip.innerHTML = ''; 
+        const data = levels[lvlIdx];
+        
+        // 依序產生5格
+        data.panels.forEach((p, index) => {
+            const isLast = index === 4; // 第5格 (index 4)
+            const panelDiv = document.createElement('div');
+            panelDiv.className = isLast ? 'panel interactive' : 'panel';
+            panelDiv.id = `p-${index}`;
+            
+            let html = `
+                <div class="panel-badge">#${index + 1}</div>
+                <div class="emoji-art">${p.e}</div>
+                <div class="caption">${p.t}</div>
+            `;
 
-        db.collection("leaderboard").add({
-            name: name, score: score, date: new Date().toISOString()
-        }).then(() => {
-            alert("DATA UPLOADED!");
-            location.reload();
-        }).catch((e) => {
-            alert("ERROR: " + e.message);
-            location.reload(); 
+            // 如果是第5格，加入按鈕
+            if (isLast) {
+                let btnsHtml = '<div class="btn-group">';
+                data.choices.forEach(c => {
+                    btnsHtml += `<button class="choice-btn" onclick="makeChoice('${c.next}', ${c.score}, '${c.sfx}', '${c.res}')">${c.text}</button>`;
+                });
+                btnsHtml += '</div>';
+                html += btnsHtml;
+            }
+
+            panelDiv.innerHTML = html;
+            els.strip.appendChild(panelDiv);
+        });
+
+        // 啟動瀑布流動畫
+        animatePanels();
+    }
+
+    function animatePanels() {
+        const panels = document.querySelectorAll('.panel');
+        panels.forEach((p, i) => {
+            setTimeout(() => {
+                p.classList.add('show');
+                // 自動捲動到底部
+                if (i > 1) {
+                    els.strip.scrollTo({ top: els.strip.scrollHeight, behavior: 'smooth' });
+                }
+            }, i * 600); // 每 0.6 秒出現一格
         });
     }
 
-    window.shareToFacebook = function() {
-        const gameUrl = window.location.href; 
-        const hashtag = "#MarvelGame";
-        const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(gameUrl)}&quote=${encodeURIComponent(currentShareText)}&hashtag=${encodeURIComponent(hashtag)}`;
-        window.open(fbUrl, 'FacebookShare', 'width=600,height=400,menubar=no,toolbar=no');
-    }
+    window.makeChoice = function(nextLvl, point, sfxText, resultText) {
+        // 更新分數
+        if (point > 0) score += point;
+        if (score > bestScore) {
+            bestScore = score;
+            localStorage.setItem('marvel_best', bestScore);
+        }
+        updateUI();
 
-    window.onload = initGame;
+        // 顯示過場
+        els.sfx.innerText = sfxText;
+        els.resultMsg.innerText = resultText;
+        els.overlay.style.display = 'flex';
+        
+        // 設定下一關按鈕行為
+        els.nextBtn.onclick = function() {
+            els.overlay.style.display = 'none';
+            if (nextLvl === 'end') {
+                renderLevel('end'); // 特殊結局關卡
+            } else if (sfxText === "REWIND") {
+                init(); // 重置
+            } else if (sfxText === "SHARE") {
+                alert(`我得了 ${score} 分！漫威實習生報到！`);
+                init();
+            } else {
+                currentLvl = nextLvl;
+                renderLevel(nextLvl);
+            }
+        };
+    };
+
+    // 啟動遊戲
+    els.best.innerText = bestScore;
+    init();
+
 </script>
-
 </body>
 </html>
