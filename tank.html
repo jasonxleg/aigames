@@ -2,48 +2,58 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Milo 坦克大戰 (經典復刻版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Milo TANK 1990 (Fixed)</title>
     <style>
-        body {
-            background-color: #222;
+        /* 1. 鎖死整個頁面，禁止捲動 */
+        html, body {
+            position: fixed; 
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #111;
             color: white;
-            font-family: 'Courier New', Courier, monospace; /* 復古字體 */
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden; /* 隱藏所有捲軸 */
+            
+            /* 讓內容垂直水平置中 */
             display: flex;
             flex-direction: column;
             align-items: center;
-            margin: 0;
-            padding: 10px;
-            overscroll-behavior: none; 
+            justify-content: center;
+
+            /* 禁止選取與原生觸控行為 */
             user-select: none;
             -webkit-user-select: none;
+            touch-action: none; 
         }
-        h1 { 
-            font-size: 24px; 
-            text-shadow: 2px 2px #000;
+
+        /* 標題 */
+        h1 {
+            font-size: 20px;
             color: #e69138;
-            margin: 5px 0; 
+            margin: 5px 0;
+            flex-shrink: 0; /* 防止標題被壓縮 */
+            text-shadow: 2px 2px #000;
         }
-        
+
+        /* 遊戲主容器 */
         #game-wrapper {
             position: relative;
-            width: 100%;
-            max-width: 520px; /* 調整為接近原版比例 */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
             background-color: #000;
-            border: 4px solid #666;
+            border: 4px solid #555;
+            /* 陰影增加立體感 */
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            flex-shrink: 0; 
         }
 
         canvas {
-            background-color: #000;
             display: block;
-            width: 100%; 
-            touch-action: none; 
-            image-rendering: pixelated; /* 讓繪圖呈現像素風 */
+            image-rendering: pixelated;
         }
 
+        /* UI 層 (開始畫面、結束畫面) */
         #ui-layer {
             position: absolute;
             top: 0; left: 0;
@@ -54,85 +64,89 @@
             align-items: center;
             background: rgba(0, 0, 0, 0.85);
             display: none;
-            z-index: 10;
+            z-index: 20;
         }
         #ui-layer.active { display: flex; }
-        
-        /* 虛擬按鍵 */
+
+        /* 手機控制器區域 */
         #mobile-controls {
             display: flex;
             width: 100%;
+            max-width: 500px; /* 限制按鈕區最大寬度 */
             justify-content: space-between;
-            margin-top: 15px;
-            max-width: 520px;
-            padding: 0 10px;
+            padding: 10px 20px;
             box-sizing: border-box;
+            flex-shrink: 0; /* 防止被擠壓 */
+            margin-bottom: 10px;
         }
 
+        /* 十字鍵佈局 */
         .d-pad {
             display: grid;
-            grid-template-columns: 60px 60px 60px;
-            grid-template-rows: 50px 50px;
-            gap: 5px;
-            align-items: center;
-            justify-items: center;
+            grid-template-columns: 50px 50px 50px;
+            grid-template-rows: 45px 45px;
+            gap: 4px;
         }
 
         .control-btn {
-            width: 50px; height: 50px;
-            background: #555;
-            border: 2px solid #888;
-            border-radius: 8px; /* 方形圓角更有復古感 */
-            color: white;
-            font-size: 20px;
+            background: #444;
+            border: 2px solid #777;
+            border-radius: 6px;
+            color: #ccc;
+            font-size: 18px;
             display: flex; justify-content: center; align-items: center;
-            box-shadow: 0 4px 0 #333;
+            box-shadow: 0 3px 0 #222;
             cursor: pointer;
-            touch-action: manipulation; 
         }
         .control-btn:active, .control-btn.pressed {
-            background: #777;
-            transform: translateY(4px);
-            box-shadow: 0 0 0 #333;
+            background: #666;
+            transform: translateY(3px);
+            box-shadow: none;
         }
 
+        /* 針對十字鍵的位置設定 */
         #btn-up { grid-column: 2; grid-row: 1; }
         #btn-left { grid-column: 1; grid-row: 2; }
         #btn-down { grid-column: 2; grid-row: 2; }
         #btn-right { grid-column: 3; grid-row: 2; }
 
+        /* 發射鍵 */
         #fire-btn {
-            width: 80px; height: 80px;
+            width: 70px; height: 70px;
+            border-radius: 50%;
             background: #b71c1c;
             border: 2px solid #e57373;
-            border-radius: 50%;
+            color: white;
             font-weight: bold;
             display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 4px 0 #7f0000;
             align-self: center;
-            box-shadow: 0 5px 0 #7f0000;
         }
         #fire-btn:active, #fire-btn.pressed {
-            transform: translateY(5px);
-            box-shadow: 0 0 0 #7f0000;
+            transform: translateY(4px);
+            box-shadow: none;
         }
 
-        /* 輸入框與排行榜 */
+        /* 輸入框與按鈕 */
         input { 
-            padding: 10px; font-size: 16px; border: 2px solid #e69138; 
-            background: #222; color: white; width: 70%; text-align: center; font-family: 'Courier New';
+            padding: 8px; font-size: 16px; border: 2px solid #e69138; 
+            background: #222; color: white; width: 60%; text-align: center; 
+            font-family: 'Courier New'; 
+            /* 讓輸入框可以被選取，否則 body 的 user-select: none 會導致無法輸入 */
+            user-select: text; 
+            -webkit-user-select: text;
         }
         button.game-btn { 
-            padding: 12px 24px; font-size: 18px; background: #e69138; color: black; 
-            border: none; margin-top: 15px; font-family: 'Courier New'; font-weight: bold; cursor: pointer;
+            padding: 10px 20px; font-size: 16px; background: #e69138; color: black; 
+            border: none; margin-top: 15px; font-family: 'Courier New'; font-weight: bold; 
         }
-        button.game-btn:disabled { background: #888; }
 
-        #leaderboard {
-            margin-top: 20px; width: 100%; max-width: 520px;
-            background: #333; padding: 10px; border: 2px solid #555; box-sizing: border-box;
+        /* 排行榜 (讓它變成彈出視窗或僅在結束時顯示，避免佔用遊戲空間) */
+        #leaderboard-overlay {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #888;
         }
-        .score-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #555; padding: 8px 0; color: #ccc; }
-        .score-row:first-child { color: #ffd700; font-weight: bold; } /* 第一名金色 */
     </style>
 </head>
 <body>
@@ -143,16 +157,21 @@
         <canvas id="gameCanvas"></canvas>
         
         <div id="ui-layer" class="active">
-            <h2 id="status-text" style="color:#e69138">STAGE 1</h2>
+            <h2 id="status-text" style="color:#e69138; font-size:24px;">STAGE 1</h2>
             <h3 id="final-score" style="display:none">SCORE: 0</h3>
             
             <div id="input-area" style="display:none; text-align:center; width: 100%;">
-                <input type="text" id="player-name" placeholder="ENTER NAME" maxlength="8">
+                <input type="text" id="player-name" placeholder="NAME" maxlength="8">
                 <br>
-                <button id="save-btn" class="game-btn">SAVE SCORE</button>
+                <button id="save-btn" class="game-btn">SAVE</button>
             </div>
             
-            <button id="start-btn" class="game-btn">START GAME</button>
+            <button id="start-btn" class="game-btn">START</button>
+
+            <div id="leaderboard-overlay">
+                <p>--- TOP 3 ---</p>
+                <div id="mini-leaderboard">Loading...</div>
+            </div>
         </div>
     </div>
 
@@ -164,11 +183,6 @@
             <div id="btn-right" class="control-btn" data-key="ArrowRight">▶</div>
         </div>
         <div id="fire-btn" class="control-btn" data-key="Space">FIRE</div>
-    </div>
-
-    <div id="leaderboard">
-        <h3>🏆 HIGH SCORES</h3>
-        <div id="score-list">LOADING...</div>
     </div>
 
     <script type="module">
@@ -187,22 +201,46 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // --- 遊戲核心邏輯 ---
-
+        // --- 核心變數 ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const BLOCK_SIZE = 32; // 每個格子的標準大小 (類似 16x16 放大)
-        
-        function resizeCanvas() {
-            const maxWidth = 520;
-            const containerWidth = Math.min(window.innerWidth - 20, maxWidth);
-            // 讓寬度是 BLOCK_SIZE 的倍數，避免破圖
-            const cols = Math.floor(containerWidth / BLOCK_SIZE);
-            canvas.width = cols * BLOCK_SIZE;
-            canvas.height = canvas.width; // 正方形地圖
+        const BLOCK_SIZE = 32; 
+
+        // --- 關鍵修改：智慧型畫面縮放 (Smart Resize) ---
+        function resizeGame() {
+            // 取得視窗總空間
+            const winW = window.innerWidth;
+            const winH = window.innerHeight;
+
+            // 預留空間給標題(約40px) 和 控制器(約120px)
+            // 這是避免遊戲畫面太大，把按鈕擠出螢幕外
+            const availableH = winH - 160; 
+            const availableW = winW - 20; // 左右留點邊距
+
+            // 找出「寬度」和「高度」哪個限制比較大，取最小值來決定遊戲大小
+            // 我們希望遊戲保持正方形 (1:1)
+            let gameSize = Math.min(availableW, availableH);
+
+            // 限制最大尺寸 (不要超過 520px，不然像素會太粗)
+            if (gameSize > 520) gameSize = 520;
+
+            // 確保是 BLOCK_SIZE 的倍數 (防止破圖)
+            const cols = Math.floor(gameSize / BLOCK_SIZE);
+            const finalSize = cols * BLOCK_SIZE;
+
+            canvas.width = finalSize;
+            canvas.height = finalSize;
+            
+            // 如果遊戲還沒開始或需要重繪，這裡可以觸發重繪
+            if (!gameRunning) {
+                ctx.fillStyle = "#000";
+                ctx.fillRect(0,0, canvas.width, canvas.height);
+            }
         }
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
+
+        // 初始化與監聽轉向
+        resizeGame();
+        window.addEventListener('resize', resizeGame);
 
         // UI 元素
         const uiLayer = document.getElementById('ui-layer');
@@ -212,418 +250,235 @@
         const inputArea = document.getElementById('input-area');
         const finalScoreText = document.getElementById('final-score');
         const playerNameInput = document.getElementById('player-name');
+        const miniLeaderboard = document.getElementById('mini-leaderboard');
 
         let gameRunning = false;
         let score = 0;
         let animationId;
         let frameCount = 0;
 
-        // 遊戲物件
         let player;
         let bullets = [];
         let enemies = [];
         let walls = [];
         let base = {};
         let enemySpawnTimer = 0;
-
-        // 方向常數
         const DIR = { UP: 0, RIGHT: 1, DOWN: 2, LEFT: 3 };
+        const keys = {};
 
-        // 初始化遊戲
+        // --- 遊戲邏輯 (與之前相同，但適配 resize) ---
         function resetGame() {
-            const size = canvas.width / 13; // 13x13 格子
+            // 根據當前 canvas 大小重新計算比例
+            const size = canvas.width / 13; 
             
-            // 玩家起始位置 (老鷹左側)
             player = { 
                 x: size * 4, y: canvas.height - size, 
                 size: size, speed: size * 0.1, 
                 dir: DIR.UP, moving: false,
-                color: '#e69138' // 經典黃色 P1
+                color: '#e69138'
             };
-
-            // 基地 (老鷹)
-            base = {
-                x: canvas.width / 2 - size / 2,
-                y: canvas.height - size,
-                size: size,
-                alive: true
-            };
+            base = { x: canvas.width / 2 - size / 2, y: canvas.height - size, size: size, alive: true };
 
             bullets = [];
             enemies = [];
             walls = [];
             score = 0;
             enemySpawnTimer = 0;
-
-            // 生成地圖 (簡單的磚塊陣列)
             createMap(size);
         }
 
         function createMap(size) {
-            // 圍繞基地的牆
-            walls.push({x: base.x - size, y: base.y, size: size, type: 'brick'});
-            walls.push({x: base.x - size, y: base.y - size, size: size, type: 'brick'});
-            walls.push({x: base.x, y: base.y - size, size: size, type: 'brick'});
-            walls.push({x: base.x + size, y: base.y - size, size: size, type: 'brick'});
-            walls.push({x: base.x + size, y: base.y, size: size, type: 'brick'});
+            walls.push({x: base.x - size, y: base.y, size: size});
+            walls.push({x: base.x - size, y: base.y - size, size: size});
+            walls.push({x: base.x, y: base.y - size, size: size});
+            walls.push({x: base.x + size, y: base.y - size, size: size});
+            walls.push({x: base.x + size, y: base.y, size: size});
 
-            // 隨機生成一些障礙物
-            for(let i=0; i<20; i++) {
+            for(let i=0; i<15; i++) {
                 let wx = Math.floor(Math.random() * 13) * size;
-                let wy = Math.floor(Math.random() * 10) * size; // 不生成在最底部
-                // 避免生成在出生點
+                let wy = Math.floor(Math.random() * 10) * size;
                 if (wy < size * 2) continue; 
-                walls.push({x: wx, y: wy, size: size, type: 'brick'});
+                walls.push({x: wx, y: wy, size: size});
             }
         }
 
-        // 按鍵處理
-        const keys = {};
+        // --- 控制輸入處理 (防止預設行為) ---
+        
+        // 鍵盤
         window.addEventListener('keydown', e => {
             keys[e.key] = true;
             if (e.code === 'Space' && gameRunning) shoot(player);
         });
         window.addEventListener('keyup', e => keys[e.key] = false);
 
-        // 手機虛擬按鍵
+        // 觸控按鈕
         document.querySelectorAll('.control-btn').forEach(btn => {
             const handlePress = (e) => {
-                e.preventDefault();
+                // 關鍵：阻止瀏覽器預設行為（如雙擊放大、捲動）
+                if(e.cancelable) e.preventDefault(); 
+                
                 const key = btn.getAttribute('data-key');
                 keys[key] = true;
                 btn.classList.add('pressed');
                 if (key === 'Space' && gameRunning) shoot(player);
             };
             const handleRelease = (e) => {
-                e.preventDefault();
+                if(e.cancelable) e.preventDefault();
                 keys[btn.getAttribute('data-key')] = false;
                 btn.classList.remove('pressed');
             };
+
+            // 使用 passive: false 才能呼叫 preventDefault
             btn.addEventListener('touchstart', handlePress, {passive: false});
             btn.addEventListener('touchend', handleRelease, {passive: false});
+            // 兼容滑鼠
             btn.addEventListener('mousedown', handlePress);
             btn.addEventListener('mouseup', handleRelease);
         });
 
-        // 射擊邏輯 (現在支援方向)
-        function shoot(shooter) {
-            // 限制子彈數量 (畫面只能有一發)
-            const myBullets = bullets.filter(b => b.owner === (shooter === player ? 'player' : 'enemy'));
-            if (myBullets.length > 0 && shooter === player) return; 
-
-            let bx = shooter.x + shooter.size/2 - 3;
-            let by = shooter.y + shooter.size/2 - 3;
-            let vx = 0, vy = 0;
-            const bSpeed = shooter.size * 0.25;
-
-            if (shooter.dir === DIR.UP) vy = -bSpeed;
-            if (shooter.dir === DIR.DOWN) vy = bSpeed;
-            if (shooter.dir === DIR.LEFT) vx = -bSpeed;
-            if (shooter.dir === DIR.RIGHT) vx = bSpeed;
-
-            bullets.push({ 
-                x: bx, y: by, size: 6, 
-                vx: vx, vy: vy, 
-                owner: shooter === player ? 'player' : 'enemy' 
-            });
-        }
-
-        function spawnEnemy() {
-            const size = player.size;
-            // 隨機從上方三個點出生
-            const positions = [0, canvas.width/2 - size/2, canvas.width - size];
-            const x = positions[Math.floor(Math.random() * 3)];
-            
-            enemies.push({ 
-                x: x, y: 0, size: size, 
-                speed: size * 0.05, 
-                dir: DIR.DOWN,
-                moveTimer: 0,
-                color: '#cccccc' // 銀色敵人
-            });
-        }
-
-        // 繪圖函數：畫坦克 (Pixel Art 風格)
-        function drawTank(ctx, tank) {
-            ctx.fillStyle = tank.color;
-            const s = tank.size;
-            const x = tank.x;
-            const y = tank.y;
-
-            // 履帶
-            ctx.fillStyle = '#000'; // 履帶底色
-            if (tank.dir === DIR.UP || tank.dir === DIR.DOWN) {
-                ctx.fillRect(x, y, s*0.25, s); // 左
-                ctx.fillRect(x + s*0.75, y, s*0.25, s); // 右
-                
-                // 履帶細節 (滾動效果)
-                ctx.fillStyle = '#555'; 
-                const offset = (Math.floor(frameCount / 10) % 2) * (s/4);
-                for(let i=0; i<4; i++) {
-                    ctx.fillRect(x, y + i*(s/4), s*0.25, 2);
-                    ctx.fillRect(x + s*0.75, y + i*(s/4), s*0.25, 2);
-                }
-            } else {
-                ctx.fillRect(x, y, s, s*0.25); // 上
-                ctx.fillRect(x, y + s*0.75, s, s*0.25); // 下
-                ctx.fillStyle = '#555'; 
-                for(let i=0; i<4; i++) {
-                    ctx.fillRect(x + i*(s/4), y, 2, s*0.25);
-                    ctx.fillRect(x + i*(s/4), y + s*0.75, 2, s*0.25);
-                }
-            }
-
-            // 車身
-            ctx.fillStyle = tank.color;
-            ctx.fillRect(x + s*0.25, y + s*0.25, s*0.5, s*0.5);
-
-            // 砲塔
-            ctx.fillStyle = tank.owner === 'player' ? '#b7950b' : '#999'; 
-            ctx.fillRect(x + s*0.35, y + s*0.35, s*0.3, s*0.3);
-
-            // 砲管
-            ctx.fillStyle = '#ccc';
-            const barrelL = s * 0.4;
-            const barrelW = s * 0.1;
-            const cx = x + s/2;
-            const cy = y + s/2;
-            
-            if (tank.dir === DIR.UP) ctx.fillRect(cx - barrelW/2, cy - barrelL, barrelW, barrelL);
-            if (tank.dir === DIR.DOWN) ctx.fillRect(cx - barrelW/2, cy, barrelW, barrelL);
-            if (tank.dir === DIR.LEFT) ctx.fillRect(cx - barrelL, cy - barrelW/2, barrelL, barrelW);
-            if (tank.dir === DIR.RIGHT) ctx.fillRect(cx, cy - barrelW/2, barrelL, barrelW);
-        }
-
-        // 畫基地
-        function drawBase(ctx) {
-            if (!base.alive) {
-                // 爆炸後的基地
-                ctx.fillStyle = '#555';
-                ctx.fillRect(base.x, base.y, base.size, base.size);
-                return;
-            }
-            // 畫老鷹
-            const x = base.x, y = base.y, s = base.size;
-            ctx.fillStyle = '#444'; // 背景
-            ctx.fillRect(x, y, s, s);
-            ctx.fillStyle = '#b71c1c'; // 鷹身
-            ctx.beginPath();
-            ctx.moveTo(x + s/2, y + 5);
-            ctx.lineTo(x + 5, y + s - 5);
-            ctx.lineTo(x + s - 5, y + s - 5);
-            ctx.fill();
-        }
-
+        // --- 繪圖與更新 (簡化版) ---
         function update() {
             frameCount++;
-
-            // 1. 玩家移動
-            let nextX = player.x;
-            let nextY = player.y;
+            // 玩家移動
+            let nextX = player.x, nextY = player.y;
             player.moving = false;
-
             if (keys['ArrowUp']) { player.dir = DIR.UP; nextY -= player.speed; player.moving = true; }
             else if (keys['ArrowDown']) { player.dir = DIR.DOWN; nextY += player.speed; player.moving = true; }
             else if (keys['ArrowLeft']) { player.dir = DIR.LEFT; nextX -= player.speed; player.moving = true; }
             else if (keys['ArrowRight']) { player.dir = DIR.RIGHT; nextX += player.speed; player.moving = true; }
 
-            // 玩家碰撞檢測 (牆壁 & 邊界)
             if (player.moving && !checkWallCollision(nextX, nextY, player.size)) {
-                player.x = nextX;
-                player.y = nextY;
+                player.x = nextX; player.y = nextY;
             }
 
-            // 2. 子彈更新
-            bullets.forEach((b, index) => {
-                b.x += b.vx;
-                b.y += b.vy;
-
-                // 邊界移除
-                if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
-                    bullets.splice(index, 1);
-                    return;
+            // 子彈
+            bullets.forEach((b, i) => {
+                b.x += b.vx; b.y += b.vy;
+                if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) { bullets.splice(i, 1); return; }
+                for (let j = 0; j < walls.length; j++) {
+                    if (rectIntersect(b, walls[j])) { walls.splice(j, 1); bullets.splice(i, 1); return; }
                 }
-
-                // 子彈打牆壁
-                for (let i = 0; i < walls.length; i++) {
-                    if (rectIntersect(b, walls[i])) {
-                        walls.splice(i, 1); // 破壞牆壁
-                        bullets.splice(index, 1); // 子彈消失
-                        return;
-                    }
-                }
-
-                // 子彈打基地
-                if (base.alive && rectIntersect(b, base)) {
-                    base.alive = false;
-                    gameOver();
-                }
+                if (base.alive && rectIntersect(b, base)) { base.alive = false; gameOver(); }
             });
 
-            // 3. 敵人 AI 與更新
+            // 敵人
             enemySpawnTimer++;
-            if (enemySpawnTimer > 150) { // 約 2.5 秒一隻
-                spawnEnemy();
-                enemySpawnTimer = 0;
-            }
-
-            enemies.forEach((e, eIndex) => {
-                // 簡單 AI: 隨機轉向
+            if (enemySpawnTimer > 150) { spawnEnemy(); enemySpawnTimer = 0; }
+            enemies.forEach((e, i) => {
                 e.moveTimer++;
-                if (e.moveTimer > 60) {
-                    e.dir = Math.floor(Math.random() * 4);
-                    e.moveTimer = 0;
-                    // 偶爾射擊
-                    if (Math.random() > 0.5) shoot(e);
-                }
-
-                let ex = e.x;
-                let ey = e.y;
-                if (e.dir === DIR.UP) ey -= e.speed;
-                if (e.dir === DIR.DOWN) ey += e.speed;
-                if (e.dir === DIR.LEFT) ex -= e.speed;
-                if (e.dir === DIR.RIGHT) ex += e.speed;
-
-                // 敵人撞牆則停止
-                if (!checkWallCollision(ex, ey, e.size)) {
-                    e.x = ex;
-                    e.y = ey;
-                }
-
-                // 玩家子彈打敵人
-                bullets.forEach((b, bIndex) => {
-                    if (b.owner === 'player' && rectIntersect(b, e)) {
-                        enemies.splice(eIndex, 1);
-                        bullets.splice(bIndex, 1);
-                        score += 100;
-                    }
-                });
+                if (e.moveTimer > 60) { e.dir = Math.floor(Math.random()*4); e.moveTimer = 0; if(Math.random()>0.6) shoot(e); }
+                let ex = e.x, ey = e.y;
+                if (e.dir === DIR.UP) ey -= e.speed; if (e.dir === DIR.DOWN) ey += e.speed;
+                if (e.dir === DIR.LEFT) ex -= e.speed; if (e.dir === DIR.RIGHT) ex += e.speed;
+                if (!checkWallCollision(ex, ey, e.size)) { e.x = ex; e.y = ey; }
                 
-                // 敵人子彈打玩家
-                bullets.forEach((b, bIndex) => {
-                    if (b.owner === 'enemy' && rectIntersect(b, player)) {
-                        gameOver();
-                    }
+                bullets.forEach((b, bi) => {
+                    if (b.owner === 'player' && rectIntersect(b, e)) { enemies.splice(i, 1); bullets.splice(bi, 1); score += 100; }
                 });
-
-                // 敵人撞玩家
                 if (rectIntersect(player, e)) gameOver();
             });
-        }
-
-        function checkWallCollision(x, y, size) {
-            // 檢查邊界
-            if (x < 0 || x + size > canvas.width || y < 0 || y + size > canvas.height) return true;
-            
-            // 檢查牆壁
-            const rect = {x: x, y: y, size: size}; // 簡化
-            for (let w of walls) {
-                // 使用稍微寬鬆的碰撞縮減一點體積，避免卡住
-                if (rectIntersect(rect, w, 2)) return true;
-            }
-            // 檢查基地
-            if (base.alive && rectIntersect(rect, base)) return true;
-            
-            return false;
+            // 敵人子彈打玩家
+            bullets.forEach(b => { if (b.owner === 'enemy' && rectIntersect(b, player)) gameOver(); });
         }
 
         function draw() {
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            drawBase(ctx);
-
-            // 畫牆壁
-            ctx.fillStyle = '#b71c1c'; // 磚紅
-            walls.forEach(w => {
-                ctx.fillRect(w.x + 2, w.y + 2, w.size - 4, w.size - 4);
-                // 磚塊紋路
-                ctx.fillStyle = '#d32f2f';
-                ctx.fillRect(w.x + 4, w.y + 4, w.size/2 - 4, w.size/2 - 4);
-                ctx.fillStyle = '#b71c1c';
+            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Base
+            ctx.fillStyle = base.alive ? '#b71c1c' : '#555'; ctx.fillRect(base.x, base.y, base.size, base.size);
+            // Walls
+            ctx.fillStyle = '#b71c1c'; walls.forEach(w => { 
+                ctx.fillRect(w.x+1, w.y+1, w.size-2, w.size-2); 
+                ctx.fillStyle='#d32f2f'; ctx.fillRect(w.x+4,w.y+4,w.size/2,w.size/2); ctx.fillStyle='#b71c1c';
             });
-
+            // Player & Enemy
             drawTank(ctx, player);
             enemies.forEach(e => drawTank(ctx, e));
+            // Bullets
+            ctx.fillStyle = 'white'; bullets.forEach(b => ctx.fillRect(b.x, b.y, b.size, b.size));
+            // Score
+            ctx.fillStyle = 'white'; ctx.font = '16px Courier New'; ctx.fillText(`SC: ${score}`, 5, 15);
+        }
 
-            ctx.fillStyle = 'white';
-            bullets.forEach(b => ctx.fillRect(b.x, b.y, b.size, b.size));
+        function drawTank(ctx, t) {
+            ctx.fillStyle = t.color || '#ccc';
+            // 簡單繪製坦克示意
+            ctx.fillRect(t.x, t.y, t.size, t.size);
+            ctx.fillStyle = '#000'; // 砲管方向
+            const s = t.size, cx = t.x + s/2, cy = t.y + s/2, L = s/2, W = s/5;
+            if(t.dir===DIR.UP) ctx.fillRect(cx-W/2, cy-L, W, L);
+            if(t.dir===DIR.DOWN) ctx.fillRect(cx-W/2, cy, W, L);
+            if(t.dir===DIR.LEFT) ctx.fillRect(cx-L, cy-W/2, L, W);
+            if(t.dir===DIR.RIGHT) ctx.fillRect(cx, cy-W/2, L, W);
+        }
 
-            // UI 文字
-            ctx.fillStyle = 'white';
-            ctx.font = '20px "Courier New"';
-            ctx.fillText(`SCORE: ${score}`, 10, 25);
+        function shoot(shooter) {
+            const myBullets = bullets.filter(b => b.owner === (shooter===player?'player':'enemy'));
+            if (myBullets.length > 0 && shooter === player) return;
+            let vx=0, vy=0, s = shooter.size * 0.25;
+            if (shooter.dir === DIR.UP) vy = -s; if (shooter.dir === DIR.DOWN) vy = s;
+            if (shooter.dir === DIR.LEFT) vx = -s; if (shooter.dir === DIR.RIGHT) vx = s;
+            bullets.push({ x: shooter.x+shooter.size/2-3, y: shooter.y+shooter.size/2-3, size: 6, vx, vy, owner: shooter===player?'player':'enemy' });
+        }
+
+        function spawnEnemy() {
+            const s = player.size;
+            enemies.push({ x: (Math.random()*(canvas.width-s)), y: 0, size: s, speed: s*0.05, dir: DIR.DOWN, moveTimer: 0 });
+        }
+
+        function checkWallCollision(x, y, s) {
+            if (x < 0 || x + s > canvas.width || y < 0 || y + s > canvas.height) return true;
+            for (let w of walls) if (rectIntersect({x,y,size:s}, w, 2)) return true;
+            if (base.alive && rectIntersect({x,y,size:s}, base)) return true;
+            return false;
+        }
+
+        function rectIntersect(r1, r2, p=0) {
+            return !(r2.x+p > r1.x+r1.size-p || r2.x+r2.size-p < r1.x+p || r2.y+p > r1.y+r1.size-p || r2.y+r2.size-p < r1.y+p);
         }
 
         function animate() {
             if (!gameRunning) return;
-            update();
-            draw();
+            update(); draw();
             animationId = requestAnimationFrame(animate);
         }
 
         function gameOver() {
-            if(!gameRunning) return;
             gameRunning = false;
             cancelAnimationFrame(animationId);
-            
             statusText.innerText = "GAME OVER";
-            statusText.style.color = "#d32f2f";
             finalScoreText.innerText = `SCORE: ${score}`;
-            finalScoreText.style.display = 'block';
-            inputArea.style.display = 'block';
-            startBtn.style.display = 'none';
-            uiLayer.classList.add('active');
+            finalScoreText.style.display = 'block'; inputArea.style.display = 'block';
+            startBtn.style.display = 'none'; uiLayer.classList.add('active');
+            loadLeaderboard(); // 結束時更新排行榜
         }
 
-        // 碰撞檢測 (padding 用來減少體積，讓轉彎順暢)
-        function rectIntersect(r1, r2, padding = 0) {
-            const p = padding;
-            return !(r2.x + p > r1.x + r1.size - p || 
-                     r2.x + r2.size - p < r1.x + p || 
-                     r2.y + p > r1.y + r1.size - p || 
-                     r2.y + r2.size - p < r1.y + p);
-        }
-
-        // --- Firebase 操作 (維持不變) ---
         startBtn.addEventListener('click', () => {
-            resetGame();
-            gameRunning = true;
-            uiLayer.classList.remove('active');
-            inputArea.style.display = 'none';
-            finalScoreText.style.display = 'none';
-            animate();
+            resetGame(); gameRunning = true; uiLayer.classList.remove('active');
+            inputArea.style.display = 'none'; finalScoreText.style.display = 'none'; animate();
         });
 
         saveBtn.addEventListener('click', async () => {
-            const name = playerNameInput.value || "UNKNOWN";
-            saveBtn.disabled = true; saveBtn.innerText = "SAVING...";
+            const name = playerNameInput.value || "AAA";
+            saveBtn.innerText = "...";
             try {
-                await addDoc(collection(db, "leaderboard"), {
-                    name: name, score: score, date: new Date()
-                });
-                loadLeaderboard();
-                saveBtn.disabled = false; saveBtn.innerText = "SAVE SCORE";
-                statusText.innerText = "STAGE 1"; statusText.style.color = "#e69138";
+                await addDoc(collection(db, "leaderboard"), { name, score, date: new Date() });
+                await loadLeaderboard();
+                saveBtn.innerText = "SAVE"; statusText.innerText = "STAGE 1";
                 startBtn.style.display = 'block'; inputArea.style.display = 'none';
-            } catch(e) { alert("Error: " + e.message); saveBtn.disabled = false; }
+            } catch(e) { alert("Error"); }
         });
 
         async function loadLeaderboard() {
-            const listDiv = document.getElementById('score-list');
+            miniLeaderboard.innerHTML = "Loading...";
             try {
-                const q = query(collection(db, "leaderboard"), orderBy("score", "desc"), limit(5));
-                const querySnapshot = await getDocs(q);
+                const q = query(collection(db, "leaderboard"), orderBy("score", "desc"), limit(3));
+                const snap = await getDocs(q);
                 let html = "";
-                querySnapshot.forEach((doc) => {
-                    const d = doc.data();
-                    html += `<div class="score-row"><span>${d.name}</span><span>${d.score}</span></div>`;
-                });
-                listDiv.innerHTML = html || "NO DATA";
-            } catch (e) { listDiv.innerHTML = "ERROR"; }
+                snap.forEach(d => html += `<div>${d.data().name}: ${d.data().score}</div>`);
+                miniLeaderboard.innerHTML = html || "No Data";
+            } catch (e) { miniLeaderboard.innerHTML = "Err"; }
         }
         loadLeaderboard();
-
     </script>
 </body>
 </html>
