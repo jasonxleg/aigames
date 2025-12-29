@@ -3,285 +3,330 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JOSH.EXE - FATAL ERROR</title>
+    <title>JOSH PRIME CUTS | Premium Chaos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        /* --- 基礎設定 (越醜越好) --- */
+        :root {
+            --bg-color: #1a1918; /* 炭黑色 */
+            --text-main: #f3f0eb; /* 米白色 */
+            --accent-color: #d64933; /* 燒烤紅/火焰色 */
+            --paper-color: #e3decb; /* 牛皮紙色 */
+            --border-thick: 3px solid var(--text-main);
+        }
+
+        /* --- 基礎設定 & 材質感 --- */
         body {
-            background-color: #000000;
-            color: #00ff00;
-            font-family: "Comic Sans MS", "Chalkboard SE", "Marker Felt", sans-serif; /* 故意用 Comic Sans */
-            overflow-x: hidden;
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle, #2a2928 1px, transparent 1px);
+            background-size: 20px 20px; /* 模擬網點材質 */
+            color: var(--text-main);
+            font-family: 'Roboto Condensed', sans-serif;
             margin: 0;
             padding: 0;
-            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" style="font-size:20px"><text y="18">🖕</text></svg>'), auto; /* 中指游標 */
+            overflow-x: hidden;
         }
 
-        /* --- 閃爍背景動畫 --- */
-        @keyframes bg-flash {
-            0% { background-color: #000; }
-            49% { background-color: #000; }
-            50% { background-color: #1a0000; } /* 偶爾閃紅 */
-            51% { background-color: #000; }
-            100% { background-color: #000; }
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            text-align: center;
-            animation: bg-flash 5s infinite;
-            min-height: 100vh;
-            border-left: 5px solid blue;
-            border-right: 5px solid red;
-        }
-
-        /* --- 故障文字效果 (Glitch Text) --- */
-        h1 {
-            font-size: 4rem;
+        h1, h2, h3, .btn {
+            font-family: 'Oswald', sans-serif;
             text-transform: uppercase;
-            position: relative;
-            display: inline-block;
-            color: #fff;
-            text-shadow: 2px 2px #ff00ff, -2px -2px #00ffff;
-        }
-        h1:hover {
-            animation: shake 0.5s infinite;
+            letter-spacing: 2px;
         }
 
-        /* --- Windows 95 風格視窗 --- */
-        .win95-box {
-            background: #c0c0c0;
-            border: 3px solid;
-            border-color: #ffffff #404040 #404040 #ffffff;
-            padding: 2px;
-            margin: 30px auto;
-            width: 90%;
-            box-shadow: 10px 10px 0px #000;
-        }
-        .win95-header {
-            background: linear-gradient(90deg, #000080, #1084d0);
-            color: white;
-            padding: 5px;
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
+        /* --- 導航欄 --- */
+        nav {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            padding: 20px 40px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            position: sticky;
+            top: 0;
+            background: rgba(26, 25, 24, 0.95);
+            z-index: 1000;
         }
-        .win95-content {
-            padding: 20px;
-            color: black;
-            text-align: center;
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            border: 2px solid var(--text-main);
+            padding: 5px 15px;
         }
-        .close-btn {
-            background: #c0c0c0;
-            border: 1px outset #fff;
-            width: 20px;
-            height: 20px;
-            line-height: 18px;
-            text-align: center;
-            cursor: pointer;
-            color: black;
+        .nav-links a {
+            color: var(--text-main);
+            text-decoration: none;
+            margin-left: 20px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            transition: color 0.3s;
+        }
+        .nav-links a:hover {
+            color: var(--accent-color);
         }
 
-        /* --- 那個不能按的按鈕 --- */
-        .danger-btn {
-            background-color: red;
-            color: yellow;
+        /* --- Hero Section (主視覺) --- */
+        .hero {
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg'); /* 這裡換成 Josh 影片截圖 */
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed; /* 視差滾動效果 */
+        }
+        
+        .hero h1 {
+            font-size: 8vw; /* 巨大標題 */
+            line-height: 0.9;
+            margin: 0;
+            text-shadow: 5px 5px 0px #000;
+            transform: skewY(-2deg); /* 微微傾斜，增加動感 */
+        }
+
+        .hero span {
+            display: block;
+            color: var(--accent-color);
+        }
+
+        .stamp {
+            position: absolute;
+            top: 20%;
+            right: 10%;
+            border: 4px solid var(--accent-color);
+            color: var(--accent-color);
+            padding: 10px 20px;
             font-size: 2rem;
             font-weight: bold;
-            padding: 20px 40px;
-            border: 5px dashed yellow;
-            cursor: pointer;
-            margin: 40px 0;
-            transition: transform 0.1s;
-            font-family: Impact, sans-serif;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .danger-btn:hover {
-            animation: shake 0.2s infinite;
-            box-shadow: 0 0 20px red;
-        }
-        .danger-btn:active {
-            transform: scale(0.9);
+            transform: rotate(15deg);
+            opacity: 0.8;
+            font-family: 'Oswald', sans-serif;
+            mask-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='); /* 簡單模擬印章磨損感 */
         }
 
-        /* --- 抖動動畫 --- */
-        @keyframes shake {
-            0% { transform: translate(1px, 1px) rotate(0deg); }
-            10% { transform: translate(-1px, -2px) rotate(-1deg); }
-            20% { transform: translate(-3px, 0px) rotate(1deg); }
-            30% { transform: translate(3px, 2px) rotate(0deg); }
-            40% { transform: translate(1px, -1px) rotate(1deg); }
-            50% { transform: translate(-1px, 2px) rotate(-1deg); }
-            60% { transform: translate(-3px, 1px) rotate(0deg); }
-            70% { transform: translate(3px, 1px) rotate(-1deg); }
-            80% { transform: translate(-1px, -1px) rotate(1deg); }
-            90% { transform: translate(1px, 2px) rotate(0deg); }
-            100% { transform: translate(1px, -2px) rotate(-1deg); }
-        }
-
-        /* --- 跑馬燈 --- */
-        .marquee-container {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: yellow;
-            color: red;
-            font-weight: bold;
-            font-size: 1.5rem;
-            padding: 5px 0;
-            border-top: 3px solid black;
-            z-index: 999;
-        }
-
-        /* --- 影片容器 --- */
-        .video-container {
-            position: relative;
-            padding-bottom: 56.25%; /* 16:9 ratio */
-            height: 0;
+        /* --- 跑馬燈條 --- */
+        .marquee-strip {
+            background: var(--accent-color);
+            color: var(--bg-color);
+            padding: 15px 0;
             overflow: hidden;
-            background: black;
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.5rem;
+            font-weight: bold;
+            white-space: nowrap;
+            border-top: 3px solid black;
+            border-bottom: 3px solid black;
         }
-        .video-container iframe {
-            position: absolute;
-            top: 0;
-            left: 0;
+
+        /* --- 菜單區 (影片網格) --- */
+        .menu-section {
+            max-width: 1200px;
+            margin: 80px auto;
+            padding: 0 20px;
+        }
+        
+        .section-title {
+            font-size: 4rem;
+            border-bottom: 5px solid var(--accent-color);
+            display: inline-block;
+            margin-bottom: 40px;
+            color: var(--paper-color);
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+        }
+
+        .menu-item {
+            background: #2a2928;
+            border: 1px solid #444;
+            transition: transform 0.3s, box-shadow 0.3s;
+            position: relative;
+        }
+
+        .menu-item:hover {
+            transform: translateY(-10px);
+            box-shadow: 10px 10px 0px var(--accent-color);
+        }
+
+        .video-thumb {
+            width: 100%;
+            height: 200px;
+            background: #000;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .video-thumb img {
             width: 100%;
             height: 100%;
+            object-fit: cover;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+        .menu-item:hover .video-thumb img {
+            opacity: 1;
         }
 
-        /* --- 隱藏的驚喜文字 --- */
-        .hidden-text {
-            color: #111;
-            font-size: 0.8rem;
+        .item-info {
+            padding: 20px;
+            border-top: 5px solid var(--accent-color);
         }
-        .hidden-text:hover {
-            color: white;
-            background: red;
+
+        .item-title {
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.8rem;
+            margin: 0 0 10px 0;
+            color: var(--paper-color);
         }
+
+        .item-desc {
+            color: #888;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .price-tag {
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: var(--accent-color);
+            float: right;
+        }
+
+        /* --- 行動呼籲按鈕 --- */
+        .cta-btn {
+            display: inline-block;
+            background: transparent;
+            color: var(--text-main);
+            border: 2px solid var(--text-main);
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            text-decoration: none;
+            margin-top: 20px;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-btn:hover {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+            color: black;
+        }
+
+        /* --- 頁腳 --- */
+        footer {
+            background: #111;
+            color: #555;
+            padding: 50px 20px;
+            text-align: center;
+            border-top: 1px solid #333;
+            margin-top: 100px;
+        }
+        
+        /* --- 裝飾線條 --- */
+        .decorative-line {
+            width: 100%;
+            height: 20px;
+            background: repeating-linear-gradient(
+                45deg,
+                #333,
+                #333 10px,
+                #1a1918 10px,
+                #1a1918 20px
+            );
+            margin: 50px 0;
+        }
+
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <br><br>
-        <h1>JOSH.NET</h1>
-        <p style="font-family: monospace;">[SYSTEM FAILURE] [LOAD BRAINROT.DLL]</p>
-        
-        <br>
-        
-        <div style="border: 2px solid white; padding: 10px; display:inline-block; transform: rotate(-2deg);">
-            <h2 style="margin:0; background: blue; color: white;">⚠ WARNING ⚠</h2>
-            <p>YOU ARE ENTERING THE TRASH ZONE</p>
+    <nav>
+        <div class="logo">JOSH.BBQ</div>
+        <div class="nav-links">
+            <a href="#">MENU</a>
+            <a href="#">RESERVATION</a>
+            <a href="https://www.youtube.com/@channeljosh3198" style="color:var(--accent-color)">SUBSCRIBE</a>
         </div>
+    </nav>
 
-        <br><br>
-        <button class="danger-btn" onclick="triggerChaos()">
-            DO NOT PUSH
-        </button>
-        <p id="chaos-msg" style="color: red; display: none;">I TOLD YOU NOT TO PUSH IT!!!!</p>
-
-        <div class="win95-box">
-            <div class="win95-header">
-                <span>C:\JOSH\VIDEOS\TRASH.mp4</span>
-                <div class="close-btn" onclick="alert('你以為你能關掉嗎？')">X</div>
-            </div>
-            <div class="win95-content">
-                <p>正在載入最新的後悔...</p>
-                <div class="video-container">
-                    <iframe width="560" height="315" src="https://www.youtube.com/embed/videoseries?list=UUchanneljosh3198" title="Josh Video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-                </div>
-                <br>
-                <button onclick="alert('錯誤：這部影片太蠢了，無法點讚。')">👍 Like</button>
-                <button onclick="alert('你確定你要分享這種東西？')">👎 Share</button>
-            </div>
-        </div>
-
-        <div class="win95-box" style="width: 60%; background: #ffff00; border-color: black;">
-            <div class="win95-header" style="background: red;">
-                <span>VIRUS_INSTALLER.EXE</span>
-            </div>
-            <div class="win95-content">
-                <h3>👇 加入邪教 👇</h3>
-                <ul style="list-style-type: square; text-align: left;">
-                    <li><a href="https://www.youtube.com/@channeljosh3198" target="_blank">YouTube (後果自負)</a></li>
-                    <li><a href="#" onclick="alert('Discord 連結已損壞 (就像你的理智一樣)')">Discord</a></li>
-                    <li><a href="#" onclick="alert('沒有 Twitter，只有痛苦')">Twitter</a></li>
-                </ul>
-            </div>
-        </div>
-
-        <br><br><br>
-        <p class="hidden-text">為什麼你還在往下滑？這裡什麼都沒有了。</p>
-        <p class="hidden-text">快去訂閱 channeljosh3198</p>
-        <br><br><br><br>
-
+    <div class="hero">
+        <div class="stamp">CERTIFIED<br>TRASH</div>
+        <h1>PREMIUM<br><span>BRAINROT</span></h1>
+        <p style="font-size: 1.5rem; letter-spacing: 3px; margin-top: 20px;">SINCE 20XX • 100% ORGANIC CHAOS</p>
+        <a href="https://www.youtube.com/@channeljosh3198/videos" class="cta-btn">WATCH THE MENU</a>
     </div>
 
-    <div class="marquee-container">
-        <marquee scrollamount="15" direction="left">
-            歡迎來到 JOSH 的網站 • 這裡沒有任何有用的資訊 • 腦腐蝕進行中 99% • 訂閱或變笨 • SUBSCRIBE OR I WILL EAT YOUR COOKIES •
+    <div class="marquee-strip">
+        <marquee scrollamount="12">
+            FRESH GARBAGE UPLOADED WEEKLY • WARNING: MAY CAUSE IQ LOSS • TASTES LIKE REGRET • AUTHENTIC INTERNET CRINGE • 
         </marquee>
     </div>
 
-    <script>
-        // 混沌按鈕的功能
-        function triggerChaos() {
-            const body = document.body;
-            const btn = document.querySelector('.danger-btn');
-            const msg = document.getElementById('chaos-msg');
+    <div class="decorative-line"></div>
 
-            // 1. 播放音效 (這裡使用瀏覽器內建的合成語音，比較簡單不用外部檔案)
-            const synth = window.speechSynthesis;
-            const utterThis = new SpeechSynthesisUtterance("Oh my god why did you do that");
-            utterThis.pitch = 0.1; // 超低音
-            utterThis.rate = 0.5; // 超慢
-            synth.speak(utterThis);
+    <div class="menu-section">
+        <h2 class="section-title">TODAY'S SPECIALS</h2>
+        <p style="margin-bottom: 40px; font-size: 1.2rem; color: #888;">Hand-picked low quality content for your consumption.</p>
 
-            // 2. 視覺混亂
-            body.style.backgroundColor = "red";
-            body.style.animation = "shake 0.1s infinite";
-            
-            btn.innerHTML = "RUN!!!";
-            msg.style.display = "block";
+        <div class="grid-container">
+            <div class="menu-item">
+                <div class="video-thumb">
+                     <iframe width="100%" height="100%" src="https://www.youtube.com/embed/videoseries?list=UUchanneljosh3198" title="Josh Video" frameborder="0" style="pointer-events: none;"></iframe>
+                </div>
+                <div class="item-info">
+                    <h3 class="item-title">THE CLASSIC MESS</h3>
+                    <p class="item-desc">A delicate balance of screaming and glitchy editing. Served with a side of confusion.</p>
+                    <span class="price-tag">$0.00 (Free)</span>
+                    <div style="clear:both;"></div>
+                </div>
+            </div>
 
-            // 3. 彈出一堆煩人的 alert (為了用戶體驗只彈一次，但Josh風格應該彈100次)
-            setTimeout(() => {
-                alert("SYSTEM ERROR: TOO MUCH SWAG DETECTED");
-                body.style.backgroundColor = "black"; // 恢復
-                body.style.animation = "none";
-                btn.innerHTML = "DO NOT PUSH";
-                window.location.href = "https://www.youtube.com/@channeljosh3198"; // 強制跳轉回頻道
-            }, 2000);
-        }
+            <div class="menu-item">
+                <div class="video-thumb">
+                    <div style="width:100%; height:100%; background: #333; display:flex; justify-content:center; align-items:center; color: #555; font-size: 3rem; font-weight:bold;">?</div>
+                </div>
+                <div class="item-info">
+                    <h3 class="item-title">ROBLOX SURPRISE</h3>
+                    <p class="item-desc">Deep fried textures with raw audio input. Not recommended for sensitive ears.</p>
+                    <span class="price-tag">SOLD OUT</span>
+                    <div style="clear:both;"></div>
+                </div>
+            </div>
 
-        // 隨機點擊頁面產生的效果
-        document.addEventListener('click', function(e) {
-            // 如果點擊的不是按鈕或連結
-            if(e.target.tagName !== 'BUTTON' && e.target.tagName !== 'A' && e.target.tagName !== 'IFRAME') {
-                createGlitchText(e.clientX, e.clientY);
-            }
-        });
+            <div class="menu-item">
+                <div class="video-thumb">
+                    <div style="width:100%; height:100%; background: #333; display:flex; justify-content:center; align-items:center; color: #555; font-size: 3rem; font-weight:bold;">!</div>
+                </div>
+                <div class="item-info">
+                    <h3 class="item-title">MEME PLATTER</h3>
+                    <p class="item-desc">An assortment of dead memes aged for 3 years. Chewy and regrettable.</p>
+                    <span class="price-tag">HOT</span>
+                    <div style="clear:both;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        function createGlitchText(x, y) {
-            const el = document.createElement('div');
-            el.innerText = Math.random() > 0.5 ? "ERROR" : "JOSH";
-            el.style.position = 'fixed';
-            el.style.left = x + 'px';
-            el.style.top = y + 'px';
-            el.style.color = Math.random() > 0.5 ? 'cyan' : 'magenta';
-            el.style.fontFamily = 'Courier New';
-            el.style.fontWeight = 'bold';
-            el.style.pointerEvents = 'none';
-            document.body.appendChild(el);
+    <div style="background-color: var(--paper-color); color: black; padding: 80px 20px; text-align: center;">
+        <h2 style="font-size: 3rem; margin-bottom: 20px;">HUNGRY FOR MORE?</h2>
+        <p style="font-size: 1.2rem; max-width: 600px; margin: 0 auto 40px auto;">
+            We don't actually serve food. We serve digital disappointment. Join the community to get notified when we burn the next batch.
+        </p>
+        <a href="https://www.youtube.com/@channeljosh3198" class="cta-btn" style="border-color: black; color: black;">
+            RESERVE YOUR SEAT (SUBSCRIBE)
+        </a>
+    </div>
 
-            setTimeout(() => {
-                el.remove();
-            }, 1000);
-        }
-    </script>
+    <footer>
+        <p>© 2024 JOSH INC. | NO REFUNDS | NOT A REAL RESTAURANT</p>
+        <p style="font-size: 0.8rem; margin-top: 10px;">DESIGN INSPIRED BY CASCADE BBQ</p>
+    </footer>
+
 </body>
 </html>
