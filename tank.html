@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Milo 坦克大戰 + Firebase 積分榜</title>
+    <style>
+        body {
+            background-color: #222;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 { margin-bottom: 10px; }
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        canvas {
+            background-color: #333;
+            border: 2px solid #555;
+            display: block;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.7);
+            display: none; /* 預設隱藏 */
+        }
+        #ui-layer.active { display: flex; }
+        
+        button {
+            padding: 10px 20px;
+            font-size: 18px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+            border-radius: 5px;
+        }
+        button:hover { background: #45a049; }
+        
+        input {
+            padding: 10px;
+            font-size: 16px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border: none;
+        }
+
+        #leaderboard {
+            margin-top: 20px;
+            width: 600px;
+            background: #444;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .score-row {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #555;
+            padding: 5px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🚀 Milo 坦克大戰</h1>
+    <p>操作：方向鍵移動，空白鍵射擊</p>
+    
+    <div id="game-container">
+        <canvas id="gameCanvas" width="600" height="400"></canvas>
+        
+        <div id="ui-layer" class="active">
+            <h2 id="status-text">準備好了嗎？</h2>
+            <h3 id="final-score" style="display:none">得分: 0</h3>
+            
+            <div id="input-area" style="display:none">
+                <input type="text" id="player-name" placeholder="輸入你的名字" maxlength="10">
+                <button id="save-btn">儲存分數並重來</button>
+            </div>
+            
+            <button id="start-btn">開始遊戲</button>
+        </div>
+    </div>
+
+    <div id="leaderboard">
+        <h3>🏆 英雄榜 (Firebase Data)</h3>
+        <div id="score-list">載入中...</div>
+    </div>
+
+    <script type="module">
+        // 1. 引入 Firebase 必要模組
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+        // 2. 你的 Firebase 設定
+        const firebaseConfig = {
+            apiKey: "AIzaSyDcHWsk6ffYC1XyKIga8GpHok_jUyPcNQc",
+            authDomain: "milo-game-d238c.firebaseapp.com",
+            projectId: "milo-game-d238c",
+            storageBucket: "milo-game-d238c.firebasestorage.app",
+            messagingSenderId: "64418915608",
+            appId: "1:64418915608:web:7a4c51bab0afcad8756a6d"
+        };
+
+        // 3. 初始化 Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- 遊戲邏輯開始 ---
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const uiLayer = document.getElementById('ui-layer');
+        const startBtn = document.getElementById('start-btn');
+        const saveBtn = document.getElementById('save-btn');
+        const statusText = document.getElementById('status-text');
+        const inputArea = document.getElementById('input-area');
+        const finalScoreText = document.getElementById('final-score');
+        const playerNameInput = document.getElementById('player-name');
+
+        let gameRunning = false;
+        let score = 0;
+        let animationId;
+
+        // 遊戲物件
+        const player = { x: 280, y: 350, w: 30, h: 30, speed: 4, color: '#00ff00', dx: 0, dy: 0 };
+        let bullets = [];
+        let enemies = [];
+        let enemySpawnTimer = 0;
+
+        // 按鍵監聽
+        const keys = {};
+        window.addEventListener('keydown', e => {
+            keys[e.key] = true;
+            if (e.code === 'Space' && gameRunning) shoot();
+        });
+        window.addEventListener('keyup', e => keys[e.key] = false);
+
+        // 開始按鈕
+        startBtn.addEventListener('click', () => {
+            resetGame();
+            gameRunning = true;
+            uiLayer.classList.remove('active');
+            inputArea.style.display = 'none';
+            finalScoreText.style.display = 'none';
+            animate();
+        });
+
+        // 儲存分數按鈕
+        saveBtn.addEventListener('click', async () => {
+            const name = playerNameInput.value || "無名英雄";
+            saveBtn.disabled = true;
+            saveBtn.innerText = "儲存中...";
+            
+            await saveScoreToFirebase(name, score);
+            
+            saveBtn.disabled = false;
+            saveBtn.innerText = "儲存分數並重來";
+            
+            // 重新載入排行榜並回到開始畫面
+            loadLeaderboard();
+            uiLayer.classList.remove('active'); // 其實這裡可以設計成回到主選單，簡單起見直接重置
+            statusText.innerText = "準備好了嗎？";
+            startBtn.style.display = 'block';
+            inputArea.style.display = 'none';
+            finalScoreText.style.display = 'none';
+        });
+
+        function resetGame() {
+            player.x = canvas.width / 2 - 15;
+            player.y = canvas.height - 50;
+            bullets = [];
+            enemies = [];
+            score = 0;
+            enemySpawnTimer = 0;
+        }
+
+        function shoot() {
+            bullets.push({ x: player.x + player.w/2 - 2, y: player.y, w: 4, h: 10, speed: 7 });
+        }
+
+        function spawnEnemy() {
+            const size = 30;
+            const x = Math.random() * (canvas.width - size);
+            enemies.push({ x: x, y: -size, w: size, h: size, speed: 2 + Math.random() * 2 });
+        }
+
+        function update() {
+            // 玩家移動
+            if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
+            if (keys['ArrowRight'] && player.x + player.w < canvas.width) player.x += player.speed;
+            if (keys['ArrowUp'] && player.y > 0) player.y -= player.speed;
+            if (keys['ArrowDown'] && player.y + player.h < canvas.height) player.y += player.speed;
+
+            // 子彈更新
+            bullets.forEach((b, index) => {
+                b.y -= b.speed;
+                if (b.y < 0) bullets.splice(index, 1);
+            });
+
+            // 敵人生成
+            enemySpawnTimer++;
+            if (enemySpawnTimer > 60) { // 每 60 幀生成一個
+                spawnEnemy();
+                enemySpawnTimer = 0;
+            }
+
+            // 敵人更新與碰撞
+            enemies.forEach((e, eIndex) => {
+                e.y += e.speed;
+
+                // 檢測與玩家碰撞 (Game Over)
+                if (rectIntersect(player, e)) {
+                    gameOver();
+                }
+
+                // 檢測與子彈碰撞
+                bullets.forEach((b, bIndex) => {
+                    if (rectIntersect(b, e)) {
+                        enemies.splice(eIndex, 1);
+                        bullets.splice(bIndex, 1);
+                        score += 10;
+                    }
+                });
+
+                // 超出邊界移除
+                if (e.y > canvas.height) enemies.splice(eIndex, 1);
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 畫玩家
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+
+            // 畫子彈
+            ctx.fillStyle = '#ffcc00';
+            bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
+
+            // 畫敵人
+            ctx.fillStyle = '#ff4444';
+            enemies.forEach(e => ctx.fillRect(e.x, e.y, e.w, e.h));
+
+            // 畫分數
+            ctx.fillStyle = 'white';
+            ctx.font = '20px Arial';
+            ctx.fillText(`Score: ${score}`, 10, 30);
+        }
+
+        function animate() {
+            if (!gameRunning) return;
+            update();
+            draw();
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            cancelAnimationFrame(animationId);
+            
+            statusText.innerText = "💥 遊戲結束 💥";
+            finalScoreText.innerText = `最終得分: ${score}`;
+            finalScoreText.style.display = 'block';
+            inputArea.style.display = 'block';
+            startBtn.style.display = 'none';
+            uiLayer.classList.add('active');
+        }
+
+        // 簡單的矩形碰撞檢測
+        function rectIntersect(r1, r2) {
+            return !(r2.x > r1.x + r1.w || 
+                     r2.x + r2.w < r1.x || 
+                     r2.y > r1.y + r1.h || 
+                     r2.y + r2.h < r1.y);
+        }
+
+        // --- Firebase 功能 ---
+
+        // 寫入分數
+        async function saveScoreToFirebase(name, score) {
+            try {
+                const docRef = await addDoc(collection(db, "leaderboard"), {
+                    name: name,
+                    score: score,
+                    date: new Date()
+                });
+                console.log("Document written with ID: ", docRef.id);
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                alert("儲存失敗，請檢查 Firebase Console 是否開啟 Firestore Database");
+            }
+        }
+
+        // 讀取排行榜
+        async function loadLeaderboard() {
+            const listDiv = document.getElementById('score-list');
+            listDiv.innerHTML = "載入中...";
+            
+            try {
+                // 查詢前 10 名高分
+                const q = query(collection(db, "leaderboard"), orderBy("score", "desc"), limit(10));
+                const querySnapshot = await getDocs(q);
+                
+                let html = "";
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    html += `
+                        <div class="score-row">
+                            <span>${data.name}</span>
+                            <span>${data.score} 分</span>
+                        </div>
+                    `;
+                });
+                
+                listDiv.innerHTML = html || "暫無資料";
+            } catch (e) {
+                console.error("Error getting documents: ", e);
+                listDiv.innerHTML = "讀取失敗 (請確認 Firestore 權限)";
+            }
+        }
+
+        // 頁面載入時先讀取一次排行榜
+        loadLeaderboard();
+
+    </script>
+</body>
+</html>
