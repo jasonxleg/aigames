@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>麥洛的奇妙袋子 - 無限冒險版</title>
+    <title>麥洛的奇妙袋子 - 全球挑戰版</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
 
@@ -47,11 +51,25 @@
             opacity: 0.3;
         }
 
+        /* 頂部記分板 */
+        #scoreboard {
+            background: #fff;
+            color: var(--ink-color);
+            border-bottom: var(--panel-border);
+            padding: 8px;
+            text-align: right;
+            font-size: 1.3rem;
+            padding-right: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
         .header {
             background: var(--ink-color);
             color: var(--bg-color);
             padding: 10px;
-            font-size: 1.5rem;
+            font-size: 1.8rem;
             text-align: center;
             letter-spacing: 3px;
             border-bottom: 4px solid var(--bg-color);
@@ -133,6 +151,27 @@
         .btn:hover { background: var(--ink-color); color: white; transform: scale(1.01); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
+        /* FB 分享按鈕 */
+        .fb-btn {
+            background: white;
+            color: var(--ink-color);
+            border: 3px solid var(--ink-color);
+            padding: 8px 20px;
+            font-family: 'VT323', monospace;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .fb-btn:hover {
+            background: #3b5998; color: white; border-color: #3b5998;
+            transform: rotate(-2deg) scale(1.05);
+        }
+
         /* 轉場遮罩 (Iris Wipe) */
         #iris-transition {
             position: absolute;
@@ -167,12 +206,52 @@
         
         @keyframes blink { 50% { opacity: 0; } }
 
+        /* 破紀錄輸入視窗 */
+        #new-record-modal {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 300;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: var(--bg-color);
+            border: 6px double var(--ink-color);
+            padding: 30px;
+            text-align: center;
+            width: 80%;
+            max-width: 400px;
+        }
+
+        #player-name-input {
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid var(--ink-color);
+            font-family: 'VT323';
+            font-size: 2rem;
+            text-align: center;
+            width: 100%;
+            margin: 20px 0;
+            color: var(--ink-color);
+            text-transform: uppercase;
+        }
+        #player-name-input:focus { outline: none; background: rgba(0,0,0,0.05); }
+
     </style>
 </head>
 <body>
 
 <div id="game-boy">
     <div id="grain-overlay"></div>
+    
+    <div id="scoreboard">
+        <span>🏆 BEST: <span id="best-score">0</span> (<span id="best-player">...</span>)</span>
+        <span>SCORE: <span id="current-score">0</span></span>
+    </div>
+
     <div class="header" id="episode-title">EPISODE 1: START</div>
 
     <div class="comic-container">
@@ -191,22 +270,54 @@
         <div class="result-content">
             <h1 style="font-size:3rem" id="res-title">LEVEL CLEAR</h1>
             <p style="font-size:1.5rem" id="res-desc">...</p>
+            
+            <button class="fb-btn" onclick="shareToFacebook()">
+                <span style="font-size: 1.2rem; font-weight: bold;">f</span> SHARE RESULT
+            </button>
+            <br>
+
             <button class="next-btn" onclick="loadNextLevel()">NEXT EPISODE >></button>
+        </div>
+    </div>
+
+    <div id="new-record-modal">
+        <div class="modal-content">
+            <div style="font-size: 4rem;">🎉</div>
+            <h2>NEW WORLD RECORD!</h2>
+            <p>你存活了 <span id="final-score-display">0</span> 個章節！</p>
+            <p>留名青史吧，冒險家：</p>
+            <input type="text" id="player-name-input" placeholder="ENTER NAME" maxlength="10">
+            <button class="btn" onclick="saveRecord()">UPLOAD RECORD</button>
         </div>
     </div>
 </div>
 
 <script>
-    // --- 遊戲資料庫 (Game Database) ---
-    // 這裡儲存了不同關卡的劇情。結構設計為：
-    // key: 關卡ID
-    // content: 漫畫內容與選項
-    // branches: 每個選項對應的「下一關ID」
+    // --- 1. Firebase 設定 (使用你的 Config) ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyDcHWsk6ffYC1XyKIga8GpHok_jUyPcNQc",
+      authDomain: "milo-game-d238c.firebaseapp.com",
+      projectId: "milo-game-d238c",
+      storageBucket: "milo-game-d238c.firebasestorage.app",
+      messagingSenderId: "64418915608",
+      appId: "1:64418915608:web:7a4c51bab0afcad8756a6d"
+    };
 
+    // 初始化 Firebase
+    try {
+        firebase.initializeApp(firebaseConfig);
+        var db = firebase.firestore();
+        console.log("Firebase Connected!");
+    } catch (e) {
+        console.error("Firebase Connect Error:", e);
+        alert("資料庫連線失敗，請檢查網路。");
+    }
+
+    // --- 2. 遊戲資料庫 (Game Database) ---
     const gameData = {
         // === 第 1 章：月亮起司 ===
         "ep1": {
-            title: "EPISODE 1: MOON CHEESE",
+            title: "EP1: MOON CHEESE",
             panels: [
                 { emoji: "😿🗯️🍖", text: "麥洛餓扁了，肚子發出的叫聲竟然踢了他一腳！" },
                 { emoji: "😻🧀🌙", text: "窗外的月亮...是一塊巨大的瑞士起司！" },
@@ -221,11 +332,9 @@
             ]
         },
 
-        // === 第 2 章的分支 (根據第1章的選擇而不同) ===
-
-        // 分支 A: 因為用彈弓飛太快，撞到了雲層
+        // === 第 2 章的分支 ===
         "ep2_sky_crash": {
-            title: "EPISODE 2: CLOUD TRAFFIC",
+            title: "EP2: CLOUD TRAFFIC",
             panels: [
                 { emoji: "🚀😵💫", text: "麥洛撞進了雲層，頭上轉著金絲雀。" },
                 { emoji: "🚦☁️😠", text: "這裡竟然是「空中交通堵塞」！暴躁的雷電雲正在按喇叭。" },
@@ -233,16 +342,14 @@
             ],
             question: "要怎麼通過警察的臨檢？",
             choices: [
-                { id: "A", text: "A. 拿出一塊假警徽 (偽裝)", nextLevel: "ep3_police_chief", result: "老鷹敬禮放行！但現在你得去指揮交通。" },
-                { id: "B", text: "B. 巨大的電風扇 (吹飛)", nextLevel: "ep3_storm", result: "你把雲都吹散了！但引發了龍捲風。" },
-                { id: "C", text: "C. 把車畫成隱形的 (創意)", nextLevel: "ep3_invisible", result: "沒人看得到你，但你也看不到路了！" },
-                { id: "D", text: "D. 賄賂一袋貓薄荷 (交易)", nextLevel: "ep3_bribe", result: "老鷹原來也是貓奴？它開心地讓你通過。" }
+                { id: "A", text: "A. 拿出一塊假警徽 (偽裝)", nextLevel: "ep3_end", result: "老鷹敬禮放行！但現在你得去指揮交通。" },
+                { id: "B", text: "B. 巨大的電風扇 (吹飛)", nextLevel: "ep3_end", result: "你把雲都吹散了！但引發了龍捲風。" },
+                { id: "C", text: "C. 把車畫成隱形的 (創意)", nextLevel: "ep3_end", result: "沒人看得到你，但你也看不到路了！" },
+                { id: "D", text: "D. 賄賂一袋貓薄荷 (交易)", nextLevel: "ep3_end", result: "老鷹原來也是貓奴？它開心地讓你通過。" }
             ]
         },
-
-        // 分支 B: 因為變成氣球，飄到了尖刺地帶
         "ep2_balloon": {
-            title: "EPISODE 2: NEEDLE PEAKS",
+            title: "EP2: NEEDLE PEAKS",
             panels: [
                 { emoji: "🎈😨⛰️", text: "麥洛氣球飄到了「針尖山脈」，這裡全是尖刺。" },
                 { emoji: "🌵🐝👿", text: "一群蜜蜂拿著針頭飛過來想要戳破你！" },
@@ -250,16 +357,14 @@
             ],
             question: "氣球狀態不能被碰到！怎麼辦？",
             choices: [
-                { id: "A", text: "A. 噴氣加速 (犧牲體型)", nextLevel: "ep3_mini", result: "麥洛變得很小很小，成功穿過縫隙！" },
-                { id: "B", text: "B. 變成鐵皮氣球 (強化)", nextLevel: "ep3_heavy", result: "變硬了，但也變重了，開始急速下墜！" },
-                { id: "C", text: "C. 畫出吹泡泡機 (混淆)", nextLevel: "ep3_bubbles", result: "蜜蜂分不清哪個是麥洛，去戳泡泡了。" },
-                { id: "D", text: "D. 拿出一面鏡子 (反射)", nextLevel: "ep3_mirror", result: "蜜蜂被自己的倒影嚇跑了！" }
+                { id: "A", text: "A. 噴氣加速 (犧牲體型)", nextLevel: "ep3_end", result: "麥洛變得很小很小，成功穿過縫隙！" },
+                { id: "B", text: "B. 變成鐵皮氣球 (強化)", nextLevel: "ep3_end", result: "變硬了，但也變重了，開始急速下墜！" },
+                { id: "C", text: "C. 畫出吹泡泡機 (混淆)", nextLevel: "ep3_end", result: "蜜蜂分不清哪個是麥洛，去戳泡泡了。" },
+                { id: "D", text: "D. 拿出一面鏡子 (反射)", nextLevel: "ep3_end", result: "蜜蜂被自己的倒影嚇跑了！" }
             ]
         },
-
-        // 分支 C: 剪開背景，進入了未完成的線稿世界
         "ep2_backstage": {
-            title: "EPISODE 2: THE SKETCH WORLD",
+            title: "EP2: THE SKETCH WORLD",
             panels: [
                 { emoji: "✏️⬜🕸️", text: "這裡是漫畫的後台，所有東西都是黑白線稿。" },
                 { emoji: "🖐️✏️👨‍🎨", text: "巨大的「畫師之手」正在拿著橡皮擦修改畫面。" },
@@ -267,16 +372,14 @@
             ],
             question: "面對造物主(畫師)，你要怎麼生存？",
             choices: [
-                { id: "A", text: "A. 搶奪鉛筆 (奪權)", nextLevel: "ep3_god_mode", result: "你拿到了鉛筆，現在你是畫師了！" },
-                { id: "B", text: "B. 裝成墨水漬 (隱身)", nextLevel: "ep3_ink_blob", result: "畫師以為你是污漬，把你甩到了地板上。" },
-                { id: "C", text: "C. 畫一個假麥洛 (替身)", nextLevel: "ep3_clone", result: "橡皮擦擦掉了假人，你趁機溜走。" },
-                { id: "D", text: "D. 跳出紙張 (現實)", nextLevel: "ep3_reality", result: "你跳到了畫師的咖啡杯裡！這是3D世界！" }
+                { id: "A", text: "A. 搶奪鉛筆 (奪權)", nextLevel: "ep3_end", result: "你拿到了鉛筆，現在你是畫師了！" },
+                { id: "B", text: "B. 裝成墨水漬 (隱身)", nextLevel: "ep3_end", result: "畫師以為你是污漬，把你甩到了地板上。" },
+                { id: "C", text: "C. 畫一個假麥洛 (替身)", nextLevel: "ep3_end", result: "橡皮擦擦掉了假人，你趁機溜走。" },
+                { id: "D", text: "D. 跳出紙張 (現實)", nextLevel: "ep3_end", result: "你跳到了畫師的咖啡杯裡！這是3D世界！" }
             ]
         },
-
-        // 分支 D: 爵士樂路線，月亮很高興
         "ep2_jazz": {
-            title: "EPISODE 2: MOONLIGHT PARTY",
+            title: "EP2: MOONLIGHT PARTY",
             panels: [
                 { emoji: "🎷🕺🌝", text: "月亮長出了手腳，開始在天上跳踢踏舞。" },
                 { emoji: "🎹⭐👯", text: "星星變成了鋼琴鍵，雲朵變成了舞伴。" },
@@ -284,36 +387,31 @@
             ],
             question: "吸血鬼討厭爵士樂！怎麼辦？",
             choices: [
-                { id: "A", text: "A. 彈奏悲傷小調 (改曲風)", nextLevel: "ep3_goth", result: "吸血鬼喜歡這憂鬱的調調，加入了派對。" },
-                { id: "B", text: "B. 用聚光燈照他 (弱點)", nextLevel: "ep3_sun", result: "吸血鬼以為太陽出來了，尖叫著逃跑！" },
-                { id: "C", text: "C. 請他喝番茄汁 (安撫)", nextLevel: "ep3_drink", result: "他冷靜下來了，但要你教他跳舞。" },
-                { id: "D", text: "D. 音波攻擊 (戰鬥)", nextLevel: "ep3_blast", result: "你吹出超高音，震碎了他的棺材！" }
+                { id: "A", text: "A. 彈奏悲傷小調 (改曲風)", nextLevel: "ep3_end", result: "吸血鬼喜歡這憂鬱的調調，加入了派對。" },
+                { id: "B", text: "B. 用聚光燈照他 (弱點)", nextLevel: "ep3_end", result: "吸血鬼以為太陽出來了，尖叫著逃跑！" },
+                { id: "C", text: "C. 請他喝番茄汁 (安撫)", nextLevel: "ep3_end", result: "他冷靜下來了，但要你教他跳舞。" },
+                { id: "D", text: "D. 音波攻擊 (戰鬥)", nextLevel: "ep3_end", result: "你吹出超高音，震碎了他的棺材！" }
             ]
         },
-        
-        // 為了演示，第3關統一導向一個結局，實際遊戲可繼續擴展
-        "ep3_police_chief": { title: "EP3: THE END", panels: [{emoji:"🏁", text:"(演示結束)"}, {emoji:"😺", text:"感謝遊玩"}, {emoji:"🏆", text:"你創造了獨特的故事"}], choices: [] },
-        "ep3_storm": { title: "EP3: THE END", panels: [{emoji:"🏁", text:"(演示結束)"}, {emoji:"😺", text:"感謝遊玩"}, {emoji:"🌪️", text:"混亂結局"}], choices: [] },
-        "ep3_invisible": { title: "EP3: THE END", panels: [{emoji:"🏁", text:"(演示結束)"}, {emoji:"😺", text:"感謝遊玩"}, {emoji:"👻", text:"幽靈結局"}], choices: [] },
-        "ep3_bribe": { title: "EP3: THE END", panels: [{emoji:"🏁", text:"(演示結束)"}, {emoji:"😺", text:"感謝遊玩"}, {emoji:"💰", text:"富有結局"}], choices: [] },
-        "ep3_mini": { title: "EP3: THE END", panels: [{emoji:"🏁", text:"(演示結束)"}, {emoji:"😺", text:"感謝遊玩"}, {emoji:"🐜", text:"微小結局"}], choices: [] },
-        "ep3_heavy": { title: "EP3: THE END", panels: [{emoji:"🏁", text:"(演示結束)"}, {emoji:"😺", text:"感謝遊玩"}, {emoji:"🗿", text:"墜落結局"}], choices: [] },
-        "ep3_bubbles": { title: "EP3: THE END", panels: [{emoji:"🏁", text:"(演示結束)"}, {emoji:"😺", text:"感謝遊玩"}, {emoji:"🛁", text:"泡泡結局"}], choices: [] },
-        "ep3_mirror": { title: "EP3: THE END", panels: [{emoji:"🏁", text:"(演示結束)"}, {emoji:"😺", text:"感謝遊玩"}, {emoji:"🪞", text:"幻象結局"}], choices: [] },
-        "ep3_god_mode": { title: "EP3: THE END", panels: [{emoji:"🏁", text:"(演示結束)"}, {emoji:"😺", text:"感謝遊玩"}, {emoji:"✏️", text:"創世神結局"}], choices: [] },
-        "ep3_ink_blob": { title: "EP3: THE END", panels: [{emoji:"🏁", text:"(演示結束)"}, {emoji:"😺", text:"感謝遊玩"}, {emoji:"💧", text:"隱忍結局"}], choices: [] },
-        "ep3_clone": { title: "EP3: THE END", panels: [{emoji:"🏁", text:"(演示結束)"}, {emoji:"😺", text:"感謝遊玩"}, {emoji:"👯", text:"欺詐結局"}], choices: [] },
-        "ep3_reality": { title: "EP3: THE END", panels: [{emoji:"🏁", text:"(演示結束)"}, {emoji:"😺", text:"感謝遊玩"}, {emoji:"☕", text:"現實結局"}], choices: [] },
-        "ep3_goth": { title: "EP3: THE END", panels: [{emoji:"🏁", text:"(演示結束)"}, {emoji:"😺", text:"感謝遊玩"}, {emoji:"🦇", text:"哥德結局"}], choices: [] },
-        "ep3_sun": { title: "EP3: THE END", panels: [{emoji:"🏁", text:"(演示結束)"}, {emoji:"😺", text:"感謝遊玩"}, {emoji:"☀️", text:"光明結局"}], choices: [] },
-        "ep3_drink": { title: "EP3: THE END", panels: [{emoji:"🏁", text:"(演示結束)"}, {emoji:"😺", text:"感謝遊玩"}, {emoji:"🍷", text:"乾杯結局"}], choices: [] },
-        "ep3_blast": { title: "EP3: THE END", panels: [{emoji:"🏁", text:"(演示結束)"}, {emoji:"😺", text:"感謝遊玩"}, {emoji:"💥", text:"破壞結局"}], choices: [] },
+        // 結局關卡
+        "ep3_end": { 
+            title: "THE END", 
+            panels: [
+                {emoji:"🏁", text:"(遊戲演示結束)"}, 
+                {emoji:"😺", text:"感謝遊玩！"}, 
+                {emoji:"🏆", text:"查看你的最終得分"}
+            ], 
+            choices: [] // 沒有選項代表結局
+        },
     };
 
-    // --- 遊戲引擎邏輯 ---
-
+    // --- 3. 遊戲引擎與變數 ---
     let currentLevelId = 'ep1';
-    let nextLevelId = ''; // 暫存下一關 ID
+    let nextLevelId = ''; 
+    let score = 0; 
+    let currentShareText = ""; // 分享文字
+    let globalHighScore = 0;
+    let globalChampion = "LOADING...";
 
     const els = {
         title: document.getElementById('episode-title'),
@@ -326,17 +424,55 @@
         iris: document.getElementById('iris-transition'),
         resContent: document.querySelector('.result-content'),
         resTitle: document.getElementById('res-title'),
-        resDesc: document.getElementById('res-desc')
+        resDesc: document.getElementById('res-desc'),
+        // Score & Record UI
+        bestScore: document.getElementById('best-score'),
+        bestPlayer: document.getElementById('best-player'),
+        currScore: document.getElementById('current-score'),
+        recordModal: document.getElementById('new-record-modal'),
+        finalScoreDisplay: document.getElementById('final-score-display'),
+        nameInput: document.getElementById('player-name-input')
     };
 
-    // 初始化遊戲
+    // --- 初始化遊戲 ---
     function initGame() {
-        // 先打開轉場
+        score = 0;
+        updateScoreUI();
+        loadGlobalHighscore(); // 啟動 Firebase 監聽
         els.iris.classList.add('open');
         renderLevel('ep1');
     }
 
-    // 載入並渲染關卡
+    // --- Firebase: 讀取世界紀錄 ---
+    function loadGlobalHighscore() {
+        // 從資料庫 'leaderboard' 集合中，找分數最高的那一筆
+        db.collection("leaderboard")
+          .orderBy("score", "desc")
+          .limit(1)
+          .onSnapshot((querySnapshot) => {
+              if (!querySnapshot.empty) {
+                  const doc = querySnapshot.docs[0].data();
+                  globalHighScore = doc.score;
+                  globalChampion = doc.name;
+                  
+                  // 更新畫面
+                  els.bestScore.innerText = globalHighScore;
+                  els.bestPlayer.innerText = globalChampion;
+              } else {
+                  els.bestScore.innerText = 0;
+                  els.bestPlayer.innerText = "NOBODY";
+              }
+          }, (error) => {
+              console.log("Firebase Read Error:", error);
+              els.bestPlayer.innerText = "OFFLINE";
+          });
+    }
+
+    // --- 遊戲邏輯 ---
+    function updateScoreUI() {
+        els.currScore.innerText = score;
+    }
+
     function renderLevel(levelId) {
         currentLevelId = levelId;
         const data = gameData[levelId];
@@ -350,21 +486,19 @@
         els.choicesArea.innerHTML = '';
         els.mainText.innerText = "劇情載入中...";
 
-        // 設置漫畫內容
+        // 設置內容
         if(data.panels[0]) { els.e1.innerText = data.panels[0].emoji; els.d1.innerText = data.panels[0].text; }
         if(data.panels[1]) { els.e2.innerText = data.panels[1].emoji; els.d2.innerText = data.panels[1].text; }
         if(data.panels[2]) { els.e3.innerText = data.panels[2].emoji; els.d3.innerText = data.panels[2].text; }
 
-        // 動畫序列播放
+        // 動畫序列
         setTimeout(() => { showPanel(1, data.panels[0].text) }, 1000);
         setTimeout(() => { showPanel(2, data.panels[1].text) }, 4000);
-        
-        // 如果有第三格才顯示 (End game check)
         if(data.panels[2]) {
              setTimeout(() => { showPanel(3, data.panels[2].text) }, 7000);
         }
 
-        // 顯示選項 (如果有)
+        // 判斷是否為結局
         if (data.choices && data.choices.length > 0) {
             setTimeout(() => {
                 els.p4.classList.add('visible');
@@ -372,10 +506,10 @@
                 renderChoices(data.choices);
             }, 10000);
         } else {
-             // 遊戲結束狀態
+             // 這是結局頁
              setTimeout(() => {
-                 els.mainText.innerText = "本章節結束，感謝遊玩！(重新整理以重置)";
-             }, 8000);
+                 checkEndGame(); 
+             }, 9000);
         }
     }
 
@@ -395,41 +529,91 @@
     }
 
     function handleChoice(choice) {
-        // 鎖定按鈕
         const buttons = document.querySelectorAll('.btn');
         buttons.forEach(b => b.disabled = true);
 
-        // 設定下一關
         nextLevelId = choice.nextLevel;
+        
+        // 計分：過一關+1
+        score++;
+        updateScoreUI();
 
-        // 觸發結算轉場
+        // 準備分享文字
+        currentShareText = `我在《麥洛的奇妙袋子》存活了 ${score} 關！剛剛的劇情：${choice.result}`;
+
+        // 轉場
         setTimeout(() => {
             els.resTitle.innerText = "LEVEL CLEAR!";
             els.resDesc.innerText = choice.result;
-            els.iris.classList.remove('open'); // 關閉 Iris (變黑)
+            els.iris.classList.remove('open'); 
             
+            // 顯示結果畫面 (但不顯示 Next 按鈕，等 loadNextLevel 處理)
             setTimeout(() => {
                 els.resContent.classList.add('show');
+                document.querySelector('.next-btn').style.display = 'inline-block';
             }, 1000);
         }, 500);
     }
 
-    // 點擊 Next Level 按鈕
+    // 點擊 Next Level
     window.loadNextLevel = function() {
         els.resContent.classList.remove('show');
-        
-        // 重新打開 Iris，並在打開的瞬間載入新數據
-        // 為了視覺效果，稍微延遲載入內容
         renderLevel(nextLevelId);
-        
         setTimeout(() => {
             els.iris.classList.add('open');
         }, 100);
     };
 
-    // 啟動
-    window.onload = initGame;
+    // --- 結局與上傳紀錄 ---
+    function checkEndGame() {
+        els.mainText.innerText = "本章節結束，結算成績中...";
+        
+        // 判斷是否破世界紀錄
+        if (score > globalHighScore) {
+            setTimeout(() => {
+                els.finalScoreDisplay.innerText = score;
+                els.recordModal.style.display = 'flex'; // 顯示破紀錄視窗
+            }, 1500);
+        } else {
+            // 沒破紀錄，詢問是否重來
+            const restartConfirm = confirm(`遊戲結束！你的分數是 ${score}。\n世界紀錄保持人是 ${globalChampion} (${globalHighScore})。\n要重新開始嗎？`);
+            if(restartConfirm) location.reload();
+        }
+    }
 
+    function saveRecord() {
+        const name = els.nameInput.value.trim() || "UNKNOWN";
+        const btn = document.querySelector('#new-record-modal .btn');
+        btn.innerText = "UPLOADING...";
+        btn.disabled = true;
+
+        // 寫入 Firebase
+        db.collection("leaderboard").add({
+            name: name,
+            score: score,
+            date: new Date().toISOString()
+        })
+        .then(() => {
+            alert("新紀錄已上傳雲端！你是世界冠軍！");
+            location.reload();
+        })
+        .catch((error) => {
+            console.error("Error adding document: ", error);
+            alert("上傳失敗：" + error.message);
+            btn.disabled = false;
+        });
+    }
+
+    // --- FB 分享 ---
+    function shareToFacebook() {
+        // 上線後請用 window.location.href，測試時可用 google.com
+        const gameUrl = window.location.href; 
+        const hashtag = "#MilosWonderBag";
+        const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(gameUrl)}&quote=${encodeURIComponent(currentShareText)}&hashtag=${encodeURIComponent(hashtag)}`;
+        window.open(fbUrl, 'FacebookShare', 'width=600,height=400,menubar=no,toolbar=no');
+    }
+
+    window.onload = initGame;
 </script>
 
 </body>
