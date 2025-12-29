@@ -2,8 +2,8 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>麥洛的奇妙袋子 - 手機版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>麥洛的奇妙袋子 - 除錯版</title>
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -14,36 +14,37 @@
         :root {
             --bg-color: #e6e6e6;
             --ink-color: #0d0d0d;
-            --panel-border: 3px solid var(--ink-color); /* 手機版邊框細一點 */
+            --panel-border: 4px solid var(--ink-color);
         }
 
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        * { box-sizing: border-box; }
 
         body {
-            background-color: #1a1a1a;
+            background-color: #222; /* 電腦版深色背景 */
             margin: 0;
             font-family: 'VT323', monospace;
             color: var(--ink-color);
-            user-select: none;
-            overflow: hidden; /* 禁止整體頁面滾動 */
-            /* 讓內容垂直居中 */
             display: flex;
             justify-content: center;
-            height: 100dvh; /* 使用 dvh 解決手機網址列問題 */
+            align-items: center;
+            min-height: 100vh;
         }
 
+        /* 遊戲主機本體 - 限制最大寬度以適應電腦螢幕 */
         #game-boy {
             position: relative;
             width: 100%;
-            max-width: 600px; /* 手機版最大寬度 */
-            height: 100%;
+            max-width: 500px; /* 手機版寬度模擬 */
+            height: 100vh;
+            max-height: 900px; /* 避免在超長螢幕變形 */
             background-color: var(--bg-color);
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5); /* 電腦版陰影 */
         }
 
-        /* 膠卷雜訊濾鏡 */
+        /* 膠卷雜訊 */
         #grain-overlay {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -53,7 +54,7 @@
             opacity: 0.3;
         }
 
-        /* 頂部記分板 */
+        /* 記分板 */
         #scoreboard {
             background: #fff;
             color: var(--ink-color);
@@ -63,20 +64,19 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-shrink: 0; /* 防止被壓縮 */
+            flex-shrink: 0;
         }
 
-        /* 漫畫區域 - 手機版改為正方形 */
+        /* 漫畫區 */
         .comic-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
             grid-template-rows: 1fr 1fr;
-            gap: 8px;
-            padding: 10px;
+            gap: 10px;
+            padding: 15px;
             background: #fff;
-            aspect-ratio: 1 / 1; /* 強制正方形 */
-            width: 100%;
-            max-height: 50vh; /* 限制高度以免蓋住按鈕 */
+            aspect-ratio: 1 / 1;
+            flex-shrink: 0;
         }
 
         .panel {
@@ -89,25 +89,16 @@
             padding: 5px;
             text-align: center;
             opacity: 0.1;
-            transition: opacity 0.6s ease;
+            transition: opacity 0.5s ease;
             background: #fff;
         }
-
         .panel.visible { opacity: 1; }
 
-        .panel-num {
-            position: absolute;
-            top: 0; left: 0;
-            background: var(--ink-color);
-            color: white;
-            padding: 0px 6px;
-            font-size: 1rem;
-        }
+        .panel-num { position: absolute; top: 0; left: 0; background: var(--ink-color); color: white; padding: 0 6px; }
+        .emoji-art { font-size: 3rem; margin-bottom: 5px; filter: grayscale(1); }
+        .desc-text { font-size: 1.2rem; line-height: 1.1; font-style: italic; }
 
-        .emoji-art { font-size: 2.5rem; margin-bottom: 2px; filter: grayscale(1); }
-        .desc-text { font-size: 1.1rem; line-height: 1; font-style: italic; }
-
-        /* 字幕卡區域 (劇情文字) */
+        /* 字幕卡 */
         .intertitle {
             background: var(--ink-color);
             color: var(--bg-color);
@@ -117,186 +108,122 @@
             justify-content: center;
             align-items: center;
             text-align: center;
-            font-size: 1.4rem;
+            font-size: 1.5rem;
             border-top: 4px double var(--bg-color);
             border-bottom: 4px double var(--bg-color);
             flex-shrink: 0;
         }
 
-        /* 選項與控制區 - 支援滾動 */
+        /* 選項區 */
         .controls {
-            flex-grow: 1; /* 佔滿剩餘空間 */
-            padding: 10px;
+            flex-grow: 1;
+            padding: 15px;
             background: var(--bg-color);
             display: flex;
             flex-direction: column;
-            gap: 8px;
-            overflow-y: auto; /* 如果選項太多可以滾動 */
+            gap: 10px;
+            overflow-y: auto;
         }
 
-        /* 按鈕優化為觸控友善 */
         .btn {
             background: white;
             border: 3px solid var(--ink-color);
-            padding: 15px; /* 加大觸控區域 */
+            padding: 12px;
             font-family: inherit;
-            font-size: 1.3rem;
+            font-size: 1.4rem;
             cursor: pointer;
             text-align: left;
             transition: 0.1s;
             width: 100%;
-            border-radius: 8px; /* 稍微圓角 */
-            box-shadow: 2px 2px 0px rgba(0,0,0,0.2);
         }
-
-        .btn:active { 
-            background: var(--ink-color); 
-            color: white; 
-            transform: scale(0.98); 
-            box-shadow: 0px 0px 0px;
-        }
+        .btn:hover { background: var(--ink-color); color: white; }
         .btn:disabled { opacity: 0.5; pointer-events: none; }
 
-        /* FB 分享按鈕 */
-        .fb-btn {
-            background: white;
-            color: var(--ink-color);
-            border: 3px solid var(--ink-color);
-            padding: 12px 20px;
-            font-family: 'VT323', monospace;
-            font-size: 1.5rem;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 15px;
-            width: 100%; /* 手機版滿寬 */
-        }
-
-        /* 轉場與結果層 */
+        /* 轉場與彈窗 */
         #iris-transition {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
             background: var(--ink-color);
             z-index: 200;
             clip-path: circle(0% at 50% 50%);
-            transition: clip-path 1s ease-in-out;
+            transition: clip-path 0.8s ease-in-out;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             color: white;
-            padding: 20px;
         }
-        
         #iris-transition.open { clip-path: circle(150% at 50% 50%); }
 
         .result-content { text-align: center; width: 100%; display: none; }
         .result-content.show { display: block; }
         
         .next-btn {
-            margin-top: 20px;
-            background: white;
-            color: black;
-            border: none;
-            padding: 15px;
-            width: 100%;
-            font-size: 1.8rem;
-            font-family: 'VT323';
-            cursor: pointer;
-            animation: blink 1s infinite;
+            margin-top: 20px; background: white; color: black; border: none; padding: 10px 30px;
+            font-size: 1.5rem; font-family: 'VT323'; cursor: pointer;
         }
-        
-        @keyframes blink { 50% { opacity: 0; } }
 
-        /* 新紀錄輸入視窗 */
         #new-record-modal {
-            display: none;
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9);
-            z-index: 300;
-            justify-content: center;
-            align-items: center;
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 300;
+            justify-content: center; align-items: center;
         }
-
         .modal-content {
-            background: var(--bg-color);
-            border: 6px double var(--ink-color);
-            padding: 20px;
-            text-align: center;
-            width: 90%;
-            max-width: 400px;
+            background: var(--bg-color); border: 6px double var(--ink-color); padding: 30px;
+            text-align: center; width: 80%;
         }
-
         #player-name-input {
-            background: transparent;
-            border: none;
-            border-bottom: 3px solid var(--ink-color);
-            font-family: 'VT323';
-            font-size: 2rem;
-            text-align: center;
-            width: 100%;
-            margin: 20px 0;
-            color: var(--ink-color);
-            text-transform: uppercase;
-            border-radius: 0; /* iOS 修正 */
+            background: transparent; border: none; border-bottom: 3px solid var(--ink-color);
+            font-family: 'VT323'; font-size: 2rem; text-align: center; width: 100%; margin: 20px 0;
+            color: var(--ink-color); text-transform: uppercase;
         }
-        #player-name-input:focus { outline: none; background: rgba(0,0,0,0.05); }
 
+        /* 錯誤提示 */
+        #error-msg {
+            color: red; font-size: 1rem; position: absolute; bottom: 5px; left: 0; width: 100%; text-align: center; z-index: 500;
+        }
     </style>
 </head>
 <body>
 
 <div id="game-boy">
     <div id="grain-overlay"></div>
-    
-    <div id="scoreboard">
-        <span>🏆 BEST: <span id="best-score">0</span></span>
-        <span>NOW: <span id="current-score">0</span></span>
+    <div id="error-msg"></div> <div id="scoreboard">
+        <span>🏆 BEST: <span id="best-score">...</span></span>
+        <span>SCORE: <span id="current-score">0</span></span>
     </div>
 
     <div class="comic-container">
         <div class="panel" id="p1"><span class="panel-num">1</span><div class="emoji-art" id="e1"></div><div class="desc-text" id="d1"></div></div>
         <div class="panel" id="p2"><span class="panel-num">2</span><div class="emoji-art" id="e2"></div><div class="desc-text" id="d2"></div></div>
         <div class="panel" id="p3"><span class="panel-num">3</span><div class="emoji-art" id="e3"></div><div class="desc-text" id="d3"></div></div>
-        <div class="panel" id="p4"><span class="panel-num">4</span><div class="emoji-art">❓👜</div><div class="desc-text" style="font-weight:bold">你的選擇？</div></div>
+        <div class="panel" id="p4"><span class="panel-num">4</span><div class="emoji-art">❓👜</div><div class="desc-text">你的選擇？</div></div>
     </div>
 
-    <div class="intertitle" id="main-text">載入膠卷中...</div>
+    <div class="intertitle" id="main-text">初始化系統...</div>
 
-    <div class="controls" id="choices-area">
-        </div>
+    <div class="controls" id="choices-area"></div>
 
     <div id="iris-transition">
         <div class="result-content">
-            <h1 style="font-size:2.5rem; margin:10px 0;" id="res-title">LEVEL CLEAR</h1>
-            <p style="font-size:1.4rem; line-height:1.4;" id="res-desc">...</p>
-            
-            <button class="fb-btn" onclick="shareToFacebook()">
-                <span style="font-size: 1.4rem; font-weight: bold;">f</span> 分享戰績
-            </button>
-            <br>
-
-            <button class="next-btn" onclick="loadNextLevel()">下一集 >></button>
+            <h1 id="res-title">LEVEL CLEAR</h1>
+            <p id="res-desc">...</p>
+            <button class="next-btn" onclick="loadNextLevel()">NEXT >></button>
         </div>
     </div>
 
     <div id="new-record-modal">
         <div class="modal-content">
-            <div style="font-size: 4rem;">🎉</div>
             <h2>NEW RECORD!</h2>
-            <p>存活章節: <span id="final-score-display">0</span></p>
-            <p>輸入大名 (世界榜):</p>
-            <input type="text" id="player-name-input" placeholder="YOUR NAME" maxlength="10">
-            <button class="btn" onclick="saveRecord()" style="margin-top:10px;">上傳紀錄</button>
+            <p>Score: <span id="final-score-display">0</span></p>
+            <input type="text" id="player-name-input" placeholder="NAME" maxlength="10">
+            <button class="btn" onclick="saveRecord()">SAVE</button>
         </div>
     </div>
 </div>
 
 <script>
-    // --- 1. Firebase 設定 ---
+    // --- 1. Firebase 設定 (請確保正確) ---
     const firebaseConfig = {
       apiKey: "AIzaSyDcHWsk6ffYC1XyKIga8GpHok_jUyPcNQc",
       authDomain: "milo-game-d238c.firebaseapp.com",
@@ -306,112 +233,47 @@
       appId: "1:64418915608:web:7a4c51bab0afcad8756a6d"
     };
 
+    let db = null;
+    let isOffline = false;
+
+    // 安全初始化 Firebase
     try {
         firebase.initializeApp(firebaseConfig);
-        var db = firebase.firestore();
-        console.log("Firebase Connected!");
+        db = firebase.firestore();
+        console.log("Firebase initialized");
     } catch (e) {
-        console.error("Firebase Connect Error:", e);
+        console.error("Firebase Init Failed:", e);
+        showError("資料庫連線失敗，啟動離線模式");
+        isOffline = true;
     }
 
     // --- 2. 遊戲資料庫 (Game Database) ---
+    // (為了節省空間，這裡使用縮減版，邏輯與之前相同)
     const gameData = {
         "ep1": {
             title: "EP1: MOON CHEESE",
-            panels: [
-                { emoji: "😿🗯️🍖", text: "麥洛餓扁了，肚子發出的叫聲竟然踢了他一腳！" },
-                { emoji: "😻🧀🌙", text: "窗外的月亮...是一塊巨大的瑞士起司！" },
-                { emoji: "🤕🪟🤸", text: "麥洛試圖跳出去，但臉撞在玻璃上變成了餅。" }
-            ],
-            question: "太高了！打開神奇袋子！",
+            panels: [{ emoji: "😿", text: "麥洛餓了" }, { emoji: "🧀", text: "月亮是起司" }, { emoji: "🤕", text: "跳不上去" }],
+            question: "要怎麼上去？",
             choices: [
-                { id: "A", text: "A. 巨大的彈弓 (暴力)", nextLevel: "ep2_sky_crash", result: "麥洛像子彈一樣射出！但速度太快失控了！" },
-                { id: "B", text: "B. 比空氣輕的墨水 (變身)", nextLevel: "ep2_balloon", result: "麥洛變成了氣球飄浮，但非常脆弱！" },
-                { id: "C", text: "C. 次元剪刀 (後設)", nextLevel: "ep2_backstage", result: "麥洛剪開了天空背景，進入了畫布後方！" },
-                { id: "D", text: "D. 薩克斯風 (節奏)", nextLevel: "ep2_jazz", result: "月亮被音樂吸引，開始隨著節奏搖擺！" }
+                { id: "A", text: "A. 彈弓", nextLevel: "ep2", result: "飛太快了！" },
+                { id: "B", text: "B. 氣球", nextLevel: "ep2", result: "變成氣球了！" }
             ]
         },
-        "ep2_sky_crash": {
-            title: "EP2: CLOUD TRAFFIC",
-            panels: [
-                { emoji: "🚀😵💫", text: "麥洛撞進了雲層，頭上轉著金絲雀。" },
-                { emoji: "🚦☁️😠", text: "這裡是「空中交通堵塞」！雷電雲在按喇叭。" },
-                { emoji: "🛑👮‍♂️🦅", text: "老鷹警察擋住了去路：「超速了，小子！」" }
-            ],
-            question: "要怎麼通過臨檢？",
-            choices: [
-                { id: "A", text: "A. 拿出一塊假警徽", nextLevel: "ep3_end", result: "老鷹敬禮放行！但現在你得去指揮交通。" },
-                { id: "B", text: "B. 巨大的電風扇", nextLevel: "ep3_end", result: "你把雲都吹散了！但引發了龍捲風。" },
-                { id: "C", text: "C. 把車畫成隱形的", nextLevel: "ep3_end", result: "沒人看得到你，但你也看不到路了！" },
-                { id: "D", text: "D. 賄賂一袋貓薄荷", nextLevel: "ep3_end", result: "老鷹原來也是貓奴？它開心地讓你通過。" }
-            ]
-        },
-        "ep2_balloon": {
-            title: "EP2: NEEDLE PEAKS",
-            panels: [
-                { emoji: "🎈😨⛰️", text: "麥洛飄到了「針尖山脈」，這裡全是尖刺。" },
-                { emoji: "🌵🐝👿", text: "一群蜜蜂拿著針頭飛過來想要戳破你！" },
-                { emoji: "🌬️🌪️⚠️", text: "一陣強風吹來，麥洛即將撞上仙人掌！" }
-            ],
-            question: "不能被碰到！怎麼辦？",
-            choices: [
-                { id: "A", text: "A. 噴氣加速 (變小)", nextLevel: "ep3_end", result: "麥洛變得很小很小，成功穿過縫隙！" },
-                { id: "B", text: "B. 變成鐵皮氣球", nextLevel: "ep3_end", result: "變硬了，但也變重了，開始急速下墜！" },
-                { id: "C", text: "C. 畫出吹泡泡機", nextLevel: "ep3_end", result: "蜜蜂分不清哪個是麥洛，去戳泡泡了。" },
-                { id: "D", text: "D. 拿出一面鏡子", nextLevel: "ep3_end", result: "蜜蜂被自己的倒影嚇跑了！" }
-            ]
-        },
-        "ep2_backstage": {
-            title: "EP2: SKETCH WORLD",
-            panels: [
-                { emoji: "✏️⬜🕸️", text: "這裡是漫畫後台，所有東西都是黑白線稿。" },
-                { emoji: "🖐️✏️👨‍🎨", text: "巨大的「畫師之手」正在拿著橡皮擦修改。" },
-                { emoji: "🚫🦵🕳️", text: "畫師發現你不該在這裡，準備把你擦掉！" }
-            ],
-            question: "面對畫師，怎麼生存？",
-            choices: [
-                { id: "A", text: "A. 搶奪鉛筆 (奪權)", nextLevel: "ep3_end", result: "你拿到了鉛筆，現在你是畫師了！" },
-                { id: "B", text: "B. 裝成墨水漬 (隱身)", nextLevel: "ep3_end", result: "畫師以為你是污漬，把你甩到了地板上。" },
-                { id: "C", text: "C. 畫一個假麥洛", nextLevel: "ep3_end", result: "橡皮擦擦掉了假人，你趁機溜走。" },
-                { id: "D", text: "D. 跳出紙張 (現實)", nextLevel: "ep3_end", result: "你跳到了咖啡杯裡！這是3D世界！" }
-            ]
-        },
-        "ep2_jazz": {
-            title: "EP2: MOON PARTY",
-            panels: [
-                { emoji: "🎷🕺🌝", text: "月亮長出了手腳，開始在天上跳踢踏舞。" },
-                { emoji: "🎹⭐👯", text: "星星變成了鋼琴鍵，雲朵變成了舞伴。" },
-                { emoji: "🛑🧛‍♂️🦇", text: "但噪音吵醒了隔壁的「吸血鬼伯爵」！" }
-            ],
-            question: "吸血鬼討厭爵士樂！",
-            choices: [
-                { id: "A", text: "A. 彈奏悲傷小調", nextLevel: "ep3_end", result: "吸血鬼喜歡這憂鬱的調調，加入了派對。" },
-                { id: "B", text: "B. 用聚光燈照他", nextLevel: "ep3_end", result: "吸血鬼以為太陽出來了，尖叫著逃跑！" },
-                { id: "C", text: "C. 請他喝番茄汁", nextLevel: "ep3_end", result: "他冷靜下來了，但要你教他跳舞。" },
-                { id: "D", text: "D. 音波攻擊 (戰鬥)", nextLevel: "ep3_end", result: "你吹出超高音，震碎了他的棺材！" }
-            ]
-        },
-        "ep3_end": { 
-            title: "THE END", 
-            panels: [
-                {emoji:"🏁", text:"(遊戲演示結束)"}, 
-                {emoji:"😺", text:"感謝遊玩！"}, 
-                {emoji:"🏆", text:"查看你的得分"}
-            ], 
-            choices: [] 
-        },
+        "ep2": {
+            title: "EP2: THE END",
+            panels: [{ emoji: "🏁", text: "演示結束" }, { emoji: "😺", text: "謝謝遊玩" }, { emoji: "🏆", text: "結算成績" }],
+            choices: []
+        }
     };
 
-    // --- 3. 遊戲引擎 ---
+    // --- 3. 遊戲變數 ---
     let currentLevelId = 'ep1';
     let nextLevelId = ''; 
     let score = 0; 
-    let currentShareText = "";
     let globalHighScore = 0;
-    let globalChampion = "...";
 
     const els = {
-        title: document.getElementById('episode-title'),
+        title: document.getElementById('main-text'), // 簡化
         p1: document.getElementById('p1'), e1: document.getElementById('e1'), d1: document.getElementById('d1'),
         p2: document.getElementById('p2'), e2: document.getElementById('e2'), d2: document.getElementById('d2'),
         p3: document.getElementById('p3'), e3: document.getElementById('e3'), d3: document.getElementById('d3'),
@@ -423,12 +285,15 @@
         resTitle: document.getElementById('res-title'),
         resDesc: document.getElementById('res-desc'),
         bestScore: document.getElementById('best-score'),
-        bestPlayer: document.getElementById('best-player'),
         currScore: document.getElementById('current-score'),
         recordModal: document.getElementById('new-record-modal'),
         finalScoreDisplay: document.getElementById('final-score-display'),
         nameInput: document.getElementById('player-name-input')
     };
+
+    function showError(msg) {
+        document.getElementById('error-msg').innerText = msg;
+    }
 
     function initGame() {
         score = 0;
@@ -439,6 +304,12 @@
     }
 
     function loadGlobalHighscore() {
+        if (isOffline || !db) {
+            els.bestScore.innerText = "OFFLINE";
+            return;
+        }
+
+        // 使用 catch 處理權限錯誤
         db.collection("leaderboard")
           .orderBy("score", "desc")
           .limit(1)
@@ -446,13 +317,20 @@
               if (!querySnapshot.empty) {
                   const doc = querySnapshot.docs[0].data();
                   globalHighScore = doc.score;
-                  globalChampion = doc.name;
-                  els.bestScore.innerText = globalHighScore;
+                  els.bestScore.innerText = globalHighScore + " (" + doc.name + ")";
               } else {
                   els.bestScore.innerText = 0;
               }
           }, (error) => {
-              console.log("Firebase Read Error:", error);
+              console.error("讀取排行榜失敗:", error);
+              // 如果是權限不足，顯示具體錯誤
+              if (error.code === 'permission-denied') {
+                  showError("權限錯誤：請檢查 Firebase Rules");
+              } else {
+                  showError("連線錯誤：" + error.message);
+              }
+              els.bestScore.innerText = "Error";
+              isOffline = true; // 切換到離線模式，避免卡住
           });
     }
 
@@ -463,39 +341,33 @@
     function renderLevel(levelId) {
         currentLevelId = levelId;
         const data = gameData[levelId];
-
-        // 重置介面
+        
+        // UI Reset
         els.p1.classList.remove('visible');
         els.p2.classList.remove('visible');
         els.p3.classList.remove('visible');
         els.p4.classList.remove('visible');
         els.choicesArea.innerHTML = '';
-        els.mainText.innerText = "劇情載入中...";
+        els.mainText.innerText = data.title;
 
-        // 設置內容
+        // Content
         if(data.panels[0]) { els.e1.innerText = data.panels[0].emoji; els.d1.innerText = data.panels[0].text; }
         if(data.panels[1]) { els.e2.innerText = data.panels[1].emoji; els.d2.innerText = data.panels[1].text; }
         if(data.panels[2]) { els.e3.innerText = data.panels[2].emoji; els.d3.innerText = data.panels[2].text; }
 
-        // 動畫序列 (稍微加快節奏適應手機)
-        setTimeout(() => { showPanel(1, data.panels[0].text) }, 800);
-        setTimeout(() => { showPanel(2, data.panels[1].text) }, 2500);
-        if(data.panels[2]) {
-             setTimeout(() => { showPanel(3, data.panels[2].text) }, 4500);
-        }
+        // Animation
+        setTimeout(() => { showPanel(1, data.panels[0].text) }, 500);
+        setTimeout(() => { showPanel(2, data.panels[1].text) }, 1500);
+        if(data.panels[2]) setTimeout(() => { showPanel(3, data.panels[2].text) }, 2500);
 
         if (data.choices && data.choices.length > 0) {
             setTimeout(() => {
                 els.p4.classList.add('visible');
                 els.mainText.innerText = data.question;
                 renderChoices(data.choices);
-                // 自動滾動到選項區 (提升手機體驗)
-                els.choicesArea.scrollTop = 0; 
-            }, 6500);
+            }, 3500);
         } else {
-             setTimeout(() => {
-                 checkEndGame(); 
-             }, 6000);
+            setTimeout(() => { checkEndGame(); }, 3500);
         }
     }
 
@@ -509,80 +381,58 @@
             const btn = document.createElement('button');
             btn.className = 'btn';
             btn.innerText = choice.text;
-            btn.ontouchstart = () => {}; // 讓 active 狀態在手機生效
             btn.onclick = () => handleChoice(choice);
             els.choicesArea.appendChild(btn);
         });
     }
 
     function handleChoice(choice) {
-        const buttons = document.querySelectorAll('.btn');
-        buttons.forEach(b => b.disabled = true);
-
         nextLevelId = choice.nextLevel;
         score++;
         updateScoreUI();
-        currentShareText = `我在《麥洛的奇妙袋子》手機版存活了 ${score} 關！結局：${choice.result}`;
 
+        els.resTitle.innerText = "LEVEL CLEAR";
+        els.resDesc.innerText = choice.result;
+        els.iris.classList.remove('open');
         setTimeout(() => {
-            els.resTitle.innerText = "LEVEL CLEAR!";
-            els.resDesc.innerText = choice.result;
-            els.iris.classList.remove('open'); 
-            
-            setTimeout(() => {
-                els.resContent.classList.add('show');
-                document.querySelector('.next-btn').style.display = 'inline-block';
-            }, 1000);
-        }, 300);
+             els.resContent.classList.add('show');
+        }, 800);
     }
 
     window.loadNextLevel = function() {
         els.resContent.classList.remove('show');
         renderLevel(nextLevelId);
-        setTimeout(() => {
-            els.iris.classList.add('open');
-        }, 100);
+        setTimeout(() => els.iris.classList.add('open'), 100);
     };
 
     function checkEndGame() {
-        els.mainText.innerText = "本章節結束，結算中...";
+        // 如果離線模式，直接顯示結束，不跳排行榜
+        if (isOffline) {
+            alert("遊戲結束！分數：" + score + "\n(離線模式無法儲存紀錄)");
+            location.reload();
+            return;
+        }
+
         if (score > globalHighScore) {
-            setTimeout(() => {
-                els.finalScoreDisplay.innerText = score;
-                els.recordModal.style.display = 'flex'; 
-            }, 1000);
+            els.finalScoreDisplay.innerText = score;
+            els.recordModal.style.display = 'flex';
         } else {
-            const restartConfirm = confirm(`遊戲結束！分數: ${score}。\n世界紀錄: ${globalHighScore} (${globalChampion})。\n要重來嗎？`);
-            if(restartConfirm) location.reload();
+            if(confirm("遊戲結束！分數：" + score + "。要重來嗎？")) location.reload();
         }
     }
 
-    function saveRecord() {
+    window.saveRecord = function() {
         const name = els.nameInput.value.trim() || "UNKNOWN";
-        const btn = document.querySelector('#new-record-modal .btn');
-        btn.innerText = "UPLOADING...";
-        btn.disabled = true;
+        if (isOffline) return;
 
         db.collection("leaderboard").add({
-            name: name,
-            score: score,
-            date: new Date().toISOString()
-        })
-        .then(() => {
-            alert("紀錄已上傳！");
+            name: name, score: score, date: new Date().toISOString()
+        }).then(() => {
+            alert("上傳成功！");
             location.reload();
-        })
-        .catch((error) => {
-            alert("上傳失敗");
-            btn.disabled = false;
+        }).catch((e) => {
+            alert("上傳失敗：" + e.message);
         });
-    }
-
-    function shareToFacebook() {
-        const gameUrl = window.location.href; 
-        const hashtag = "#MilosWonderBag";
-        const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(gameUrl)}&quote=${encodeURIComponent(currentShareText)}&hashtag=${encodeURIComponent(hashtag)}`;
-        window.open(fbUrl, 'FacebookShare', 'width=600,height=400,menubar=no,toolbar=no');
     }
 
     window.onload = initGame;
