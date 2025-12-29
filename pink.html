@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>頑皮豹：搶救炎夏大作戰 (手機版)</title>
+    <title>憤怒的大叔 V.S. 頑皮豹</title>
     <style>
-        /* --- 全局設定，確保在手機上不亂跑 --- */
+        /* --- 全局與響應式設定 --- */
         body {
             font-family: 'Comic Sans MS', cursive, sans-serif;
             background-color: #f0e68c;
@@ -15,86 +15,108 @@
             justify-content: center;
             margin: 0;
             padding: 10px;
-            min-height: 100vh; /* 確保佔滿全螢幕高度 */
+            min-height: 100vh;
             box-sizing: border-box;
-            touch-action: manipulation; /* 優化手機點擊反應 */
+            touch-action: none; /* 禁止瀏覽器預設的捲動和縮放，這對拖曳遊戲很重要 */
+            overflow: hidden; /* 防止捲軸出現 */
         }
 
         h1 {
-            color: #d63384;
+            color: #d43f3a; /* 憤怒的紅色 */
             text-shadow: 2px 2px 0px #000;
-            font-size: clamp(1.5rem, 5vw, 2.5rem); /* 自動調整字體大小 */
-            margin: 10px 0;
+            font-size: clamp(1.2rem, 4vw, 2rem);
+            margin: 5px 0;
             text-align: center;
         }
 
-        /* --- 遊戲主容器 (響應式設計核心) --- */
-        /* 我們定義一個基於 800x400 (2:1) 的比例 */
+        /* --- 遊戲主容器 --- */
         #game-container {
-            width: 100%;           /* 佔滿可用寬度 */
-            max-width: 800px;      /* 但最大不超過 800px */
-            aspect-ratio: 2 / 1;   /* 鎖定縱橫比為 2:1，高度會自動計算 */
+            width: 100%;
+            max-width: 800px;
+            aspect-ratio: 16 / 9; /* 改用更寬的比例適合彈射 */
             background-color: #ffcc00;
             border: 3px solid #000;
             position: relative;
             overflow: hidden;
-            background-image: linear-gradient(to bottom, #ffcc00 60%, #e6b800 60%);
+            /* 炎熱的城市背景漸層 */
+            background-image: linear-gradient(to bottom, #ff9966 0%, #ffcc00 70%, #e6b800 70%);
             box-shadow: 5px 5px 0px rgba(0,0,0,0.2);
-            margin: auto; /* 置中 */
-            cursor: pointer; /* 讓電腦版滑鼠變手型 */
-            /* 禁止手機上長按選取內容 */
-            -webkit-user-select: none;
+            margin: auto;
             user-select: none;
         }
 
-        /* --- 遊戲素材 (使用百分比定位以實現縮放) --- */
+        /* 地面裝飾線 */
+        .ground-line {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 25%; /* 調整地面高度 */
+            background-color: #c2a35f; /* 泥土/柏油路色 */
+            border-top: 3px solid #000;
+            z-index: 0;
+        }
+
+        /* --- 遊戲角色與 Sprite --- */
         .sprite {
-            background-size: 200% 200%;
+            background-size: 200% 200%; /* 2x2 格子圖 */
             position: absolute;
             background-repeat: no-repeat;
         }
 
-        /* 炎熱的男人 */
-        /* 原本 200x200, 相對於容器 800x400 的比例 */
-        #little-man {
-            width: 25%;  /* 200 / 800 */
-            height: 50%; /* 200 / 400 */
-            background-position: 15% 25%;
-            bottom: 5%;  /* 20 / 400 */
-            left: 50%;
-            transform: translateX(-50%);
+        /* 彈射物：憤怒大叔 */
+        #projectile-man {
+            width: 15%; /* 相對容器寬度 */
+            aspect-ratio: 1 / 1; /* 保持正方形 */
+            background-position: 15% 25%; /* 取左上角的圖 */
+            bottom: 28%; /* 放在地面上方一點 */
+            left: 15%;   /* 發射起始位置 */
+            z-index: 2;
+            cursor: grab;
+            /* 碰撞箱稍微小一點 */
+            clip-path: circle(45% at 50% 50%);
+        }
+        #projectile-man.grabbing {
+            cursor: grabbing;
+        }
+
+        /* 目標：頑皮豹 */
+        #target-panther {
+            width: 18%;
+            aspect-ratio: 0.8 / 1; /* 稍微瘦長 */
+            background-position: 85% 20%; /* 取右上角的圖 */
+            bottom: 25%;
+            right: 10%; /* 放在右側 */
             z-index: 1;
         }
-
-        /* 行走的頑皮豹與影子容器 */
-        /* 原本 300x350 */
-        #panther-container {
-            position: absolute;
-            width: 37.5%;  /* 300 / 800 */
-            height: 87.5%; /* 350 / 400 */
-            bottom: 2.5%;  /* 10 / 400 */
-            left: -40%;    /* 起始位置在螢幕外 */
-            z-index: 2;
-        }
-
-        #panther-sprite {
-            width: 100%;
-            height: 100%;
-            background-position: 85% 20%;
-        }
         
-        /* 用於碰撞檢測的影子區域 (相對於 panther-container 的比例) */
-        /* 原本 140x60, left 80. 父容器 300x350 */
-        #shadow-hitbox {
+        /* 彈弓的視覺錨點 (一個簡單的柱子) */
+        .slingshot-anchor {
             position: absolute;
-            width: 46.6%;  /* 140 / 300 */
-            height: 17.1%; /* 60 / 350 */
-            bottom: 0;
-            left: 26.6%;   /* 80 / 300 */
-            /* border: 2px solid red; 開啟此行可除錯影子位置 */
+            width: 10px;
+            height: 60px;
+            background-color: #5d4037;
+            bottom: 25%;
+            left: calc(15% + 7.5%); /* 對齊男人中心 */
+            z-index: 1;
+            border: 2px solid #3e2723;
         }
 
-        /* --- 遊戲介面元素 --- */
+        /* --- 瞄準線 (SVG) --- */
+        #trajectory-svg {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none; /* 不干擾點擊 */
+            z-index: 0;
+        }
+        #aim-line {
+            stroke: rgba(255, 255, 255, 0.7);
+            stroke-width: 4;
+            stroke-dasharray: 10, 5; /* 虛線 */
+            display: none; /* 預設隱藏 */
+        }
+
+        /* --- UI 與結果介面 --- */
         #ui-layer {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -102,231 +124,127 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            background-color: rgba(0,0,0,0.7);
+            background-color: rgba(0,0,0,0.5);
             z-index: 10;
             color: white;
             text-align: center;
         }
+        
+        #result-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 20;
+            display: none;
+            background-color: rgba(0,0,0,0.8);
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+
+        /* 勝利時顯示的圖片 (撞牆圖) */
+        #win-image {
+            width: 60%;
+            aspect-ratio: 16/9;
+            background-position: 100% 100%; /* 取右下角的圖 */
+            background-size: 200% 200%;
+            border: 3px solid white;
+            margin-bottom: 20px;
+            display: none;
+        }
 
         button {
-            padding: 10px 20px;
-            font-size: clamp(1rem, 4vw, 1.5rem); /* 響應式字體 */
-            background-color: #d63384;
+            padding: 12px 24px;
+            font-size: 1.2rem;
+            background-color: #d43f3a;
             border: 3px solid #000;
             color: white;
             cursor: pointer;
             font-family: inherit;
-            margin-top: 20px;
+            box-shadow: 3px 3px 0px #000;
         }
-        button:active { transform: scale(0.95); }
+        button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0px #000; }
 
         #instructions {
-            font-size: clamp(1rem, 3vw, 1.2rem);
+            font-size: 1.1rem;
             background: rgba(255,255,255,0.9);
             color: black;
             padding: 15px;
             border: 3px solid black;
             width: 80%;
             max-width: 400px;
+            margin-bottom: 20px;
         }
-
-        /* --- 結果畫面 --- */
-        #result-overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 5;
-            display: none;
-            background-color: #ffcc00;
-        }
-
-        .result-fail {
-            width: 100%; height: 100%;
-            background-position: 100% 100%;
-            background-size: 200% 200%;
-        }
-
-        .result-win {
-            width: 100%; height: 100%;
-            background-color: #87CEEB;
-            display: flex;
-            justify-content: center;
-            align-items: flex-end;
-            padding-bottom: 5%;
-            position: relative;
-        }
-        
-        .win-text {
-            position: absolute;
-            top: 5%;
-            font-size: clamp(1.5rem, 5vw, 2.5rem);
-            color: white;
-            text-shadow: 2px 2px 4px blue;
-            width: 100%;
-            text-align: center;
-        }
-
-        /* 勝利畫面的角色尺寸也需要改為百分比 */
-        #win-panther {
-            width: 31.25%; /* 250 / 800 */
-            height: 75%;   /* 300 / 400 */
-            background-position: 95% 90%; 
-            background-size: 250% 250%;
-        }
-
-        #win-man-in-shadow {
-            width: 22.5%;  /* 180 / 800 */
-            height: 45%;   /* 180 / 400 */
-            background-color: black;
-            border-radius: 50%;
-            position: relative;
-            margin-left: -6%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-        }
-        
-        #cool-man {
-            width: 83%; height: 83%; /* 相對於 shadow container */
-            background-position: 15% 25%;
-            background-size: 300% 300%;
-            filter: grayscale(100%) brightness(150%) sepia(30%) hue-rotate(180deg);
-            transform: translateY(10%);
-        }
-
-        /* 動畫類別 (使用百分比移動) */
-        .walking {
-            animation: walkAcross 4s linear forwards;
-        }
-
-        @keyframes walkAcross {
-            from { left: -40%; }
-            to { left: 110%; }
-        }
-
     </style>
 </head>
 <body>
 
-    <h1>頑皮豹：搶奪影子大作戰</h1>
+    <h1>憤怒的大叔 V.S. 頑皮豹</h1>
 
     <div id="game-container">
-        <div id="little-man" class="sprite"></div>
-        <div id="panther-container">
-            <div id="panther-sprite" class="sprite"></div>
-            <div id="shadow-hitbox"></div>
-        </div>
-        <div id="result-overlay"></div>
+        <div class="ground-line"></div>
+        <div class="slingshot-anchor"></div>
+        
+        <svg id="trajectory-svg">
+            <line id="aim-line" x1="0" y1="0" x2="0" y2="0" />
+        </svg>
+
+        <div id="target-panther" class="sprite"></div>
+        <div id="projectile-man" class="sprite"></div>
+        
         <div id="ui-layer">
             <div id="instructions">
-                <p>外面太熱了！</p>
-                <p>等頑皮豹的影子經過你頭上時...</p>
-                <p><strong>點擊螢幕</strong>跳進去！</p>
+                <p>目標：用大叔撞飛頑皮豹！</p>
+                <p><strong>按住大叔向後拖曳</strong></p>
+                <p>瞄準後放開射擊！</p>
             </div>
             <button id="start-btn">開始遊戲</button>
+        </div>
+
+        <div id="result-overlay">
+            <h2 id="result-text">結果</h2>
+            <div id="win-image" class="sprite"></div>
+            <button id="restart-btn">再玩一次</button>
         </div>
     </div>
 
     <script>
-        const panther = document.getElementById('panther-container');
-        const man = document.getElementById('little-man');
-        const shadowBox = document.getElementById('shadow-hitbox');
+        // --- 變數設定 ---
+        const container = document.getElementById('game-container');
+        const man = document.getElementById('projectile-man');
+        const panther = document.getElementById('target-panther');
+        const aimLine = document.getElementById('aim-line');
         const uiLayer = document.getElementById('ui-layer');
-        const startBtn = document.getElementById('start-btn');
         const resultOverlay = document.getElementById('result-overlay');
-        const gameContainer = document.getElementById('game-container');
-        const instructionsText = document.getElementById('instructions');
+        const resultText = document.getElementById('result-text');
+        const winImage = document.getElementById('win-image');
 
-        let isPlaying = false;
-
-        // 綁定開始按鈕事件 (同時支援 click 和 touchstart)
-        startBtn.addEventListener('click', startGame);
-        startBtn.addEventListener('touchstart', startGame, {passive: false});
-
-        function startGame(e) {
-            // 防止同時觸發 click 和 touchstart
-            if (e && e.type === 'touchstart') e.preventDefault();
-
-            isPlaying = true;
-            uiLayer.style.display = 'none';
-            resultOverlay.style.display = 'none';
-            resultOverlay.innerHTML = '';
-            panther.classList.remove('walking');
-            void panther.offsetWidth; // 強制重繪
-            panther.classList.add('walking');
-
-            // --- 核心修改：新增觸控支援 ---
-            // 同時監聽滑鼠點擊和手指觸碰
-            gameContainer.addEventListener('click', checkHit);
-            // passive: false 允許我們在需要時使用 preventDefault
-            gameContainer.addEventListener('touchstart', checkHit, {passive: false});
-            
-            panther.addEventListener('animationend', miss);
-        }
-
-        function checkHit(e) {
-            if (!isPlaying) return;
-
-            // --- 核心修改：防止重複觸發 ---
-            // 如果是觸控事件，阻止它繼續觸發後續的模擬滑鼠點擊
-            if (e.type === 'touchstart') {
-                e.preventDefault();
-            }
-
-            const manRect = man.getBoundingClientRect();
-            const shadowRect = shadowBox.getBoundingClientRect();
-            const shadowCenter = shadowRect.left + (shadowRect.width / 2);
-            
-            // 碰撞判定 (保持不變，getBoundingClientRect 會自動處理縮放後的實際位置)
-            if (shadowCenter > manRect.left && shadowCenter < manRect.right) {
-                winGame();
-            } else {
-                loseGame();
-            }
-        }
-
-        function stopGame() {
-            isPlaying = false;
-            panther.classList.remove('walking');
-            // --- 核心修改：移除兩種監聽器 ---
-            gameContainer.removeEventListener('click', checkHit);
-            gameContainer.removeEventListener('touchstart', checkHit);
-            panther.removeEventListener('animationend', miss);
-            uiLayer.style.display = 'flex';
-            startBtn.innerText = "再試一次";
-        }
-
-        function winGame() {
-            stopGame();
-            resultOverlay.style.display = 'block';
-            resultOverlay.innerHTML = `
-                <div class="result-win">
-                    <h2 class="win-text">成功! 好涼快啊!</h2>
-                    <div id="win-man-in-shadow">
-                        <div id="cool-man" class="sprite"></div>
-                    </div>
-                    <div id="win-panther" class="sprite"></div>
-                </div>
-            `;
-            applyImageToSprites(); // 確保新加入的元素也有圖片
-        }
-
-        function loseGame() {
-            stopGame();
-            resultOverlay.style.display = 'block';
-            resultOverlay.innerHTML = '<div class="result-fail sprite"></div>';
-            applyImageToSprites();
-        }
-
-        function miss() {
-             if (isPlaying) {
-                stopGame();
-                instructionsText.innerHTML = "<p>你錯過影子了！太慢啦！</p>";
-             }
-        }
-
-        // --- 圖片連結設置 ---
+        // 圖片連結
         const yourImageURL = 'https://raw.githubusercontent.com/jasonxleg/aigames/main/pinker.jpg';
+
+        // 物理參數
+        let gameState = 'start'; // start, aiming, flying, ended
+        let startPos = { x: 0, y: 0 }; // 彈射起始點 (大叔的初始中心位置)
+        let currentPos = { x: 0, y: 0 }; // 拖曳時的位置
+        let velocity = { x: 0, y: 0 };   // 飛行速度
+        const gravity = 0.6;             // 重力加速度
+        const powerMultiplier = 0.15;     // 拉力轉換為速度的倍率
+        const maxPullDistance = 150;     // 最大拖曳距離限制
+        let animationFrameId;
+
+        // --- 初始化與圖片載入 ---
+        function init() {
+            applyImageToSprites();
+            resetGame();
+            
+            document.getElementById('start-btn').addEventListener('click', () => {
+                uiLayer.style.display = 'none';
+                gameState = 'ready';
+            });
+            document.getElementById('restart-btn').addEventListener('click', resetGame);
+            
+            setupInputHandlers();
+        }
 
         function applyImageToSprites() {
             document.querySelectorAll('.sprite').forEach(el => {
@@ -334,8 +252,208 @@
             });
         }
 
-        // 初始應用圖片
-        applyImageToSprites();
+        // 獲取元素的中心點座標 (相對於遊戲容器)
+        function getCenter(element) {
+            const rect = element.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            return {
+                x: rect.left + rect.width / 2 - containerRect.left,
+                y: rect.top + rect.height / 2 - containerRect.top
+            };
+        }
+
+        function resetGame() {
+            gameState = 'start';
+            uiLayer.style.display = 'flex';
+            resultOverlay.style.display = 'none';
+            winImage.style.display = 'none';
+            aimLine.style.display = 'none';
+            
+            // 重置位置 CSS
+            man.style.left = '15%';
+            man.style.bottom = '28%';
+            man.style.transform = 'translate(0, 0) rotate(0deg)';
+            panther.style.display = 'block'; // 確保豹顯示
+            
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            
+            // 等待瀏覽器佈局完成後，抓取準確的起始中心點
+            setTimeout(() => {
+                startPos = getCenter(man);
+            }, 100);
+        }
+
+        // --- 輸入事件處理 (滑鼠與觸控) ---
+        function setupInputHandlers() {
+            // 開始拖曳
+            man.addEventListener('mousedown', onDragStart);
+            man.addEventListener('touchstart', onDragStart, { passive: false });
+
+            // 拖曳中 (綁定在 document 上以防止滑出範圍)
+            document.addEventListener('mousemove', onDragMove);
+            document.addEventListener('touchmove', onDragMove, { passive: false });
+
+            // 結束拖曳
+            document.addEventListener('mouseup', onDragEnd);
+            document.addEventListener('touchend', onDragEnd);
+        }
+
+        function getEventPos(e) {
+            const containerRect = container.getBoundingClientRect();
+            let clientX, clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            return {
+                x: clientX - containerRect.left,
+                y: clientY - containerRect.top
+            };
+        }
+
+        function onDragStart(e) {
+            if (gameState !== 'ready') return;
+            if (e.type === 'touchstart') e.preventDefault();
+            gameState = 'aiming';
+            man.classList.add('grabbing');
+            aimLine.style.display = 'block';
+            currentPos = getCenter(man); // 初始位置
+        }
+
+        function onDragMove(e) {
+            if (gameState !== 'aiming') return;
+            if (e.type === 'touchmove') e.preventDefault();
+
+            let mousePos = getEventPos(e);
+            
+            // 計算拉動向量 (從滑鼠指向起始點，因為是向後拉)
+            let dragVector = {
+                x: startPos.x - mousePos.x,
+                y: startPos.y - mousePos.y
+            };
+
+            // 限制最大拉動距離
+            let distance = Math.sqrt(dragVector.x * dragVector.x + dragVector.y * dragVector.y);
+            if (distance > maxPullDistance) {
+                let ratio = maxPullDistance / distance;
+                dragVector.x *= ratio;
+                dragVector.y *= ratio;
+                mousePos.x = startPos.x - dragVector.x;
+                mousePos.y = startPos.y - dragVector.y;
+            }
+            
+            currentPos = mousePos;
+
+            // 更新大叔的位置 (視覺上跟隨拖曳)
+            // 使用 transform 來移動，避免改變 layout
+            const deltaX = currentPos.x - startPos.x;
+            const deltaY = currentPos.y - startPos.y;
+            man.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+
+            // 更新瞄準線
+            aimLine.setAttribute('x1', startPos.x);
+            aimLine.setAttribute('y1', startPos.y);
+            aimLine.setAttribute('x2', currentPos.x);
+            aimLine.setAttribute('y2', currentPos.y);
+        }
+
+        function onDragEnd(e) {
+            if (gameState !== 'aiming') return;
+            gameState = 'flying';
+            man.classList.remove('grabbing');
+            aimLine.style.display = 'none';
+
+            // 計算發射速度 (拉動向量 * 倍率)
+            // 向量是從現在位置指向起始位置
+            velocity.x = (startPos.x - currentPos.x) * powerMultiplier;
+            velocity.y = (startPos.y - currentPos.y) * powerMultiplier;
+
+            // 確保是向右發射 (防止向前拉也能發射)
+            if (velocity.x < 0) velocity.x = 1; 
+
+            gameLoop();
+        }
+
+        // --- 遊戲主迴圈 (物理飛行) ---
+        function gameLoop() {
+            if (gameState !== 'flying') return;
+
+            // 1. 應用重力
+            velocity.y += gravity;
+
+            // 2. 更新位置
+            // 我們需要獲取當前的 translate 值來疊加
+            const style = window.getComputedStyle(man);
+            const matrix = new DOMMatrix(style.transform);
+            let newX = matrix.m41 + velocity.x;
+            let newY = matrix.m42 + velocity.y;
+
+            // 簡單的旋轉效果
+            let rotation = Math.atan2(velocity.y, velocity.x) * (180 / Math.PI);
+            man.style.transform = `translate(${newX}px, ${newY}px) rotate(${rotation}deg)`;
+
+            // 3. 碰撞檢測
+            const manRect = man.getBoundingClientRect();
+            const pantherRect = panther.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+
+            // 檢查是否撞到頑皮豹 (簡單矩形碰撞)
+            if (manRect.right > pantherRect.left + 20 && // +20 稍微縮小判定範圍
+                manRect.left < pantherRect.right - 20 &&
+                manRect.bottom > pantherRect.top + 20 &&
+                manRect.top < pantherRect.bottom - 20) {
+                endGame(true);
+                return;
+            }
+
+            // 檢查是否落地或飛出邊界
+            // 地面高度約為容器高度的 75% 處
+            if (manRect.bottom > containerRect.bottom - (containerRect.height * 0.25) + 10 ||
+                manRect.left > containerRect.right ||
+                manRect.right < containerRect.left ||
+                manRect.top > containerRect.bottom) {
+                
+                // 簡單的落地滾動效果，然後結束
+                if (velocity.y > 0 && manRect.bottom > containerRect.bottom - (containerRect.height * 0.25)) {
+                     velocity.y = -velocity.y * 0.5; // 彈跳
+                     velocity.x *= 0.8; // 摩擦力
+                     if (Math.abs(velocity.y) < 1 && Math.abs(velocity.x) < 1) {
+                          endGame(false);
+                          return;
+                     }
+                } else {
+                   endGame(false);
+                   return;
+                }
+            }
+
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        // --- 遊戲結束處理 ---
+        function endGame(success) {
+            gameState = 'ended';
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            
+            setTimeout(() => {
+                resultOverlay.style.display = 'flex';
+                if (success) {
+                    resultText.textContent = "成功擊中！大叔復仇成功！";
+                    resultText.style.color = "#5cb85c"; // 綠色
+                    panther.style.display = 'none'; // 隱藏被打到的豹
+                    winImage.style.display = 'block'; // 顯示漫畫第四格
+                } else {
+                    resultText.textContent = "失敗... 沒打中";
+                    resultText.style.color = "#d43f3a"; // 紅色
+                }
+            }, 500); // 稍等一下再顯示結果
+        }
+
+        // 啟動遊戲
+        init();
 
     </script>
 </body>
