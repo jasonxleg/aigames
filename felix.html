@@ -27,7 +27,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh; /* 使用 vh 兼容性較好 */
+            height: 100vh;
             overflow: hidden;
         }
 
@@ -113,7 +113,6 @@
         .modal-content { background: var(--bg-color); border: 6px double var(--ink-color); padding: 20px; text-align: center; width: 90%; max-width: 400px; }
         #player-name-input { background: transparent; border: none; border-bottom: 3px solid var(--ink-color); font-family: 'VT323'; font-size: 2rem; text-align: center; width: 100%; margin: 20px 0; color: var(--ink-color); text-transform: uppercase; border-radius: 0; }
         
-        /* 狀態指示燈 */
         #status-indicator { font-size: 0.8rem; margin-right: 5px; }
     </style>
 </head>
@@ -158,7 +157,7 @@
 </div>
 
 <script>
-    // --- 1. Firebase 設定 (你的專屬設定) ---
+    // --- 1. Firebase 設定 (你的專屬 API Key) ---
     const firebaseConfig = {
       apiKey: "AIzaSyDcHWsk6ffYC1XyKIga8GpHok_jUyPcNQc",
       authDomain: "milo-game-d238c.firebaseapp.com",
@@ -169,18 +168,22 @@
     };
 
     let db = null;
-    let isOffline = false; // 離線模式旗標
+    let isOffline = false;
 
-    // --- 安全初始化 Firebase (防止黑屏的關鍵) ---
+    // --- 安全初始化 Firebase (含 QUIC 錯誤修復) ---
     try {
         firebase.initializeApp(firebaseConfig);
         db = firebase.firestore();
-        console.log("Firebase initialized");
-        document.getElementById('status-indicator').style.color = 'green'; // 連線成功綠燈
+        
+        // 【關鍵修復】強制使用 HTTP 長輪詢，解決 ERR_QUIC_PROTOCOL_ERROR
+        db.settings({ experimentalForceLongPolling: true });
+
+        console.log("Firebase initialized (Long Polling Mode)");
+        document.getElementById('status-indicator').style.color = 'green'; 
     } catch (e) {
         console.error("Firebase Init Failed (啟用離線模式):", e);
         isOffline = true;
-        document.getElementById('status-indicator').style.color = 'red'; // 連線失敗紅燈
+        document.getElementById('status-indicator').style.color = 'red'; 
     }
 
     // --- 2. 遊戲資料庫 ---
@@ -233,7 +236,7 @@
         updateScoreUI();
         loadGlobalHighscore();
         
-        // 【關鍵】強制打開布幕，不管網路好壞，延遲 100ms 確保 DOM Ready
+        // 強制打開布幕，解決黑屏
         setTimeout(() => {
             els.iris.classList.add('open');
             renderLevel('ep1');
@@ -241,13 +244,11 @@
     }
 
     function loadGlobalHighscore() {
-        // 如果已經判定為離線，或 db 未初始化，直接顯示離線
         if (isOffline || !db) {
             els.bestScore.innerText = "OFFLINE";
             return;
         }
 
-        // 嘗試連線
         db.collection("leaderboard")
           .orderBy("score", "desc")
           .limit(1)
@@ -260,10 +261,8 @@
                   els.bestScore.innerText = 0;
               }
           }, (error) => {
-              // 這裡會攔截 QUIC Error 或權限錯誤
-              console.warn("排行榜讀取失敗 (切換為離線顯示):", error);
+              console.warn("排行榜讀取失敗:", error);
               els.bestScore.innerText = "OFFLINE";
-              // 這裡不設定 isOffline = true，因為也許只是讀取失敗，寫入還能成功
           });
     }
 
@@ -275,7 +274,6 @@
         currentLevelId = levelId;
         const data = gameData[levelId];
         
-        // Reset UI
         els.p1.classList.remove('visible');
         els.p2.classList.remove('visible');
         els.p3.classList.remove('visible');
@@ -283,12 +281,10 @@
         els.choicesArea.innerHTML = '';
         els.mainText.innerText = "讀取中...";
 
-        // Set Content
         if(data.panels[0]) { els.e1.innerText = data.panels[0].emoji; els.d1.innerText = data.panels[0].text; }
         if(data.panels[1]) { els.e2.innerText = data.panels[1].emoji; els.d2.innerText = data.panels[1].text; }
         if(data.panels[2]) { els.e3.innerText = data.panels[2].emoji; els.d3.innerText = data.panels[2].text; }
 
-        // Animation
         setTimeout(() => { showPanel(1, data.panels[0].text) }, 500);
         setTimeout(() => { showPanel(2, data.panels[1].text) }, 1500);
         if(data.panels[2]) setTimeout(() => { showPanel(3, data.panels[2].text) }, 2500);
@@ -341,7 +337,6 @@
     };
 
     function checkEndGame() {
-        // 如果是離線模式，直接結束，不跳上傳視窗
         if (isOffline || !db) {
             if(confirm("遊戲結束！分數：" + score + "\n(離線模式無法上傳排行榜)\n要重來嗎？")) location.reload();
             return;
@@ -374,7 +369,7 @@
             location.reload();
         }).catch((e) => {
             alert("上傳失敗：" + e.message);
-            location.reload(); // 失敗也重整，避免卡住
+            location.reload(); 
         });
     }
 
