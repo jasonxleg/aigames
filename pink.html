@@ -2,61 +2,78 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>頑皮豹：搶救炎夏大作戰</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>頑皮豹：搶救炎夏大作戰 (手機版)</title>
     <style>
+        /* --- 全局設定，確保在手機上不亂跑 --- */
         body {
             font-family: 'Comic Sans MS', cursive, sans-serif;
             background-color: #f0e68c;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
             margin: 0;
-            padding: 20px;
+            padding: 10px;
+            min-height: 100vh; /* 確保佔滿全螢幕高度 */
+            box-sizing: border-box;
+            touch-action: manipulation; /* 優化手機點擊反應 */
         }
 
         h1 {
             color: #d63384;
             text-shadow: 2px 2px 0px #000;
+            font-size: clamp(1.5rem, 5vw, 2.5rem); /* 自動調整字體大小 */
+            margin: 10px 0;
+            text-align: center;
         }
 
+        /* --- 遊戲主容器 (響應式設計核心) --- */
+        /* 我們定義一個基於 800x400 (2:1) 的比例 */
         #game-container {
-            width: 800px;
-            height: 400px;
-            background-color: #ffcc00; /* 炎熱的地面顏色 */
-            border: 5px solid #000;
+            width: 100%;           /* 佔滿可用寬度 */
+            max-width: 800px;      /* 但最大不超過 800px */
+            aspect-ratio: 2 / 1;   /* 鎖定縱橫比為 2:1，高度會自動計算 */
+            background-color: #ffcc00;
+            border: 3px solid #000;
             position: relative;
             overflow: hidden;
             background-image: linear-gradient(to bottom, #ffcc00 60%, #e6b800 60%);
-            box-shadow: 10px 10px 0px rgba(0,0,0,0.2);
+            box-shadow: 5px 5px 0px rgba(0,0,0,0.2);
+            margin: auto; /* 置中 */
+            cursor: pointer; /* 讓電腦版滑鼠變手型 */
+            /* 禁止手機上長按選取內容 */
+            -webkit-user-select: none;
+            user-select: none;
         }
 
-        /* --- 遊戲素材 (使用 CSS Sprite 從原圖切割) --- */
-        /* 圖片連結將在 JavaScript 中動態設置 */
+        /* --- 遊戲素材 (使用百分比定位以實現縮放) --- */
         .sprite {
-            background-size: 200% 200%; /* 因為是 2x2 的格子圖 */
+            background-size: 200% 200%;
             position: absolute;
             background-repeat: no-repeat;
         }
 
-        /* 炎熱的男人 (取自左上角) */
+        /* 炎熱的男人 */
+        /* 原本 200x200, 相對於容器 800x400 的比例 */
         #little-man {
-            width: 200px;
-            height: 200px;
+            width: 25%;  /* 200 / 800 */
+            height: 50%; /* 200 / 400 */
             background-position: 15% 25%;
-            bottom: 20px;
+            bottom: 5%;  /* 20 / 400 */
             left: 50%;
             transform: translateX(-50%);
             z-index: 1;
         }
 
-        /* 行走的頑皮豹與影子 (取自右上角，稍微調整位置以聚焦角色) */
+        /* 行走的頑皮豹與影子容器 */
+        /* 原本 300x350 */
         #panther-container {
             position: absolute;
-            width: 300px;
-            height: 350px;
-            bottom: 10px;
-            left: -350px; /* 起始位置在螢幕外 */
+            width: 37.5%;  /* 300 / 800 */
+            height: 87.5%; /* 350 / 400 */
+            bottom: 2.5%;  /* 10 / 400 */
+            left: -40%;    /* 起始位置在螢幕外 */
             z-index: 2;
         }
 
@@ -66,135 +83,125 @@
             background-position: 85% 20%;
         }
         
-        /* 用於碰撞檢測的影子區域 (不可見) */
+        /* 用於碰撞檢測的影子區域 (相對於 panther-container 的比例) */
+        /* 原本 140x60, left 80. 父容器 300x350 */
         #shadow-hitbox {
             position: absolute;
-            width: 140px;
-            height: 60px;
+            width: 46.6%;  /* 140 / 300 */
+            height: 17.1%; /* 60 / 350 */
             bottom: 0;
-            left: 80px;
-            /* border: 2px solid red; 開啟此行可除錯影子位置 */ 
+            left: 26.6%;   /* 80 / 300 */
+            /* border: 2px solid red; 開啟此行可除錯影子位置 */
         }
 
         /* --- 遊戲介面元素 --- */
         #ui-layer {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0; width: 100%; height: 100%;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             background-color: rgba(0,0,0,0.7);
             z-index: 10;
-            flex-direction: column;
             color: white;
+            text-align: center;
         }
 
         button {
-            padding: 15px 30px;
-            font-size: 24px;
+            padding: 10px 20px;
+            font-size: clamp(1rem, 4vw, 1.5rem); /* 響應式字體 */
             background-color: #d63384;
             border: 3px solid #000;
             color: white;
             cursor: pointer;
             font-family: inherit;
-            transition: transform 0.1s;
+            margin-top: 20px;
         }
         button:active { transform: scale(0.95); }
 
         #instructions {
-            font-size: 20px;
-            margin-bottom: 20px;
-            text-align: center;
+            font-size: clamp(1rem, 3vw, 1.2rem);
             background: rgba(255,255,255,0.9);
             color: black;
             padding: 15px;
             border: 3px solid black;
+            width: 80%;
+            max-width: 400px;
         }
 
         /* --- 結果畫面 --- */
         #result-overlay {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0; width: 100%; height: 100%;
             z-index: 5;
-            display: none; /* 預設隱藏 */
+            display: none;
             background-color: #ffcc00;
         }
 
-        /* 失敗結局 (原圖右下角) */
         .result-fail {
-            width: 100%;
-            height: 100%;
+            width: 100%; height: 100%;
             background-position: 100% 100%;
             background-size: 200% 200%;
         }
 
-        /* 成功結局 (我們組合新的畫面!) */
         .result-win {
-            width: 100%;
-            height: 100%;
-            background-color: #87CEEB; /* 清涼的藍色背景 */
+            width: 100%; height: 100%;
+            background-color: #87CEEB;
             display: flex;
             justify-content: center;
             align-items: flex-end;
-            padding-bottom: 20px;
+            padding-bottom: 5%;
             position: relative;
         }
         
-        /* 成功時的文字 */
         .win-text {
             position: absolute;
-            top: 20px;
-            font-size: 40px;
+            top: 5%;
+            font-size: clamp(1.5rem, 5vw, 2.5rem);
             color: white;
             text-shadow: 2px 2px 4px blue;
+            width: 100%;
+            text-align: center;
         }
 
-        /* 重新組合：頑皮豹驚訝地看著影子裡舒服的男人 */
+        /* 勝利畫面的角色尺寸也需要改為百分比 */
         #win-panther {
-            width: 250px;
-            height: 300px;
-            /* 取用右下角頑皮豹攤手的樣子 */
+            width: 31.25%; /* 250 / 800 */
+            height: 75%;   /* 300 / 400 */
             background-position: 95% 90%; 
             background-size: 250% 250%;
         }
 
         #win-man-in-shadow {
-            width: 180px;
-            height: 180px;
-            background-color: black; /* 影子 */
+            width: 22.5%;  /* 180 / 800 */
+            height: 45%;   /* 180 / 400 */
+            background-color: black;
             border-radius: 50%;
             position: relative;
-            margin-left: -50px; /* 讓他們靠近點 */
+            margin-left: -6%;
             display: flex;
             justify-content: center;
             align-items: center;
             overflow: hidden;
         }
         
-        /* 把原本熱昏的男人變色，放在影子裡 */
         #cool-man {
-            width: 150px;
-            height: 150px;
-            background-position: 15% 25%; /* 還是那個熱昏的姿勢 */
+            width: 83%; height: 83%; /* 相對於 shadow container */
+            background-position: 15% 25%;
             background-size: 300% 300%;
-            filter: grayscale(100%) brightness(150%) sepia(30%) hue-rotate(180deg); /* CSS 濾鏡把他變藍色冷靜下來 */
-            transform: translateY(20px);
+            filter: grayscale(100%) brightness(150%) sepia(30%) hue-rotate(180deg);
+            transform: translateY(10%);
         }
 
-        /* 動畫類別 */
+        /* 動畫類別 (使用百分比移動) */
         .walking {
             animation: walkAcross 4s linear forwards;
         }
 
         @keyframes walkAcross {
-            from { left: -350px; }
-            to { left: 850px; }
+            from { left: -40%; }
+            to { left: 110%; }
         }
 
     </style>
@@ -205,22 +212,18 @@
 
     <div id="game-container">
         <div id="little-man" class="sprite"></div>
-        
         <div id="panther-container">
             <div id="panther-sprite" class="sprite"></div>
             <div id="shadow-hitbox"></div>
         </div>
-
-        <div id="result-overlay">
-            </div>
-
+        <div id="result-overlay"></div>
         <div id="ui-layer">
             <div id="instructions">
                 <p>外面太熱了！</p>
                 <p>等頑皮豹的影子經過你頭上時...</p>
-                <p><strong>點擊滑鼠</strong>跳進去！</p>
+                <p><strong>點擊螢幕</strong>跳進去！</p>
             </div>
-            <button id="start-btn" onclick="startGame()">開始遊戲</button>
+            <button id="start-btn">開始遊戲</button>
         </div>
     </div>
 
@@ -232,38 +235,49 @@
         const startBtn = document.getElementById('start-btn');
         const resultOverlay = document.getElementById('result-overlay');
         const gameContainer = document.getElementById('game-container');
+        const instructionsText = document.getElementById('instructions');
 
         let isPlaying = false;
 
-        function startGame() {
+        // 綁定開始按鈕事件 (同時支援 click 和 touchstart)
+        startBtn.addEventListener('click', startGame);
+        startBtn.addEventListener('touchstart', startGame, {passive: false});
+
+        function startGame(e) {
+            // 防止同時觸發 click 和 touchstart
+            if (e && e.type === 'touchstart') e.preventDefault();
+
             isPlaying = true;
             uiLayer.style.display = 'none';
             resultOverlay.style.display = 'none';
-            resultOverlay.innerHTML = ''; // 清空結果
+            resultOverlay.innerHTML = '';
             panther.classList.remove('walking');
-            
-            // 強制重繪以重置動畫
-            void panther.offsetWidth; 
-            
+            void panther.offsetWidth; // 強制重繪
             panther.classList.add('walking');
 
-            // 設置點擊監聽
+            // --- 核心修改：新增觸控支援 ---
+            // 同時監聽滑鼠點擊和手指觸碰
             gameContainer.addEventListener('click', checkHit);
-            // 設置動畫結束監聽 (如果錯過了)
+            // passive: false 允許我們在需要時使用 preventDefault
+            gameContainer.addEventListener('touchstart', checkHit, {passive: false});
+            
             panther.addEventListener('animationend', miss);
         }
 
-        function checkHit() {
+        function checkHit(e) {
             if (!isPlaying) return;
 
-            // 獲取男人和影子的位置信息
+            // --- 核心修改：防止重複觸發 ---
+            // 如果是觸控事件，阻止它繼續觸發後續的模擬滑鼠點擊
+            if (e.type === 'touchstart') {
+                e.preventDefault();
+            }
+
             const manRect = man.getBoundingClientRect();
             const shadowRect = shadowBox.getBoundingClientRect();
-
-            // 簡單的碰撞檢測：檢查影子中心點是否在男人的水平範圍內
             const shadowCenter = shadowRect.left + (shadowRect.width / 2);
             
-            // 判斷影子是否大約在男人頭上 (放寬一點判定範圍)
+            // 碰撞判定 (保持不變，getBoundingClientRect 會自動處理縮放後的實際位置)
             if (shadowCenter > manRect.left && shadowCenter < manRect.right) {
                 winGame();
             } else {
@@ -274,7 +288,9 @@
         function stopGame() {
             isPlaying = false;
             panther.classList.remove('walking');
+            // --- 核心修改：移除兩種監聽器 ---
             gameContainer.removeEventListener('click', checkHit);
+            gameContainer.removeEventListener('touchstart', checkHit);
             panther.removeEventListener('animationend', miss);
             uiLayer.style.display = 'flex';
             startBtn.innerText = "再試一次";
@@ -283,7 +299,6 @@
         function winGame() {
             stopGame();
             resultOverlay.style.display = 'block';
-            // 建立新的勝利畫面結構
             resultOverlay.innerHTML = `
                 <div class="result-win">
                     <h2 class="win-text">成功! 好涼快啊!</h2>
@@ -293,32 +308,34 @@
                     <div id="win-panther" class="sprite"></div>
                 </div>
             `;
+            applyImageToSprites(); // 確保新加入的元素也有圖片
         }
 
         function loseGame() {
             stopGame();
             resultOverlay.style.display = 'block';
-            // 使用原始漫畫的失敗畫面
             resultOverlay.innerHTML = '<div class="result-fail sprite"></div>';
+            applyImageToSprites();
         }
 
         function miss() {
              if (isPlaying) {
-                // 如果動畫跑完還沒點擊，算失敗，但顯示不同的訊息
                 stopGame();
-                uiLayer.style.display = 'flex';
-                document.getElementById('instructions').innerHTML = "<p>你錯過影子了！太慢啦！</p>";
+                instructionsText.innerHTML = "<p>你錯過影子了！太慢啦！</p>";
              }
         }
 
-        // --- 圖片連結替換區 ---
-        // 已經替換為您指定的 GitHub raw 連結
+        // --- 圖片連結設置 ---
         const yourImageURL = 'https://raw.githubusercontent.com/jasonxleg/aigames/main/pinker.jpg';
 
-        // 遍歷所有帶有 'sprite' 類別的元素並設置背景圖
-        document.querySelectorAll('.sprite').forEach(el => {
-            el.style.backgroundImage = `url('${yourImageURL}')`;
-        });
+        function applyImageToSprites() {
+            document.querySelectorAll('.sprite').forEach(el => {
+                el.style.backgroundImage = `url('${yourImageURL}')`;
+            });
+        }
+
+        // 初始應用圖片
+        applyImageToSprites();
 
     </script>
 </body>
