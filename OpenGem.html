@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>正在開啟 Gemini Tool...</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f2f5;
+            margin: 0;
+            text-align: center;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #1a73e8;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .btn:hover {
+            background-color: #1557b0;
+        }
+    </style>
+    
+    <script>
+        // 設定目標網址
+        const targetUrl = "https://gemini.google.com/gem/1Dx4K36jHwymV3suHZrqalxFouiS5ItYn?usp=sharing";
+
+        window.onload = function() {
+            // 頁面載入後 1 秒自動跳轉
+            setTimeout(function() {
+                window.location.href = targetUrl;
+            }, 1000);
+        };
+    </script>
+</head>
+<body>
+
+    <div class="container">
+        <h2>?? 正在前往 Gemini 指定工具...</h2>
+        <p>若網頁沒有自動跳轉，請點擊下方按鈕。</p>
+        <a href="https://gemini.google.com/gem/1Dx4K36jHwymV3suHZrqalxFouiS5ItYn?usp=sharing" class="btn">立即前往</a>
+    </div>
+
+</body>
+</html>
