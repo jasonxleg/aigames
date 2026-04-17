@@ -2,34 +2,32 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemini Pro MAP 題庫產生器</title>
+    <title>ChatGPT MAP 題庫產生器 (預設 Key)</title>
     <style>
-        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f8fafc; padding: 40px; color: #1e293b; }
-        .box { max-width: 600px; margin: auto; background: white; padding: 35px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border-top: 10px solid #8b5cf6; }
-        h2 { color: #8b5cf6; text-align: center; margin-bottom: 25px; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f4f9; padding: 40px; color: #333; }
+        .box { max-width: 650px; margin: auto; background: white; padding: 35px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-top: 10px solid #10a37f; }
+        h2 { color: #10a37f; text-align: center; margin-bottom: 25px; }
         .input-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; font-weight: 600; color: #475569; }
-        input, select, button { width: 100%; padding: 14px; margin-top: 5px; border-radius: 12px; border: 1px solid #e2e8f0; box-sizing: border-box; font-size: 16px; }
-        button { background: #8b5cf6; color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 15px; }
-        button:hover { background: #7c3aed; transform: translateY(-1px); }
-        button:disabled { background: #cbd5e1; cursor: not-allowed; }
-        #status { margin-top: 25px; text-align: center; color: #64748b; line-height: 1.6; font-size: 0.95em; }
-        .footer-note { font-size: 0.8em; color: #94a3b8; text-align: center; margin-top: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
+        input, select, button { width: 100%; padding: 12px; margin-top: 5px; border-radius: 10px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; }
+        button { background: #10a37f; color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 15px; }
+        button:hover { background: #0e8c6d; transform: translateY(-1px); }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        #status { margin-top: 25px; text-align: center; color: #666; font-size: 0.95em; line-height: 1.6; }
     </style>
 </head>
 <body>
 
 <div class="box">
-    <h2>🚀 MAP AI 題庫產生器 (1.5 Pro)</h2>
+    <h2>🤖 ChatGPT MAP 題庫產生器</h2>
     
     <div class="input-group">
-        <label>Gemini API Key:</label>
-        <input type="password" id="apiKey" value="AIzaSyDn_zDS6VQNbeLkOWd5HGcK0oqI2pUxV_I">
+        <label>OpenAI API Key (已預設):</label>
+        <input type="password" id="apiKey" value="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">
     </div>
 
     <div class="input-group">
-        <label>藍思值 (Lexile) 難度:</label>
+        <label>設定難度 (Lexile):</label>
         <select id="lexile">
             <option value="400L-500L">400L-500L (初階)</option>
             <option value="600L-750L" selected>600L-750L (中階 - 藍思 680 適用)</option>
@@ -38,14 +36,13 @@
     </div>
 
     <div class="input-group">
-        <label>題目數量:</label>
+        <label>題目數量 (建議 5-10 題):</label>
         <input type="number" id="qCount" value="10" min="1" max="15">
     </div>
 
-    <button id="genBtn" onclick="startGeneration()">生成並下載高品質練習卷</button>
+    <button id="genBtn" onclick="startGeneration()">開始 AI 生成練習卷</button>
     
     <div id="status">準備就緒。點擊按鈕開始生成。</div>
-    <div class="footer-note">提示：GitHub 執行時請確認 Key 未被封鎖。</div>
 </div>
 
 <script>
@@ -56,114 +53,111 @@
         const status = document.getElementById('status');
         const btn = document.getElementById('genBtn');
 
-        if (!key) return alert("請輸入 API Key！");
+        if (!key.startsWith('sk-')) return alert("請確認 API Key 是否正確！");
 
         btn.disabled = true;
-        status.innerHTML = "<b>⏳ 使用 Gemini 1.5 Pro 思考中...</b><br>此模型分析力較強，約需 20-40 秒。";
+        status.innerHTML = "<b>⏳ 正在調用 ChatGPT-4o 生成題庫...</b><br>這需要 15-30 秒，請勿關閉視窗。";
 
-        const prompt = `You are a professional educational content creator. 
-        Create a MAP Reading test. Target Lexile: ${lexile}. Question Count: ${count}.
-        Rules:
-        1. Mix high-quality informational texts and fictional passages.
-        2. Questions must cover Inference, Main Idea, and Vocabulary in Context.
-        3. Output ONLY a valid raw JSON array of objects.
-        4. Format: [{"isPassage":true, "text":"HTML_FORMATTED_PASSAGE"}, {"isPassage":false, "q":"QUESTION", "options":["A","B","C","D"], "ans":INDEX_0_TO_3}]`;
+        // 設定指令
+        const prompt = `You are an expert MAP Test content creator. Create a Reading practice test in JSON format.
+        Difficulty: Lexile ${lexile}.
+        Question Count: ${count}.
+        Guidelines: Mix informational and literary texts. Focus on Vocabulary in Context, Main Idea, and Inference.
+        Format: Output ONLY a valid JSON array.
+        Structure: [{"isPassage":true, "text":"HTML_CONTENT"}, {"isPassage":false, "q":"TEXT", "options":["A","B","C","D"], "ans":INDEX_0_TO_3}]`;
 
         try {
-            // 使用 Gemini 1.5 Pro 最穩定的 v1beta 路徑
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${key}`;
-            
-            const response = await fetch(url, {
+            const response = await fetch("https://api.openai.com/v1/chat/completions", {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${key}`
+                },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        responseMimeType: "application/json",
-                        temperature: 0.4 // 降低隨機性，讓題目分級更精準
-                    }
+                    model: "gpt-4o",
+                    messages: [{ role: "user", content: prompt }],
+                    response_format: { type: "json_object" }
                 })
             });
 
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error.message || "請求失敗");
+            const data = await response.json();
+            if (data.error) throw new Error(data.error.message);
+
+            let content = data.choices[0].message.content;
+            let quizData = JSON.parse(content);
+            
+            // 如果 AI 回傳的是物件而非陣列 (例如 {"questions": [...]})
+            if (!Array.isArray(quizData)) {
+                quizData = quizData.questions || Object.values(quizData)[0];
             }
 
-            const data = await response.json();
-            const rawJson = data.candidates[0].content.parts[0].text;
-            const quizData = JSON.parse(rawJson);
-
-            generateDownload(quizData, lexile);
-            
-            status.innerHTML = "<span style='color:#10b981;'><b>✅ 生成成功！</b></span><br>檔案已自動下載至您的電腦。";
+            downloadHtml(quizData, lexile);
+            status.innerHTML = "<span style='color:#10a37f;'><b>✅ 生成完成！</b></span><br>練習卷已自動下載。";
         } catch (error) {
             console.error(error);
-            status.innerHTML = "<span style='color:#ef4444;'><b>❌ 發生錯誤：</b></span><br>" + error.message;
+            status.innerHTML = "<span style='color:#e74c3c;'><b>❌ 出錯了：</b></span><br>" + error.message;
         } finally {
             btn.disabled = false;
         }
     }
 
-    function generateDownload(quizData, lexile) {
+    function downloadHtml(quizData, lexile) {
         const finalHtml = `
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>MAP Practice - ${lexile}</title>
+    <title>MAP Practice - ChatGPT Generated</title>
     <style>
-        body { font-family: sans-serif; padding: 40px; background: #f1f5f9; line-height: 1.6; }
-        .page { max-width: 800px; margin: auto; background: white; padding: 50px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        .passage { background: #f8fafc; padding: 25px; border-left: 8px solid #8b5cf6; margin: 25px 0; border-radius: 4px; font-size: 1.1em; }
-        .question { margin-bottom: 40px; }
-        label { display: block; padding: 15px; border: 2px solid #e2e8f0; margin: 10px 0; border-radius: 12px; cursor: pointer; transition: 0.2s; }
-        label:hover { border-color: #8b5cf6; background: #f5f3ff; }
+        body { font-family: sans-serif; padding: 30px; background: #f9f9f9; line-height: 1.6; }
+        .page { max-width: 800px; margin: auto; background: white; padding: 40px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .passage { background: #f0fdf4; padding: 25px; border-left: 6px solid #10a37f; margin: 25px 0; font-style: italic; }
+        .q-block { margin-bottom: 35px; }
+        label { display: block; padding: 12px; border: 2px solid #ddd; margin: 8px 0; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        label:hover { border-color: #10a37f; background: #f0fdf4; }
         .correct { background: #dcfce7 !important; border-color: #22c55e !important; color: #14532d; font-weight: bold; }
         .wrong { background: #fee2e2 !important; border-color: #ef4444 !important; color: #7f1d1d; }
-        button { width: 100%; padding: 20px; background: #8b5cf6; color: white; border: none; border-radius: 12px; font-size: 20px; font-weight: bold; cursor: pointer; }
+        button { width: 100%; padding: 18px; background: #10a37f; color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
     <div class="page">
-        <h1 style="color:#1e293b; text-align:center;">MAP Reading Practice</h1>
-        <p style="text-align:center; color:#64748b;">Difficulty: Lexile ${lexile} | AI Generated by Gemini Pro</p>
-        <hr style="border:0; border-top:1px solid #e2e8f0; margin:30px 0;">
+        <h1 style="text-align:center;">MAP Reading Practice (${lexile})</h1>
         <div id="quiz-area"></div>
-        <button id="checkBtn" onclick="reveal()">Submit Answers</button>
-        <h2 id="finalScore" style="text-align:center; margin-top:30px;"></h2>
+        <button id="subBtn" onclick="check()">提交答案</button>
+        <h2 id="finalRes" style="text-align:center; margin-top:20px;"></h2>
     </div>
     <script>
         const quiz = ${JSON.stringify(quizData)};
         const area = document.getElementById('quiz-area');
-        quiz.forEach((item, i) => {
+        quiz.forEach((item, idx) => {
             if(item.isPassage) {
                 area.innerHTML += '<div class="passage">' + item.text + '</div>';
             } else {
                 let opts = '';
-                item.options.forEach((o, j) => {
-                    const id = 'q' + i + '_' + j;
-                    opts += '<li><input type="radio" name="q'+i+'" id="'+id+'" value="'+j+'" style="display:none;"><label for="'+id+'">' + o + '</label></li>';
+                item.options.forEach((o, i) => {
+                    const id = 'q' + idx + '_' + i;
+                    opts += '<li><input type="radio" name="q'+idx+'" id="'+id+'" value="'+i+'" style="display:none;"><label for="'+id+'">' + o + '</label></li>';
                 });
-                area.innerHTML += '<div class="question"><p><b>' + item.q + '</b></p><ul style="list-style:none; padding:0;">' + opts + '</ul></div>';
+                area.innerHTML += '<div class="q-block"><p><b>' + item.q + '</b></p><ul style="list-style:none; padding:0;">' + opts + '</ul></div>';
             }
         });
-        function reveal() {
+        function check() {
             let s = 0; let t = 0;
-            quiz.forEach((item, i) => {
+            quiz.forEach((item, idx) => {
                 if(!item.isPassage) {
                     t++;
-                    const sel = document.querySelector('input[name="q'+i+'"]:checked');
-                    document.querySelector('label[for="q'+i+'_'+item.ans+'"]').classList.add("correct");
+                    const sel = document.querySelector('input[name="q'+idx+'"]:checked');
+                    document.querySelector('label[for="q'+idx+'_'+item.ans+'"]').classList.add("correct");
                     if(sel) {
                         if(parseInt(sel.value) === item.ans) s++;
                         else document.querySelector('label[for="'+sel.id+'"]').classList.add("wrong");
                     }
-                    document.querySelectorAll('input[name="q'+i+'"]').forEach(r => r.disabled = true);
+                    document.querySelectorAll('input[name="q'+idx+'"]').forEach(r => r.disabled = true);
                 }
             });
-            document.getElementById('finalScore').innerText = "Final Score: " + s + " / " + t;
-            document.getElementById('checkBtn').disabled = true;
+            document.getElementById('finalRes').innerText = "您的得分: " + s + " / " + t;
+            document.getElementById('subBtn').disabled = true;
         }
     <\/script>
 </body>
@@ -172,7 +166,7 @@
         const blob = new Blob([finalHtml], { type: 'text/html' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `MAP_Pro_Exercise.html`;
+        a.download = `MAP_ChatGPT_Exercise.html`;
         a.click();
     }
 </script>
