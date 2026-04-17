@@ -19,7 +19,7 @@
 <body>
 
 <div class="box">
-    <h2>🚀 MAP AI 題庫產生器 6</h2>
+    <h2>🚀 MAP AI 題庫產生器 by Jason</h2>
     
     <div class="input-group">
         <label>1. 輸入 Gemini API Key：</label>
@@ -70,7 +70,7 @@
         let success = false;
         for (let i = 0; i < endpoints.length; i++) {
             try {
-                status.innerHTML = `⏳ 正在嘗試請求路徑 (\${i + 1} \${endpoints[i]})...`;
+                status.innerHTML = `⏳ 正在嘗試請求路徑 (${i + 1} ... ${endpoints[i]})...`;
                 const response = await fetch(endpoints[i], {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
