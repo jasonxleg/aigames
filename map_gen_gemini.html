@@ -19,7 +19,7 @@
 <body>
 
 <div class="box">
-    <h2>🚀 MAP AI 題庫產生器 3</h2>
+    <h2>🚀 MAP AI 題庫產生器 4</h2>
     
     <div class="input-group">
         <label>1. 輸入 Gemini API Key：</label>
@@ -61,9 +61,7 @@
 
         // 嘗試列表：先試 v1，不行就試 v1beta
         const endpoints = [
-            `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=${key}`,
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${key}`,
-            `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`,
             `https://generativelanguage.googleapis.com/v1/models/gemini-3-flash:generateContent?key=${key}`,
             `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-pro:generateContent?key=${key}`,
             `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${key}`
