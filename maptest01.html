@@ -3,38 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MAP Reading Practice (Lexile 680L)</title>
+    <title>MAP Reading Interactive Practice (Lexile 680L)</title>
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; background-color: #f4f7f6; margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h1 { color: #2c3e50; text-align: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
-        .passage { background: #eef2f3; padding: 15px; border-left: 5px solid #3498db; margin: 20px 0; font-style: italic; }
-        .question { font-weight: bold; margin-top: 25px; color: #34495e; }
-        .options { list-style: none; padding: 0; }
-        .options li { margin: 10px 0; }
-        .options label { cursor: pointer; display: block; padding: 10px; border: 1px solid #ddd; border-radius: 5px; transition: 0.3s; }
-        .options label:hover { background-color: #f0f0f0; }
-        input[type="radio"] { margin-right: 10px; }
-        button { display: block; width: 100%; padding: 15px; background: #3498db; color: white; border: none; border-radius: 5px; font-size: 18px; cursor: pointer; margin-top: 30px; }
-        button:hover { background: #2980b9; }
-        #result { margin-top: 20px; padding: 20px; display: none; border-radius: 5px; }
-        .correct { color: #27ae60; font-weight: bold; }
-        .wrong { color: #c0392b; font-weight: bold; }
-        .score-display { font-size: 24px; text-align: center; font-weight: bold; margin-bottom: 20px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; background-color: #f0f4f8; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 850px; margin: auto; background: white; padding: 40px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; text-align: center; border-bottom: 3px solid #3498db; padding-bottom: 15px; margin-bottom: 10px; }
+        .subtitle { text-align: center; color: #7f8c8d; font-size: 1.1em; margin-bottom: 30px; }
+        .passage { background: #eaf2f8; padding: 20px; border-left: 6px solid #3498db; margin: 25px 0; font-style: italic; border-radius: 5px; }
+        .question-block { margin-bottom: 35px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
+        .question { font-weight: bold; font-size: 1.2em; margin-top: 0; color: #34495e; }
+        .options { list-style: none; padding: 0; margin: 15px 0 0 0; }
+        .options li { margin: 12px 0; }
+        .options label { cursor: pointer; display: block; padding: 12px 15px; border: 2px solid #ddd; border-radius: 8px; transition: all 0.2s ease; position: relative; }
+        .options label:hover { background-color: #f9f9f9; border-color: #bbb; }
+        input[type="radio"] { margin-right: 12px; transform: scale(1.2); vertical-align: middle; }
+        
+        /* 提交按鈕樣式 */
+        button#submitBtn { display: block; width: 100%; padding: 18px; background: #3498db; color: white; border: none; border-radius: 8px; font-size: 20px; font-weight: bold; cursor: pointer; margin-top: 40px; transition: background 0.3s; }
+        button#submitBtn:hover { background: #2980b9; }
+        button#submitBtn:disabled { background: #bdc3c7; cursor: not-allowed; }
+
+        /* 結果顯示區域 */
+        #result-summary { margin-top: 30px; padding: 25px; display: none; border-radius: 10px; text-align: center; }
+        .score-display { font-size: 28px; font-weight: bold; margin-bottom: 10px; }
+        .comment { font-size: 1.2em; color: #7f8c8d; }
+
+        /* 互動反饋樣式 (核心修改) */
+        
+        /* 1. 當選錯時，將該選項標示為紅色 */
+        .options input[type="radio"]:checked + label.wrong-selection { background-color: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .options label.wrong-selection::after { content: " (Wrong Answer)"; color: #c0392b; font-weight: bold; margin-left: 10px; }
+
+        /* 2. 不論是否選對，皆將正確答案標示為綠色 */
+        .options label.correct-answer { background-color: #d4edda; border-color: #c3e6cb; color: #155724; font-weight: bold; }
+        .options label.correct-answer::after { content: " (Correct Answer)"; color: #27ae60; font-weight: bold; margin-left: 10px; }
+
+        /* 3. 提交後鎖定所有選項，防止再次點擊 */
+        .options input[type="radio"]:disabled + label { cursor: default; opacity: 0.8; }
+        .options input[type="radio"]:disabled + label:hover { background-color: white; border-color: #ddd; }
+
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>MAP Reading 模擬練習</h1>
-    <p style="text-align: center; color: #7f8c8d;">Lexile 等級：680L | 總計 20 題</p>
+    <h1>MAP Reading 模擬練習 (互動版)</h1>
+    <p class="subtitle">Lexile 等級：680L | 總計 20 題 | 提交後將顯示正確答案與反饋</p>
 
     <form id="quizForm">
-        <div id="quiz-content"></div>
-        <button type="button" onclick="calculateScore()">提交答案並查看分數</button>
+        <div id="quiz-content">
+            </div>
+        <button type="button" id="submitBtn" onclick="calculateAndShowResults()">提交答案並查看結果</button>
     </form>
 
-    <div id="result"></div>
+    <div id="result-summary">
+        <div class="score-display">你的得分: <span id="score"></span> / <span id="total"></span></div>
+        <div class="comment" id="score-comment"></div>
+    </div>
 </div>
 
 <script>
@@ -67,6 +92,7 @@
 
     const quizContent = document.getElementById('quiz-content');
 
+    // 動態生成題目 HTML
     quizData.forEach((item, index) => {
         if (item.isPassage) {
             const passageDiv = document.createElement('div');
@@ -74,36 +100,90 @@
             passageDiv.innerHTML = item.text;
             quizContent.appendChild(passageDiv);
         } else {
-            const qDiv = document.createElement('div');
-            qDiv.innerHTML = `<p class="question">${item.q}</p>`;
+            const qBlock = document.createElement('div');
+            qBlock.className = 'question-block';
+            qBlock.innerHTML = `<p class="question">${item.q}</p>`;
+            
             const uList = document.createElement('ul');
             uList.className = 'options';
+            
             item.options.forEach((opt, i) => {
-                uList.innerHTML += `<li><label><input type="radio" name="q${index}" value="${i}"> ${opt}</label></li>`;
+                const li = document.createElement('li');
+                // 為了方便選取，給 label 一個唯一的 ID
+                const optionId = `q${index}_opt${i}`;
+                li.innerHTML = `
+                    <input type="radio" name="q${index}" id="${optionId}" value="${i}">
+                    <label for="${optionId}">${opt}</label>
+                `;
+                uList.appendChild(li);
             });
-            qDiv.appendChild(uList);
-            quizContent.appendChild(qDiv);
+            
+            qBlock.appendChild(uList);
+            quizContent.appendChild(qBlock);
         }
     });
 
-    function calculateScore() {
+    function calculateAndShowResults() {
         let score = 0;
-        let totalQuestions = 0;
+        let answeredQuestions = 0;
+        const totalQuestions = quizData.filter(item => !item.isPassage).length;
+
         quizData.forEach((item, index) => {
             if (!item.isPassage) {
-                totalQuestions++;
-                const selected = document.querySelector(`input[name="q${index}"]:checked`);
-                if (selected && parseInt(selected.value) === item.ans) {
-                    score++;
+                answeredQuestions++;
+                const selectedRadio = document.querySelector(`input[name="q${index}"]:checked`);
+                const correctAnsIndex = item.ans;
+                const correctLabel = document.querySelector(`label[for="q${index}_opt${correctAnsIndex}"]`);
+
+                // 1. 標示正確答案 (綠色)
+                if (correctLabel) {
+                    correctLabel.classList.add('correct-answer');
                 }
+
+                if (selectedRadio) {
+                    const selectedAnsIndex = parseInt(selectedRadio.value);
+                    const selectedLabel = document.querySelector(`label[for="${selectedRadio.id}"]`);
+
+                    if (selectedAnsIndex === correctAnsIndex) {
+                        // 答對了
+                        score++;
+                    } else {
+                        // 2. 答錯了，將選錯的選項標示為紅色
+                        if (selectedLabel) {
+                            selectedLabel.classList.add('wrong-selection');
+                        }
+                    }
+                }
+
+                // 3. 鎖定所有選項 (disabled)
+                const allRadiosInQuestion = document.querySelectorAll(`input[name="q${index}"]`);
+                allRadiosInQuestion.forEach(radio => radio.disabled = true);
             }
         });
 
-        const resultDiv = document.getElementById('result');
-        resultDiv.style.display = 'block';
-        resultDiv.innerHTML = `<div class="score-display">你的得分: ${score} / ${totalQuestions}</div>`;
-        resultDiv.style.backgroundColor = score > 15 ? '#d4edda' : '#f8d7da';
-        window.scrollTo(0, document.body.scrollHeight);
+        // 顯示結果總結
+        const resultSummary = document.getElementById('result-summary');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        submitBtn.disabled = true; // 禁用提交按鈕
+        submitBtn.innerText = "測驗已結束";
+
+        resultSummary.style.display = 'block';
+        document.getElementById('score').innerText = score;
+        document.getElementById('total').innerText = totalQuestions;
+        
+        // 根據分數給予評語
+        let comment = "";
+        if (score === totalQuestions) comment = "太棒了！全對！🌟";
+        else if (score >= 16) comment = "非常優秀！繼續保持！👍";
+        else if (score >= 12) comment = "做得好！還有進步空間。";
+        else comment = "加油！多練習幾次會更好。";
+        document.getElementById('score-comment').innerText = comment;
+
+        resultSummary.style.backgroundColor = score >= 12 ? '#d4edda' : '#f8d7da';
+        
+        // 滾動到頁面底部查看結果
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
     }
 </script>
 
