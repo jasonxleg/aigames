@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>Gemini AI - MAP 題庫自動產生器 (修正版)</title>
+    <title>Gemini AI - MAP 題庫自動產生器 (Pro 修正版)</title>
     <style>
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; padding: 40px; color: #333; }
         .box { max-width: 650px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-top: 10px solid #1a73e8; }
@@ -19,7 +19,7 @@
 <body>
 
 <div class="box">
-    <h2>🚀 Gemini MAP 題庫產生器</h2>
+    <h2>🚀 Gemini MAP 題庫產生器 (Pro 版)</h2>
     
     <div class="input-group">
         <label>1. Gemini API Key：</label>
@@ -37,7 +37,8 @@
 
     <div class="input-group">
         <label>3. 題目數量：</label>
-        <input type="number" id="qCount" value="10" min="1" max="20">
+        <input type="number" id="qCount" value="10" min="1" max="15">
+        <div style="font-size: 0.8em; color: #e67e22;">※ Pro 模型生成速度較慢但品質更高，建議一次不超過 15 題。</div>
     </div>
 
     <button id="genBtn" onclick="startGeneration()">開始 AI 生成並下載練習卷</button>
@@ -55,22 +56,32 @@
         if (!key) return alert("請輸入有效的 API Key");
 
         btn.disabled = true;
-        status.innerHTML = "<b>⏳ 正在調用 Gemini-1.5-Flash...</b><br>請稍候約 15 秒。";
+        status.innerHTML = "<b>⏳ 正在使用 Gemini-1.5-Pro 生成高品質題庫...</b><br>Pro 版思考較深，約需 20-30 秒，請稍候。";
 
-        const prompt = `Generate a MAP Reading practice test. Level: Lexile ${lexile}. Count: ${count} questions. 
-        Mix informational and literary passages. Focus on Vocabulary, Main Idea, and Inference. 
-        Output ONLY a raw JSON array. 
-        Format: [{isPassage:true, text:"html_text"}, {isPassage:false, q:"text", options:["A","B","C","D"], ans:0}]`;
+        const prompt = `Generate a MAP Reading practice test. Level: Lexile ${lexile}. Question Count: ${count}. 
+        Format requirements:
+        1. Mix informational and literary passages.
+        2. Focus on: Vocabulary in Context, Main Idea, and Inference.
+        3. Output MUST be ONLY a raw JSON array of objects.
+        4. Objects should be either:
+           - {isPassage:true, text:"HTML_CONTENT"}
+           - {isPassage:false, q:"QUESTION_TEXT", options:["A","B","C","D"], ans:0_TO_3_INDEX}`;
 
         try {
-            // 修正點：將 v1beta 改為 v1，並調整 fetch 路徑
-            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`;
+            // 切換至 v1beta 並使用 gemini-1.5-pro
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${key}`;
             
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }]
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: 0.7,
+                        topK: 1,
+                        topP: 1,
+                        maxOutputTokens: 4096,
+                    }
                 })
             });
 
@@ -81,26 +92,29 @@
             }
 
             let rawJson = data.candidates[0].content.parts[0].text;
+            // 清理 AI 輸出的 Markdown 代碼塊
             rawJson = rawJson.replace(/```json/g, '').replace(/```/g, '').trim();
+            
             const quizData = JSON.parse(rawJson);
 
             downloadHtml(quizData, lexile);
-            status.innerHTML = "<span style='color: #27ae60;'><b>✨ 生成完成！</b> 檔案已下載。</span>";
+            status.innerHTML = "<span style='color: #27ae60;'><b>✨ Pro 級題庫生成完成！</b> 檔案已下載。</span>";
         } catch (error) {
             console.error(error);
-            status.innerHTML = "<span style='color: #c0392b;'><b>❌ 錯誤：</b> " + error.message + "</span>";
+            status.innerHTML = "<span style='color: #c0392b;'><b>❌ 出錯了：</b><br>" + error.message + "</span>";
         } finally {
             btn.disabled = false;
         }
     }
 
     function downloadHtml(quizData, lexile) {
-        const finalHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>MAP Practice</title><style>body{font-family:sans-serif;padding:20px;background:#f4f7f6;}.card{max-width:800px;margin:auto;background:white;padding:40px;border-radius:12px;box-shadow:0 4px 15px rgba(0,0,0,0.1);}.passage{background:#eef7ff;padding:20px;border-left:6px solid #1a73e8;margin:20px 0;font-style:italic;}.q-block{margin-bottom:30px;}label{display:block;padding:12px;border:2px solid #ddd;margin:8px 0;border-radius:8px;cursor:pointer;}.correct{background:#d4edda!important;color:#155724;font-weight:bold;}.wrong{background:#f8d7da!important;color:#721c24;}button{width:100%;padding:15px;background:#28a745;color:white;border:none;border-radius:8px;font-size:18px;cursor:pointer;}</style></head><body><div class="card"><h1>MAP Reading (${lexile})</h1><div id="content"></div><button id="subBtn" onclick="check()">Submit</button><h2 id="res" style="text-align:center;"></h2></div><script>const data = \${JSON.stringify(quizData)};const container = document.getElementById('content');data.forEach((item, idx) => {if(item.isPassage){container.innerHTML += '<div class="passage">' + item.text + '</div>';}else{let opts = '';item.options.forEach((o, i) => {const id = 'q' + idx + '_' + i;opts += '<li><input type="radio" name="q'+idx+'" id="'+id+'" value="'+i+'"><label for="'+id+'">' + o + '</label></li>';});container.innerHTML += '<div class="q-block"><p><b>' + item.q + '</b></p><ul style="list-style:none;padding:0;">' + opts + '</ul></div>';}});function check(){let score = 0;let total = 0;data.forEach((item, idx) => {if(!item.isPassage){total++;const sel = document.querySelector('input[name="q'+idx+'"]:checked');const correctLabel = document.querySelector('label[for="q'+idx+'_'+item.ans+'"]');correctLabel.classList.add("correct");if(sel){if(parseInt(sel.value) === item.ans) score++;else document.querySelector('label[for="'+sel.id+'"]').classList.add("wrong");}document.querySelectorAll('input[name="q'+idx+'"]').forEach(r => r.disabled = true);}});document.getElementById('res').innerText = "Score: " + score + " / " + total;document.getElementById('subBtn').disabled = true;}<\/script></body></html>`;
+        // (保持與之前相同的 HTML 模板)
+        const finalHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>MAP Practice Pro</title><style>body{font-family:sans-serif;padding:20px;background:#f4f7f6;} .card{max-width:800px;margin:auto;background:white;padding:40px;border-radius:12px;box-shadow:0 4px 15px rgba(0,0,0,0.1);} .passage{background:#eef7ff;padding:20px;border-left:6px solid #1a73e8;margin:20px 0;font-style:italic;} label{display:block;padding:12px;border:2px solid #ddd;margin:8px 0;border-radius:8px;cursor:pointer;} .correct{background:#d4edda!important;color:#155724;font-weight:bold;} .wrong{background:#f8d7da!important;color:#721c24;} button{width:100%;padding:15px;background:#28a745;color:white;border:none;border-radius:8px;font-size:18px;cursor:pointer;}</style></head><body><div class="card"><h1>MAP Reading (${lexile}) - AI Pro</h1><div id="content"></div><button id="subBtn" onclick="check()">Submit</button><h2 id="res" style="text-align:center;"></h2></div><script>const data = \${JSON.stringify(quizData)};const container = document.getElementById('content');data.forEach((item, idx) => {if(item.isPassage){container.innerHTML += '<div class="passage">' + item.text + '</div>';}else{let opts = '';item.options.forEach((o, i) => {const id = 'q' + idx + '_' + i;opts += '<li><input type="radio" name="q'+idx+'" id="'+id+'" value="'+i+'"><label for="'+id+'">' + o + '</label></li>';});container.innerHTML += '<div class="q-block"><p><b>' + item.q + '</b></p><ul style="list-style:none;padding:0;">' + opts + '</ul></div>';}});function check(){let score = 0;let total = 0;data.forEach((item, idx) => {if(!item.isPassage){total++;const sel = document.querySelector('input[name="q'+idx+'"]:checked');const correctLabel = document.querySelector('label[for="q'+idx+'_'+item.ans+'"]');correctLabel.classList.add("correct");if(sel){if(parseInt(sel.value) === item.ans) score++;else document.querySelector('label[for="'+sel.id+'"]').classList.add("wrong");}document.querySelectorAll('input[name="q'+idx+'"]').forEach(r => r.disabled = true);}});document.getElementById('res').innerText = "Score: " + score + " / " + total;document.getElementById('subBtn').disabled = true;}<\/script></body></html>`;
         const blob = new Blob([finalHtml], { type: 'text/html' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `MAP_Practice_${lexile}.html`;
+        a.download = `MAP_Pro_Practice_${lexile}.html`;
         a.click();
     }
 </script>
