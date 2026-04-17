@@ -19,7 +19,7 @@
 <body>
 
 <div class="box">
-    <h2>🚀 MAP AI 題庫產生器 5</h2>
+    <h2>🚀 MAP AI 題庫產生器 6</h2>
     
     <div class="input-group">
         <label>1. 輸入 Gemini API Key：</label>
@@ -110,11 +110,50 @@
     }
     function downloadHtml(quizData, lexile) {
         // 修正後的下載模板：確保變數直接寫死在字串中，不使用 ${} 避免衝突
-        const template = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:sans-serif;padding:40px;background:#f4f7f6;}.card{max-width:800px;margin:auto;background:white;padding:40px;border-radius:15px;box-shadow:0 4px 15px rgba(0,0,0,0.1);}.passage{background:#eef7ff;padding:25px;border-left:8px solid #10b981;margin:25px 0;}label{display:block;padding:12px;border:2px solid #ddd;margin:10px 0;border-radius:10px;cursor:pointer;}.correct{background:#d4edda!important;border-color:#28a745!important;}.wrong{background:#f8d7da!important;border-color:#dc3545!important;}button{width:100%;padding:20px;background:#10b981;color:white;border:none;border-radius:10px;font-size:20px;font-weight:bold;cursor:pointer;}</style></head><body>' +
+        const template = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' +
+            'body{font-family:sans-serif;padding:40px;background:#f4f7f6;}' +
+            '.card{max-width:800px;margin:auto;background:white;padding:40px;border-radius:15px;box-shadow:0 4px 15px rgba(0,0,0,0.1);}' +
+            '.passage{background:#eef7ff;padding:25px;border-left:8px solid #10b981;margin:25px 0;border-radius:5px;}' +
+            'label{display:block;padding:15px;border:2px solid #ddd;margin:10px 0;border-radius:10px;cursor:pointer;transition:0.2s;}' +
+            'label:hover{background:#f0fdf4;}' +
+            /* 重點：當 radio 被選中時，下一個相鄰的 label 變色 */
+            'input[type="radio"]:checked + label{background:#e6fffa; border-color:#10b981; font-weight:bold;}' +
+            '.correct{background:#d4edda!important;border-color:#28a745!important;color:#155724!important;}' +
+            '.wrong{background:#f8d7da!important;border-color:#dc3545!important;color:#721c24!important;}' +
+            'button{width:100%;padding:20px;background:#10b981;color:white;border:none;border-radius:10px;font-size:20px;font-weight:bold;cursor:pointer;margin-top:20px;}' +
+            '</style></head><body>' +
             '<div class="card"><h1>MAP Reading Practice (' + lexile + ')</h1><div id="quiz"></div><button id="subBtn" onclick="check()">Submit</button><h2 id="res" style="text-align:center;margin-top:25px;"></h2></div>' +
             '<script>const data = ' + JSON.stringify(quizData) + ';' +
-            'const box = document.getElementById("quiz"); data.forEach((item, idx) => { if(item.isPassage) box.innerHTML += "<div class=\'passage\'>" + item.text + "</div>"; else { let opts = ""; item.options.forEach((o, i) => { const id = "q"+idx+"_"+i; opts += "<li><input type=\'radio\' name=\'q"+idx+"\' id=\'"+id+"\' value=\'"+i+"\' style=\'display:none;\'><label for=\'"+id+"\'>"+o+"</label></li>"; }); box.innerHTML += "<div style=\'margin-bottom:30px;\'><p><b>"+item.q+"</b></p><ul style=\'list-style:none;padding:0;\'>"+opts+"</ul></div>"; } });' +
-            'function check(){ let score = 0; data.forEach((item, idx) => { if(!item.isPassage){ const sel = document.querySelector("input[name=\'q"+idx+"\']:checked"); document.querySelector("label[for=\'q"+idx+"_"+item.ans+"\']").classList.add("correct"); if(sel && parseInt(sel.value) === item.ans) score++; else if(sel) document.querySelector("label[for=\'"+sel.id+"\']").classList.add("wrong"); } }); document.getElementById("res").innerText = "Score: " + score; document.getElementById("subBtn").disabled = true; }' +
+            'const box = document.getElementById("quiz");' +
+            'data.forEach((item, idx) => {' +
+            '  if(item.isPassage) box.innerHTML += "<div class=\'passage\'>" + item.text + "</div>";' +
+            '  else {' +
+            '    let opts = "";' +
+            '    item.options.forEach((o, i) => {' +
+            '      const id = "q"+idx+"_"+i;' +
+            /* 修正：input 必須在 label 前面，CSS 才能偵測到選中狀態 */
+            '      opts += "<li><input type=\'radio\' name=\'q"+idx+"\' id=\'"+id+"\' value=\'"+i+"\' style=\'display:none;\'><label for=\'"+id+"\'>"+o+"</label></li>";' +
+            '    });' +
+            '    box.innerHTML += "<div style=\'margin-bottom:30px;\'><p><b>"+item.q+"</b></p><ul style=\'list-style:none;padding:0;\'>"+opts+"</ul></div>";' +
+            '  }' +
+            '});' +
+            'function check(){' +
+            '  let score = 0; let total = 0;' +
+            '  data.forEach((item, idx) => {' +
+            '    if(!item.isPassage){' +
+            '      total++;' +
+            '      const sel = document.querySelector("input[name=\'q"+idx+"\']:checked");' +
+            '      const correctLabel = document.querySelector("label[for=\'q"+idx+"_"+item.ans+"\']");' +
+            '      if(correctLabel) correctLabel.classList.add("correct");' +
+            '      if(sel){' +
+            '        if(parseInt(sel.value) === item.ans) score++;' +
+            '        else document.querySelector("label[for=\'"+sel.id+"\']").classList.add("wrong");' +
+            '      }' +
+            '    }' +
+            '  });' +
+            '  document.getElementById("res").innerText = "Score: " + score + " / " + total;' +
+            '  document.getElementById("subBtn").disabled = true;' +
+            '}' +
             '<\/script></body></html>';
 
         const blob = new Blob([template], { type: 'text/html' });
