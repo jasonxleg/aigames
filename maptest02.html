@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAP Reading Practice #2 (Lexile 680L-720L)</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; background-color: #fdfdfd; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 850px; margin: auto; background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border-top: 8px solid #e67e22; }
+        h1 { color: #d35400; text-align: center; margin-bottom: 10px; }
+        .subtitle { text-align: center; color: #7f8c8d; font-size: 1.1em; margin-bottom: 30px; }
+        .passage { background: #fff5e6; padding: 20px; border-left: 6px solid #e67e22; margin: 25px 0; font-style: italic; border-radius: 5px; line-height: 1.8; }
+        .question-block { margin-bottom: 35px; border-bottom: 1px solid #eee; padding-bottom: 25px; }
+        .question { font-weight: bold; font-size: 1.15em; margin-top: 0; color: #2c3e50; }
+        .options { list-style: none; padding: 0; margin: 15px 0 0 0; }
+        .options li { margin: 12px 0; }
+        .options label { cursor: pointer; display: block; padding: 12px 15px; border: 2px solid #ddd; border-radius: 8px; transition: all 0.2s ease; }
+        .options label:hover { background-color: #fffaf0; border-color: #e67e22; }
+        input[type="radio"] { margin-right: 12px; transform: scale(1.2); vertical-align: middle; }
+        
+        button#submitBtn { display: block; width: 100%; padding: 18px; background: #e67e22; color: white; border: none; border-radius: 8px; font-size: 20px; font-weight: bold; cursor: pointer; margin-top: 40px; }
+        button#submitBtn:hover { background: #d35400; }
+        button#submitBtn:disabled { background: #bdc3c7; cursor: not-allowed; }
+
+        #result-summary { margin-top: 30px; padding: 25px; display: none; border-radius: 10px; text-align: center; }
+        .score-display { font-size: 28px; font-weight: bold; margin-bottom: 10px; }
+
+        /* 互動反饋樣式 */
+        .options input[type="radio"]:checked + label.wrong-selection { background-color: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .options label.wrong-selection::after { content: " (✘ Wrong Answer)"; color: #c0392b; font-weight: bold; margin-left: 10px; }
+
+        .options label.correct-answer { background-color: #d4edda; border-color: #c3e6cb; color: #155724; font-weight: bold; }
+        .options label.correct-answer::after { content: " (✔ Correct Answer)"; color: #27ae60; font-weight: bold; margin-left: 10px; }
+
+        .options input[type="radio"]:disabled + label { cursor: default; opacity: 0.8; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>MAP Reading 練習卷 #2</h1>
+    <p class="subtitle">進階挑戰版 | Lexile 680L-720L | 總計 20 題</p>
+
+    <form id="quizForm">
+        <div id="quiz-content"></div>
+        <button type="button" id="submitBtn" onclick="processResults()">提交答案並查看解析</button>
+    </form>
+
+    <div id="result-summary">
+        <div class="score-display">測驗得分: <span id="score"></span> / 20</div>
+        <div id="score-comment" style="font-size: 1.2em;"></div>
+    </div>
+</div>
+
+<script>
+    const quizData = [
+        // Part 1: Vocabulary
+        { q: "1. The spider’s web was so <b>delicate</b> that even a tiny drop of dew could break its thin threads.", options: ["Very strong", "Easily broken", "Brightly colored", "Extremely large"], ans: 1 },
+        { q: "2. The forest was <b>shrouded</b> in thick fog, making it impossible for the campers to see the trail in front of them.", options: ["Burned away", "Covered or hidden", "Cut into pieces", "Found easily"], ans: 1 },
+        { q: "3. 'The movie was <b>fascinating</b>!' exclaimed Joy. 'I couldn't take my eyes off the screen for a single second.'", options: ["Boring", "Interesting", "Scaring", "Long"], ans: 1 },
+        { q: "4. Choose the best word to complete the sentence: 'The king was known for his ______, as he always shared his wealth with the poor.'", options: ["Greed", "Bravery", "Generosity", "Anger"], ans: 2 },
+        { q: "5. Which of these words is the opposite (antonym) of <b>ancient</b>?", options: ["Old", "Modern", "Huge", "Famous"], ans: 1 },
+        
+        // Part 2: Informational
+        { isPassage: true, text: "<b>[Passage: Animal Camouflage]</b><br>Many animals use camouflage to stay safe. A polar bear has white fur that blends into the snow. A walking stick insect looks just like a brown twig on a tree. This helps them hide from predators that want to eat them. It also helps hunters, like lions, sneak up on their prey without being seen." },
+        { q: "6. According to the passage, why do lions use camouflage?", options: ["To stay warm in the winter", "To hide from larger animals", "To catch their food by surprise", "To help them sleep better"], ans: 2 },
+        { q: "7. What is the main purpose of this text?", options: ["To tell a story about a brave lion", "To explain how animals use their appearance to survive", "To persuade people to protect polar bears", "To list all the animals that live in the forest"], ans: 1 },
+        { q: "8. Which animal from the text is used as an example of a 'prey' trying to hide?", options: ["The lion", "The walking stick insect", "The hunter", "The scientist"], ans: 1 },
+        { isPassage: true, text: "<b>[Passage: The Mighty Amazon]</b><br>The Amazon River in South America is the second longest river in the world. It carries more water than any other river. The Amazon Rainforest is home to millions of types of plants and animals. It is often called the 'Lungs of the Planet' because the trees there produce a lot of oxygen." },
+        { q: "9. Why is the Amazon Rainforest called the 'Lungs of the Planet'?", options: ["Because it is shaped like a human lung", "Because it produces oxygen", "Because it is very hot and humid", "Because many people live there"], ans: 1 },
+        { q: "10. Based on the text, what is special about the Amazon River's water?", options: ["It is the longest river on Earth.", "It has the most water of any river.", "It is the only river in South America.", "It is frozen for half of the year."], ans: 1 },
+        
+        // Part 3: Literature
+        { isPassage: true, text: "<b>[Passage: The Missing Homework]</b><br>Jake looked through his backpack for the third time. His face turned red, and he began to bite his lip. 'I know I put it in here after dinner!' he whispered to himself. The teacher started walking down the aisle to collect the assignments. Jake slumped down in his seat." },
+        { q: "11. How does Jake feel?", options: ["Proud", "Worried", "Excited", "Sleepy"], ans: 1 },
+        { q: "12. What can you infer about Jake’s homework?", options: ["He didn't do it.", "He can't find it.", "He already gave it to the teacher.", "His dog ate it."], ans: 1 },
+        { q: "13. Which detail shows that Jake is upset?", options: ["He whispered to himself.", "He looked in his backpack.", "His face turned red and he bit his lip.", "He sat in his seat."], ans: 2 },
+        { isPassage: true, text: "<b>[Passage: A Rainy Surprise]</b><br>Maya was looking forward to the picnic all week. When she woke up Saturday morning, she heard a loud patter-patter on the roof. She sighed and put her basket away. Suddenly, her mom walked in with a big blanket and some sandwiches. 'Who says we can't have a picnic in the living room?' her mom asked." },
+        { q: "14. What happened on Saturday morning?", options: ["It started to rain.", "Maya's friends arrived.", "Maya lost her basket.", "The sun was too hot."], ans: 0 },
+        { q: "15. What is the mom’s attitude?", options: ["She is angry about the rain.", "She is helpful and creative.", "She is tired of making sandwiches.", "She wants Maya to go outside."], ans: 1 },
+        
+        // Part 4: Grammar & Logic
+        { q: "16. Which sentence uses the correct punctuation?", options: ["'Wait for me!' shouted Sarah.", "'Wait for me,' shouted Sarah?", "Wait for me shouted Sarah!", "'Wait, for me' shouted Sarah."], ans: 0 },
+        { q: "17. Choose the correct verb: 'Yesterday, the birds ______ over the tall trees.'", options: ["fly", "flying", "flew", "flied"], ans: 2 },
+        { q: "18. Identify the subject: 'The big, fluffy clouds drifted across the blue sky.'", options: ["Drifted", "Blue sky", "Across", "The big, fluffy clouds"], ans: 3 },
+        { q: "19. Which sentence is a fact, not an opinion?", options: ["Spiders are the scariest animals.", "Most spiders have eight legs.", "Everyone should have a pet spider.", "Spiders are very cool to look at."], ans: 1 },
+        { q: "20. What is the best way to combine: 'The sun was hot. We went swimming.'", options: ["The sun was hot but we went swimming.", "The sun was hot, so we went swimming.", "The sun was hot because we went swimming.", "The sun was hot, or we went swimming."], ans: 1 }
+    ];
+
+    const quizContent = document.getElementById('quiz-content');
+
+    quizData.forEach((item, index) => {
+        if (item.isPassage) {
+            const passageDiv = document.createElement('div');
+            passageDiv.className = 'passage';
+            passageDiv.innerHTML = item.text;
+            quizContent.appendChild(passageDiv);
+        } else {
+            const qBlock = document.createElement('div');
+            qBlock.className = 'question-block';
+            qBlock.innerHTML = `<p class="question">${item.q}</p>`;
+            const uList = document.createElement('ul');
+            uList.className = 'options';
+            item.options.forEach((opt, i) => {
+                const optionId = `q${index}_opt${i}`;
+                uList.innerHTML += `<li><input type="radio" name="q${index}" id="${optionId}" value="${i}"><label for="${optionId}">${opt}</label></li>`;
+            });
+            qBlock.appendChild(uList);
+            quizContent.appendChild(qBlock);
+        }
+    });
+
+    function processResults() {
+        let score = 0;
+        quizData.forEach((item, index) => {
+            if (!item.isPassage) {
+                const selectedRadio = document.querySelector(`input[name="q${index}"]:checked`);
+                const correctLabel = document.querySelector(`label[for="q${index}_opt${item.ans}"]`);
+                if (correctLabel) correctLabel.classList.add('correct-answer');
+                if (selectedRadio) {
+                    if (parseInt(selectedRadio.value) === item.ans) score++;
+                    else document.querySelector(`label[for="${selectedRadio.id}"]`).classList.add('wrong-selection');
+                }
+                document.querySelectorAll(`input[name="q${index}"]`).forEach(r => r.disabled = true);
+            }
+        });
+        document.getElementById('submitBtn').disabled = true;
+        document.getElementById('result-summary').style.display = 'block';
+        document.getElementById('score').innerText = score;
+        let msg = score >= 18 ? "卓越！你已經準備好迎接 MAP 挑戰了！" : score >= 14 ? "很棒！基礎紮實，再細心一點就完美了。" : "繼續加油，閱讀更多英文故事會很有幫助喔！";
+        document.getElementById('score-comment').innerText = msg;
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+</script>
+</body>
+</html>
