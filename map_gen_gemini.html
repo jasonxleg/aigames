@@ -70,7 +70,7 @@
         let success = false;
         for (let i = 0; i < endpoints.length; i++) {
             try {
-                status.innerHTML = `⏳ 正在嘗試請求路徑 (\${i + 1}/\${endpoints.length})...`;
+                status.innerHTML = `⏳ 正在嘗試請求路徑 (\${i + 1} \${endpoints[i]})...`;
                 const response = await fetch(endpoints[i], {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
