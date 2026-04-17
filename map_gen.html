@@ -2,67 +2,47 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>Gemini MAP 題庫產生器 - 最終穩定版</title>
+    <title>Gemini MAP 產生器 - 偵錯加強版</title>
     <style>
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; padding: 40px; color: #333; }
-        .box { max-width: 650px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-top: 10px solid #2ecc71; }
-        h2 { color: #2ecc71; text-align: center; margin-bottom: 20px; }
-        .input-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
-        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
-        button { width: 100%; padding: 15px; background: #2ecc71; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; }
-        button:hover { background: #27ae60; }
-        button:disabled { background: #ccc; cursor: not-allowed; }
-        #status { margin-top: 20px; text-align: center; font-size: 0.95em; color: #666; min-height: 24px; line-height: 1.5; }
+        body { font-family: sans-serif; background: #f0f2f5; padding: 40px; }
+        .box { max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); border-top: 10px solid #2ecc71; }
+        input, select, button { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
+        button { background: #2ecc71; color: white; border: none; font-size: 18px; font-weight: bold; cursor: pointer; }
+        button:disabled { background: #ccc; }
+        #status { margin-top: 20px; text-align: center; color: #666; white-space: pre-wrap; }
     </style>
 </head>
 <body>
 
 <div class="box">
-    <h2>🚀 Gemini MAP 題庫產生器 (Final)</h2>
+    <h2>🚀 MAP 題庫產生器 (Debug Mode)</h2>
+    <label>API Key:</label>
+    <input type="password" id="apiKey" value="AIzaSyDn_zDS6VQNbeLkOWd5HGcK0oqI2pUxV_I">
     
-    <div class="input-group">
-        <label>1. Gemini API Key：</label>
-        <input type="password" id="apiKey" value="AIzaSyDn_zDS6VQNbeLkOWd5HGcK0oqI2pUxV_I">
-    </div>
+    <label>難度:</label>
+    <select id="lexile">
+        <option value="600L-750L">600L-750L (中階)</option>
+        <option value="850L-1000L">850L-1000L (高階)</option>
+    </select>
 
-    <div class="input-group">
-        <label>2. 設定難度 (Lexile)：</label>
-        <select id="lexile">
-            <option value="400L-500L">400L-500L (初階)</option>
-            <option value="600L-750L" selected>600L-750L (中階)</option>
-            <option value="850L-1000L">850L-1000L (高階)</option>
-        </select>
-    </div>
-
-    <div class="input-group">
-        <label>3. 題目數量：</label>
-        <input type="number" id="qCount" value="10" min="1" max="15">
-    </div>
-
-    <button id="genBtn" onclick="startGeneration()">開始 AI 生成練習卷</button>
-    <div id="status"></div>
+    <button id="genBtn" onclick="startGeneration()">開始 AI 生成</button>
+    <div id="status">準備就緒。</div>
 </div>
 
 <script>
     async function startGeneration() {
         const key = document.getElementById('apiKey').value.trim();
         const lexile = document.getElementById('lexile').value;
-        const count = document.getElementById('qCount').value;
         const status = document.getElementById('status');
         const btn = document.getElementById('genBtn');
 
         btn.disabled = true;
-        status.innerHTML = "<b>⏳ 正在調用 Gemini 1.5 Flash...</b><br>正在根據藍思值生成題目，請稍候。";
+        status.innerText = "⏳ 正在發送請求...";
 
-        const prompt = `Generate a MAP Reading test in JSON format. 
-        Level: Lexile ${lexile}. Count: ${count} questions. 
-        Format strictly: [{"isPassage":true, "text":"..."}, {"isPassage":false, "q":"...", "options":["A","B","C","D"], "ans":0}]
-        Output ONLY the raw JSON array. No markdown code blocks.`;
+        const prompt = "Generate a 5-question MAP test in JSON. Level: Lexile " + lexile + ". Output ONLY raw JSON array: [{'isPassage':true, 'text':'...'}, {'isPassage':false, 'q':'...', 'options':['A','B','C','D'], 'ans':0}]";
 
         try {
-            // 修正點：使用 v1 正式版路徑與標準模型名稱
-            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`;
+            const url = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=" + key;
             
             const response = await fetch(url, {
                 method: 'POST',
@@ -75,31 +55,77 @@
             const data = await response.json();
             
             if (data.error) {
-                // 如果 v1 不行，提示詳細錯誤訊息
-                throw new Error(\`[\${data.error.status}] \${data.error.message}\`);
+                throw new Error("API 錯誤: " + data.error.message);
+            }
+
+            if (!data.candidates || !data.candidates[0]) {
+                throw new Error("AI 沒有回傳內容，請檢查 API Key 是否有效。");
             }
 
             let rawJson = data.candidates[0].content.parts[0].text;
-            // 過濾可能的 Markdown 標籤以防萬一
-            rawJson = rawJson.replace(/\\\`\\\`\\\`json/g, '').replace(/\\\`\\\`\\\`/g, '').trim();
+            // 清理 Markdown 符號
+            rawJson = rawJson.replace(/```json/g, "").replace(/```/g, "").trim();
+            
             const quizData = JSON.parse(rawJson);
-
-            downloadHtml(quizData, lexile);
-            status.innerHTML = "<span style='color: #27ae60;'><b>✨ 生成完成！</b><br>檔案已儲存。</span>";
+            generateDownload(quizData, lexile);
+            
+            status.innerText = "✅ 生成成功！檔案已下載。";
         } catch (error) {
             console.error(error);
-            status.innerHTML = "<span style='color: #c0392b;'><b>❌ 出錯了：</b><br>" + error.message + "</span>";
+            status.innerText = "❌ 錯誤訊息:\n" + error.message;
         } finally {
             btn.disabled = false;
         }
     }
 
-    function downloadHtml(quizData, lexile) {
-        const finalHtml = \`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>MAP Practice</title><style>body{font-family:sans-serif;padding:30px;background:#f4f7f6;}.card{max-width:850px;margin:auto;background:white;padding:40px;border-radius:15px;box-shadow:0 5px 20px rgba(0,0,0,0.1);}.passage{background:#eef7ff;padding:25px;border-left:8px solid #1a73e8;margin:25px 0;border-radius:5px;font-style:italic;}.q-block{margin-bottom:35px;}label{display:block;padding:15px;border:2px solid #ddd;margin:10px 0;border-radius:10px;cursor:pointer; transition: 0.2s;} label:hover{background:#f9f9f9;} .correct{background:#d4edda!important;border-color:#28a745!important;color:#155724;font-weight:bold;}.wrong{background:#f8d7da!important;border-color:#dc3545!important;color:#721c24;}button{width:100%;padding:20px;background:#2ecc71;color:white;border:none;border-radius:10px;font-size:20px;font-weight:bold;cursor:pointer;}</style></head><body><div class="card"><h1>MAP Reading (\${lexile})</h1><div id="content"></div><button id="subBtn" onclick="check()">提交答案</button><h2 id="res" style="text-align:center;margin-top:30px;"></h2></div><script>const data = \${JSON.stringify(quizData)};const container = document.getElementById('content');data.forEach((item, idx) => {if(item.isPassage){container.innerHTML += '<div class="passage">' + item.text + '</div>';}else{let opts = '';item.options.forEach((o, i) => {const id = 'q' + idx + '_' + i;opts += '<li><input type="radio" name="q'+idx+'" id="'+id+'" value="'+i+'" style="display:none;"><label for="'+id+'">' + o + '</label></li>';});container.innerHTML += '<div class="q-block"><p><b>' + item.q + '</b></p><ul style="list-style:none;padding:0;">' + opts + '</ul></div>';}});function check(){let score = 0;let total = 0;data.forEach((item, idx) => {if(!item.isPassage){total++;const sel = document.querySelector('input[name="q'+idx+'"]:checked');const correctLabel = document.querySelector('label[for="q'+idx+'_'+item.ans+'"]');correctLabel.classList.add("correct");if(sel){const val = parseInt(sel.value);if(val === item.ans) score++;else document.querySelector('label[for="'+sel.id+'"]').classList.add("wrong");}document.querySelectorAll('input[name="q'+idx+'"]').forEach(r => r.disabled = true);}});document.getElementById('res').innerText = "得分: " + score + " / " + total;document.getElementById('subBtn').disabled = true;}<\/script></body></html>\`;
-        const blob = new Blob([finalHtml], { type: 'text/html' });
+    function generateDownload(quizData, lexile) {
+        // 使用更簡單的模板避免轉義出錯
+        const content = `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>MAP Practice</title></head>
+        <body style="font-family:sans-serif; padding:40px; background:#f4f7f6;">
+            <div style="max-width:800px; margin:auto; background:white; padding:40px; border-radius:15px;">
+                <h1>MAP Reading (${lexile})</h1>
+                <div id="quiz"></div>
+                <button onclick="check()" style="width:100%; padding:15px; background:#2ecc71; color:white; border:none; border-radius:10px; font-size:20px; cursor:pointer;">提交</button>
+            </div>
+            <script>
+                const data = ${JSON.stringify(quizData)};
+                const container = document.getElementById('quiz');
+                data.forEach((item, idx) => {
+                    if(item.isPassage) {
+                        container.innerHTML += '<div style="background:#eef7ff; padding:20px; border-left:8px solid #1a73e8; margin:20px 0;">' + item.text + '</div>';
+                    } else {
+                        let opts = '';
+                        item.options.forEach((o, i) => {
+                            opts += '<li><label><input type="radio" name="q'+idx+'" value="'+i+'"> ' + o + '</label></li>';
+                        });
+                        container.innerHTML += '<div style="margin-bottom:30px;"><p><b>' + item.q + '</b></p><ul style="list-style:none; padding:0;">' + opts + '</ul></div>';
+                    }
+                });
+                function check() {
+                    let score = 0;
+                    data.forEach((item, idx) => {
+                        if(!item.isPassage) {
+                            const sel = document.querySelector('input[name="q'+idx+'"]:checked');
+                            if(sel && parseInt(sel.value) === item.ans) score++;
+                        }
+                    });
+                    alert("你的得分: " + score);
+                }
+            <\/script>
+        </body>
+        </html>`;
+
+        const blob = new Blob([content], { type: 'text/html' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = "MAP_Test.html"; a.click();
+        a.href = url;
+        a.download = "MAP_Test.html";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     }
 </script>
 
