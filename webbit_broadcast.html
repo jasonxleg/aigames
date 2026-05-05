@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Web:Bit 廣播模擬器 · 頻道 0315</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Microsoft JhengHei", "Segoe UI", sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #fff;
+    min-height: 100vh;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  header .logo {
+    background: #fff;
+    color: #2a5298;
+    font-weight: 900;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 18px;
+  }
+  header h1 {
+    font-size: 20px;
+    margin: 0;
+    letter-spacing: 1px;
+  }
+  .channel-badge {
+    background: #2ecc71;
+    color: #fff;
+    padding: 4px 12px;
+    border-radius: 14px;
+    font-size: 13px;
+  }
+
+  .panel {
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 14px;
+    padding: 16px 20px;
+    width: min(720px, 95vw);
+    margin-bottom: 16px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.3);
+  }
+
+  .conn-row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 8px 10px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .conn-row label { font-size: 13px; color: #d0d8e8; }
+  .conn-row input {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-family: Consolas, monospace;
+    font-size: 13px;
+    width: 100%;
+  }
+  .conn-row input:focus { outline: none; border-color: #2ecc71; }
+
+  .conn-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  button.action {
+    background: #2ecc71;
+    color: #fff;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+  }
+  button.action.disconnect { background: #e74c3c; }
+  button.action:disabled { background: #555; cursor: not-allowed; opacity: 0.6; }
+
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+  }
+  .status .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #888;
+    box-shadow: 0 0 0 0 rgba(0,0,0,0);
+  }
+  .status.connected .dot { background: #2ecc71; box-shadow: 0 0 8px #2ecc71; animation: pulse 1.4s infinite; }
+  .status.connecting .dot { background: #f39c12; animation: pulse 0.8s infinite; }
+  .status.error .dot { background: #e74c3c; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .copy-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    margin-left: 8px;
+  }
+  .copy-btn:hover { background: rgba(255,255,255,0.2); }
+
+  /* Web:Bit 板 */
+  .board {
+    background: #1a1a1a;
+    border-radius: 14px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: inset 0 0 12px rgba(0,0,0,0.6);
+  }
+  .matrix {
+    display: grid;
+    grid-template-columns: repeat(5, 36px);
+    grid-template-rows: repeat(5, 36px);
+    gap: 6px;
+    padding: 14px;
+    background: #0d0d0d;
+    border-radius: 10px;
+  }
+  .led {
+    width: 36px; height: 36px; border-radius: 6px;
+    background: #2b1010;
+    transition: background 0.12s ease, box-shadow 0.12s ease;
+  }
+  .led.on {
+    background: #ff2a2a;
+    box-shadow: 0 0 14px #ff4040, 0 0 28px rgba(255,40,40,0.45);
+  }
+  .buttons {
+    margin-top: 22px;
+    display: flex;
+    gap: 28px;
+  }
+  .btn {
+    width: 90px; height: 90px; border-radius: 50%;
+    border: 4px solid #444;
+    background: radial-gradient(circle at 35% 30%, #f4f4f4, #cfcfcf 60%, #888 100%);
+    color: #222;
+    font-size: 30px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #333, 0 8px 14px rgba(0,0,0,0.5);
+    transition: transform 0.06s ease, box-shadow 0.06s ease;
+    user-select: none;
+  }
+  .btn:active, .btn.pressed {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 #333, 0 3px 6px rgba(0,0,0,0.5);
+  }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .label-row {
+    margin-top: 10px;
+    display: flex;
+    gap: 28px;
+    color: #bbb;
+    font-size: 13px;
+  }
+  .label-row span { width: 90px; text-align: center; }
+
+  /* 訊息日誌 */
+  .log-panel h3 {
+    margin: 0 0 8px 0;
+    color: #2ecc71;
+    font-size: 14px;
+  }
+  .log-list {
+    max-height: 220px;
+    overflow-y: auto;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    background: rgba(0,0,0,0.35);
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .log-line .ts { color: #888; margin-right: 8px; }
+  .log-line .dir-out { color: #f1c40f; font-weight: bold; }
+  .log-line .dir-in  { color: #5dade2; font-weight: bold; }
+  .log-line .info    { color: #95a5a6; }
+  .log-line .err     { color: #ff7675; }
+  .log-line .msg     { color: #ff7675; font-weight: bold; }
+
+  .hint {
+    color: rgba(255,255,255,0.7);
+    font-size: 12px;
+    text-align: center;
+    margin-top: 8px;
+    line-height: 1.7;
+  }
+  kbd {
+    background: #fff; color: #222;
+    padding: 1px 6px; border-radius: 4px;
+    font-family: Consolas, monospace; font-size: 12px;
+  }
+  .topic-display {
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    color: #2ecc71;
+    word-break: break-all;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">WA</span>
+  <h1>Web:Bit 廣播模擬器</h1>
+  <span class="channel-badge" id="channelBadge">頻道 0315</span>
+</header>
+
+<!-- 連線設定 -->
+<div class="panel">
+  <div class="conn-row">
+    <label>MQTT Broker</label>
+    <input id="brokerUrl" value="wss://broker.hivemq.com:8884/mqtt">
+  </div>
+  <div class="conn-row">
+    <label>Topic Prefix</label>
+    <input id="topicPrefix" placeholder="自動產生">
+  </div>
+  <div class="conn-row">
+    <label>頻道 Channel</label>
+    <input id="channel" value="0315">
+  </div>
+  <div class="conn-row">
+    <label>實際 Topic</label>
+    <div>
+      <span class="topic-display" id="fullTopic">--</span>
+      <button class="copy-btn" id="copyTopic">複製</button>
+    </div>
+  </div>
+
+  <div class="conn-actions">
+    <button class="action" id="btnConnect">連線</button>
+    <button class="action disconnect" id="btnDisconnect" disabled>中斷</button>
+    <span class="status" id="status"><span class="dot"></span><span id="statusText">未連線</span></span>
+  </div>
+
+  <div class="hint" style="text-align:left; margin-top:10px;">
+    💡 兩台瀏覽器 / 兩個分頁打開此檔，<b>Topic 設成相同</b>就能互通。Topic Prefix 預設會自動產生唯一值（存在 localStorage），可手動改成你跟朋友約定的字串。
+  </div>
+</div>
+
+<!-- Web:Bit 板 -->
+<div class="panel" style="display:flex; justify-content:center;">
+  <div class="board">
+    <div class="matrix" id="matrix"></div>
+    <div class="buttons">
+      <button class="btn" id="btnA">A</button>
+      <button class="btn" id="btnB">B</button>
+    </div>
+    <div class="label-row">
+      <span>A &nbsp;←</span>
+      <span>B &nbsp;→</span>
+    </div>
+  </div>
+</div>
+
+<!-- 訊息日誌 -->
+<div class="panel log-panel">
+  <h3>📡 訊息紀錄</h3>
+  <div class="log-list" id="log"></div>
+  <div class="hint">
+    鍵盤 <kbd>A</kbd> / <kbd>B</kbd> 也可觸發。📤 送出　📥 收到
+  </div>
+</div>
+
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script>
+  // ===== 圖案（從 Webduino.json 解碼） =====
+  const PATTERN_LEFT = [
+    [0,0,1,0,0],
+    [0,1,0,0,0],
+    [1,1,1,1,1],
+    [0,1,0,0,0],
+    [0,0,1,0,0],
+  ];
+  const PATTERN_RIGHT = [
+    [0,0,1,0,0],
+    [0,0,0,1,0],
+    [1,1,1,1,1],
+    [0,0,0,1,0],
+    [0,0,1,0,0],
+  ];
+
+  // ===== LED 矩陣 =====
+  const matrix = document.getElementById('matrix');
+  const leds = [];
+  for (let r = 0; r < 5; r++) {
+    leds[r] = [];
+    for (let c = 0; c < 5; c++) {
+      const led = document.createElement('div');
+      led.className = 'led';
+      matrix.appendChild(led);
+      leds[r][c] = led;
+    }
+  }
+  function showPattern(p) {
+    for (let r = 0; r < 5; r++)
+      for (let c = 0; c < 5; c++)
+        leds[r][c].classList.toggle('on', p[r][c] === 1);
+  }
+
+  // ===== 日誌 =====
+  const logEl = document.getElementById('log');
+  function log(html, cls='') {
+    const ts = new Date().toTimeString().slice(0,8);
+    const line = document.createElement('div');
+    line.className = 'log-line ' + cls;
+    line.innerHTML = `<span class="ts">[${ts}]</span> ${html}`;
+    logEl.prepend(line);
+    while (logEl.childElementCount > 100) logEl.lastChild.remove();
+  }
+
+  // ===== Topic Prefix（持久化）=====
+  const STORAGE_KEY = 'webbit_broadcast_prefix';
+  function getOrCreatePrefix() {
+    let p = localStorage.getItem(STORAGE_KEY);
+    if (!p) {
+      p = 'webbit-sim-' + Math.random().toString(36).slice(2, 8);
+      localStorage.setItem(STORAGE_KEY, p);
+    }
+    return p;
+  }
+
+  // ===== UI 元件 =====
+  const elBroker = document.getElementById('brokerUrl');
+  const elPrefix = document.getElementById('topicPrefix');
+  const elChannel = document.getElementById('channel');
+  const elFullTopic = document.getElementById('fullTopic');
+  const elBadge = document.getElementById('channelBadge');
+  const btnConnect = document.getElementById('btnConnect');
+  const btnDisconnect = document.getElementById('btnDisconnect');
+  const statusEl = document.getElementById('status');
+  const statusText = document.getElementById('statusText');
+  const btnA = document.getElementById('btnA');
+  const btnB = document.getElementById('btnB');
+  const copyBtn = document.getElementById('copyTopic');
+
+  elPrefix.value = getOrCreatePrefix();
+
+  function buildTopic() {
+    const prefix = (elPrefix.value || 'webbit-sim').replace(/\/+$/,'');
+    const ch = elChannel.value || '0315';
+    return `${prefix}/${ch}`;
+  }
+  function refreshTopic() {
+    const t = buildTopic();
+    elFullTopic.textContent = t;
+    elBadge.textContent = '頻道 ' + (elChannel.value || '0315');
+    return t;
+  }
+  refreshTopic();
+
+  elPrefix.addEventListener('input', () => {
+    localStorage.setItem(STORAGE_KEY, elPrefix.value);
+    refreshTopic();
+  });
+  elChannel.addEventListener('input', refreshTopic);
+
+  copyBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(elFullTopic.textContent).then(() => {
+      copyBtn.textContent = '已複製';
+      setTimeout(() => copyBtn.textContent = '複製', 1200);
+    });
+  });
+
+  // ===== MQTT =====
+  let client = null;
+  let currentTopic = null;
+
+  function setStatus(state, text) {
+    statusEl.className = 'status ' + state;
+    statusText.textContent = text;
+  }
+  function setButtons(connected) {
+    btnConnect.disabled = connected;
+    btnDisconnect.disabled = !connected;
+    btnA.disabled = !connected;
+    btnB.disabled = !connected;
+    elBroker.disabled = connected;
+    elPrefix.disabled = connected;
+    elChannel.disabled = connected;
+  }
+  setButtons(false);
+
+  btnConnect.addEventListener('click', () => {
+    const broker = elBroker.value.trim();
+    if (!broker) { log('<span class="err">請輸入 broker URL</span>'); return; }
+    currentTopic = refreshTopic();
+    setStatus('connecting', '連線中…');
+    btnConnect.disabled = true;
+    log(`<span class="info">連線到 ${broker}</span>`);
+
+    try {
+      client = mqtt.connect(broker, {
+        keepalive: 30,
+        reconnectPeriod: 0, // 我們手動處理，避免無限 retry 干擾
+        connectTimeout: 8000,
+        clean: true,
+      });
+    } catch (err) {
+      setStatus('error', '連線失敗');
+      log(`<span class="err">建立 client 失敗：${err.message}</span>`);
+      setButtons(false);
+      return;
+    }
+
+    client.on('connect', () => {
+      setStatus('connected', '已連線');
+      setButtons(true);
+      log(`<span class="info">已連線，訂閱 topic：${currentTopic}</span>`);
+      client.subscribe(currentTopic, { qos: 0 }, (err) => {
+        if (err) log(`<span class="err">訂閱失敗：${err.message}</span>`);
+      });
+    });
+
+    client.on('message', (topic, payload) => {
+      const msg = payload.toString();
+      log(`<span class="dir-in">📥 收到</span> topic=<span class="info">${topic}</span> 訊息=<span class="msg">"${msg}"</span>`);
+      handleIncoming(msg);
+    });
+
+    client.on('error', (err) => {
+      log(`<span class="err">錯誤：${err.message}</span>`);
+    });
+
+    client.on('close', () => {
+      setStatus('', '未連線');
+      setButtons(false);
+      log('<span class="info">連線已關閉</span>');
+    });
+
+    client.on('offline', () => {
+      setStatus('error', '離線');
+    });
+  });
+
+  btnDisconnect.addEventListener('click', () => {
+    if (client) {
+      client.end(true);
+      client = null;
+    }
+  });
+
+  // ===== 收到訊息：根據內容亮對應圖案 =====
+  function handleIncoming(msg) {
+    const m = (msg || '').trim().toUpperCase();
+    if (m === 'A') showPattern(PATTERN_LEFT);
+    else if (m === 'B') showPattern(PATTERN_RIGHT);
+    // 其他內容不處理
+  }
+
+  // ===== 按鈕：本地亮 + 發送 =====
+  function press(which) {
+    if (!client || !client.connected) {
+      log('<span class="err">尚未連線，無法發送</span>');
+      return;
+    }
+    if (which === 'A') showPattern(PATTERN_LEFT);
+    else showPattern(PATTERN_RIGHT);
+
+    const topic = currentTopic;
+    client.publish(topic, which, { qos: 0 }, (err) => {
+      if (err) log(`<span class="err">發送失敗：${err.message}</span>`);
+      else log(`<span class="dir-out">📤 送出</span> topic=<span class="info">${topic}</span> 訊息=<span class="msg">"${which}"</span>`);
+    });
+  }
+
+  btnA.addEventListener('click', () => press('A'));
+  btnB.addEventListener('click', () => press('B'));
+
+  document.addEventListener('keydown', (e) => {
+    if (e.repeat) return;
+    if (btnA.disabled) return;
+    const k = e.key.toUpperCase();
+    if (k === 'A') { press('A'); btnA.classList.add('pressed'); }
+    if (k === 'B') { press('B'); btnB.classList.add('pressed'); }
+  });
+  document.addEventListener('keyup', (e) => {
+    const k = e.key.toUpperCase();
+    if (k === 'A') btnA.classList.remove('pressed');
+    if (k === 'B') btnB.classList.remove('pressed');
+  });
+
+  // ===== 啟動訊息 =====
+  log('<span class="info">頁面已載入。請按「連線」開始。</span>');
+</script>
+
+</body>
+</html>
