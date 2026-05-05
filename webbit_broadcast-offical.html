@@ -316,10 +316,14 @@
     btnConnect.disabled = true;
 
     // Webduino 官方 Broker 通常允許匿名連線
-    client = mqtt.connect(elBroker.value, {
-      clean: true,
-      connectTimeout: 4000,
-    });
+
+   // 將原本的 client = mqtt.connect(...) 改為以下設定
+client = mqtt.connect(elBroker.value, {
+  protocolVersion: 4, // 強制使用 MQTT 3.1.1
+  clean: true,
+  connectTimeout: 10000, // 延長等待時間到 10 秒
+  clientId: 'webbit_' + Math.random().toString(16).substr(2, 8), // 隨機 ID 避免衝突
+});
 
     client.on('connect', () => {
       setStatus('connected', '已對接官方伺服器');
