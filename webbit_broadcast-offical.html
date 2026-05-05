@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Web:Bit 廣播模擬器 (官方協定版) · 頻道 0315</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Microsoft JhengHei", "Segoe UI", sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #fff;
+    min-height: 100vh;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  header .logo {
+    background: #fff;
+    color: #2a5298;
+    font-weight: 900;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 18px;
+  }
+  header h1 {
+    font-size: 20px;
+    margin: 0;
+    letter-spacing: 1px;
+  }
+  .channel-badge {
+    background: #2ecc71;
+    color: #fff;
+    padding: 4px 12px;
+    border-radius: 14px;
+    font-size: 13px;
+  }
+
+  .panel {
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 14px;
+    padding: 16px 20px;
+    width: min(720px, 95vw);
+    margin-bottom: 16px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.3);
+  }
+
+  .conn-row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 8px 10px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .conn-row label { font-size: 13px; color: #d0d8e8; }
+  .conn-row input {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-family: Consolas, monospace;
+    font-size: 13px;
+    width: 100%;
+  }
+  .conn-row input:focus { outline: none; border-color: #2ecc71; }
+
+  .conn-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  button.action {
+    background: #2ecc71;
+    color: #fff;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+  }
+  button.action.disconnect { background: #e74c3c; }
+  button.action:disabled { background: #555; cursor: not-allowed; opacity: 0.6; }
+
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+  }
+  .status .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #888;
+  }
+  .status.connected .dot { background: #2ecc71; box-shadow: 0 0 8px #2ecc71; animation: pulse 1.4s infinite; }
+  .status.connecting .dot { background: #f39c12; animation: pulse 0.8s infinite; }
+  .status.error .dot { background: #e74c3c; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .copy-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    margin-left: 8px;
+  }
+
+  /* Web:Bit 板 */
+  .board {
+    background: #1a1a1a;
+    border-radius: 14px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .matrix {
+    display: grid;
+    grid-template-columns: repeat(5, 36px);
+    grid-template-rows: repeat(5, 36px);
+    gap: 6px;
+    padding: 14px;
+    background: #0d0d0d;
+    border-radius: 10px;
+  }
+  .led {
+    width: 36px; height: 36px; border-radius: 6px;
+    background: #2b1010;
+    transition: background 0.12s ease, box-shadow 0.12s ease;
+  }
+  .led.on {
+    background: #ff2a2a;
+    box-shadow: 0 0 14px #ff4040, 0 0 28px rgba(255,40,40,0.45);
+  }
+  .buttons {
+    margin-top: 22px;
+    display: flex;
+    gap: 28px;
+  }
+  .btn {
+    width: 90px; height: 90px; border-radius: 50%;
+    border: 4px solid #444;
+    background: radial-gradient(circle at 35% 30%, #f4f4f4, #cfcfcf 60%, #888 100%);
+    color: #222;
+    font-size: 30px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #333;
+    user-select: none;
+  }
+  .btn:active, .btn.pressed {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 #333;
+  }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* 訊息日誌 */
+  .log-panel h3 { margin: 0 0 8px 0; color: #2ecc71; font-size: 14px; }
+  .log-list {
+    max-height: 220px;
+    overflow-y: auto;
+    font-family: Consolas, monospace;
+    font-size: 13px;
+    background: rgba(0,0,0,0.35);
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .log-line .ts { color: #888; margin-right: 8px; }
+  .log-line .dir-out { color: #f1c40f; font-weight: bold; }
+  .log-line .dir-in  { color: #5dade2; font-weight: bold; }
+  .log-line .info    { color: #95a5a6; }
+  .log-line .err     { color: #ff7675; }
+  .log-line .msg     { color: #ff7675; font-weight: bold; }
+
+  .hint { color: rgba(255,255,255,0.7); font-size: 12px; margin-top: 8px; }
+  .topic-display { font-family: Consolas, monospace; font-size: 12px; color: #2ecc71; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">WA</span>
+  <h1>Web:Bit 廣播模擬器 (官方協定)</h1>
+  <span class="channel-badge" id="channelBadge">頻道 0315</span>
+</header>
+
+<div class="panel">
+  <div class="conn-row">
+    <label>MQTT Broker</label>
+    <input id="brokerUrl" value="wss://wss.webduino.io:443/mqtt">
+  </div>
+  <div class="conn-row">
+    <label>頻道 Channel</label>
+    <input id="channel" value="0315">
+  </div>
+  <div class="conn-row">
+    <label>實際 Topic</label>
+    <div>
+      <span class="topic-display" id="fullTopic">--</span>
+      <button class="copy-btn" id="copyTopic">複製</button>
+    </div>
+  </div>
+
+  <div class="conn-actions">
+    <button class="action" id="btnConnect">連線官方伺服器</button>
+    <button class="action disconnect" id="btnDisconnect" disabled>中斷</button>
+    <span class="status" id="status"><span class="dot"></span><span id="statusText">未連線</span></span>
+  </div>
+
+  <div class="hint">
+    💡 本模擬器已對接 Webduino 官方協定。只要頻道設為 <b>0315</b>，即可與剛才的積木互通。
+  </div>
+</div>
+
+<div class="panel" style="display:flex; justify-content:center;">
+  <div class="board">
+    <div class="matrix" id="matrix"></div>
+    <div class="buttons">
+      <button class="btn" id="btnA">A</button>
+      <button class="btn" id="btnB">B</button>
+    </div>
+  </div>
+</div>
+
+<div class="panel log-panel">
+  <h3>📡 訊息紀錄</h3>
+  <div class="log-list" id="log"></div>
+</div>
+
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script>
+  // 圖案定義
+  const PATTERN_LEFT = [[0,0,1,0,0],[0,1,0,0,0],[1,1,1,1,1],[0,1,0,0,0],[0,0,1,0,0]];
+  const PATTERN_RIGHT = [[0,0,1,0,0],[0,0,0,1,0],[1,1,1,1,1],[0,0,0,1,0],[0,0,1,0,0]];
+
+  // LED 矩陣初始化
+  const matrix = document.getElementById('matrix');
+  const leds = [];
+  for (let r = 0; r < 5; r++) {
+    leds[r] = [];
+    for (let c = 0; c < 5; c++) {
+      const led = document.createElement('div');
+      led.className = 'led';
+      matrix.appendChild(led);
+      leds[r][c] = led;
+    }
+  }
+  function showPattern(p) {
+    for (let r = 0; r < 5; r++)
+      for (let c = 0; c < 5; c++)
+        leds[r][c].classList.toggle('on', p[r][c] === 1);
+  }
+
+  // 日誌功能
+  const logEl = document.getElementById('log');
+  function log(html, cls='') {
+    const ts = new Date().toTimeString().slice(0,8);
+    const line = document.createElement('div');
+    line.className = 'log-line ' + cls;
+    line.innerHTML = `<span class="ts">[${ts}]</span> ${html}`;
+    logEl.prepend(line);
+  }
+
+  // UI 邏輯
+  const elBroker = document.getElementById('brokerUrl');
+  const elChannel = document.getElementById('channel');
+  const elFullTopic = document.getElementById('fullTopic');
+  const elBadge = document.getElementById('channelBadge');
+  const btnConnect = document.getElementById('btnConnect');
+  const btnDisconnect = document.getElementById('btnDisconnect');
+  const statusEl = document.getElementById('status');
+  const statusText = document.getElementById('statusText');
+  const btnA = document.getElementById('btnA');
+  const btnB = document.getElementById('btnB');
+
+  function refreshTopic() {
+    // Webduino 官方 Radio Topic 格式: _webbit_radio_/{channel}
+    const t = `_webbit_radio_/${elChannel.value || '0315'}`;
+    elFullTopic.textContent = t;
+    elBadge.textContent = '頻道 ' + (elChannel.value || '0315');
+    return t;
+  }
+  refreshTopic();
+  elChannel.addEventListener('input', refreshTopic);
+
+  // MQTT 邏輯
+  let client = null;
+  let currentTopic = null;
+
+  function setStatus(state, text) {
+    statusEl.className = 'status ' + state;
+    statusText.textContent = text;
+  }
+
+  btnConnect.addEventListener('click', () => {
+    currentTopic = refreshTopic();
+    setStatus('connecting', '正在連線至 Webduino...');
+    btnConnect.disabled = true;
+
+    // Webduino 官方 Broker 通常允許匿名連線
+    client = mqtt.connect(elBroker.value, {
+      clean: true,
+      connectTimeout: 4000,
+    });
+
+    client.on('connect', () => {
+      setStatus('connected', '已對接官方伺服器');
+      btnDisconnect.disabled = false;
+      btnA.disabled = false;
+      btnB.disabled = false;
+      log(`<span class="info">連線成功，監聽頻道：${currentTopic}</span>`);
+      client.subscribe(currentTopic);
+    });
+
+    client.on('message', (topic, payload) => {
+      const msg = payload.toString().trim();
+      log(`<span class="dir-in">📥 收到廣播</span> <span class="msg">"${msg}"</span>`);
+      if (msg === 'A') showPattern(PATTERN_LEFT);
+      else if (msg === 'B') showPattern(PATTERN_RIGHT);
+    });
+
+    client.on('error', (err) => log(`<span class="err">連線錯誤: ${err.message}</span>`));
+    client.on('close', () => {
+        setStatus('', '未連線');
+        btnConnect.disabled = false;
+        btnDisconnect.disabled = true;
+    });
+  });
+
+  btnDisconnect.addEventListener('click', () => client.end());
+
+  function press(which) {
+    if (!client || !client.connected) return;
+    if (which === 'A') showPattern(PATTERN_LEFT); else showPattern(PATTERN_RIGHT);
+    client.publish(currentTopic, which);
+    log(`<span class="dir-out">📤 發送廣播</span> <span class="msg">"${which}"</span>`);
+  }
+
+  btnA.addEventListener('click', () => press('A'));
+  btnB.addEventListener('click', () => press('B'));
+
+  // 鍵盤支援
+  document.addEventListener('keydown', (e) => {
+    if (e.repeat || btnA.disabled) return;
+    const k = e.key.toUpperCase();
+    if (k === 'A') { press('A'); btnA.classList.add('pressed'); }
+    if (k === 'B') { press('B'); btnB.classList.add('pressed'); }
+  });
+  document.addEventListener('keyup', (e) => {
+    const k = e.key.toUpperCase();
+    if (k === 'A') btnA.classList.remove('pressed');
+    if (k === 'B') btnB.classList.remove('pressed');
+  });
+
+  log('<span class="info">模擬器就緒。點擊連線以對接 Web:Bit 積木。</span>');
+</script>
+</body>
+</html>
