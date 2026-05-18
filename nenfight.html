@@ -203,15 +203,17 @@ function startHost() {
 
     net.peer.on('open', id => {
         document.getElementById('roomCode').textContent = id;
-        setStatus('房間已開，等待對手...');
+        setStatus('房間已開，等待對手...（房號每次重整都會變）');
     });
     net.peer.on('connection', conn => {
         net.conn = conn;
+        setStatus('對手已加入，握手中...');
         wireConnection();
     });
-    net.peer.on('error', err => {
-        setStatus('連線錯誤: ' + err.type, true);
-        console.error(err);
+    net.peer.on('error', err => handlePeerError(err, roomId));
+    net.peer.on('disconnected', () => {
+        setStatus('與 PeerJS broker 中斷 — 請重整重試', true);
+        showRetryButton();
     });
 }
 
@@ -219,32 +221,80 @@ function startGuest() {
     const roomId = document.getElementById('roomInput').value.trim();
     if (!roomId) { setStatus('請輸入房間碼', true); return; }
     net.role = 'guest';
-    setStatus('連線到房間 ' + roomId + '...');
+    setStatus('連到 PeerJS broker 中...');
 
     net.peer = new Peer({ debug: 1 });
-    net.peer.on('open', () => {
-        net.conn = net.peer.connect(roomId, { reliable: false });
+    net.peer.on('open', myId => {
+        setStatus(`已取得 ID (${myId.slice(0,8)}…)，呼叫房間 ${roomId}...`);
+        net.conn = net.peer.connect(roomId, { reliable: true });
         wireConnection();
+        startConnTimeout(roomId);
     });
-    net.peer.on('error', err => {
-        setStatus('連線失敗: ' + err.type, true);
-        console.error(err);
+    net.peer.on('error', err => handlePeerError(err, roomId));
+    net.peer.on('disconnected', () => {
+        setStatus('與 PeerJS broker 中斷', true);
     });
 }
 
+let connTimeoutId = null;
+function startConnTimeout(roomId) {
+    if (connTimeoutId) clearTimeout(connTimeoutId);
+    connTimeoutId = setTimeout(() => {
+        if (!net.connected) {
+            setStatus(`連線逾時 — 房號 ${roomId} 可能不存在或對方未開房`, true);
+            showRetryButton();
+        }
+    }, 10000);
+}
+
+function handlePeerError(err, roomId) {
+    console.error('peer error', err);
+    let msg = '錯誤: ' + err.type;
+    if (err.type === 'peer-unavailable') {
+        msg = `找不到房間 ${roomId || ''} — 請確認對方已開房，且房號完全一致（每次重整都會換號）`;
+    } else if (err.type === 'network') {
+        msg = '網路錯誤 — broker 連不到，請檢查網路或稍後重試';
+    } else if (err.type === 'unavailable-id') {
+        msg = '房號已被佔用，請重新建房';
+    } else if (err.type === 'browser-incompatible') {
+        msg = '瀏覽器不支援 WebRTC，請改用 Chrome / Firefox / Edge';
+    }
+    setStatus(msg, true);
+    showRetryButton();
+}
+
+function showRetryButton() {
+    if (document.getElementById('retryBtn')) return;
+    const btn = document.createElement('button');
+    btn.id = 'retryBtn';
+    btn.textContent = '重新整理重試';
+    btn.style.marginTop = '12px';
+    btn.onclick = () => location.reload();
+    statusEl.parentNode.appendChild(btn);
+}
+
 function wireConnection() {
-    net.conn.on('open', () => {
+    // 修 race condition：若 conn 已 open，直接觸發回呼
+    const onOpen = () => {
+        if (connTimeoutId) { clearTimeout(connTimeoutId); connTimeoutId = null; }
         net.connected = true;
         setStatus('已連線！開戰...');
         setTimeout(beginMatch, 600);
-    });
+    };
+    if (net.conn.open) onOpen();
+    else net.conn.on('open', onOpen);
+
     net.conn.on('data', handleMessage);
     net.conn.on('close', () => {
         net.connected = false;
         setStatus('對手已離線', true);
         lobby.classList.remove('hidden');
+        showRetryButton();
     });
-    net.conn.on('error', err => console.error('conn error', err));
+    net.conn.on('error', err => {
+        console.error('conn error', err);
+        setStatus('DataChannel 錯誤: ' + (err.type || err.message || ''), true);
+    });
 }
 
 function send(msg) {
