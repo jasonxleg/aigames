@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>無限念界 - 線上對戰 (Online)</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #050304;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Microsoft JhengHei', sans-serif;
+            color: #fff;
+        }
+        #gameCanvas {
+            border: 2px solid #2a1410;
+            box-shadow: 0 0 80px rgba(255, 90, 30, 0.45);
+            cursor: crosshair;
+        }
+        #lobby {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(ellipse at center, #2a1408 0%, #050304 70%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            padding: 30px;
+        }
+        #lobby h1 {
+            font-size: 36px;
+            color: #ffb05a;
+            text-shadow: 0 0 22px #ff6622;
+            margin-bottom: 8px;
+        }
+        #lobby .sub { color: rgba(255, 200, 150, 0.65); margin-bottom: 36px; }
+        .panel {
+            background: rgba(20, 8, 0, 0.7);
+            border: 1px solid rgba(255, 130, 50, 0.4);
+            padding: 24px 30px;
+            border-radius: 14px;
+            margin-bottom: 14px;
+            min-width: 380px;
+            box-shadow: 0 0 30px rgba(255, 90, 30, 0.18);
+        }
+        .panel h3 { color: #ffc266; margin-bottom: 12px; font-size: 18px; }
+        button {
+            background: linear-gradient(180deg, #ff8a33 0%, #cc5500 100%);
+            color: #fff;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 4px 6px;
+            font-family: inherit;
+            box-shadow: 0 0 12px rgba(255, 120, 50, 0.5);
+            transition: transform 0.1s;
+        }
+        button:hover { transform: translateY(-1px); }
+        button:disabled { background: #555; box-shadow: none; cursor: not-allowed; }
+        button.guest { background: linear-gradient(180deg, #a98aff 0%, #5b3aa0 100%); box-shadow: 0 0 12px rgba(169, 138, 255, 0.5); }
+        input {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 160, 80, 0.45);
+            color: #fff;
+            padding: 9px 14px;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 15px;
+            width: 240px;
+        }
+        #roomCode {
+            font-family: 'Courier New', monospace;
+            font-size: 22px;
+            color: #ffd966;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 6px 14px;
+            border-radius: 6px;
+            display: inline-block;
+            user-select: all;
+            border: 1px dashed rgba(255, 160, 80, 0.5);
+        }
+        #status { color: #ffd966; font-size: 14px; margin-top: 16px; min-height: 20px; }
+        #status.err { color: #ff5544; }
+        #tutorial {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 200, 150, 0.65);
+            font-size: 13px;
+            text-align: center;
+            pointer-events: none;
+            line-height: 1.6;
+            z-index: 5;
+        }
+        #netInfo {
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 220, 180, 0.7);
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            pointer-events: none;
+            z-index: 5;
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div id="lobby">
+        <h1>無限念界 · 線上對戰</h1>
+        <div class="sub">PeerJS / WebRTC P2P 連線 — 雙人 1v1</div>
+
+        <div id="modeSelect" class="panel">
+            <h3>選擇身份</h3>
+            <button id="hostBtn">建立房間 (P1 橘)</button>
+            <button id="joinBtn" class="guest">加入房間 (P2 紫)</button>
+        </div>
+
+        <div id="hostInfo" class="panel hidden">
+            <h3>你的房間碼（傳給朋友）</h3>
+            <div style="margin: 10px 0;">
+                <span id="roomCode">建立中...</span>
+                <button id="copyBtn">複製</button>
+            </div>
+            <div style="color: rgba(255,255,255,0.6); font-size: 13px;">⏳ 等待對手加入中...</div>
+        </div>
+
+        <div id="joinInfo" class="panel hidden">
+            <h3>輸入房間碼</h3>
+            <div style="margin: 10px 0;">
+                <input id="roomInput" placeholder="貼上對方的房間碼" autocomplete="off">
+                <button id="connectBtn" class="guest">連線</button>
+            </div>
+        </div>
+
+        <div id="status"></div>
+    </div>
+
+    <canvas id="gameCanvas" width="900" height="900" class="hidden"></canvas>
+    <div id="tutorial" class="hidden">
+        WASD 移動 ｜ 滑鼠瞄準 + 點擊射擊 ｜ Q 釋放念波 (40 念力) ｜ R 重新開始
+    </div>
+    <div id="netInfo" class="hidden">
+        <span id="netRole"></span> ｜ Ping: <span id="netPing">--</span>ms
+    </div>
+
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+// ============= 連線網路層 =============
+const net = {
+    peer: null,
+    conn: null,
+    role: null,           // 'host' (P1) 或 'guest' (P2)
+    connected: false,
+    remote: { x: 0, y: -100, vx: 0, vy: 0, aim: 0, hp: 100, nen: 0 },
+    remoteRender: { x: 0, y: -100 },   // 插值顯示位置
+    ping: 0,
+    lastPingSent: 0,
+    pendingRestart: { local: false, remote: false }
+};
+
+const lobby = document.getElementById('lobby');
+const statusEl = document.getElementById('status');
+
+function setStatus(msg, err) {
+    statusEl.textContent = msg;
+    statusEl.className = err ? 'err' : '';
+}
+
+document.getElementById('hostBtn').addEventListener('click', startHost);
+document.getElementById('joinBtn').addEventListener('click', () => {
+    document.getElementById('modeSelect').classList.add('hidden');
+    document.getElementById('joinInfo').classList.remove('hidden');
+});
+document.getElementById('connectBtn').addEventListener('click', startGuest);
+document.getElementById('copyBtn').addEventListener('click', () => {
+    const code = document.getElementById('roomCode').textContent;
+    navigator.clipboard.writeText(code).then(() => setStatus('已複製到剪貼簿'));
+});
+
+function newRoomCode() {
+    return 'nen-' + Math.random().toString(36).slice(2, 7);
+}
+
+function startHost() {
+    net.role = 'host';
+    document.getElementById('modeSelect').classList.add('hidden');
+    document.getElementById('hostInfo').classList.remove('hidden');
+    setStatus('連接 PeerJS broker 中...');
+
+    const roomId = newRoomCode();
+    net.peer = new Peer(roomId, { debug: 1 });
+
+    net.peer.on('open', id => {
+        document.getElementById('roomCode').textContent = id;
+        setStatus('房間已開，等待對手...');
+    });
+    net.peer.on('connection', conn => {
+        net.conn = conn;
+        wireConnection();
+    });
+    net.peer.on('error', err => {
+        setStatus('連線錯誤: ' + err.type, true);
+        console.error(err);
+    });
+}
+
+function startGuest() {
+    const roomId = document.getElementById('roomInput').value.trim();
+    if (!roomId) { setStatus('請輸入房間碼', true); return; }
+    net.role = 'guest';
+    setStatus('連線到房間 ' + roomId + '...');
+
+    net.peer = new Peer({ debug: 1 });
+    net.peer.on('open', () => {
+        net.conn = net.peer.connect(roomId, { reliable: false });
+        wireConnection();
+    });
+    net.peer.on('error', err => {
+        setStatus('連線失敗: ' + err.type, true);
+        console.error(err);
+    });
+}
+
+function wireConnection() {
+    net.conn.on('open', () => {
+        net.connected = true;
+        setStatus('已連線！開戰...');
+        setTimeout(beginMatch, 600);
+    });
+    net.conn.on('data', handleMessage);
+    net.conn.on('close', () => {
+        net.connected = false;
+        setStatus('對手已離線', true);
+        lobby.classList.remove('hidden');
+    });
+    net.conn.on('error', err => console.error('conn error', err));
+}
+
+function send(msg) {
+    if (net.conn && net.conn.open) net.conn.send(msg);
+}
+
+function handleMessage(msg) {
+    switch (msg.t) {
+        case 's': // state
+            net.remote.x = msg.x; net.remote.y = msg.y;
+            net.remote.vx = msg.vx; net.remote.vy = msg.vy;
+            net.remote.aim = msg.a;
+            net.remote.hp = msg.hp;
+            net.remote.nen = msg.nen;
+            break;
+        case 'b': // bullet
+            bullets.push({
+                ownerId: remotePlayer.id,
+                x: msg.x, y: msg.y, z: 0,
+                vx: msg.vx, vy: msg.vy,
+                radius: 8, color: remotePlayer.color,
+                life: 120, damage: 5,
+                remote: true
+            });
+            break;
+        case 'n': // nova
+            novas.push({
+                ownerId: remotePlayer.id,
+                x: msg.x, y: msg.y,
+                r: 10, maxR: 220, speed: 8,
+                color: remotePlayer.color,
+                life: 1, hit: new Set(),
+                remote: true
+            });
+            game.shake = Math.max(game.shake, 6);
+            break;
+        case 'd': // damage to me
+            applyDamageLocal(localPlayer, msg.dmg, msg.sx, msg.sy);
+            break;
+        case 'ko': // remote died
+            endMatch(localPlayer.id);
+            break;
+        case 'rst': // remote requests restart
+            net.pendingRestart.remote = true;
+            tryRestart();
+            break;
+        case 'ping':
+            send({ t: 'pong', ts: msg.ts });
+            break;
+        case 'pong':
+            net.ping = Date.now() - msg.ts;
+            document.getElementById('netPing').textContent = net.ping;
+            break;
+    }
+}
+
+function beginMatch() {
+    lobby.classList.add('hidden');
+    document.getElementById('gameCanvas').classList.remove('hidden');
+    document.getElementById('tutorial').classList.remove('hidden');
+    document.getElementById('netInfo').classList.remove('hidden');
+    document.getElementById('netRole').textContent = net.role === 'host' ? 'P1 (Host)' : 'P2 (Guest)';
+    assignSides();
+    resetMatch();
+    loop();
+}
+
+// ============= 透視相機 =============
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const cam = { cx: W / 2, cy: H / 2 + 90, focal: 360 };
+const TUNNEL_W = 320;
+const TUNNEL_H = 380;
+const MAX_Z = 3000;
+
+function project(x, y, z) {
+    const s = cam.focal / (cam.focal + z);
+    return { x: cam.cx + x * s, y: cam.cy + y * s, s };
+}
+
+// ============= 遊戲狀態 =============
+const MATCH_FRAMES = 90 * 60;
+const game = {
+    state: 'playing',
+    winner: null,
+    timeLeft: MATCH_FRAMES,
+    speed: 5,
+    shake: 0,
+    flashColor: null,
+    flashTime: 0,
+    frame: 0
+};
+
+function createPlayer(id, color, accentColor, coreColor, startX) {
+    return {
+        id, color, accentColor, coreColor,
+        x: startX, y: -100,
+        vx: 0, vy: 0,
+        radius: 24, speed: 5.2,
+        hp: 100, maxHp: 100,
+        nen: 30, maxNen: 100,
+        invincible: 0, shootCD: 0, novaCD: 0,
+        trail: [], aimAngle: 0, hitFlash: 0
+    };
+}
+const player1 = createPlayer(1, '#ffb05a', '#1ec8d4', '#fff0c4', -140);
+const player2 = createPlayer(2, '#a98aff', '#ff44aa', '#ffe0ff',  140);
+
+// 由連線時決定本端 / 遠端
+let localPlayer = null, remotePlayer = null;
+function assignSides() {
+    if (net.role === 'host') {
+        localPlayer = player1;
+        remotePlayer = player2;
+    } else {
+        localPlayer = player2;
+        remotePlayer = player1;
+    }
+    net.remote.x = remotePlayer.x;
+    net.remote.y = remotePlayer.y;
+    net.remoteRender.x = remotePlayer.x;
+    net.remoteRender.y = remotePlayer.y;
+}
+
+// ============= 輸入 =============
+const keys = {};
+const mouse = { x: W/2, y: H/2, down: false };
+document.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    keys[k] = true;
+    if (k === 'r' && game.state === 'finished') {
+        net.pendingRestart.local = true;
+        send({ t: 'rst' });
+        tryRestart();
+    }
+    if (k === ' ' || k.startsWith('arrow')) e.preventDefault();
+});
+document.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+canvas.addEventListener('mousemove', e => {
+    const r = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - r.left;
+    mouse.y = e.clientY - r.top;
+});
+canvas.addEventListener('mousedown', () => mouse.down = true);
+canvas.addEventListener('mouseup',   () => mouse.down = false);
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// ============= 物件池 =============
+const bullets = [];
+const particles = [];
+const novas = [];
+const speedLines = [];
+const tunnelRings = [];
+const wallLights = [];
+
+for (let z = 80; z < MAX_Z; z += 120) tunnelRings.push({ z });
+
+function placeWallLight(l, z) {
+    const wall = Math.floor(Math.random() * 4);
+    if (wall === 0)      { l.x = -TUNNEL_W; l.y = (Math.random() - 0.5) * TUNNEL_H * 2; }
+    else if (wall === 1) { l.x =  TUNNEL_W; l.y = (Math.random() - 0.5) * TUNNEL_H * 2; }
+    else if (wall === 2) { l.x = (Math.random() - 0.5) * TUNNEL_W * 2; l.y = -TUNNEL_H; }
+    else                 { l.x = (Math.random() - 0.5) * TUNNEL_W * 2; l.y =  TUNNEL_H; }
+    l.z = z;
+    l.size = Math.random() * 3 + 1.2;
+    l.hue = 12 + Math.random() * 30;
+    l.bright = Math.random() * 0.6 + 0.4;
+}
+for (let i = 0; i < 500; i++) { const l = {}; placeWallLight(l, Math.random() * MAX_Z); wallLights.push(l); }
+
+for (let i = 0; i < 140; i++) {
+    speedLines.push({
+        angle: Math.random() * Math.PI * 2,
+        r: Math.random() * 600 + 30,
+        len: Math.random() * 90 + 30,
+        speed: Math.random() * 12 + 6,
+        opacity: Math.random() * 0.45 + 0.2,
+        hue: 18 + Math.random() * 28
+    });
+}
+
+function spawnParticle(x, y, z, color, count, speed) {
+    speed = speed || 3;
+    for (let i = 0; i < count; i++) {
+        const a = Math.random() * Math.PI * 2;
+        particles.push({
+            x, y, z,
+            vx: Math.cos(a) * speed * (Math.random() + 0.5),
+            vy: Math.sin(a) * speed * (Math.random() + 0.5),
+            life: 1, decay: 0.025 + Math.random() * 0.03,
+            color, size: Math.random() * 4 + 2
+        });
+    }
+}
+
+// ============= 本地玩家更新 =============
+function updateLocalPlayer() {
+    const p = localPlayer;
+    if (!p || game.state !== 'playing') return;
+
+    let dx = 0, dy = 0;
+    if (keys['w'] || keys['arrowup']) dy = -1;
+    if (keys['s'] || keys['arrowdown']) dy = 1;
+    if (keys['a'] || keys['arrowleft']) dx = -1;
+    if (keys['d'] || keys['arrowright']) dx = 1;
+    const len = Math.sqrt(dx*dx + dy*dy);
+    if (len > 0) { dx /= len; dy /= len; }
+
+    p.vx += (dx * p.speed - p.vx) * 0.18;
+    p.vy += (dy * p.speed - p.vy) * 0.18;
+    p.x += p.vx; p.y += p.vy;
+    const lx = TUNNEL_W * 0.88, ly = TUNNEL_H * 0.88;
+    p.x = Math.max(-lx, Math.min(lx, p.x));
+    p.y = Math.max(-ly, Math.min(ly, p.y));
+
+    const pp = project(p.x, p.y, 0);
+    p.trail.push({ sx: pp.x, sy: pp.y, life: 1 });
+    if (p.trail.length > 14) p.trail.shift();
+    p.trail.forEach(t => t.life -= 0.08);
+    p.trail = p.trail.filter(t => t.life > 0);
+
+    if (p.invincible > 0) p.invincible--;
+    if (p.shootCD > 0) p.shootCD--;
+    if (p.novaCD > 0) p.novaCD--;
+    if (p.hitFlash > 0) p.hitFlash--;
+    if (p.nen < p.maxNen) p.nen += 0.18;
+
+    // 滑鼠瞄準
+    const sx = mouse.x - (cam.cx + p.x);
+    const sy = mouse.y - (cam.cy + p.y);
+    p.aimAngle = Math.atan2(sy, sx);
+
+    // 射擊
+    if (mouse.down && p.shootCD <= 0 && p.nen >= 4) {
+        const ang = p.aimAngle;
+        const bx = p.x + Math.cos(ang) * (p.radius + 4);
+        const by = p.y + Math.sin(ang) * (p.radius + 4);
+        const bvx = Math.cos(ang) * 8;
+        const bvy = Math.sin(ang) * 8;
+        bullets.push({
+            ownerId: p.id, x: bx, y: by, z: 0,
+            vx: bvx, vy: bvy, radius: 8,
+            color: p.color, life: 120, damage: 5,
+            remote: false
+        });
+        send({ t: 'b', x: bx, y: by, vx: bvx, vy: bvy });
+        p.shootCD = 11;
+        p.nen -= 4;
+        spawnParticle(bx + Math.cos(ang)*4, by + Math.sin(ang)*4, 0, p.color, 3, 1.4);
+    }
+
+    // 念波
+    if (!!keys['q'] && p.novaCD <= 0 && p.nen >= 40) {
+        novas.push({
+            ownerId: p.id, x: p.x, y: p.y,
+            r: 10, maxR: 220, speed: 8,
+            color: p.color, life: 1, hit: new Set(),
+            remote: false
+        });
+        send({ t: 'n', x: p.x, y: p.y });
+        p.novaCD = 120;
+        p.nen -= 40;
+        game.shake = 8;
+    }
+}
+
+// ============= 遠端玩家更新（從網路插值） =============
+function updateRemotePlayer() {
+    const p = remotePlayer;
+    if (!p) return;
+    // 套用網路狀態（外推 + 平滑）
+    p.hp = net.remote.hp;
+    p.nen = net.remote.nen;
+    p.aimAngle = net.remote.aim;
+    // 把實際位置往網路位置插值
+    net.remoteRender.x += (net.remote.x - net.remoteRender.x) * 0.25;
+    net.remoteRender.y += (net.remote.y - net.remoteRender.y) * 0.25;
+    p.x = net.remoteRender.x;
+    p.y = net.remoteRender.y;
+
+    if (p.invincible > 0) p.invincible--;
+    if (p.hitFlash > 0) p.hitFlash--;
+
+    const pp = project(p.x, p.y, 0);
+    p.trail.push({ sx: pp.x, sy: pp.y, life: 1 });
+    if (p.trail.length > 14) p.trail.shift();
+    p.trail.forEach(t => t.life -= 0.08);
+    p.trail = p.trail.filter(t => t.life > 0);
+}
+
+// ============= 子彈 / 念波 / 粒子更新 =============
+function updateObjects() {
+    if (game.state !== 'playing') return;
+
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        const b = bullets[i];
+        b.x += b.vx; b.y += b.vy; b.life--;
+        if (b.life <= 0) { bullets.splice(i, 1); continue; }
+        if (b.x < -TUNNEL_W || b.x > TUNNEL_W || b.y < -TUNNEL_H || b.y > TUNNEL_H) {
+            bullets.splice(i, 1); continue;
+        }
+        // 只由 owner 端判定命中（owner = 本端的話 b.remote = false）
+        if (b.remote) continue;
+        // 本端的子彈，檢查是否命中遠端玩家
+        if (remotePlayer.invincible > 0) continue;
+        const dx = b.x - remotePlayer.x, dy = b.y - remotePlayer.y;
+        if (Math.sqrt(dx*dx + dy*dy) < remotePlayer.radius + b.radius) {
+            // 命中遠端，廣播傷害
+            dealDamageToRemote(b.damage, b.x, b.y);
+            spawnParticle(b.x, b.y, 0, '#ff3344', 8, 3);
+            bullets.splice(i, 1);
+        }
+    }
+
+    for (let i = novas.length - 1; i >= 0; i--) {
+        const n = novas[i];
+        n.r += n.speed;
+        n.life = 1 - (n.r / n.maxR);
+        if (n.r >= n.maxR) { novas.splice(i, 1); continue; }
+        if (n.remote) continue;
+        // 本端的念波，檢查是否命中遠端
+        if (n.hit.has(remotePlayer.id)) continue;
+        const dx = remotePlayer.x - n.x, dy = remotePlayer.y - n.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d < n.r + remotePlayer.radius && d > n.r - 30) {
+            dealDamageToRemote(12, remotePlayer.x, remotePlayer.y);
+            n.hit.add(remotePlayer.id);
+        }
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx; p.y += p.vy;
+        p.life -= p.decay;
+        p.vx *= 0.96; p.vy *= 0.96;
+        if (p.life <= 0) particles.splice(i, 1);
+    }
+}
+
+function dealDamageToRemote(dmg, sx, sy) {
+    send({ t: 'd', dmg, sx, sy });
+    // 本地視覺立即反饋（遠端血條會等下次 state 同步）
+    remotePlayer.hitFlash = 14;
+    remotePlayer.invincible = 18;  // 防多重命中
+    game.shake = Math.max(game.shake, 8);
+    spawnParticle(sx, sy, 0, remotePlayer.color, 8, 2);
+}
+
+function applyDamageLocal(target, dmg, fx, fy) {
+    target.hp -= dmg;
+    target.invincible = 18;
+    target.hitFlash = 14;
+    game.shake = Math.max(game.shake, 12);
+    game.flashColor = target.color;
+    game.flashTime = 8;
+    spawnParticle(fx, fy, 0, '#ff3344', 12, 3);
+    if (target.hp <= 0) {
+        target.hp = 0;
+        send({ t: 'ko' });
+        endMatch(target.id === 1 ? 2 : 1);
+    }
+}
+
+function updateTunnel() {
+    const adv = game.speed;
+    wallLights.forEach(l => { l.z -= adv; if (l.z < -80) placeWallLight(l, MAX_Z); });
+    tunnelRings.forEach(r => { r.z -= adv; if (r.z < 10) r.z += MAX_Z; });
+    speedLines.forEach(s => {
+        s.r += s.speed;
+        if (s.r > 760) {
+            s.r = Math.random() * 40;
+            s.angle = Math.random() * Math.PI * 2;
+            s.len = Math.random() * 90 + 30;
+            s.opacity = Math.random() * 0.45 + 0.2;
+        }
+    });
+}
+
+function update() {
+    updateLocalPlayer();
+    updateRemotePlayer();
+    updateObjects();
+    updateTunnel();
+
+    if (game.state === 'playing') {
+        game.timeLeft--;
+        if (game.timeLeft <= 0) {
+            // Host 端判定計時結束（避免雙端不一致）
+            if (net.role === 'host') {
+                if (player1.hp > player2.hp) { send({ t: 'ko' }); endMatch(1); }
+                else if (player2.hp > player1.hp) endMatch(2); // ko 送出後 host 端把自己當輸方; 改用 timeout 訊息更好但 MVP 簡化
+                else endMatch(0);
+            }
+        }
+    }
+
+    if (game.shake > 0) game.shake *= 0.86;
+    if (game.shake < 0.3) game.shake = 0;
+    if (game.flashTime > 0) game.flashTime--;
+
+    // 同步本端狀態 30Hz
+    game.frame++;
+    if (net.connected && game.frame % 2 === 0) {
+        send({
+            t: 's',
+            x: localPlayer.x, y: localPlayer.y,
+            vx: localPlayer.vx, vy: localPlayer.vy,
+            a: localPlayer.aimAngle,
+            hp: localPlayer.hp, nen: localPlayer.nen
+        });
+    }
+    // Ping 每秒一次
+    if (net.connected && Date.now() - net.lastPingSent > 1000) {
+        net.lastPingSent = Date.now();
+        send({ t: 'ping', ts: Date.now() });
+    }
+}
+
+function endMatch(winnerId) {
+    if (game.state !== 'playing') return;
+    game.state = 'finished';
+    game.winner = winnerId;
+    game.shake = 24;
+    spawnParticle(0, 0, 0, '#ffd700', 60, 6);
+}
+
+function tryRestart() {
+    if (net.pendingRestart.local && net.pendingRestart.remote) {
+        net.pendingRestart.local = false;
+        net.pendingRestart.remote = false;
+        resetMatch();
+    }
+}
+
+function resetMatch() {
+    game.state = 'playing';
+    game.winner = null;
+    game.timeLeft = MATCH_FRAMES;
+    bullets.length = 0;
+    particles.length = 0;
+    novas.length = 0;
+    [player1, player2].forEach((p, i) => {
+        p.hp = p.maxHp;
+        p.nen = 30;
+        p.x = i === 0 ? -140 : 140;
+        p.y = -100;
+        p.vx = p.vy = 0;
+        p.invincible = 0; p.shootCD = 0; p.novaCD = 0;
+        p.trail = []; p.hitFlash = 0;
+    });
+    net.remote.x = remotePlayer.x;
+    net.remote.y = remotePlayer.y;
+    net.remote.hp = remotePlayer.maxHp;
+    net.remoteRender.x = remotePlayer.x;
+    net.remoteRender.y = remotePlayer.y;
+}
+
+// ============= 渲染（與本地版相同） =============
+function drawBackground() {
+    const g = ctx.createRadialGradient(cam.cx, cam.cy, 0, cam.cx, cam.cy, 720);
+    g.addColorStop(0, '#2a1408');
+    g.addColorStop(0.25, '#180a0a');
+    g.addColorStop(0.7, '#0a0510');
+    g.addColorStop(1, '#000');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    const c = ctx.createRadialGradient(cam.cx, cam.cy, 0, cam.cx, cam.cy, 220);
+    c.addColorStop(0, 'rgba(255, 140, 40, 0.45)');
+    c.addColorStop(0.5, 'rgba(255, 80, 20, 0.15)');
+    c.addColorStop(1, 'rgba(255, 60, 0, 0)');
+    ctx.fillStyle = c;
+    ctx.fillRect(0, 0, W, H);
+}
+
+function drawTunnel() {
+    const corners = [
+        { x: -TUNNEL_W, y: -TUNNEL_H }, { x:  TUNNEL_W, y: -TUNNEL_H },
+        { x:  TUNNEL_W, y:  TUNNEL_H }, { x: -TUNNEL_W, y:  TUNNEL_H }
+    ];
+    const rings = tunnelRings.slice().sort((a, b) => b.z - a.z);
+    rings.forEach(r => {
+        if (r.z <= 10 || r.z > MAX_Z) return;
+        const c = corners.map(p => project(p.x, p.y, r.z));
+        const fade = 1 - r.z / MAX_Z;
+        ctx.strokeStyle = `rgba(255, 110, 40, ${fade * 0.47})`;
+        ctx.lineWidth = 1 + fade * 1.8;
+        ctx.beginPath();
+        ctx.moveTo(c[0].x, c[0].y); ctx.lineTo(c[1].x, c[1].y);
+        ctx.lineTo(c[2].x, c[2].y); ctx.lineTo(c[3].x, c[3].y);
+        ctx.closePath(); ctx.stroke();
+    });
+    const nearZ = 10, farZ = MAX_Z * 0.97;
+    corners.forEach(p => {
+        const n = project(p.x, p.y, nearZ), f = project(p.x, p.y, farZ);
+        const lg = ctx.createLinearGradient(n.x, n.y, f.x, f.y);
+        lg.addColorStop(0, 'rgba(255, 140, 60, 0.8)');
+        lg.addColorStop(1, 'rgba(255, 80, 30, 0)');
+        ctx.strokeStyle = lg; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(n.x, n.y); ctx.lineTo(f.x, f.y); ctx.stroke();
+    });
+    const lights = wallLights.slice().sort((a, b) => b.z - a.z);
+    lights.forEach(l => {
+        if (l.z <= 5 || l.z > MAX_Z) return;
+        const p = project(l.x, l.y, l.z);
+        const fade = 1 - l.z / MAX_Z;
+        const size = Math.max(0.4, l.size * p.s * 3);
+        const a = l.bright * fade;
+        const color = `hsla(${l.hue}, 100%, 60%, ${a})`;
+        ctx.fillStyle = color; ctx.shadowBlur = size * 2.5; ctx.shadowColor = color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, size, 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.shadowBlur = 0;
+}
+
+function drawSpeedLines() {
+    speedLines.forEach(s => {
+        const x1 = cam.cx + Math.cos(s.angle) * s.r;
+        const y1 = cam.cy + Math.sin(s.angle) * s.r;
+        const x2 = cam.cx + Math.cos(s.angle) * (s.r + s.len);
+        const y2 = cam.cy + Math.sin(s.angle) * (s.r + s.len);
+        ctx.strokeStyle = `hsla(${s.hue}, 85%, 65%, ${s.opacity})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    });
+}
+
+function drawBullets() {
+    bullets.forEach(b => {
+        const p = project(b.x, b.y, 0);
+        ctx.shadowBlur = 18; ctx.shadowColor = b.color;
+        ctx.fillStyle = b.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, b.radius, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(p.x, p.y, b.radius * 0.5, 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.shadowBlur = 0;
+}
+
+function drawNovas() {
+    novas.forEach(n => {
+        const pCenter = project(n.x, n.y, 0);
+        const pEdge = project(n.x + n.r, n.y, 0);
+        const rPx = pEdge.x - pCenter.x;
+        ctx.strokeStyle = n.color;
+        ctx.globalAlpha = n.life * 0.85;
+        ctx.lineWidth = 5; ctx.shadowBlur = 22; ctx.shadowColor = n.color;
+        ctx.beginPath(); ctx.arc(pCenter.x, pCenter.y, rPx, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = n.life * 0.35;
+        ctx.lineWidth = 14;
+        ctx.beginPath(); ctx.arc(pCenter.x, pCenter.y, rPx, 0, Math.PI * 2); ctx.stroke();
+    });
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+}
+
+function drawParticles() {
+    particles.forEach(p => {
+        const pr = project(p.x, p.y, p.z || 0);
+        ctx.globalAlpha = p.life;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(pr.x, pr.y, Math.max(0.4, p.size * p.life * pr.s), 0, Math.PI * 2);
+        ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+}
+
+function drawTrail(p) {
+    p.trail.forEach(t => {
+        ctx.globalAlpha = t.life * 0.4;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(t.sx, t.sy + (1 - t.life) * 30, p.radius * t.life * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+}
+
+function drawPlayer(p, isLocal) {
+    const pp = project(p.x, p.y, 0);
+    const r = p.radius; const x = pp.x, y = pp.y;
+    ctx.save();
+    if (p.invincible > 0 && Math.floor(p.invincible / 3) % 2 === 0) ctx.globalAlpha = 0.45;
+    const pulse = Math.sin(Date.now() * 0.006) * 5;
+    ctx.shadowBlur = 26 + pulse;
+    ctx.shadowColor = p.hitFlash > 0 ? '#fff' : p.color;
+
+    ctx.fillStyle = p.color;
+    const baseA = ctx.globalAlpha;
+    ctx.globalAlpha = baseA * 0.45;
+    ctx.beginPath();
+    ctx.moveTo(x - r * 1.4, y - r * 0.1);
+    ctx.lineTo(x + r * 1.4, y - r * 0.1);
+    ctx.lineTo(x + r * 0.5, y - r * 2.6);
+    ctx.lineTo(x - r * 0.5, y - r * 2.6);
+    ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = baseA;
+
+    ctx.fillStyle = p.hitFlash > 0 ? '#fff' : p.color;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = p.coreColor;
+    ctx.beginPath(); ctx.arc(x, y, r * 0.55, 0, Math.PI * 2); ctx.fill();
+
+    ctx.strokeStyle = p.color; ctx.lineWidth = 2.5;
+    ctx.globalAlpha = baseA * 0.75;
+    ctx.beginPath(); ctx.arc(x, y, r + 10 + pulse, 0, Math.PI * 2); ctx.stroke();
+
+    ctx.strokeStyle = p.accentColor; ctx.lineWidth = 1.5;
+    ctx.globalAlpha = baseA * 0.55;
+    ctx.beginPath(); ctx.arc(x, y, r + 18 + pulse * 0.5, 0, Math.PI * 2); ctx.stroke();
+
+    // 瞄準線（只畫本端的）
+    if (isLocal) {
+        ctx.globalAlpha = baseA * 0.45;
+        ctx.strokeStyle = p.accentColor; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.cos(p.aimAngle) * (r + 26), y + Math.sin(p.aimAngle) * (r + 26));
+        ctx.stroke();
+    }
+    ctx.restore();
+    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+
+    ctx.fillStyle = p.color;
+    ctx.font = 'bold 14px Microsoft JhengHei';
+    ctx.textAlign = 'center';
+    const label = isLocal ? `P${p.id} (YOU)` : `P${p.id}`;
+    ctx.fillText(label, x, y - r - 18);
+}
+
+function drawHUD() {
+    drawStatusPanel(player1, 20, 20, 'left');
+    drawStatusPanel(player2, W - 20, 20, 'right');
+    const s = Math.max(0, Math.ceil(game.timeLeft / 60));
+    const mm = String(Math.floor(s / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
+    ctx.fillStyle = s <= 10 ? '#ff5544' : '#fff';
+    ctx.font = 'bold 36px Microsoft JhengHei';
+    ctx.textAlign = 'center';
+    ctx.shadowBlur = s <= 10 ? 18 : 8;
+    ctx.shadowColor = s <= 10 ? '#ff5544' : '#000';
+    ctx.fillText(`${mm}:${ss}`, W / 2, 50);
+    ctx.shadowBlur = 0;
+
+    if (localPlayer && localPlayer.novaCD > 0) {
+        ctx.fillStyle = localPlayer.color;
+        ctx.font = '12px Microsoft JhengHei';
+        ctx.textAlign = 'center';
+        ctx.fillText(`念波冷卻 ${(localPlayer.novaCD / 60).toFixed(1)}s`, W / 2, 80);
+    } else if (localPlayer && localPlayer.nen >= 40) {
+        ctx.fillStyle = '#ff66ff';
+        ctx.font = 'bold 12px Microsoft JhengHei';
+        ctx.textAlign = 'center';
+        ctx.shadowBlur = 8; ctx.shadowColor = '#ff66ff';
+        ctx.fillText(`念波就緒 (Q)`, W / 2, 80);
+        ctx.shadowBlur = 0;
+    }
+}
+
+function drawStatusPanel(p, x, y, align) {
+    const barW = 280, barH = 16;
+    const barX = align === 'left' ? x : x - barW;
+    ctx.fillStyle = p.color;
+    ctx.font = 'bold 18px Microsoft JhengHei';
+    ctx.textAlign = align;
+    ctx.shadowBlur = 6; ctx.shadowColor = p.color;
+    const tag = (p === localPlayer) ? `P${p.id} (你)` : `P${p.id}`;
+    ctx.fillText(tag, align === 'left' ? barX : x, y + 16);
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(barX, y + 24, barW, barH);
+    const hpPct = p.hp / p.maxHp;
+    const hpColor = hpPct > 0.5 ? '#3fff66' : (hpPct > 0.25 ? '#ffd700' : '#ff4444');
+    ctx.fillStyle = hpColor;
+    ctx.shadowBlur = 10; ctx.shadowColor = hpColor;
+    ctx.fillRect(barX, y + 24, barW * hpPct, barH);
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1;
+    ctx.strokeRect(barX, y + 24, barW, barH);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px Microsoft JhengHei'; ctx.textAlign = 'center';
+    ctx.fillText(`${Math.ceil(p.hp)} / ${p.maxHp}`, barX + barW / 2, y + 36);
+
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(barX, y + 46, barW, 8);
+    ctx.fillStyle = p.accentColor;
+    ctx.fillRect(barX, y + 46, barW * (p.nen / p.maxNen), 8);
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.strokeRect(barX, y + 46, barW, 8);
+}
+
+function drawFinishScreen() {
+    if (game.state !== 'finished') return;
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 72px Microsoft JhengHei';
+    let title, color;
+    if (game.winner === 0) { title = '平手'; color = '#ffd700'; }
+    else if (game.winner === localPlayer.id) { title = '勝利!'; color = localPlayer.color; }
+    else { title = '敗北...'; color = '#888'; }
+    ctx.fillStyle = color;
+    ctx.shadowBlur = 30; ctx.shadowColor = color;
+    ctx.fillText(title, W / 2, H / 2 - 20);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#fff';
+    ctx.font = '18px Microsoft JhengHei';
+    ctx.fillText(`P1 HP: ${Math.ceil(player1.hp)}   |   P2 HP: ${Math.ceil(player2.hp)}`, W / 2, H / 2 + 30);
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '16px Microsoft JhengHei';
+    const restartHint = net.pendingRestart.local
+        ? '等待對手按 R...'
+        : (net.pendingRestart.remote ? '對手已準備 - 按 R 開始下一局' : '按 R 重新開始 (雙方都按才會開始)');
+    ctx.fillText(restartHint, W / 2, H / 2 + 70);
+}
+
+function drawFlash() {
+    if (game.flashTime <= 0 || !game.flashColor) return;
+    ctx.globalAlpha = (game.flashTime / 8) * 0.25;
+    ctx.fillStyle = game.flashColor;
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+}
+
+function drawVignette() {
+    const g = ctx.createRadialGradient(W/2, H/2, 280, W/2, H/2, 680);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,0.65)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+
+function render() {
+    ctx.save();
+    if (game.shake > 0) {
+        ctx.translate((Math.random() - 0.5) * game.shake, (Math.random() - 0.5) * game.shake);
+    }
+    drawBackground();
+    drawTunnel();
+    drawSpeedLines();
+    drawParticles();
+    drawNovas();
+    drawBullets();
+    drawTrail(player1);
+    drawTrail(player2);
+    drawPlayer(player1, player1 === localPlayer);
+    drawPlayer(player2, player2 === localPlayer);
+    drawFlash();
+    drawVignette();
+    drawHUD();
+    drawFinishScreen();
+    ctx.restore();
+}
+
+function loop() {
+    update();
+    render();
+    requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
