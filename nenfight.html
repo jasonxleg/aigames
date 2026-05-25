@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
-    <title>無限念界 - 線上對戰 (Cross-Platform)</title>
+    <title>無限念界 - 線上對戰 (Cross-Platform Fixed)</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; }
         body {
@@ -15,11 +15,11 @@
             min-height: 100vh;
             font-family: 'Microsoft JhengHei', sans-serif;
             color: #fff;
-            touch-action: none; /* 防止瀏覽器預設的捲動與手勢 */
+            touch-action: none;
         }
         #gameContainer {
             position: relative;
-            width: 100vmin;  /* 讓遊戲區域不論在橫條或直條螢幕都保持正方形比例 */
+            width: 100vmin;
             height: 100vmin;
             max-width: 900px;
             max-height: 900px;
@@ -109,7 +109,6 @@
         #status { color: #ffd966; font-size: 14px; margin-top: 16px; min-height: 20px; text-align: center; }
         #status.err { color: #ff5544; }
         
-        /* 行動裝置專用虛擬按鍵與搖桿 UI */
         #touchOverlay {
             position: absolute;
             inset: 0;
@@ -219,8 +218,7 @@ const net = {
     remote: { x: 0, y: -100, vx: 0, vy: 0, aim: 0, hp: 100, nen: 0 },
     remoteRender: { x: 0, y: -100 },
     ping: 0,
-    lastPingSent: 0,
-    pendingRestart: { local: false, remote: false }
+    lastPingSent: 0
 };
 
 const lobby = document.getElementById('lobby');
@@ -264,7 +262,10 @@ function startHost() {
     setStatus('連接 PeerJS broker 中...');
 
     const roomId = newRoomCode();
-    net.peer = new Peer(roomId, { debug: 1 });
+    net.peer = new Peer(roomId, { 
+        debug: 1,
+        config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } // 補上 STUN 強化 iOS 穿透
+    });
 
     net.peer.on('open', id => {
         document.getElementById('roomCode').textContent = id;
@@ -289,7 +290,10 @@ function startGuest() {
     net.role = 'guest';
     setStatus('連到 PeerJS broker 中...');
 
-    net.peer = new Peer({ debug: 1 });
+    net.peer = new Peer({ 
+        debug: 1,
+        config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+    });
     net.peer.on('open', myId => {
         setStatus(`已取得 ID，呼叫房間 ${roomId}...`);
         net.conn = net.peer.connect(roomId, { reliable: true });
@@ -365,6 +369,7 @@ function send(msg) {
 function handleMessage(msg) {
     switch (msg.t) {
         case 's':
+            if (game.state !== 'playing') return; // 如果已經進入重置階段，丟棄舊的狀態包，防抖動
             net.remote.x = msg.x; net.remote.y = msg.y;
             net.remote.vx = msg.vx; net.remote.vy = msg.vy;
             net.remote.aim = msg.a;
@@ -372,12 +377,14 @@ function handleMessage(msg) {
             remotePlayer.nen = msg.nen;
             break;
         case 'b':
+            if (game.state !== 'playing') return;
             bullets.push({
                 ownerId: remotePlayer.id, x: msg.x, y: msg.y, z: 0, vx: msg.vx, vy: msg.vy,
                 radius: 8, color: remotePlayer.color, life: 120, damage: 5, remote: true
             });
             break;
         case 'n':
+            if (game.state !== 'playing') return;
             novas.push({
                 ownerId: remotePlayer.id, x: msg.x, y: msg.y, r: 10, maxR: 220, speed: 8,
                 color: remotePlayer.color, life: 1, hit: new Set(), remote: true
@@ -385,14 +392,14 @@ function handleMessage(msg) {
             game.shake = Math.max(game.shake, 6);
             break;
         case 'd':
+            if (game.state !== 'playing') return;
             applyDamageLocal(localPlayer, msg.dmg, msg.sx, msg.sy);
             break;
         case 'ko':
             endMatch(msg.winner);
             break;
-        case 'rst':
-            net.pendingRestart.remote = true;
-            tryRestart();
+        case 'rst': // 核心修改：收到對方的強制重開指令，無條件跟隨重開
+            resetMatch();
             break;
         case 'ping':
             send({ t: 'pong', ts: msg.ts });
@@ -455,17 +462,14 @@ function assignSides() {
     net.remoteRender.x = remotePlayer.x; net.remoteRender.y = remotePlayer.y;
 }
 
-// ============= 🎮 跨平台輸入控制層 (鍵盤+滑鼠+雙觸控) =============
+// ============= 輸入控制層 =============
 const keys = {};
 const mouse = { x: W/2, y: H/2, down: false };
-
-// 虛擬搖桿與觸控瞄準狀態
 const touchInput = {
     joystick: { active: false, startX: 0, startY: 0, curX: 0, curY: 0, dx: 0, dy: 0, id: null },
     aim: { active: false, id: null }
 };
 
-// 鍵盤事件
 document.addEventListener('keydown', e => {
     const k = e.key.toLowerCase();
     keys[k] = true;
@@ -474,7 +478,6 @@ document.addEventListener('keydown', e => {
 });
 document.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
-// 電腦滑鼠座標轉換（考慮 Canvas 被 CSS 縮放後的實際比例）
 function getCanvasMousePos(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     return {
@@ -490,30 +493,26 @@ canvas.addEventListener('mousemove', e => {
 canvas.addEventListener('mousedown', () => mouse.down = true);
 document.addEventListener('mouseup', () => mouse.down = false);
 
-// 📱 行動裝置觸控多點協定
 window.addEventListener('touchstart', e => {
-    const rect = canvas.getBoundingClientRect();
     for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
-        
-        // 排除點擊到 UI 按鈕的觸控
-        if(t.target.classList.contains('touch-btn')) continue;
+        if (t.target.classList.contains('touch-btn')) {
+            // 點擊重開按鈕事件處理 (防多次觸發)
+            if (t.target.id === 'restartBtn' && game.state === 'finished') {
+                triggerLocalRestart();
+            }
+            continue;
+        }
 
-        // 左半邊螢幕 -> 虛擬搖桿 (移動)
         if (t.clientX < window.innerWidth / 2 && !touchInput.joystick.active) {
             touchInput.joystick.active = true;
             touchInput.joystick.id = t.identifier;
-            touchInput.joystick.startX = t.clientX;
-            touchInput.joystick.startY = t.clientY;
-            touchInput.joystick.curX = t.clientX;
-            touchInput.joystick.curY = t.clientY;
+            touchInput.joystick.startX = t.clientX; touchInput.joystick.startY = t.clientY;
+            touchInput.joystick.curX = t.clientX; touchInput.joystick.curY = t.clientY;
         } 
-        // 右半邊螢幕 -> 觸控瞄準 + 射擊
         else if (t.clientX >= window.innerWidth / 2 && !touchInput.aim.active) {
-            touchInput.aim.active = true;
-            touchInput.aim.id = t.identifier;
+            touchInput.aim.active = true; touchInput.aim.id = t.identifier;
             mouse.down = true;
-            
             const pos = getCanvasMousePos(t.clientX, t.clientY);
             mouse.x = pos.x; mouse.y = pos.y;
         }
@@ -523,23 +522,14 @@ window.addEventListener('touchstart', e => {
 window.addEventListener('touchmove', e => {
     for (let i = 0; i < e.touches.length; i++) {
         const t = e.touches[i];
-        
         if (t.identifier === touchInput.joystick.id) {
-            touchInput.joystick.curX = t.clientX;
-            touchInput.joystick.curY = t.clientY;
-            
-            // 計算拖拽向量
+            touchInput.joystick.curX = t.clientX; touchInput.joystick.curY = t.clientY;
             let dx = touchInput.joystick.curX - touchInput.joystick.startX;
             let dy = touchInput.joystick.curY - touchInput.joystick.startY;
             const dist = Math.sqrt(dx*dx + dy*dy);
-            const maxDist = 50; // 搖桿最大半徑限制
-            
-            if (dist > maxDist) {
-                dx = (dx / dist) * maxDist;
-                dy = (dy / dist) * maxDist;
-            }
-            touchInput.joystick.dx = dx / maxDist; // 正規化為 -1 到 1
-            touchInput.joystick.dy = dy / maxDist;
+            const maxDist = 50;
+            if (dist > maxDist) { dx = (dx / dist) * maxDist; dy = (dy / dist) * maxDist; }
+            touchInput.joystick.dx = dx / maxDist; touchInput.joystick.dy = dy / maxDist;
         } 
         else if (t.identifier === touchInput.aim.id) {
             const pos = getCanvasMousePos(t.clientX, t.clientY);
@@ -552,33 +542,25 @@ window.addEventListener('touchend', e => {
     for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
         if (t.identifier === touchInput.joystick.id) {
-            touchInput.joystick.active = false;
-            touchInput.joystick.id = null;
-            touchInput.joystick.dx = 0;
-            touchInput.joystick.dy = 0;
+            touchInput.joystick.active = false; touchInput.joystick.id = null;
+            touchInput.joystick.dx = 0; touchInput.joystick.dy = 0;
         }
         if (t.identifier === touchInput.aim.id) {
-            touchInput.aim.active = false;
-            touchInput.aim.id = null;
+            touchInput.aim.active = false; touchInput.aim.id = null;
             mouse.down = false;
         }
     }
 });
 
-// 行動端按鈕監聽
 document.getElementById('novaBtn').addEventListener('touchstart', (e) => {
     e.preventDefault();
     if(localPlayer && localPlayer.novaCD <= 0 && localPlayer.nen >= 40) keys['q_triggered'] = true;
 });
-document.getElementById('restartBtn').addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    if(game.state === 'finished') triggerLocalRestart();
-});
 
+// 核心修改：單向重開觸發機制
 function triggerLocalRestart() {
-    net.pendingRestart.local = true;
-    send({ t: 'rst' });
-    tryRestart();
+    send({ t: 'rst' }); // 傳送強制重開通知給對方
+    resetMatch();       // 本地立刻重開
 }
 
 // ============= 物件池與粒子系統 =============
@@ -613,12 +595,11 @@ function spawnParticle(x, y, z, color, count, speed) {
     }
 }
 
-// ============= 核心邏輯更新 =============
+// ============= 遊戲主循環邏輯 =============
 function updateLocalPlayer() {
     const p = localPlayer;
     if (!p || game.state !== 'playing') return;
 
-    // 整合 鍵盤移動 與 虛擬搖桿移動 權重
     let dx = 0, dy = 0;
     if (keys['w'] || keys['arrowup']) dy = -1;
     if (keys['s'] || keys['arrowdown']) dy = 1;
@@ -626,26 +607,22 @@ function updateLocalPlayer() {
     if (keys['d'] || keys['arrowright']) dx = 1;
     
     if (touchInput.joystick.active) {
-        dx = touchInput.joystick.dx;
-        dy = touchInput.joystick.dy;
+        dx = touchInput.joystick.dx; dy = touchInput.joystick.dy;
     } else {
         const len = Math.sqrt(dx*dx + dy*dy);
         if (len > 0) { dx /= len; dy /= len; }
     }
 
-    p.vx += (dx * p.speed - p.vx) * 0.18;
-    p.vy += (dy * p.speed - p.vy) * 0.18;
+    p.vx += (dx * p.speed - p.vx) * 0.18; p.vy += (dy * p.speed - p.vy) * 0.18;
     p.x += p.vx; p.y += p.vy;
     
     const lx = TUNNEL_W * 0.88, ly = TUNNEL_H * 0.88;
-    p.x = Math.max(-lx, Math.min(lx, p.x));
-    p.y = Math.max(-ly, Math.min(ly, p.y));
+    p.x = Math.max(-lx, Math.min(lx, p.x)); p.y = Math.max(-ly, Math.min(ly, p.y));
 
     const pp = project(p.x, p.y, 0);
     p.trail.push({ sx: pp.x, sy: pp.y, life: 1 });
     if (p.trail.length > 14) p.trail.shift();
-    p.trail.forEach(t => t.life -= 0.08);
-    p.trail = p.trail.filter(t => t.life > 0);
+    p.trail.forEach(t => t.life -= 0.08); p.trail = p.trail.filter(t => t.life > 0);
 
     if (p.invincible > 0) p.invincible--;
     if (p.shootCD > 0) p.shootCD--;
@@ -653,29 +630,22 @@ function updateLocalPlayer() {
     if (p.hitFlash > 0) p.hitFlash--;
     if (p.nen < p.maxNen) p.nen += 0.18;
 
-    // 計算本地瞄準視角
-    const sx = mouse.x - (cam.cx + p.x);
-    const sy = mouse.y - (cam.cy + p.y);
+    const sx = mouse.x - (cam.cx + p.x); const sy = mouse.y - (cam.cy + p.y);
     p.aimAngle = Math.atan2(sy, sx);
 
-    // 射擊判定
     if (mouse.down && p.shootCD <= 0 && p.nen >= 4) {
         const ang = p.aimAngle;
-        const bx = p.x + Math.cos(ang) * (p.radius + 4);
-        const by = p.y + Math.sin(ang) * (p.radius + 4);
-        const bvx = Math.cos(ang) * 8;
-        const bvy = Math.sin(ang) * 8;
+        const bx = p.x + Math.cos(ang) * (p.radius + 4); const by = p.y + Math.sin(ang) * (p.radius + 4);
+        const bvx = Math.cos(ang) * 8; const bvy = Math.sin(ang) * 8;
         bullets.push({
             ownerId: p.id, x: bx, y: by, z: 0, vx: bvx, vy: bvy, radius: 8,
             color: p.color, life: 120, damage: 5, remote: false
         });
         send({ t: 'b', x: bx, y: by, vx: bvx, vy: bvy });
-        p.shootCD = 11;
-        p.nen -= 4;
+        p.shootCD = 11; p.nen -= 4;
         spawnParticle(bx + Math.cos(ang)*4, by + Math.sin(ang)*4, 0, p.color, 3, 1.4);
     }
 
-    // 釋放念波 (相容鍵盤 Q 與手機虛擬鍵)
     if ((!!keys['q'] || keys['q_triggered']) && p.novaCD <= 0 && p.nen >= 40) {
         keys['q_triggered'] = false;
         novas.push({
@@ -700,16 +670,14 @@ function updateRemotePlayer() {
     const pp = project(p.x, p.y, 0);
     p.trail.push({ sx: pp.x, sy: pp.y, life: 1 });
     if (p.trail.length > 14) p.trail.shift();
-    p.trail.forEach(t => t.life -= 0.08);
-    p.trail = p.trail.filter(t => t.life > 0);
+    p.trail.forEach(t => t.life -= 0.08); p.trail = p.trail.filter(t => t.life > 0);
 }
 
 function updateObjects() {
     if (game.state !== 'playing') return;
 
     for (let i = bullets.length - 1; i >= 0; i--) {
-        const b = bullets[i];
-        b.x += b.vx; b.y += b.vy; b.life--;
+        const b = bullets[i]; b.x += b.vx; b.y += b.vy; b.life--;
         if (b.life <= 0 || b.x < -TUNNEL_W || b.x > TUNNEL_W || b.y < -TUNNEL_H || b.y > TUNNEL_H) {
             bullets.splice(i, 1); continue;
         }
@@ -718,29 +686,24 @@ function updateObjects() {
         
         const dx = b.x - remotePlayer.x, dy = b.y - remotePlayer.y;
         if (Math.sqrt(dx*dx + dy*dy) < remotePlayer.radius + b.radius) {
-            dealDamageToRemote(b.damage, b.x, b.y);
-            bullets.splice(i, 1);
+            dealDamageToRemote(b.damage, b.x, b.y); bullets.splice(i, 1);
         }
     }
 
     for (let i = novas.length - 1; i >= 0; i--) {
-        const n = novas[i];
-        n.r += n.speed; n.life = 1 - (n.r / n.maxR);
+        const n = novas[i]; n.r += n.speed; n.life = 1 - (n.r / n.maxR);
         if (n.r >= n.maxR) { novas.splice(i, 1); continue; }
         if (n.remote) continue;
         if (n.hit.has(remotePlayer.id)) continue;
         
-        const dx = remotePlayer.x - n.x, dy = remotePlayer.y - n.y;
-        const d = Math.sqrt(dx*dx + dy*dy);
+        const dx = remotePlayer.x - n.x, dy = remotePlayer.y - n.y; const d = Math.sqrt(dx*dx + dy*dy);
         if (d < n.r + remotePlayer.radius && d > n.r - 30) {
-            dealDamageToRemote(12, remotePlayer.x, remotePlayer.y);
-            n.hit.add(remotePlayer.id);
+            dealDamageToRemote(12, remotePlayer.x, remotePlayer.y); n.hit.add(remotePlayer.id);
         }
     }
 
     for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.x += p.vx; p.y += p.vy; p.life -= p.decay; p.vx *= 0.96; p.vy *= 0.96;
+        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.life -= p.decay; p.vx *= 0.96; p.vy *= 0.96;
         if (p.life <= 0) particles.splice(i, 1);
     }
 }
@@ -800,7 +763,7 @@ function update() {
     if (game.flashTime > 0) game.flashTime--;
 
     game.frame++;
-    if (net.connected && game.frame % 2 === 0) {
+    if (net.connected && game.state === 'playing' && game.frame % 2 === 0) {
         send({
             t: 's', x: localPlayer.x, y: localPlayer.y, vx: localPlayer.vx, vy: localPlayer.vy,
             a: localPlayer.aimAngle, hp: localPlayer.hp, nen: localPlayer.nen
@@ -821,17 +784,13 @@ function endMatch(winnerId) {
     document.getElementById('restartBtn').classList.remove('hidden'); // 顯示手機重開按鈕
 }
 
-function tryRestart() {
-    if (net.pendingRestart.local && net.pendingRestart.remote) {
-        net.pendingRestart.local = false;
-        net.pendingRestart.remote = false;
-        resetMatch();
-    }
-}
-
 function resetMatch() {
     game.state = 'playing'; game.winner = null; game.timeLeft = MATCH_FRAMES;
     bullets.length = 0; particles.length = 0; novas.length = 0;
+    
+    // 清空手勢瞄準，防止重開局瞬間自動開火
+    mouse.down = false; touchInput.aim.active = false; touchInput.aim.id = null;
+    
     [player1, player2].forEach((p, i) => {
         p.hp = p.maxHp; p.nen = 30; p.x = i === 0 ? -140 : 140; p.y = -100;
         p.vx = p.vy = 0; p.invincible = 0; p.shootCD = 0; p.novaCD = 0; p.trail = []; p.hitFlash = 0;
@@ -981,7 +940,7 @@ function drawHUD() {
 }
 
 function drawStatusPanel(p, x, y, align) {
-    const barW = 240, barH = 14; // 行動端略為縮小HUD以防爆框
+    const barW = 240, barH = 14;
     const barX = align === 'left' ? x : x - barW;
     ctx.fillStyle = p.color; ctx.font = 'bold 16px Microsoft JhengHei'; ctx.textAlign = align;
     const tag = (p === localPlayer) ? `P${p.id} (你)` : `P${p.id}`;
@@ -999,29 +958,18 @@ function drawStatusPanel(p, x, y, align) {
     ctx.fillStyle = p.accentColor; ctx.fillRect(barX, y + 44, barW * (p.nen / p.maxNen), 6);
 }
 
-// 繪製行動端專用的「隱形動態搖桿」視覺回饋
 function drawVirtualJoystick() {
     if (!touchInput.joystick.active) return;
-    
-    // 將螢幕絕對觸控座標轉換回內部 Canvas 的 900x900 座標系
     const rect = canvas.getBoundingClientRect();
     const cStartX = ((touchInput.joystick.startX - rect.left) / rect.width) * W;
     const cStartY = ((touchInput.joystick.startY - rect.top) / rect.height) * H;
     const cCurX = ((touchInput.joystick.curX - rect.left) / rect.width) * W;
     const cCurY = ((touchInput.joystick.curY - rect.top) / rect.height) * H;
     
-    // 外大圓
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(cStartX, cStartY, 50, 0, Math.PI * 2);
-    ctx.stroke();
-    
-    // 內操縱桿
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(cStartX, cStartY, 50, 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = 'rgba(255, 176, 90, 0.4)';
-    ctx.beginPath();
-    ctx.arc(cCurX, cCurY, 20, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(cCurX, cCurY, 20, 0, Math.PI * 2); ctx.fill();
 }
 
 function drawFinishScreen() {
@@ -1039,8 +987,7 @@ function drawFinishScreen() {
     ctx.fillText(`P1 HP: ${Math.ceil(player1.hp)}   |   P2 HP: ${Math.ceil(player2.hp)}`, W / 2, H / 2 + 30);
     
     ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '16px Microsoft JhengHei';
-    const restartHint = net.pendingRestart.local ? '等待對手同意...' : (net.pendingRestart.remote ? '對手已就緒，請點擊重開' : '等待雙方準備就緒...');
-    ctx.fillText(restartHint, W / 2, H / 2 + 70);
+    ctx.fillText('點擊右下角「重開」或按 R 開始下一局', W / 2, H / 2 + 70);
 }
 
 function drawFlash() {
@@ -1058,29 +1005,16 @@ function render() {
     ctx.save();
     if (game.shake > 0) ctx.translate((Math.random() - 0.5) * game.shake, (Math.random() - 0.5) * game.shake);
     
-    drawBackground();
-    drawTunnel();
-    drawSpeedLines();
-    drawParticles();
-    drawNovas();
-    drawBullets();
-    drawTrail(player1);
-    drawTrail(player2);
-    drawPlayer(player1, player1 === localPlayer);
-    drawPlayer(player2, player2 === localPlayer);
-    drawFlash();
-    drawVignette();
-    drawVirtualJoystick(); // 渲染手機手勢搖桿
-    drawHUD();
-    drawFinishScreen();
+    drawBackground(); drawTunnel(); drawSpeedLines(); drawParticles(); drawNovas(); drawBullets();
+    drawTrail(player1); drawTrail(player2);
+    drawPlayer(player1, player1 === localPlayer); drawPlayer(player2, player2 === localPlayer);
+    drawFlash(); drawVignette(); drawVirtualJoystick(); drawHUD(); drawFinishScreen();
     
     ctx.restore();
 }
 
 function loop() {
-    update();
-    render();
-    requestAnimationFrame(loop);
+    update(); render(); requestAnimationFrame(loop);
 }
 </script>
 </body>
