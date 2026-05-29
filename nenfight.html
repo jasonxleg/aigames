@@ -165,7 +165,7 @@
 <body>
     <div id="lobby">
         <h1>無限念界 · 線上對戰</h1>
-        <div class="sub">跨平台 PeerJS / WebRTC P2P 1v1</div>
+        <div class="sub">Copyright 2026 JasonLin</div>
 
         <div id="modeSelect" class="panel">
             <h3>選擇身份</h3>
@@ -506,14 +506,23 @@ function initAudio() {
     audio.master.gain.value = 0.4;
     audio.master.connect(audio.ctx.destination);
 }
-// 在使用者手勢中呼叫：建立 / 恢復 AudioContext（iOS Safari 必須）
+// 在使用者手勢中呼叫：建立 / 恢復 AudioContext，並用無聲 buffer 喚醒行動裝置音訊管線
 function unlockAudio() {
     initAudio();
-    if (audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume();
+    if (!audio.ctx) return;
+    if (audio.ctx.state !== 'running') audio.ctx.resume();
+    // 行動 Chrome / iOS Safari：播放一段極短無聲音源以正式啟動音訊輸出
+    try {
+        const b = audio.ctx.createBuffer(1, 1, 22050);
+        const src = audio.ctx.createBufferSource();
+        src.buffer = b; src.connect(audio.ctx.destination); src.start(0);
+    } catch (e) { /* 忽略 */ }
 }
 // 以振盪器合成單音；slideTo 指定頻率滑移目標
 function beep(freq, dur, type, vol, slideTo) {
-    if (!audio.ctx || !audio.enabled || audio.ctx.state !== 'running') return;
+    if (!audio.ctx || !audio.enabled) return;
+    // 若被行動瀏覽器暫停，嘗試恢復（解鎖過一次後通常可成功）；本次仍未啟動則跳過
+    if (audio.ctx.state !== 'running') { audio.ctx.resume(); return; }
     const t = audio.ctx.currentTime;
     const osc = audio.ctx.createOscillator();
     const g = audio.ctx.createGain();
@@ -560,9 +569,13 @@ const touchInput = {
     aim: { active: false, id: null }
 };
 
-// 任何使用者手勢都嘗試解鎖音訊（手機首次互動後才有聲音）
-['touchstart', 'mousedown', 'keydown'].forEach(ev =>
+// 任何使用者手勢都嘗試解鎖音訊（手機首次互動後才有聲音；多種事件確保 Chrome/Safari 都涵蓋）
+['touchstart', 'touchend', 'pointerdown', 'mousedown', 'click', 'keydown'].forEach(ev =>
     window.addEventListener(ev, unlockAudio, { passive: true }));
+// 切回分頁時若音訊被暫停則恢復
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume();
+});
 
 document.addEventListener('keydown', e => {
     const k = e.key.toLowerCase();
