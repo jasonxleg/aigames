@@ -356,6 +356,7 @@ function wireConnection() {
     net.conn.on('close', () => {
         net.connected = false;
         setStatus('對手已離線', true);
+        stopMusic();
         lobby.classList.remove('hidden');
         document.getElementById('gameCanvas').classList.add('hidden');
         document.getElementById('touchOverlay').classList.add('hidden');
@@ -441,6 +442,7 @@ function beginMatch() {
     document.getElementById('netRole').textContent = net.role === 'host' ? 'P1 (Host)' : 'P2 (Guest)';
     assignSides();
     resetMatch();
+    startMusic();
     if (!game.loopStarted) { game.loopStarted = true; loop(); }
 }
 
@@ -495,8 +497,21 @@ const game = {
 };
 const WARP_BOOST_MS = 5000;  // 加速持續時間（毫秒）；改用時間而非幀數，避免 120Hz 手機加速太短看不到
 // 目前的加速強度 0~1（依剩餘時間計算，與螢幕更新率無關）
+// 曲線：先衝刺(1.0) → 維持中速(~0.45) → 慢慢恢復(→0)
+const WARP_MID = 0.45;   // 中速階段強度
 function warpBoostAmount() {
-    return Math.max(0, Math.min(1, (game.warpEnd - Date.now()) / WARP_BOOST_MS));
+    const remain = game.warpEnd - Date.now();
+    if (remain <= 0) return 0;
+    const t = 1 - remain / WARP_BOOST_MS;   // 0→1 經過比例
+    if (t < 0.12) {
+        // 衝刺：1.0 → 中速（前 ~0.6 秒）
+        return 1 - (t / 0.12) * (1 - WARP_MID);
+    } else if (t < 0.5) {
+        // 維持中速（~0.6 ~ 2.5 秒）
+        return WARP_MID;
+    }
+    // 慢慢恢復：中速 → 0（2.5 ~ 5 秒）
+    return WARP_MID * (1 - (t - 0.5) / 0.5);
 }
 
 // ============= 音效系統 (WebAudio；手機需在使用者手勢後解鎖) =============
@@ -521,6 +536,8 @@ function unlockAudio() {
         const src = audio.ctx.createBufferSource();
         src.buffer = b; src.connect(audio.ctx.destination); src.start(0);
     } catch (e) { /* 忽略 */ }
+    // 若對戰已開始但音訊剛解鎖（手機常見），補開背景音樂
+    if (game.state === 'playing' && !music.on && !music.muted) startMusic();
 }
 // 以振盪器合成單音；slideTo 指定頻率滑移目標
 function beep(freq, dur, type, vol, slideTo) {
@@ -546,6 +563,71 @@ function sfxGem()   { beep(520, 0.10, 'triangle', 0.30, 1040); } // 上揚收集
 function sfxHit()   { beep(200, 0.18, 'square', 0.30, 80); }
 function sfxKO()    { beep(330, 0.6, 'sawtooth', 0.30, 110); }
 function sfxHeal()  { beep(440, 0.12, 'sine', 0.3, 660); beep(660, 0.18, 'sine', 0.26, 880); } // 柔和上揚雙音
+
+// ============= 緊張背景音樂 (程式合成，無需音檔) =============
+const music = { on: false, gain: null, step: 0, next: 0, timer: null, muted: false };
+const MUS_BPM = 132;
+const MUS_STEP = 60 / MUS_BPM / 4;   // 16 分音符秒數
+// A 小調脈衝低音（2 小節：Am → F → G 製造張力）
+const MUS_BASS = [
+    55,55,0,55, 0,55,55,0,  55,55,0,55, 0,49,0,49,
+    43.65,43.65,0,43.65, 0,43.65,43.65,0, 49,49,0,49, 0,49,0,49
+];
+// 高音緊張動機（含和聲小調 G# 半音張力）
+const MUS_LEAD = [
+    0,0,440,0, 523.25,0,0,659.25, 0,440,0,0, 415.3,0,0,0,
+    0,0,349.23,0, 440,0,0,523.25, 0,392,0,0, 493.88,0,0,0
+];
+function musicNote(freq, time, dur, type, vol) {
+    const osc = audio.ctx.createOscillator();
+    const g = audio.ctx.createGain();
+    osc.type = type; osc.frequency.setValueAtTime(freq, time);
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.exponentialRampToValueAtTime(vol, time + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+    osc.connect(g); g.connect(music.gain);
+    osc.start(time); osc.stop(time + dur + 0.03);
+}
+function scheduleMusicStep(step, time) {
+    const i = step % MUS_BASS.length;
+    if (MUS_BASS[i]) musicNote(MUS_BASS[i], time, MUS_STEP * 1.4, 'sawtooth', 0.4);
+    if (MUS_LEAD[i]) musicNote(MUS_LEAD[i], time, MUS_STEP * 0.9, 'square', 0.16);
+}
+// 前瞻式排程器：固定提前 0.15s 把音符排入 WebAudio 時間軸
+function musicScheduler() {
+    if (!audio.ctx || audio.ctx.state !== 'running') return;
+    if (music.next < audio.ctx.currentTime) music.next = audio.ctx.currentTime + 0.05; // 避免暫停後爆衝補播
+    while (music.next < audio.ctx.currentTime + 0.15) {
+        scheduleMusicStep(music.step, music.next);
+        music.next += MUS_STEP;
+        music.step++;
+    }
+}
+function startMusic() {
+    initAudio();
+    if (!audio.ctx || music.on || music.muted) return;
+    if (!music.gain) { music.gain = audio.ctx.createGain(); music.gain.connect(audio.master); }
+    music.on = true; music.step = 0; music.next = audio.ctx.currentTime + 0.1;
+    music.gain.gain.cancelScheduledValues(audio.ctx.currentTime);
+    music.gain.gain.setValueAtTime(0.0001, audio.ctx.currentTime);
+    music.gain.gain.linearRampToValueAtTime(0.6, audio.ctx.currentTime + 2); // 漸入
+    music.timer = setInterval(musicScheduler, 30);
+}
+function stopMusic() {
+    if (!music.on) return;
+    music.on = false;
+    if (music.timer) { clearInterval(music.timer); music.timer = null; }
+    if (music.gain && audio.ctx) {
+        music.gain.gain.cancelScheduledValues(audio.ctx.currentTime);
+        music.gain.gain.setValueAtTime(music.gain.gain.value, audio.ctx.currentTime);
+        music.gain.gain.linearRampToValueAtTime(0.0001, audio.ctx.currentTime + 0.5); // 漸出
+    }
+}
+function toggleMusic() {
+    music.muted = !music.muted;
+    if (music.muted) stopMusic();
+    else if (game.state === 'playing') startMusic();
+}
 
 function createPlayer(id, color, accentColor, coreColor, startX) {
     return {
@@ -586,6 +668,7 @@ document.addEventListener('keydown', e => {
     const k = e.key.toLowerCase();
     keys[k] = true;
     if (k === 'r' && game.state === 'finished') triggerLocalRestart();
+    if (k === 'm' && document.activeElement.tagName !== 'INPUT') toggleMusic();   // 切換背景音樂
     if (k === ' ' || k.startsWith('arrow')) e.preventDefault();
 });
 document.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
@@ -1077,6 +1160,7 @@ function endMatch(winnerId) {
     game.shake = 24;
     spawnParticle(0, 0, 0, '#ffd700', 60, 6);
     sfxKO();
+    stopMusic();
     document.getElementById('restartBtn').classList.remove('hidden'); // 顯示手機重開按鈕
 }
 
@@ -1099,6 +1183,7 @@ function resetMatch() {
     net.remote.x = remotePlayer.x; net.remote.y = remotePlayer.y; net.remote.hp = remotePlayer.maxHp;
     net.remoteRender.x = remotePlayer.x; net.remoteRender.y = remotePlayer.y;
     document.getElementById('restartBtn').classList.add('hidden');
+    startMusic(); // 重開局時恢復背景音樂
 }
 
 // ============= 渲染層 =============
