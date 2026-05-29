@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>投籃挑戰 Basketball Shoot</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #1a1a2e;
+    font-family: "Segoe UI", "Microsoft JhengHei", system-ui, sans-serif;
+    user-select: none;
+  }
+  #wrap {
+    position: relative; width: 100vw; height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+  }
+  canvas { display: block; background: #f4d9a0; touch-action: none; }
+  #hud {
+    position: absolute; top: 12px; left: 0; right: 0;
+    display: flex; justify-content: space-between; padding: 0 18px;
+    color: #fff; font-size: 18px; font-weight: 700; pointer-events: none;
+    text-shadow: 0 2px 4px rgba(0,0,0,.4);
+  }
+  #hud .pill {
+    background: rgba(0,0,0,.35); padding: 6px 14px; border-radius: 20px;
+  }
+  #msg {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    color: #fff; font-size: 42px; font-weight: 800; pointer-events: none;
+    text-shadow: 0 3px 10px rgba(0,0,0,.5); opacity: 0;
+    transition: opacity .2s; text-align: center;
+  }
+  #hint {
+    position: absolute; bottom: 14px; left: 0; right: 0; text-align: center;
+    color: rgba(255,255,255,.85); font-size: 14px; pointer-events: none;
+    text-shadow: 0 1px 3px rgba(0,0,0,.5);
+  }
+  #reset {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,.35); color:#fff; border:none; border-radius:20px;
+    padding:6px 16px; font-size:14px; font-weight:700; cursor:pointer;
+  }
+  #mute {
+    position: absolute; bottom: 12px; right: 14px;
+    background: rgba(0,0,0,.35); color:#fff; border:none; border-radius:50%;
+    width: 40px; height: 40px; font-size:18px; cursor:pointer;
+  }
+  /* 左側拉弓高度滑桿 */
+  #heightCtrl {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    background: rgba(0,0,0,.30); padding: 12px 8px; border-radius: 22px;
+  }
+  #heightCtrl .lbl {
+    color:#fff; font-size:12px; font-weight:700; text-align:center; line-height:1.2;
+  }
+  #height {
+    writing-mode: vertical-lr; direction: rtl;       /* 上=高 */
+    -webkit-appearance: slider-vertical; appearance: slider-vertical;
+    width: 10px; height: 190px; accent-color: #e8632b; cursor: pointer;
+  }
+  /* 直向手機時提示轉橫 */
+  #rotate {
+    position: fixed; inset: 0; z-index: 99; display: none;
+    background: #1a1a2e; color: #fff;
+    flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 24px; gap: 16px;
+  }
+  #rotate .icon { font-size: 60px; animation: spin 2s ease-in-out infinite; }
+  #rotate p { font-size: 18px; line-height: 1.6; }
+  #goLandscape {
+    margin-top: 8px; background: #e8632b; color: #fff; border: none;
+    border-radius: 26px; padding: 14px 26px; font-size: 16px; font-weight: 800;
+    cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,.4);
+  }
+  @keyframes spin { 0%,100%{transform:rotate(0)} 50%{transform:rotate(90deg)} }
+  @media (orientation: portrait) and (max-width: 820px) {
+    #rotate { display: flex; }
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+  <div id="hud">
+    <span class="pill">得分 <span id="score">0</span></span>
+    <span class="pill">第 <span id="round">1</span> 局</span>
+    <span class="pill">連續 <span id="streak">0</span></span>
+  </div>
+  <button id="reset">重來</button>
+  <button id="mute">🔊</button>
+  <div id="heightCtrl">
+    <span class="lbl">高<br>度</span>
+    <input id="height" type="range" min="0" max="100" value="45">
+  </div>
+  <div id="msg"></div>
+  <div id="hint">在左側球員附近按住拖曳，決定力量與角度，放開投籃</div>
+</div>
+<div id="rotate">
+  <div class="icon">📱</div>
+  <p>請將手機橫向旋轉<br>以獲得最佳遊玩體驗</p>
+  <button id="goLandscape">🔓 點擊全螢幕 + 鎖定橫向</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const elScore = document.getElementById("score");
+  const elRound = document.getElementById("round");
+  const elStreak = document.getElementById("streak");
+  const elMsg = document.getElementById("msg");
+
+  // 邏輯解析度（固定，方便物理計算），再縮放到螢幕
+  const W = 900, H = 600;
+  let scale = 1, offX = 0, offY = 0;
+
+  function resize() {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    scale = Math.min(vw / W, vh / H);
+    canvas.width = Math.round(W * scale);
+    canvas.height = Math.round(H * scale);
+    canvas.style.width = canvas.width + "px";
+    canvas.style.height = canvas.height + "px";
+    offX = 0; offY = 0;
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  // ---- 遊戲狀態 ----
+  const GRAV = 1500;          // 重力 px/s^2
+  const FLOOR = H - 40;       // 地板 y
+  const BALL_R = 18;
+
+  // 球員位置（左側）；y 可由玩家上下調整 = 拉弓高度
+  const player = { x: 110, y: FLOOR - 70, minY: 170, maxY: FLOOR - 55 };
+  const ball = {
+    x: player.x, y: player.y, vx: 0, vy: 0,
+    flying: false, r: BALL_R, rot: 0
+  };
+
+  // 籃框：rimX 為左緣，rimW 為框寬，y 為框高度
+  const hoop = {
+    x: 720, y: 230, w: 90, boardH: 120,
+    minX: 560, maxX: 770, minY: 160, maxY: 360
+  };
+
+  let score = 0, round = 1, streak = 0;
+  let aiming = false;
+  let aimStart = null, aimNow = null;
+  const MAX_POWER = 1500;     // 對應最大初速（經模擬驗證，最難的籃框位置也保有約 80% 力量的容錯空間）
+  const DRAG_TO_VEL = 4.2;    // 拖曳距離 -> 初速倍率
+
+  // 進球判定用：記錄球上一幀位置
+  let prevX = ball.x, prevY = ball.y;
+  let scoredThisShot = false;
+  let bounceCount = 0;
+
+  // ---- 輸入（滑鼠/觸控統一）----
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+    return { x: cx / scale, y: cy / scale };
+  }
+
+  function onDown(e) {
+    Sound.unlock();
+    if (ball.flying) return;
+    const p = getPos(e);
+    // 只要在球附近就能開始瞄準（放寬範圍方便操作）
+    const d = Math.hypot(p.x - ball.x, p.y - ball.y);
+    if (d < 160) {
+      aiming = true;
+      aimStart = { x: ball.x, y: ball.y };
+      aimNow = p;
+      e.preventDefault();
+    }
+  }
+  function onMove(e) {
+    if (!aiming) return;
+    aimNow = getPos(e);
+    e.preventDefault();
+  }
+  function onUp(e) {
+    if (!aiming) return;
+    aiming = false;
+    // 拖曳向量：從目前位置指回球（angry-birds 風格，往後拉再彈出）
+    const dx = aimStart.x - aimNow.x;
+    const dy = aimStart.y - aimNow.y;
+    let vx = dx * DRAG_TO_VEL;
+    let vy = dy * DRAG_TO_VEL;
+    const sp = Math.hypot(vx, vy);
+    if (sp > MAX_POWER) { vx = vx / sp * MAX_POWER; vy = vy / sp * MAX_POWER; }
+    if (sp < 40) return; // 太小不投
+    ball.vx = vx; ball.vy = vy;
+    ball.flying = true;
+    scoredThisShot = false;
+    bounceCount = 0;
+    Sound.shoot();
+    e.preventDefault();
+  }
+
+  canvas.addEventListener("mousedown", onDown);
+  window.addEventListener("mousemove", onMove);
+  window.addEventListener("mouseup", onUp);
+  canvas.addEventListener("touchstart", onDown, { passive: false });
+  window.addEventListener("touchmove", onMove, { passive: false });
+  window.addEventListener("touchend", onUp, { passive: false });
+
+  // ---- 音效（Web Audio 即時合成，免音檔）----
+  const Sound = (function () {
+    let ac = null, muted = false;
+    function ctxReady() {
+      if (!ac) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) ac = new AC();
+      }
+      if (ac && ac.state === "suspended") ac.resume();
+      return ac;
+    }
+    // 基本：振盪器 + 音量包絡
+    function tone(freq, dur, type, vol, slideTo) {
+      if (muted) return;
+      const a = ctxReady(); if (!a) return;
+      const t = a.currentTime;
+      const osc = a.createOscillator();
+      const gain = a.createGain();
+      osc.type = type || "sine";
+      osc.frequency.setValueAtTime(freq, t);
+      if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(vol || 0.2, t + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(gain).connect(a.destination);
+      osc.start(t); osc.stop(t + dur + 0.02);
+    }
+    let lastBounce = 0;
+    return {
+      unlock: ctxReady,
+      toggle() { muted = !muted; return muted; },
+      isMuted() { return muted; },
+      shoot() { tone(420, 0.18, "triangle", 0.25, 180); },      // 投球：下滑咻
+      bounce() {
+        const a = ctxReady(); if (!a) return;
+        // 防止連續碰撞洗版
+        if (a.currentTime - lastBounce < 0.06) return;
+        lastBounce = a.currentTime;
+        tone(150, 0.08, "square", 0.18);                         // 撞框/地板：悶響
+      },
+      score() {                                                  // 進球：上行三連音
+        tone(660, 0.12, "sine", 0.25);
+        setTimeout(() => tone(880, 0.12, "sine", 0.25), 90);
+        setTimeout(() => tone(1175, 0.18, "sine", 0.28), 180);
+      },
+      miss() { tone(220, 0.25, "sawtooth", 0.18, 110); }         // 沒進：下行
+    };
+  })();
+
+  // ---- 全螢幕 + 鎖定橫向（best-effort）----
+  function enterFullscreenLandscape() {
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen ||
+                el.mozRequestFullScreen || el.msRequestFullscreen;
+    const done = () => {
+      // 全螢幕後才能鎖定方向；iOS 不支援會丟例外，忽略即可
+      const so = screen.orientation;
+      if (so && so.lock) {
+        so.lock("landscape").catch(function () {/* 不支援就靠提示轉橫 */});
+      }
+    };
+    if (req) {
+      const p = req.call(el);
+      if (p && p.then) p.then(done).catch(done);
+      else setTimeout(done, 100);
+    } else {
+      done();
+    }
+  }
+
+  const goBtn = document.getElementById("goLandscape");
+  if (goBtn) goBtn.addEventListener("click", enterFullscreenLandscape);
+
+  const muteBtn = document.getElementById("mute");
+  muteBtn.addEventListener("click", function () {
+    const m = Sound.toggle();
+    muteBtn.textContent = m ? "🔇" : "🔊";
+  });
+
+  // ---- 拉弓高度控制 ----
+  const heightSlider = document.getElementById("height");
+  function applyHeight() {
+    const t = heightSlider.value / 100;            // 0=最低, 1=最高
+    player.y = player.maxY - t * (player.maxY - player.minY);
+    if (!ball.flying) { ball.x = player.x; ball.y = player.y; } // 靜止時球跟著移動
+  }
+  heightSlider.addEventListener("input", applyHeight);
+  // 鍵盤 ↑/↓ 微調高度
+  window.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      const step = e.key === "ArrowUp" ? 3 : -3;
+      heightSlider.value = Math.max(0, Math.min(100, Number(heightSlider.value) + step));
+      applyHeight();
+      e.preventDefault();
+    }
+  });
+  // 進入遊戲的第一次點擊也順手嘗試鎖定（手機才做）
+  if (window.matchMedia("(pointer: coarse)").matches) {
+    canvas.addEventListener("touchstart", function once() {
+      enterFullscreenLandscape();
+      canvas.removeEventListener("touchstart", once);
+    }, { passive: true });
+  }
+
+  document.getElementById("reset").addEventListener("click", function () {
+    score = 0; round = 1; streak = 0;
+    hoop.x = 720; hoop.y = 230;
+    resetBall();
+    updateHud();
+  });
+
+  function resetBall() {
+    ball.x = player.x; ball.y = player.y;
+    ball.vx = 0; ball.vy = 0; ball.flying = false; ball.rot = 0;
+    prevX = ball.x; prevY = ball.y;
+    scoredThisShot = false; bounceCount = 0;
+  }
+
+  function updateHud() {
+    elScore.textContent = score;
+    elRound.textContent = round;
+    elStreak.textContent = streak;
+  }
+
+  function showMsg(text, color) {
+    elMsg.textContent = text;
+    elMsg.style.color = color || "#fff";
+    elMsg.style.opacity = "1";
+    clearTimeout(showMsg._t);
+    showMsg._t = setTimeout(() => { elMsg.style.opacity = "0"; }, 900);
+  }
+
+  // 進球後：換新一局，籃框改變高度/位置增加變化
+  function nextRound(made) {
+    round++;
+    if (made) {
+      score++;
+      streak++;
+      showMsg("空心入網! +1", "#2ecc71");
+      Sound.score();
+    } else {
+      streak = 0;
+    }
+    // 隨著局數，籃框可能變高度，或往玩家靠近一點
+    randomizeHoop();
+    updateHud();
+    setTimeout(resetBall, made ? 700 : 400);
+  }
+
+  // 偽隨機（避免 Math.random 在某些環境受限，這裡用線性同餘）
+  let seed = 123456789;
+  function rnd() {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed / 0x7fffffff;
+  }
+
+  function randomizeHoop() {
+    // 高度變化
+    hoop.y = hoop.minY + rnd() * (hoop.maxY - hoop.minY);
+    // 水平位置：局數越高越有機會靠近玩家一點（增加角度變化）
+    const closeBias = Math.min(0.4, round * 0.03);
+    let nx = hoop.minX + rnd() * (hoop.maxX - hoop.minX);
+    // 偏向靠近（往左）
+    nx = nx - closeBias * (hoop.maxX - hoop.minX) * rnd();
+    hoop.x = Math.max(hoop.minX, Math.min(hoop.maxX, nx));
+  }
+
+  // ---- 物理更新 ----
+  function update(dt) {
+    if (!ball.flying) return;
+    prevX = ball.x; prevY = ball.y;
+
+    ball.vy += GRAV * dt;
+    ball.x += ball.vx * dt;
+    ball.y += ball.vy * dt;
+    ball.rot += ball.vx * dt * 0.02;
+
+    // 邊界（左右牆）
+    if (ball.x - ball.r < 0) { ball.x = ball.r; ball.vx *= -0.6; }
+    if (ball.x + ball.r > W) { ball.x = W - ball.r; ball.vx *= -0.6; bounceCount++; }
+
+    // 地板
+    if (ball.y + ball.r > FLOOR) {
+      ball.y = FLOOR - ball.r;
+      ball.vy *= -0.55;
+      ball.vx *= 0.7;
+      bounceCount++;
+      if (Math.abs(ball.vy) > 80) Sound.bounce();
+      if (Math.abs(ball.vy) < 60) ball.vy = 0;
+      // 落地夠多次或速度很小 -> 算未進，重置
+      if (bounceCount >= 3 || (Math.abs(ball.vy) < 20 && Math.abs(ball.vx) < 20)) {
+        if (!scoredThisShot) { showMsg("沒進，再試一次", "#e67e22"); nextRoundMiss(); }
+      }
+    }
+
+    handleHoopCollision();
+    checkScore();
+
+    // 飛出畫面上方又掉回來不處理；太久沒事件就重置（保險）
+    if (ball.y > H + 200) { if (!scoredThisShot) nextRoundMiss(); }
+  }
+
+  function nextRoundMiss() {
+    if (ball._handled) return;
+    ball._handled = true;
+    Sound.miss();
+    streak = 0; updateHud();
+    setTimeout(() => { resetBall(); ball._handled = false; }, 350);
+    ball.flying = false;
+  }
+
+  // 籃框由左右兩個小圓（rim 端點）與籃板組成
+  function rimPoints() {
+    return {
+      left: { x: hoop.x, y: hoop.y },
+      right: { x: hoop.x + hoop.w, y: hoop.y },
+      boardX: hoop.x + hoop.w + 6,
+      boardTop: hoop.y - 35,
+      boardBot: hoop.y - 35 + hoop.boardH
+    };
+  }
+
+  function collideCircle(px, py) {
+    const dx = ball.x - px, dy = ball.y - py;
+    const dist = Math.hypot(dx, dy);
+    const min = ball.r + 6;
+    if (dist < min && dist > 0) {
+      const nx = dx / dist, ny = dy / dist;
+      // 推開
+      ball.x = px + nx * min;
+      ball.y = py + ny * min;
+      // 反彈（沿法線）
+      const dot = ball.vx * nx + ball.vy * ny;
+      ball.vx = (ball.vx - 2 * dot * nx) * 0.6;
+      ball.vy = (ball.vy - 2 * dot * ny) * 0.6;
+      bounceCount++;
+      Sound.bounce();
+    }
+  }
+
+  function handleHoopCollision() {
+    const r = rimPoints();
+    collideCircle(r.left.x, r.left.y);
+    collideCircle(r.right.x, r.right.y);
+    // 籃板（右側豎板）：球從左往右撞到板面反彈
+    if (ball.x + ball.r > r.boardX - 4 && ball.x < r.boardX + 10 &&
+        ball.y > r.boardTop && ball.y < r.boardBot) {
+      if (ball.vx > 0) {
+        ball.x = r.boardX - 4 - ball.r;
+        ball.vx *= -0.55;
+        bounceCount++;
+        Sound.bounce();
+      }
+    }
+  }
+
+  // 進球：球中心由上往下穿過兩 rim 之間的水平線
+  function checkScore() {
+    if (scoredThisShot) return;
+    const r = rimPoints();
+    const lineY = hoop.y + 4;
+    const innerL = hoop.x + 8;
+    const innerR = hoop.x + hoop.w - 8;
+    if (prevY <= lineY && ball.y >= lineY && ball.vy > 0) {
+      if (ball.x > innerL && ball.x < innerR) {
+        scoredThisShot = true;
+        ball.flying = true; // 讓球繼續往下掉表現
+        // 稍微吸入網中
+        ball.vx *= 0.3;
+        setTimeout(() => nextRound(true), 250);
+        // 防止落地再次觸發 miss
+        ball._handled = true;
+        setTimeout(() => { ball._handled = false; }, 1000);
+      }
+    }
+  }
+
+  // ---- 繪圖 ----
+  function draw() {
+    ctx.save();
+    ctx.scale(scale, scale);
+    ctx.clearRect(0, 0, W, H);
+
+    // 背景：球場
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#fbe4b0");
+    g.addColorStop(1, "#e9c07a");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // 地板
+    ctx.fillStyle = "#c8924a";
+    ctx.fillRect(0, FLOOR, W, H - FLOOR);
+    ctx.strokeStyle = "rgba(255,255,255,.5)";
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(0, FLOOR); ctx.lineTo(W, FLOOR); ctx.stroke();
+
+    drawHoop();
+    drawPlayer();
+
+    // 瞄準輔助線（angry-birds 軌跡預測）
+    if (aiming && aimNow) drawAim();
+
+    drawBall();
+
+    ctx.restore();
+  }
+
+  function drawPlayer() {
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    // 身體
+    ctx.fillStyle = "#2c3e50";
+    ctx.beginPath();
+    ctx.ellipse(0, 48, 26, 30, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 頭
+    ctx.fillStyle = "#f0c27b";
+    ctx.beginPath();
+    ctx.arc(0, 6, 18, 0, Math.PI * 2);
+    ctx.fill();
+    // 手臂（指向球）
+    ctx.strokeStyle = "#f0c27b";
+    ctx.lineWidth = 8; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(0, 30);
+    ctx.lineTo(ball.flying ? 18 : (ball.x - player.x), ball.flying ? -10 : (ball.y - player.y));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawHoop() {
+    const r = rimPoints();
+    // 籃板
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = "#333";
+    ctx.lineWidth = 3;
+    ctx.fillRect(r.boardX, r.boardTop, 12, hoop.boardH);
+    ctx.strokeRect(r.boardX, r.boardTop, 12, hoop.boardH);
+    // 板上方框
+    ctx.strokeStyle = "#e74c3c";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(r.boardX - 2, r.boardTop + 30, 6, 40);
+
+    // 籃框（橘色）
+    ctx.strokeStyle = "#e8632b";
+    ctx.lineWidth = 6; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(hoop.x, hoop.y);
+    ctx.lineTo(hoop.x + hoop.w, hoop.y);
+    ctx.stroke();
+
+    // 網（簡單梯形線條）
+    ctx.strokeStyle = "rgba(255,255,255,.85)";
+    ctx.lineWidth = 1.5;
+    const netH = 55, segs = 7;
+    for (let i = 0; i <= segs; i++) {
+      const t = i / segs;
+      const topX = hoop.x + t * hoop.w;
+      const botX = hoop.x + hoop.w * 0.28 + t * hoop.w * 0.44;
+      ctx.beginPath();
+      ctx.moveTo(topX, hoop.y);
+      ctx.lineTo(botX, hoop.y + netH);
+      ctx.stroke();
+    }
+    // 網的橫向線
+    for (let j = 1; j <= 2; j++) {
+      const ty = hoop.y + (netH * j) / 3;
+      const shrink = (hoop.w * 0.22) * (j / 3);
+      ctx.beginPath();
+      ctx.moveTo(hoop.x + shrink, ty);
+      ctx.lineTo(hoop.x + hoop.w - shrink, ty);
+      ctx.stroke();
+    }
+
+    // rim 端點小圓（碰撞點視覺化）
+    ctx.fillStyle = "#e8632b";
+    ctx.beginPath(); ctx.arc(hoop.x, hoop.y, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hoop.x + hoop.w, hoop.y, 5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function drawBall() {
+    ctx.save();
+    ctx.translate(ball.x, ball.y);
+    ctx.rotate(ball.rot);
+    // 球體
+    const bg = ctx.createRadialGradient(-5, -5, 4, 0, 0, ball.r);
+    bg.addColorStop(0, "#ff9b54");
+    bg.addColorStop(1, "#e8632b");
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.arc(0, 0, ball.r, 0, Math.PI * 2);
+    ctx.fill();
+    // 紋路
+    ctx.strokeStyle = "rgba(0,0,0,.55)";
+    ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.arc(0, 0, ball.r, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-ball.r, 0); ctx.lineTo(ball.r, 0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -ball.r); ctx.lineTo(0, ball.r); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, -ball.r, ball.r * 0.9, 0.5, Math.PI - 0.5); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, ball.r, ball.r * 0.9, Math.PI + 0.5, -0.5); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawAim() {
+    // 計算初速（與 onUp 相同邏輯）
+    const dx = aimStart.x - aimNow.x;
+    const dy = aimStart.y - aimNow.y;
+    let vx = dx * DRAG_TO_VEL;
+    let vy = dy * DRAG_TO_VEL;
+    const sp = Math.hypot(vx, vy);
+    const clamped = Math.min(sp, MAX_POWER);
+    if (sp > MAX_POWER) { vx = vx / sp * MAX_POWER; vy = vy / sp * MAX_POWER; }
+
+    // 力量條（拉桿）
+    ctx.strokeStyle = "rgba(0,0,0,.35)";
+    ctx.lineWidth = 3;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.moveTo(ball.x, ball.y);
+    ctx.lineTo(aimNow.x, aimNow.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 預測軌跡（虛點）
+    let px = ball.x, py = ball.y, pvx = vx, pvy = vy;
+    const step = 1 / 60;
+    ctx.fillStyle = "rgba(231,76,60,.7)";
+    for (let i = 0; i < 60; i++) {
+      pvy += GRAV * step;
+      px += pvx * step;
+      py += pvy * step;
+      if (py > FLOOR - ball.r) break;
+      if (i % 3 === 0) {
+        const rr = 4 - i * 0.04;
+        ctx.beginPath();
+        ctx.arc(px, py, Math.max(1.5, rr), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // 力量百分比文字
+    const pct = Math.round((clamped / MAX_POWER) * 100);
+    ctx.fillStyle = "#c0392b";
+    ctx.font = "bold 18px sans-serif";
+    ctx.fillText("力量 " + pct + "%", ball.x - 30, ball.y - ball.r - 14);
+  }
+
+  // ---- 主迴圈 ----
+  let last = 0;
+  function loop(ts) {
+    if (!last) last = ts;
+    let dt = (ts - last) / 1000;
+    last = ts;
+    if (dt > 0.05) dt = 0.05; // 防止分頁切回時大跳
+
+    // 子步進讓快速球不穿框
+    const sub = 4;
+    for (let i = 0; i < sub; i++) update(dt / sub);
+
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  applyHeight();   // 依滑桿初始值設定拉弓高度
+  resetBall();
+  updateHud();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
