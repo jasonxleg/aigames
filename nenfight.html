@@ -396,7 +396,7 @@ function handleMessage(msg) {
             break;
         case 'gem': // host 廣播寶石生成 (guest 接收)
             if (game.state !== 'playing') return;
-            gems.push({ id: msg.id, x: msg.x, y: msg.y, z: SPAWN_Z, type: msg.type, pulse: 0, radius: 16 });
+            gems.push({ id: msg.id, x: msg.x, y: msg.y, z: SPAWN_Z, type: msg.type, pulse: 0, radius: GEM_RADIUS });
             break;
         case 'gc': // 對方收集了寶石 → 移除並對 remotePlayer 套用效果
             if (game.state !== 'playing') return;
@@ -460,6 +460,8 @@ const GEM_SCATTER = 1;               // 扇形散彈
 const GEM_SHIELD  = 2;               // 防護罩
 const GEM_MUSHROOM = 3;              // 香菇 (讓對方變小)
 const GEM_LASER   = 4;               // 雷射
+const GEM_RADIUS  = 26;              // 寶石半徑（放大，手機較好辨識）
+const GEM_MIN_GAP = 300;             // 寶石彼此最小間距（避免生成太近）
 function gemColor(type) {
     switch (type) {
         case GEM_SCATTER:  return '#ffd54a';
@@ -484,8 +486,48 @@ function project(x, y, z) {
 const MATCH_FRAMES = 90 * 60;
 const game = {
     state: 'playing', winner: null, timeLeft: MATCH_FRAMES, speed: 5, shake: 0,
-    flashColor: null, flashTime: 0, frame: 0, loopStarted: false
+    flashColor: null, flashTime: 0, frame: 0, loopStarted: false,
+    warpBoost: 0   // 吃到 gem 時的穿梭加速計時（仿 infinite_nen_fall25D 按 space 的加速感）
 };
+const WARP_BOOST_FRAMES = 50;
+
+// ============= 音效系統 (WebAudio；手機需在使用者手勢後解鎖) =============
+const audio = { ctx: null, master: null, enabled: true };
+function initAudio() {
+    if (audio.ctx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audio.ctx = new AC();
+    audio.master = audio.ctx.createGain();
+    audio.master.gain.value = 0.4;
+    audio.master.connect(audio.ctx.destination);
+}
+// 在使用者手勢中呼叫：建立 / 恢復 AudioContext（iOS Safari 必須）
+function unlockAudio() {
+    initAudio();
+    if (audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume();
+}
+// 以振盪器合成單音；slideTo 指定頻率滑移目標
+function beep(freq, dur, type, vol, slideTo) {
+    if (!audio.ctx || !audio.enabled || audio.ctx.state !== 'running') return;
+    const t = audio.ctx.currentTime;
+    const osc = audio.ctx.createOscillator();
+    const g = audio.ctx.createGain();
+    osc.type = type || 'square';
+    osc.frequency.setValueAtTime(freq, t);
+    if (slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(1, slideTo), t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol || 0.3, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g); g.connect(audio.master);
+    osc.start(t); osc.stop(t + dur + 0.03);
+}
+function sfxShoot() { beep(620, 0.09, 'square', 0.16, 300); }
+function sfxLaser() { beep(880, 0.22, 'sawtooth', 0.20, 180); }
+function sfxNova()  { beep(150, 0.40, 'sawtooth', 0.28, 60); }
+function sfxGem()   { beep(520, 0.10, 'triangle', 0.30, 1040); } // 上揚收集音
+function sfxHit()   { beep(200, 0.18, 'square', 0.30, 80); }
+function sfxKO()    { beep(330, 0.6, 'sawtooth', 0.30, 110); }
 
 function createPlayer(id, color, accentColor, coreColor, startX) {
     return {
@@ -513,6 +555,10 @@ const touchInput = {
     joystick: { active: false, startX: 0, startY: 0, curX: 0, curY: 0, dx: 0, dy: 0, id: null },
     aim: { active: false, id: null }
 };
+
+// 任何使用者手勢都嘗試解鎖音訊（手機首次互動後才有聲音）
+['touchstart', 'mousedown', 'keydown'].forEach(ev =>
+    window.addEventListener(ev, unlockAudio, { passive: true }));
 
 document.addEventListener('keydown', e => {
     const k = e.key.toLowerCase();
@@ -685,10 +731,12 @@ function applyGemEffect(eaterIsLocal, type, gx, gy) {
     // 仿 infinite_nen_fall25D 按 space 的黑洞穿梭：自畫面中央爆發旋轉擴散的彩色粒子 + 強烈震動
     spawnBlackholeBurst();
     game.shake = Math.max(game.shake, 22);
+    sfxGem();
 }
 
 // 黑洞爆發粒子：從畫面中央向外螺旋擴散後淡出（仿 space 穿梭特效）
 function spawnBlackholeBurst() {
+    game.warpBoost = WARP_BOOST_FRAMES;   // 觸發穿梭加速感
     for (let i = 0; i < 160; i++) {
         blackholeParticles.push({
             angle: Math.random() * Math.PI * 2,
@@ -748,9 +796,13 @@ function updateLocalPlayer() {
     if (p.nen < p.maxNen) p.nen += 0.18;
     updatePowerState(p);
 
-    // 手動瞄準：依玩家的滑鼠/觸控方向決定射擊角度（不自動鎖定敵方）
-    const sx = mouse.x - (cam.cx + p.x); const sy = mouse.y - (cam.cy + p.y);
-    p.aimAngle = Math.atan2(sy, sx);
+    // 瞄準箭頭即時對準敵方（自動鎖定方向）；子彈仍以發射當下的方向直線前進、不追蹤
+    if (remotePlayer) {
+        p.aimAngle = Math.atan2(remotePlayer.y - p.y, remotePlayer.x - p.x);
+    } else {
+        const sx = mouse.x - (cam.cx + p.x); const sy = mouse.y - (cam.cy + p.y);
+        p.aimAngle = Math.atan2(sy, sx);
+    }
 
     if (mouse.down && p.shootCD <= 0 && p.nen >= 4) {
         const ang = p.aimAngle;
@@ -759,6 +811,7 @@ function updateLocalPlayer() {
             fireLaser(p, ang);
             send({ t: 'laser', x: p.x, y: p.y, a: ang });
             p.shootCD = 28; p.nen -= 8; game.shake = Math.max(game.shake, 5);
+            sfxLaser();
         } else if (p.powerType === GEM_SCATTER) {
             // 扇形散彈：一次 5 發
             const spread = 0.34;
@@ -768,11 +821,13 @@ function updateLocalPlayer() {
             }
             p.shootCD = 16; p.nen -= 6;
             spawnParticle(p.x + Math.cos(ang)*4, p.y + Math.sin(ang)*4, 0, p.color, 4, 1.6);
+            sfxShoot();
         } else {
             // 一般念彈
             fireBullet(p, ang, 8, 5);
             p.shootCD = 11; p.nen -= 4;
             spawnParticle(p.x + Math.cos(ang)*4, p.y + Math.sin(ang)*4, 0, p.color, 3, 1.4);
+            sfxShoot();
         }
     }
 
@@ -784,6 +839,7 @@ function updateLocalPlayer() {
         });
         send({ t: 'n', x: p.x, y: p.y });
         p.novaCD = 120; p.nen -= 40; game.shake = 8;
+        sfxNova();
     }
 }
 
@@ -902,12 +958,14 @@ function dealDamageToRemote(dmg, sx, sy) {
     remotePlayer.hitFlash = 14; remotePlayer.invincible = 18; 
     game.shake = Math.max(game.shake, 8);
     spawnParticle(sx, sy, 0, remotePlayer.color, 8, 2);
+    sfxHit();
 }
 
 function applyDamageLocal(target, dmg, fx, fy) {
     target.hp -= dmg; target.invincible = 18; target.hitFlash = 14;
     game.shake = Math.max(game.shake, 12); game.flashColor = target.color; game.flashTime = 8;
     spawnParticle(fx, fy, 0, '#ff3344', 12, 3);
+    sfxHit();
     if (target.hp <= 0) {
         target.hp = 0;
         const winnerId = (target.id === 1) ? 2 : 1;
@@ -917,11 +975,17 @@ function applyDamageLocal(target, dmg, fx, fy) {
 }
 
 function updateTunnel() {
-    const adv = game.speed;
+    // 穿梭加速：吃到 gem 後短暫讓隧道/速度線高速衝刺並輕微推近鏡頭（仿 space 效果）
+    if (game.warpBoost > 0) game.warpBoost--;
+    const boost = game.warpBoost / WARP_BOOST_FRAMES;   // 1 → 0 漸退
+    cam.focal = 360 - boost * 80;                        // 鏡頭被吸入感
+    const adv = game.speed * (1 + boost * 3);            // 隧道前進 ×1～×4
+    const lineMult = 1 + boost * 4;                      // 速度線 ×1～×5
+
     wallLights.forEach(l => { l.z -= adv; if (l.z < -80) placeWallLight(l, MAX_Z); });
     tunnelRings.forEach(r => { r.z -= adv; if (r.z < 10) r.z += MAX_Z; });
     speedLines.forEach(s => {
-        s.r += s.speed;
+        s.r += s.speed * lineMult;
         if (s.r > 760) {
             s.r = Math.random() * 40; s.angle = Math.random() * Math.PI * 2;
             s.len = Math.random() * 90 + 30; s.opacity = Math.random() * 0.45 + 0.2;
@@ -955,9 +1019,15 @@ function update() {
     // host 權威生成寶石並廣播
     if (game.state === 'playing' && net.role === 'host' && gems.length < 3 && Math.random() < 0.012) {
         const type = Math.floor(Math.random() * 4) + 1;
-        const g = { id: ++gemSeq, x: (Math.random() - 0.5) * TUNNEL_W * 1.3, y: (Math.random() - 0.5) * TUNNEL_H * 1.3, z: SPAWN_Z, type, pulse: 0, radius: 16 };
-        gems.push(g);
-        send({ t: 'gem', id: g.id, x: g.x, y: g.y, type: g.type });
+        const gx = (Math.random() - 0.5) * TUNNEL_W * 1.3;
+        const gy = (Math.random() - 0.5) * TUNNEL_H * 1.3;
+        // 與既有寶石保持最小間距，避免擠在一起
+        const tooClose = gems.some(o => Math.hypot(o.x - gx, o.y - gy) < GEM_MIN_GAP);
+        if (!tooClose) {
+            const g = { id: ++gemSeq, x: gx, y: gy, z: SPAWN_Z, type, pulse: 0, radius: GEM_RADIUS };
+            gems.push(g);
+            send({ t: 'gem', id: g.id, x: g.x, y: g.y, type: g.type });
+        }
     }
 
     game.frame++;
@@ -980,6 +1050,7 @@ function endMatch(winnerId) {
     game.winner = winnerId;
     game.shake = 24;
     spawnParticle(0, 0, 0, '#ffd700', 60, 6);
+    sfxKO();
     document.getElementById('restartBtn').classList.remove('hidden'); // 顯示手機重開按鈕
 }
 
@@ -989,6 +1060,7 @@ function resetMatch() {
     gems.length = 0; lasers.length = 0; mushrooms.length = 0;
     blackholeCore.timeLeft = 0;
     blackholeParticles.length = 0;
+    game.warpBoost = 0; cam.focal = 360;
 
     // 清空手勢瞄準，防止重開局瞬間自動開火
     mouse.down = false; touchInput.aim.active = false; touchInput.aim.id = null;
@@ -1043,10 +1115,15 @@ function drawTunnel() {
 }
 
 function drawSpeedLines() {
+    const boost = game.warpBoost / WARP_BOOST_FRAMES;       // 加速時速度線更亮更長
+    const opMult = 1 + boost * 1.6;
+    const lenMult = 1 + boost * 1.8;
     speedLines.forEach(s => {
+        const len = s.len * lenMult;
         const x1 = cam.cx + Math.cos(s.angle) * s.r; const y1 = cam.cy + Math.sin(s.angle) * s.r;
-        const x2 = cam.cx + Math.cos(s.angle) * (s.r + s.len); const y2 = cam.cy + Math.sin(s.angle) * (s.r + s.len);
-        ctx.strokeStyle = `hsla(${s.hue}, 85%, 65%, ${s.opacity})`; ctx.lineWidth = 1.5;
+        const x2 = cam.cx + Math.cos(s.angle) * (s.r + len); const y2 = cam.cy + Math.sin(s.angle) * (s.r + len);
+        ctx.strokeStyle = `hsla(${s.hue}, 85%, 65%, ${Math.min(1, s.opacity * opMult)})`;
+        ctx.lineWidth = 1.5 + boost * 1.5;
         ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
     });
 }
