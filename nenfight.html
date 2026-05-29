@@ -201,7 +201,7 @@
         <div id="tutorial" class="hidden">
             電腦：WASD移動 | 按住滑鼠射擊(自動鎖定敵方) | Q念波 | R重開<br>
             手機：左下角隱形搖桿移動 | 右半邊觸控射擊(自動鎖定) | 點擊按鈕放念波<br>
-            接寶石(10秒)：💎散彈 🛡️防護罩 🍄縮小對方 ⚡雷射
+            接寶石(10秒)：💎散彈 🛡️防護罩 🍄縮小對方 ⚡雷射 ❤️回血
         </div>
         <div id="netInfo" class="hidden">
             <span id="netRole"></span> ｜ Ping: <span id="netPing">--</span>ms
@@ -460,6 +460,9 @@ const GEM_SCATTER = 1;               // 扇形散彈
 const GEM_SHIELD  = 2;               // 防護罩
 const GEM_MUSHROOM = 3;              // 香菇 (讓對方變小)
 const GEM_LASER   = 4;               // 雷射
+const GEM_HEAL    = 5;               // 回血
+const HEAL_AMOUNT = 30;              // 回血量
+const GEM_TYPES   = 5;               // 寶石種類總數
 const GEM_RADIUS  = 26;              // 寶石半徑（放大，手機較好辨識）
 const GEM_MIN_GAP = 300;             // 寶石彼此最小間距（避免生成太近）
 function gemColor(type) {
@@ -468,6 +471,7 @@ function gemColor(type) {
         case GEM_SHIELD:   return '#4ad6ff';
         case GEM_MUSHROOM: return '#ff5aa0';
         case GEM_LASER:    return '#6cff6c';
+        case GEM_HEAL:     return '#ff4d6d';
         default: return '#ffffff';
     }
 }
@@ -489,7 +493,7 @@ const game = {
     flashColor: null, flashTime: 0, frame: 0, loopStarted: false,
     warpEnd: 0   // 吃到 gem 時的穿梭加速結束時間戳（仿 infinite_nen_fall25D 按 space 的加速感）
 };
-const WARP_BOOST_MS = 900;   // 加速持續時間（毫秒）；改用時間而非幀數，避免 120Hz 手機加速太短看不到
+const WARP_BOOST_MS = 5000;  // 加速持續時間（毫秒）；改用時間而非幀數，避免 120Hz 手機加速太短看不到
 // 目前的加速強度 0~1（依剩餘時間計算，與螢幕更新率無關）
 function warpBoostAmount() {
     return Math.max(0, Math.min(1, (game.warpEnd - Date.now()) / WARP_BOOST_MS));
@@ -541,6 +545,7 @@ function sfxNova()  { beep(150, 0.40, 'sawtooth', 0.28, 60); }
 function sfxGem()   { beep(520, 0.10, 'triangle', 0.30, 1040); } // 上揚收集音
 function sfxHit()   { beep(200, 0.18, 'square', 0.30, 80); }
 function sfxKO()    { beep(330, 0.6, 'sawtooth', 0.30, 110); }
+function sfxHeal()  { beep(440, 0.12, 'sine', 0.3, 660); beep(660, 0.18, 'sine', 0.26, 880); } // 柔和上揚雙音
 
 function createPlayer(id, color, accentColor, coreColor, startX) {
     return {
@@ -732,8 +737,13 @@ function applyGemEffect(eaterIsLocal, type, gx, gy) {
     const victim = eaterIsLocal ? remotePlayer : localPlayer;
     if (!eater || !victim) return;
 
-    eater.powerType = type;
-    eater.powerTime = POWER_DURATION;
+    if (type === GEM_HEAL) {
+        // 回血：立即恢復 HP（不授予持續強化）
+        eater.hp = Math.min(eater.maxHp, eater.hp + HEAL_AMOUNT);
+    } else {
+        eater.powerType = type;
+        eater.powerTime = POWER_DURATION;
+    }
 
     // 吃到任何 gem 都顯示中央黑洞核心，持續時間與 gem 相同；對方吃到則換色
     blackholeCore.timeLeft = POWER_DURATION;
@@ -748,7 +758,7 @@ function applyGemEffect(eaterIsLocal, type, gx, gy) {
     // 仿 infinite_nen_fall25D 按 space 的黑洞穿梭：自畫面中央爆發旋轉擴散的彩色粒子 + 強烈震動
     spawnBlackholeBurst();
     game.shake = Math.max(game.shake, 22);
-    sfxGem();
+    if (type === GEM_HEAL) sfxHeal(); else sfxGem();
 }
 
 // 黑洞爆發粒子：從畫面中央向外螺旋擴散後淡出（仿 space 穿梭特效）
@@ -1034,7 +1044,7 @@ function update() {
 
     // host 權威生成寶石並廣播
     if (game.state === 'playing' && net.role === 'host' && gems.length < 3 && Math.random() < 0.012) {
-        const type = Math.floor(Math.random() * 4) + 1;
+        const type = Math.floor(Math.random() * GEM_TYPES) + 1;
         const gx = (Math.random() - 0.5) * TUNNEL_W * 1.3;
         const gy = (Math.random() - 0.5) * TUNNEL_H * 1.3;
         // 與既有寶石保持最小間距，避免擠在一起
@@ -1233,6 +1243,15 @@ function drawGemIcon(type, r, col) {
         ctx.fillStyle = '#063b06';
         ctx.beginPath(); ctx.moveTo(0, -ic - r * 0.1); ctx.lineTo(-ic * 0.35, -ic * 0.4); ctx.lineTo(ic * 0.35, -ic * 0.4); ctx.closePath(); ctx.fill();
         ctx.beginPath(); ctx.moveTo(0, ic + r * 0.1); ctx.lineTo(-ic * 0.35, ic * 0.4); ctx.lineTo(ic * 0.35, ic * 0.4); ctx.closePath(); ctx.fill();
+    } else if (type === GEM_HEAL) {
+        // 回血：白色愛心
+        ctx.fillStyle = '#ffffff';
+        const h = ic;
+        ctx.beginPath();
+        ctx.moveTo(0, -h * 0.3);
+        ctx.bezierCurveTo(-h * 0.55, -h * 0.95, -h * 1.1, -h * 0.1, 0, h * 0.6);
+        ctx.bezierCurveTo(h * 1.1, -h * 0.1, h * 0.55, -h * 0.95, 0, -h * 0.3);
+        ctx.closePath(); ctx.fill();
     } else {
         // 預設：白色核心
         ctx.fillStyle = 'rgba(255,255,255,0.8)';
