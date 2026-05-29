@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
-    <title>無限念界 - 線上對戰 (Cross-Platform Fixed)</title>
+    <title>無限念界 - 線上對戰加強版</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; }
         body {
@@ -199,8 +199,9 @@
         </div>
         
         <div id="tutorial" class="hidden">
-            電腦：WASD移動 | 滑鼠瞄準射擊 | Q念波 | R重開<br>
-            手機：左下角隱形搖桿移動 | 右半邊觸控瞄準射擊 | 點擊按鈕放念波
+            電腦：WASD移動 | 按住滑鼠射擊(自動鎖定敵方) | Q念波 | R重開<br>
+            手機：左下角隱形搖桿移動 | 右半邊觸控射擊(自動鎖定) | 點擊按鈕放念波<br>
+            接寶石(10秒)：💎散彈 🛡️防護罩 🍄縮小對方 ⚡雷射
         </div>
         <div id="netInfo" class="hidden">
             <span id="netRole"></span> ｜ Ping: <span id="netPing">--</span>ms
@@ -375,6 +376,8 @@ function handleMessage(msg) {
             net.remote.aim = msg.a;
             if (remotePlayer.hitFlash <= 0) remotePlayer.hp = msg.hp;
             remotePlayer.nen = msg.nen;
+            // 同步對方的強化狀態 (用於護盾擋傷判定與縮小渲染)
+            if (msg.pw !== undefined) { remotePlayer.powerType = msg.pw; remotePlayer.powerTime = msg.pt; remotePlayer.shrinkTime = msg.sk; }
             break;
         case 'b':
             if (game.state !== 'playing') return;
@@ -391,8 +394,26 @@ function handleMessage(msg) {
             });
             game.shake = Math.max(game.shake, 6);
             break;
+        case 'gem': // host 廣播寶石生成 (guest 接收)
+            if (game.state !== 'playing') return;
+            gems.push({ id: msg.id, x: msg.x, y: msg.y, z: SPAWN_Z, type: msg.type, pulse: 0, radius: 16 });
+            break;
+        case 'gc': // 對方收集了寶石 → 移除並對 remotePlayer 套用效果
+            if (game.state !== 'playing') return;
+            for (let i = gems.length - 1; i >= 0; i--) { if (gems[i].id === msg.id) { gems.splice(i, 1); break; } }
+            applyGemEffect(false, msg.type, msg.x, msg.y);
+            break;
+        case 'laser': // 對方發射雷射 (純渲染，傷害由對方權威端透過 'd' 送達)
+            if (game.state !== 'playing') return;
+            lasers.push({ ownerId: remotePlayer.id, x: msg.x, y: msg.y, angle: msg.a, life: 14, len: 1600, color: remotePlayer.color, remote: true });
+            game.shake = Math.max(game.shake, 5);
+            break;
         case 'd':
             if (game.state !== 'playing') return;
+            if (localPlayer.powerType === GEM_SHIELD) { // 防護罩：擋下傷害
+                spawnParticle(msg.sx, msg.sy, 0, '#4ad6ff', 8, 2);
+                break;
+            }
             applyDamageLocal(localPlayer, msg.dmg, msg.sx, msg.sy);
             break;
         case 'ko':
@@ -431,6 +452,28 @@ const cam = { cx: W / 2, cy: H / 2 + 90, focal: 360 };
 const TUNNEL_W = 320;
 const TUNNEL_H = 380;
 const MAX_Z = 3000;
+const SPAWN_Z = 2700;
+
+// ============= 寶石強化系統設定 =============
+const POWER_DURATION = 600;          // 10 秒 (約 60fps)
+const GEM_SCATTER = 1;               // 扇形散彈
+const GEM_SHIELD  = 2;               // 防護罩
+const GEM_MUSHROOM = 3;              // 香菇 (讓對方變小)
+const GEM_LASER   = 4;               // 雷射
+function gemColor(type) {
+    switch (type) {
+        case GEM_SCATTER:  return '#ffd54a';
+        case GEM_SHIELD:   return '#4ad6ff';
+        case GEM_MUSHROOM: return '#ff5aa0';
+        case GEM_LASER:    return '#6cff6c';
+        default: return '#ffffff';
+    }
+}
+// drawBlackholeCore 調色盤：自己吃到 vs 對方吃到 顏色不同
+const CORE_PALETTE_SELF  = { d0: 'rgba(180, 50, 255, 0.85)', d1: 'rgba(255, 80, 200, 0.5)', d2: 'rgba(180, 50, 255, 0)', ring: 'rgba(255, 110, 255, 0.55)' };
+const CORE_PALETTE_ENEMY = { d0: 'rgba(50, 255, 180, 0.85)', d1: 'rgba(80, 255, 255, 0.5)', d2: 'rgba(50, 255, 180, 0)', ring: 'rgba(110, 255, 200, 0.55)' };
+// 中央黑洞核心狀態 (吃到 gem 時顯示，持續時間與 gem 相同)
+const blackholeCore = { timeLeft: 0, palette: CORE_PALETTE_SELF };
 
 function project(x, y, z) {
     const s = cam.focal / (cam.focal + z);
@@ -447,8 +490,9 @@ const game = {
 function createPlayer(id, color, accentColor, coreColor, startX) {
     return {
         id, color, accentColor, coreColor, x: startX, y: -100, vx: 0, vy: 0,
-        radius: 24, speed: 5.2, hp: 100, maxHp: 100, nen: 30, maxNen: 100,
-        invincible: 0, shootCD: 0, novaCD: 0, trail: [], aimAngle: 0, hitFlash: 0
+        radius: 24, baseRadius: 24, speed: 5.2, hp: 100, maxHp: 100, nen: 30, maxNen: 100,
+        invincible: 0, shootCD: 0, novaCD: 0, trail: [], aimAngle: 0, hitFlash: 0,
+        powerType: 0, powerTime: 0, shrinkTime: 0
     };
 }
 const player1 = createPlayer(1, '#ffb05a', '#1ec8d4', '#fff0c4', -140);
@@ -566,6 +610,8 @@ function triggerLocalRestart() {
 // ============= 物件池與粒子系統 =============
 const bullets = []; const particles = []; const novas = [];
 const speedLines = []; const tunnelRings = []; const wallLights = [];
+const gems = []; const lasers = []; const mushrooms = [];
+let gemSeq = 0;   // host 給 gem 的唯一編號
 
 for (let z = 80; z < MAX_Z; z += 120) tunnelRings.push({ z });
 function placeWallLight(l, z) {
@@ -593,6 +639,49 @@ function spawnParticle(x, y, z, color, count, speed) {
             life: 1, decay: 0.025 + Math.random() * 0.03, color, size: Math.random() * 4 + 2
         });
     }
+}
+
+// 發射單發念彈 (本地 + 廣播)
+function fireBullet(p, ang, speed, damage) {
+    const bx = p.x + Math.cos(ang) * (p.radius + 4);
+    const by = p.y + Math.sin(ang) * (p.radius + 4);
+    const bvx = Math.cos(ang) * speed, bvy = Math.sin(ang) * speed;
+    bullets.push({ ownerId: p.id, x: bx, y: by, z: 0, vx: bvx, vy: bvy, radius: 8, color: p.color, life: 120, damage, remote: false });
+    send({ t: 'b', x: bx, y: by, vx: bvx, vy: bvy });
+}
+
+// 發射雷射光束 (本地權威判傷)
+function fireLaser(p, ang) {
+    lasers.push({ ownerId: p.id, x: p.x, y: p.y, angle: ang, life: 14, len: 1600, color: p.color, remote: false, hit: false });
+}
+
+// 每幀更新一名玩家的強化/縮小計時與半徑
+function updatePowerState(p) {
+    if (p.powerTime > 0) { p.powerTime--; if (p.powerTime <= 0) p.powerType = 0; }
+    if (p.shrinkTime > 0) p.shrinkTime--;
+    p.radius = p.baseRadius * (p.shrinkTime > 0 ? 0.5 : 1);
+}
+
+// 套用寶石效果：eaterIsLocal=true 表示本地玩家吃到
+function applyGemEffect(eaterIsLocal, type, gx, gy) {
+    const eater = eaterIsLocal ? localPlayer : remotePlayer;
+    const victim = eaterIsLocal ? remotePlayer : localPlayer;
+    if (!eater || !victim) return;
+
+    eater.powerType = type;
+    eater.powerTime = POWER_DURATION;
+
+    // 吃到任何 gem 都顯示中央黑洞核心，持續時間與 gem 相同；對方吃到則換色
+    blackholeCore.timeLeft = POWER_DURATION;
+    blackholeCore.palette = eaterIsLocal ? CORE_PALETTE_SELF : CORE_PALETTE_ENEMY;
+
+    if (type === GEM_MUSHROOM) {
+        // 丟出香菇 → 對方變小 (同樣持續 10 秒)
+        victim.shrinkTime = POWER_DURATION;
+        mushrooms.push({ x: eater.x, y: eater.y, tx: victim.x, ty: victim.y, t: 0, life: 1 });
+    }
+    spawnParticle(gx, gy, 0, gemColor(type), 16, 3);
+    game.shake = Math.max(game.shake, 6);
 }
 
 // ============= 遊戲主循環邏輯 =============
@@ -629,21 +718,43 @@ function updateLocalPlayer() {
     if (p.novaCD > 0) p.novaCD--;
     if (p.hitFlash > 0) p.hitFlash--;
     if (p.nen < p.maxNen) p.nen += 0.18;
+    updatePowerState(p);
 
-    const sx = mouse.x - (cam.cx + p.x); const sy = mouse.y - (cam.cy + p.y);
-    p.aimAngle = Math.atan2(sy, sx);
+    // 自動鎖定：射擊角度平滑轉向（會移動的）敵方
+    if (remotePlayer) {
+        const tx = remotePlayer.x - p.x, ty = remotePlayer.y - p.y;
+        const target = Math.atan2(ty, tx);
+        let diff = target - p.aimAngle;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        p.aimAngle += diff * 0.25;   // 平滑追蹤，敵方移動也能持續對準
+    } else {
+        const sx = mouse.x - (cam.cx + p.x); const sy = mouse.y - (cam.cy + p.y);
+        p.aimAngle = Math.atan2(sy, sx);
+    }
 
     if (mouse.down && p.shootCD <= 0 && p.nen >= 4) {
         const ang = p.aimAngle;
-        const bx = p.x + Math.cos(ang) * (p.radius + 4); const by = p.y + Math.sin(ang) * (p.radius + 4);
-        const bvx = Math.cos(ang) * 8; const bvy = Math.sin(ang) * 8;
-        bullets.push({
-            ownerId: p.id, x: bx, y: by, z: 0, vx: bvx, vy: bvy, radius: 8,
-            color: p.color, life: 120, damage: 5, remote: false
-        });
-        send({ t: 'b', x: bx, y: by, vx: bvx, vy: bvy });
-        p.shootCD = 11; p.nen -= 4;
-        spawnParticle(bx + Math.cos(ang)*4, by + Math.sin(ang)*4, 0, p.color, 3, 1.4);
+        if (p.powerType === GEM_LASER) {
+            // 雷射：一道貫穿光束
+            fireLaser(p, ang);
+            send({ t: 'laser', x: p.x, y: p.y, a: ang });
+            p.shootCD = 28; p.nen -= 8; game.shake = Math.max(game.shake, 5);
+        } else if (p.powerType === GEM_SCATTER) {
+            // 扇形散彈：一次 5 發
+            const spread = 0.34;
+            for (let i = -2; i <= 2; i++) {
+                const a = ang + i * spread;
+                fireBullet(p, a, 8, 4);
+            }
+            p.shootCD = 16; p.nen -= 6;
+            spawnParticle(p.x + Math.cos(ang)*4, p.y + Math.sin(ang)*4, 0, p.color, 4, 1.6);
+        } else {
+            // 一般念彈
+            fireBullet(p, ang, 8, 5);
+            p.shootCD = 11; p.nen -= 4;
+            spawnParticle(p.x + Math.cos(ang)*4, p.y + Math.sin(ang)*4, 0, p.color, 3, 1.4);
+        }
     }
 
     if ((!!keys['q'] || keys['q_triggered']) && p.novaCD <= 0 && p.nen >= 40) {
@@ -666,6 +777,10 @@ function updateRemotePlayer() {
     p.x = net.remoteRender.x; p.y = net.remoteRender.y;
     if (p.invincible > 0) p.invincible--;
     if (p.hitFlash > 0) p.hitFlash--;
+    // 半徑依（已同步的）縮小狀態調整；計時遞減由 's' 封包權威覆蓋
+    if (p.shrinkTime > 0) p.shrinkTime--;
+    if (p.powerTime > 0) { p.powerTime--; if (p.powerTime <= 0) p.powerType = 0; }
+    p.radius = p.baseRadius * (p.shrinkTime > 0 ? 0.5 : 1);
 
     const pp = project(p.x, p.y, 0);
     p.trail.push({ sx: pp.x, sy: pp.y, life: 1 });
@@ -686,6 +801,9 @@ function updateObjects() {
         
         const dx = b.x - remotePlayer.x, dy = b.y - remotePlayer.y;
         if (Math.sqrt(dx*dx + dy*dy) < remotePlayer.radius + b.radius) {
+            if (remotePlayer.powerType === GEM_SHIELD) { // 對方有防護罩：擋下
+                spawnParticle(b.x, b.y, 0, '#4ad6ff', 6, 2); bullets.splice(i, 1); continue;
+            }
             dealDamageToRemote(b.damage, b.x, b.y); bullets.splice(i, 1);
         }
     }
@@ -698,8 +816,51 @@ function updateObjects() {
         
         const dx = remotePlayer.x - n.x, dy = remotePlayer.y - n.y; const d = Math.sqrt(dx*dx + dy*dy);
         if (d < n.r + remotePlayer.radius && d > n.r - 30) {
-            dealDamageToRemote(12, remotePlayer.x, remotePlayer.y); n.hit.add(remotePlayer.id);
+            if (remotePlayer.powerType === GEM_SHIELD) { spawnParticle(remotePlayer.x, remotePlayer.y, 0, '#4ad6ff', 6, 2); n.hit.add(remotePlayer.id); }
+            else { dealDamageToRemote(12, remotePlayer.x, remotePlayer.y); n.hit.add(remotePlayer.id); }
         }
+    }
+
+    // 雷射光束
+    for (let i = lasers.length - 1; i >= 0; i--) {
+        const l = lasers[i];
+        l.life--;
+        if (l.life <= 0) { lasers.splice(i, 1); continue; }
+        if (l.remote || l.hit || !remotePlayer) continue;
+        // 點到射線距離判定
+        const rx = remotePlayer.x - l.x, ry = remotePlayer.y - l.y;
+        const dirx = Math.cos(l.angle), diry = Math.sin(l.angle);
+        const proj = rx * dirx + ry * diry;
+        if (proj > 0 && proj < l.len) {
+            const perp = Math.abs(rx * (-diry) + ry * dirx);
+            if (perp < remotePlayer.radius + 14) {
+                l.hit = true;
+                if (remotePlayer.powerType === GEM_SHIELD) spawnParticle(remotePlayer.x, remotePlayer.y, 0, '#4ad6ff', 8, 2);
+                else dealDamageToRemote(18, remotePlayer.x, remotePlayer.y);
+            }
+        }
+    }
+
+    // 寶石（從遠方沿隧道接近，本地玩家碰到即收集）
+    for (let i = gems.length - 1; i >= 0; i--) {
+        const g = gems[i];
+        g.z -= game.speed; g.pulse += 0.15;
+        if (Math.abs(g.z) < 70 && localPlayer) {
+            const dx = localPlayer.x - g.x, dy = localPlayer.y - g.y;
+            if (Math.sqrt(dx*dx + dy*dy) < localPlayer.radius + g.radius + 14) {
+                applyGemEffect(true, g.type, g.x, g.y);
+                send({ t: 'gc', id: g.id, type: g.type, x: g.x, y: g.y });
+                gems.splice(i, 1); continue;
+            }
+        }
+        if (g.z < -200) gems.splice(i, 1);
+    }
+
+    // 香菇投射物（純視覺）
+    for (let i = mushrooms.length - 1; i >= 0; i--) {
+        const m = mushrooms[i];
+        m.t += 0.05;
+        if (m.t >= 1) { mushrooms.splice(i, 1); continue; }
     }
 
     for (let i = particles.length - 1; i >= 0; i--) {
@@ -761,12 +922,22 @@ function update() {
     if (game.shake > 0) game.shake *= 0.86;
     if (game.shake < 0.3) game.shake = 0;
     if (game.flashTime > 0) game.flashTime--;
+    if (blackholeCore.timeLeft > 0) blackholeCore.timeLeft--;
+
+    // host 權威生成寶石並廣播
+    if (game.state === 'playing' && net.role === 'host' && gems.length < 3 && Math.random() < 0.012) {
+        const type = Math.floor(Math.random() * 4) + 1;
+        const g = { id: ++gemSeq, x: (Math.random() - 0.5) * TUNNEL_W * 1.3, y: (Math.random() - 0.5) * TUNNEL_H * 1.3, z: SPAWN_Z, type, pulse: 0, radius: 16 };
+        gems.push(g);
+        send({ t: 'gem', id: g.id, x: g.x, y: g.y, type: g.type });
+    }
 
     game.frame++;
     if (net.connected && game.state === 'playing' && game.frame % 2 === 0) {
         send({
             t: 's', x: localPlayer.x, y: localPlayer.y, vx: localPlayer.vx, vy: localPlayer.vy,
-            a: localPlayer.aimAngle, hp: localPlayer.hp, nen: localPlayer.nen
+            a: localPlayer.aimAngle, hp: localPlayer.hp, nen: localPlayer.nen,
+            pw: localPlayer.powerType, pt: localPlayer.powerTime, sk: localPlayer.shrinkTime
         });
     }
     if (net.connected && Date.now() - net.lastPingSent > 1000) {
@@ -787,6 +958,8 @@ function endMatch(winnerId) {
 function resetMatch() {
     game.state = 'playing'; game.winner = null; game.timeLeft = MATCH_FRAMES;
     bullets.length = 0; particles.length = 0; novas.length = 0;
+    gems.length = 0; lasers.length = 0; mushrooms.length = 0;
+    blackholeCore.timeLeft = 0;
     
     // 清空手勢瞄準，防止重開局瞬間自動開火
     mouse.down = false; touchInput.aim.active = false; touchInput.aim.id = null;
@@ -794,6 +967,7 @@ function resetMatch() {
     [player1, player2].forEach((p, i) => {
         p.hp = p.maxHp; p.nen = 30; p.x = i === 0 ? -140 : 140; p.y = -100;
         p.vx = p.vy = 0; p.invincible = 0; p.shootCD = 0; p.novaCD = 0; p.trail = []; p.hitFlash = 0;
+        p.powerType = 0; p.powerTime = 0; p.shrinkTime = 0; p.radius = p.baseRadius;
     });
     net.remote.x = remotePlayer.x; net.remote.y = remotePlayer.y; net.remote.hp = remotePlayer.maxHp;
     net.remoteRender.x = remotePlayer.x; net.remoteRender.y = remotePlayer.y;
@@ -870,6 +1044,94 @@ function drawNovas() {
     ctx.globalAlpha = 1; ctx.shadowBlur = 0;
 }
 
+function drawGems() {
+    const list = gems.slice().filter(g => g.z > 5 && g.z < MAX_Z).sort((a, b) => b.z - a.z);
+    list.forEach(g => {
+        const p = project(g.x, g.y, g.z); const s = p.s;
+        const r = Math.max(2, g.radius * s);
+        const pulse = Math.sin(g.pulse) * 2 * s;
+        const col = gemColor(g.type);
+        ctx.save();
+        ctx.translate(p.x, p.y); ctx.rotate(g.pulse * 0.5);
+        ctx.shadowBlur = 18 * s; ctx.shadowColor = col; ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.moveTo(0, -r - pulse); ctx.lineTo(r + pulse, 0); ctx.lineTo(0, r + pulse); ctx.lineTo(-r - pulse, 0);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.beginPath(); ctx.arc(0, 0, r * 0.32, 0, Math.PI * 2); ctx.fill();
+        ctx.restore(); ctx.shadowBlur = 0;
+    });
+}
+
+function drawLasers() {
+    lasers.forEach(l => {
+        const p0 = project(l.x, l.y, 0);
+        const p1 = project(l.x + Math.cos(l.angle) * l.len, l.y + Math.sin(l.angle) * l.len, 0);
+        const a = Math.max(0, l.life / 14);
+        ctx.save();
+        ctx.globalAlpha = a;
+        ctx.shadowBlur = 26; ctx.shadowColor = l.color;
+        ctx.strokeStyle = l.color; ctx.lineWidth = 16;
+        ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 5; ctx.globalAlpha = a * 0.9;
+        ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+        ctx.restore(); ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+    });
+}
+
+function drawMushrooms() {
+    mushrooms.forEach(m => {
+        const wx = m.x + (m.tx - m.x) * m.t;
+        const wy = m.y + (m.ty - m.y) * m.t - Math.sin(m.t * Math.PI) * 60; // 拋物弧線
+        const p = project(wx, wy, 0); const s = p.s;
+        const r = 14 * s;
+        ctx.save(); ctx.translate(p.x, p.y);
+        // 菇柄
+        ctx.fillStyle = '#fff0d8';
+        ctx.fillRect(-r * 0.35, 0, r * 0.7, r * 0.9);
+        // 菇傘
+        ctx.fillStyle = '#ff4d6d'; ctx.shadowBlur = 10; ctx.shadowColor = '#ff4d6d';
+        ctx.beginPath(); ctx.arc(0, 0, r, Math.PI, 0); ctx.closePath(); ctx.fill();
+        // 白點
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.beginPath(); ctx.arc(-r * 0.4, -r * 0.25, r * 0.18, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(r * 0.35, -r * 0.35, r * 0.15, 0, Math.PI * 2); ctx.fill();
+        ctx.restore(); ctx.shadowBlur = 0;
+    });
+}
+
+// 中央黑洞核心 (吃到 gem 時顯示，顏色依吃到者而定)
+function drawBlackholeCore() {
+    if (blackholeCore.timeLeft <= 0) return;
+    const pal = blackholeCore.palette;
+    const t = Date.now() * 0.001;
+    const fade = Math.min(1, blackholeCore.timeLeft / 40); // 結束前淡出
+
+    ctx.save();
+    ctx.globalAlpha = fade;
+
+    // 中央黑體
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(cam.cx, cam.cy, 55, 0, Math.PI * 2); ctx.fill();
+
+    // 吸積盤
+    const disk = ctx.createRadialGradient(cam.cx, cam.cy, 55, cam.cx, cam.cy, 200);
+    disk.addColorStop(0, pal.d0); disk.addColorStop(0.4, pal.d1); disk.addColorStop(1, pal.d2);
+    ctx.fillStyle = disk;
+    ctx.beginPath(); ctx.arc(cam.cx, cam.cy, 200, 0, Math.PI * 2); ctx.fill();
+
+    // 旋轉光環
+    ctx.strokeStyle = pal.ring; ctx.lineWidth = 2;
+    for (let i = 0; i < 4; i++) {
+        ctx.beginPath();
+        const rad = 70 + i * 28;
+        ctx.ellipse(cam.cx, cam.cy, rad, rad * 0.28, t * (1 + i * 0.3), 0, Math.PI * 2);
+        ctx.stroke();
+    }
+    ctx.restore();
+    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+}
+
 function drawParticles() {
     particles.forEach(p => {
         const pr = project(p.x, p.y, p.z || 0); ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
@@ -906,9 +1168,44 @@ function drawPlayer(p, isLocal) {
     ctx.strokeStyle = p.accentColor; ctx.lineWidth = 1.5; ctx.globalAlpha = baseA * 0.55;
     ctx.beginPath(); ctx.arc(x, y, r + 18 + pulse * 0.5, 0, Math.PI * 2); ctx.stroke();
 
+    // 強化狀態視覺
+    if (p.powerType === GEM_SHIELD) {
+        ctx.globalAlpha = baseA * (0.55 + Math.sin(Date.now() * 0.012) * 0.2);
+        ctx.strokeStyle = '#4ad6ff'; ctx.lineWidth = 4; ctx.shadowBlur = 18; ctx.shadowColor = '#4ad6ff';
+        ctx.beginPath(); ctx.arc(x, y, r + 14, 0, Math.PI * 2); ctx.stroke();
+    } else if (p.powerType === GEM_SCATTER || p.powerType === GEM_LASER) {
+        const glow = gemColor(p.powerType);
+        ctx.globalAlpha = baseA * 0.7; ctx.strokeStyle = glow; ctx.lineWidth = 3; ctx.shadowBlur = 16; ctx.shadowColor = glow;
+        ctx.beginPath(); ctx.arc(x, y, r + 6, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.globalAlpha = baseA; ctx.shadowBlur = 0;
+
     if (isLocal) {
-        ctx.globalAlpha = baseA * 0.45; ctx.strokeStyle = p.accentColor; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(p.aimAngle) * (r + 26), y + Math.sin(p.aimAngle) * (r + 26)); ctx.stroke();
+        // 明顯的瞄準指示：發光長線 + 虛線延伸 + 箭頭，依目前子彈類型變色
+        const aimCol = p.powerType ? gemColor(p.powerType) : p.accentColor;
+        const ca = Math.cos(p.aimAngle), sa = Math.sin(p.aimAngle);
+        const x0 = x + ca * (r + 6), y0 = y + sa * (r + 6);
+        const lineLen = 150;
+        const x1 = x + ca * (r + lineLen), y1 = y + sa * (r + lineLen);
+
+        ctx.shadowBlur = 14; ctx.shadowColor = aimCol;
+        // 實線近段
+        ctx.globalAlpha = baseA * 0.95; ctx.strokeStyle = aimCol; ctx.lineWidth = 3.5;
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x + ca * (r + 60), y + sa * (r + 60)); ctx.stroke();
+        // 虛線遠段
+        ctx.globalAlpha = baseA * 0.6; ctx.lineWidth = 2.5;
+        ctx.setLineDash([10, 8]);
+        ctx.beginPath(); ctx.moveTo(x + ca * (r + 60), y + sa * (r + 60)); ctx.lineTo(x1, y1); ctx.stroke();
+        ctx.setLineDash([]);
+        // 箭頭
+        ctx.globalAlpha = baseA; ctx.fillStyle = aimCol;
+        const ah = 12, aw = 8;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x1 - ca * ah - (-sa) * aw, y1 - sa * ah - (ca) * aw);
+        ctx.lineTo(x1 - ca * ah + (-sa) * aw, y1 - sa * ah + (ca) * aw);
+        ctx.closePath(); ctx.fill();
+        ctx.shadowBlur = 0;
     }
     ctx.restore(); ctx.shadowBlur = 0; ctx.globalAlpha = 1;
 
@@ -927,6 +1224,20 @@ function drawHUD() {
     ctx.shadowBlur = s <= 10 ? 18 : 8; ctx.shadowColor = s <= 10 ? '#ff5544' : '#000';
     ctx.fillText(`${mm}:${ss}`, W / 2, 50);
     ctx.shadowBlur = 0;
+
+    // 本地玩家強化狀態提示
+    if (localPlayer && localPlayer.powerType > 0) {
+        const names = { 1: '扇形散彈', 2: '防護罩', 3: '香菇', 4: '雷射' };
+        const col = gemColor(localPlayer.powerType);
+        ctx.fillStyle = col; ctx.font = 'bold 16px Microsoft JhengHei'; ctx.textAlign = 'center';
+        ctx.shadowBlur = 10; ctx.shadowColor = col;
+        ctx.fillText(`${names[localPlayer.powerType]}  ${(localPlayer.powerTime / 60).toFixed(1)}s`, W / 2, 104);
+        ctx.shadowBlur = 0;
+    }
+    if (localPlayer && localPlayer.shrinkTime > 0) {
+        ctx.fillStyle = '#ff5aa0'; ctx.font = 'bold 14px Microsoft JhengHei'; ctx.textAlign = 'center';
+        ctx.fillText(`被縮小 ${(localPlayer.shrinkTime / 60).toFixed(1)}s`, W / 2, 124);
+    }
 
     if (localPlayer && localPlayer.novaCD > 0) {
         ctx.fillStyle = localPlayer.color; ctx.font = '12px Microsoft JhengHei'; ctx.textAlign = 'center';
@@ -1005,7 +1316,8 @@ function render() {
     ctx.save();
     if (game.shake > 0) ctx.translate((Math.random() - 0.5) * game.shake, (Math.random() - 0.5) * game.shake);
     
-    drawBackground(); drawTunnel(); drawSpeedLines(); drawParticles(); drawNovas(); drawBullets();
+    drawBackground(); drawTunnel(); drawSpeedLines(); drawBlackholeCore(); drawGems();
+    drawParticles(); drawNovas(); drawLasers(); drawBullets(); drawMushrooms();
     drawTrail(player1); drawTrail(player2);
     drawPlayer(player1, player1 === localPlayer); drawPlayer(player2, player2 === localPlayer);
     drawFlash(); drawVignette(); drawVirtualJoystick(); drawHUD(); drawFinishScreen();
