@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>F-16 戰鬥機武器操作面板 — 限時積分任務</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#05080a;
+    font-family:'Consolas','Courier New',monospace; color:#39ff64; user-select:none;
+    touch-action:none; overscroll-behavior:none; }
+  #app { position:fixed; inset:0; height:100vh; height:100dvh; display:flex; flex-direction:column; }
+  button,.wbtn,.bigbtn { touch-action:manipulation; }
+  #hud { min-height:140px; }
+
+  #hud { position:relative; flex:1 1 60%; overflow:hidden;
+    background:linear-gradient(#0a1418 0%,#0d1f24 50%,#102b2f 100%); }
+  #hudCanvas { position:absolute; inset:0; width:100%; height:100%; }
+
+  #panel { flex:0 0 auto; display:flex; gap:8px; padding:8px;
+    background:linear-gradient(#11181c,#0a0e10); border-top:2px solid #1c2e33;
+    box-shadow:0 -4px 20px rgba(0,0,0,.6); }
+  .mfd { background:#020a06; border:2px solid #1f4a2c; border-radius:6px;
+    box-shadow:inset 0 0 20px rgba(0,255,80,.08); position:relative; }
+  #radarWrap { flex:0 0 230px; height:236px; }
+  #radar { width:100%; height:100%; }
+  #center { flex:1 1 auto; display:flex; flex-direction:column; gap:8px; }
+
+  .label { font-size:11px; letter-spacing:2px; color:#2fae52; opacity:.8;
+    position:absolute; top:4px; left:8px; }
+
+  #weapons { display:flex; gap:6px; }
+  .wbtn { flex:1; padding:8px 4px; background:#0a1f12; border:2px solid #1f4a2c;
+    border-radius:6px; color:#39ff64; cursor:pointer; text-align:center;
+    transition:all .12s; min-height:60px; display:flex; flex-direction:column;
+    justify-content:center; gap:2px; }
+  .wbtn .wname { font-size:13px; font-weight:bold; letter-spacing:0; }
+  .wbtn .wmeta { font-size:10px; opacity:.65; }
+  .wbtn .wammo { font-size:11px; opacity:.85; }
+  .wbtn.sel { background:#1c5e30; border-color:#39ff64; color:#d6ffe0;
+    box-shadow:0 0 14px rgba(57,255,100,.5); }
+  .wbtn.empty { color:#664; border-color:#443; cursor:not-allowed; opacity:.5; }
+  .wbtn:active { transform:scale(.96); }
+
+  #actions { display:flex; gap:8px; }
+  .abtn { flex:1; padding:14px; border-radius:8px; cursor:pointer; font-weight:bold;
+    font-size:16px; letter-spacing:2px; border:2px solid; transition:all .12s; }
+  .abtn:active { transform:scale(.96); }
+  #lockBtn { background:#1a2a0a; border-color:#c8b400; color:#ffe34d; }
+  #lockBtn.active { background:#7a6a00; color:#fff; box-shadow:0 0 16px rgba(255,227,77,.6);
+    animation:lockpulse .6s infinite; }
+  @keyframes lockpulse { 50%{ box-shadow:0 0 26px rgba(255,227,77,.9);} }
+  #fireBtn { background:#2a0a0a; border-color:#ff3b3b; color:#ff5b5b; }
+  #fireBtn.ready { background:#5e0d0d; color:#fff; box-shadow:0 0 20px rgba(255,59,59,.6); }
+  #fireBtn:disabled { opacity:.4; cursor:not-allowed; }
+  #autoBtn { background:#081a2a; border-color:#3b9bff; color:#7bc5ff; }
+  #autoBtn.on { background:#0d4a7a; color:#fff; box-shadow:0 0 16px rgba(59,155,255,.6);
+    animation:autopulse .8s infinite; }
+  @keyframes autopulse { 50%{ box-shadow:0 0 26px rgba(59,155,255,.95);} }
+  #voiceBtn { background:#08220f; border-color:#39ff64; color:#7dffa0; }
+  #voiceBtn.on { background:#0c4a1f; color:#fff; box-shadow:0 0 14px rgba(57,255,100,.55); }
+  #autoBadge { position:absolute; top:30px; left:50%; transform:translateX(-50%);
+    background:rgba(13,74,122,.85); border:1px solid #3b9bff; color:#bfe0ff; padding:4px 14px;
+    border-radius:16px; font-size:12px; letter-spacing:1px; white-space:nowrap; pointer-events:none;
+    display:none; }
+  #autoBadge.on { display:block; }
+
+  #status { flex:0 0 216px; height:236px; padding:24px 12px 12px; font-size:12px;
+    line-height:1.85; }
+  #status .row { display:flex; justify-content:space-between; }
+  #status .v { color:#d6ffe0; font-weight:bold; }
+  .warn { color:#ff5b5b !important; }
+  .ok { color:#39ff64 !important; }
+  .amber { color:#ffe34d !important; }
+
+  /* 開場 / 結算 */
+  .overlay { position:absolute; inset:0; background:rgba(5,8,10,.96); z-index:50;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:24px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .overlay h1 { font-size:24px; letter-spacing:2px; margin-bottom:10px; color:#39ff64;
+    text-shadow:0 0 16px rgba(57,255,100,.5); max-width:100%; word-break:keep-all; overflow-wrap:anywhere; }
+  .overlay p { color:#7fbf95; font-size:13px; line-height:1.85; max-width:min(560px,100%); margin-bottom:5px; }
+  .overlay table { color:#bfe; font-size:14px; margin:4px auto 8px; border-collapse:collapse; }
+  .overlay td { padding:3px 14px; text-align:left; }
+  .overlay td.r { text-align:right; color:#d6ffe0; font-weight:bold; }
+  .bigbtn { margin-top:20px; padding:15px 44px; font-size:17px; letter-spacing:3px;
+    background:#1c5e30; border:2px solid #39ff64; border-radius:8px; color:#d6ffe0;
+    cursor:pointer; box-shadow:0 0 20px rgba(57,255,100,.4); }
+  .bigbtn:active { transform:scale(.97); }
+  #grade { font-size:64px; font-weight:bold; margin:6px 0; text-shadow:0 0 24px currentColor; }
+  .wpnref { font-size:11px; color:#5a8; max-width:min(580px,100%); line-height:1.7; margin-top:8px;
+    border-top:1px solid #1f4a2c; padding-top:8px; }
+
+  /* 起飛過場 */
+  #launch { z-index:60; background:#05080a; padding:0; }
+  #launchCanvas { position:absolute; inset:0; width:100%; height:100%; }
+  #skipLaunch { position:absolute; bottom:18px; right:18px; z-index:61;
+    background:rgba(10,20,16,.7); border:1px solid #1f4a2c; color:#7fbf95;
+    padding:8px 16px; border-radius:18px; font-size:13px; letter-spacing:1px; cursor:pointer;
+    -webkit-tap-highlight-color:transparent; }
+  #skipLaunch:active { transform:scale(.96); }
+
+  #msgbar { position:absolute; top:8px; left:50%; transform:translateX(-50%);
+    background:rgba(0,0,0,.55); border:1px solid #1f4a2c; padding:6px 18px; border-radius:20px;
+    font-size:14px; letter-spacing:1px; white-space:nowrap; pointer-events:none;
+    transition:opacity .3s; opacity:0; }
+
+  /* 任務 HUD：計時器 + 分數 */
+  #missionBar { position:absolute; top:8px; left:14px; right:14px; display:flex;
+    align-items:center; gap:12px; pointer-events:none; font-size:13px; }
+  #timerWrap { flex:1; height:14px; background:rgba(0,0,0,.5); border:1px solid #1f4a2c;
+    border-radius:8px; overflow:hidden; max-width:46%; }
+  #timerFill { height:100%; width:100%; background:linear-gradient(90deg,#39ff64,#9bff5b);
+    transition:width .2s linear; }
+  #timerTxt { color:#d6ffe0; font-weight:bold; min-width:64px; }
+  #scoreTxt { color:#ffe34d; font-weight:bold; font-size:16px; }
+  #comboTxt { color:#ff9b3b; font-weight:bold; }
+
+  /* 直向 / 窄螢幕手機：雷達與狀態並排於上，操作鍵放最下方好按 */
+  @media (max-width:760px){
+    #panel{ flex-wrap:wrap; gap:6px; padding:6px; }
+    #radarWrap{ flex:0 0 calc(50% - 3px); height:150px; }
+    #status{ flex:0 0 calc(50% - 3px); height:150px; padding:20px 8px 8px; font-size:11px; line-height:1.55; }
+    #center{ flex:1 1 100%; order:3; }
+    .abtn{ font-size:15px; padding:18px; }
+    .wbtn{ min-height:54px; }
+    .wbtn .wname{ font-size:11px; } .wbtn .wmeta{ font-size:9px; } .wbtn .wammo{ font-size:10px; }
+    .overlay{ padding:16px; } .overlay h1{ font-size:18px; } .overlay p{ font-size:12px; }
+    .wpnref{ font-size:10px; } #grade{ font-size:48px; }
+    .bigbtn{ padding:16px 36px; font-size:16px; }
+    #missionBar{ font-size:12px; left:8px; right:8px; gap:8px; }
+    #scoreTxt{ font-size:15px; }
+  }
+  /* 矮橫向手機：壓縮高度，避免 MFD 吃掉畫面 */
+  @media (max-height:480px) and (orientation:landscape){
+    #radarWrap{ flex:0 0 190px; height:128px; }
+    #status{ height:128px; }
+    .abtn{ padding:11px; }
+    .wbtn{ min-height:46px; }
+  }
+  /* 超窄寬度（< iPhone SE）*/
+  @media (max-width:380px){
+    #weapons{ gap:4px; } .wbtn{ padding:6px 2px; }
+    #radarWrap{ height:132px; } #status{ height:132px; font-size:10px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <canvas id="hudCanvas"></canvas>
+    <div id="msgbar"></div>
+    <div id="missionBar">
+      <span id="timerTxt">180.0s</span>
+      <div id="timerWrap"><div id="timerFill"></div></div>
+      <span id="scoreTxt">0</span>
+      <span id="comboTxt"></span>
+    </div>
+    <div id="autoBadge">🤖 自動接戰中</div>
+  </div>
+
+  <div id="panel">
+    <div id="radarWrap" class="mfd">
+      <span class="label">RADAR</span>
+      <canvas id="radar"></canvas>
+    </div>
+
+    <div id="center">
+      <div id="weapons">
+        <div class="wbtn" data-w="gun">
+          <div class="wname">M61 機砲</div><div class="wmeta">無需鎖定 · 對空/小艇</div><div class="wammo" id="ammo-gun">─</div>
+        </div>
+        <div class="wbtn" data-w="aim9">
+          <div class="wname">AIM-9</div><div class="wmeta">IR · 對空近距</div><div class="wammo" id="ammo-aim9">─</div>
+        </div>
+        <div class="wbtn" data-w="aim120">
+          <div class="wname">AIM-120</div><div class="wmeta">RDR · 對空中距</div><div class="wammo" id="ammo-aim120">─</div>
+        </div>
+        <div class="wbtn" data-w="harpoon">
+          <div class="wname">AGM-84 魚叉</div><div class="wmeta">掠海 · 反艦</div><div class="wammo" id="ammo-harpoon">─</div>
+        </div>
+      </div>
+      <div id="actions">
+        <button id="lockBtn" class="abtn">鎖定目標 LOCK</button>
+        <button id="fireBtn" class="abtn">發射 FIRE</button>
+        <button id="autoBtn" class="abtn">🤖 自動 AUTO</button>
+        <button id="voiceBtn" class="abtn">📢 塔台語音</button>
+      </div>
+    </div>
+
+    <div id="status" class="mfd">
+      <span class="label">TARGET</span>
+      <div class="row"><span>類型</span><span class="v" id="st-type">無</span></div>
+      <div class="row"><span>距離</span><span class="v" id="st-range">─</span></div>
+      <div class="row"><span>方位</span><span class="v" id="st-bearing">─</span></div>
+      <div class="row"><span>速度</span><span class="v" id="st-speed">─</span></div>
+      <div class="row"><span>鎖定</span><span class="v" id="st-lock">未鎖定</span></div>
+      <div class="row"><span>建議武器</span><span class="v" id="st-rec">─</span></div>
+      <div class="row"><span>現用武器</span><span class="v" id="st-env">─</span></div>
+    </div>
+  </div>
+
+  <!-- 開場 -->
+  <div id="intro" class="overlay">
+    <h1>F-16 戰鬥機武器操作面板 — 限時積分任務</h1>
+    <p>3 分鐘內擊毀越多目標越好。<b>武器與目標要對</b>，用錯武器或超出射程＝浪費彈藥並扣分。</p>
+    <p>① 選對武器 → ② 飛彈需先「鎖定 LOCK」→ ③「發射 FIRE」</p>
+    <p>連續正確擊毀可累積 <b style="color:#ff9b3b">連擊倍率</b>，快速擊殺有時間加成。</p>
+    <div class="wpnref">
+      真實接戰規則：<br>
+      • <b>AIM-120</b>(雷達)：對空<b>中遠距</b> 8–50nm　• <b>AIM-9</b>(紅外線)：對空<b>近距</b> 0.5–10nm<br>
+      • <b>M61 機砲</b>：超近距 &lt;1.5nm，對敵機/小艇（火神砲 511 發，6000發/分）<br>
+      • <b>AGM-84 魚叉</b>：<b>反艦專用</b>掠海飛彈 5–67nm（軍艦不能用空對空飛彈打！）
+    </div>
+    <p style="color:#ff9b3b;font-size:12px;margin-top:6px">⚠ 目標若拖太久會<b>對你發射飛彈</b>（扣秒數+扣分），動作要快！<br><b style="color:#ffe34d">💥 來襲飛彈可被擊破：點擊紅色來襲飛彈即用機砲攔截（+30分）</b></p>
+    <p style="color:#5a8;font-size:11px;margin-top:2px">📱 手機建議橫放遊玩，畫面更開闊　🏆 歷史最高分：<span id="introBest">0</span></p>
+    <button id="startBtn" class="bigbtn">▶ 開始任務</button>
+  </div>
+
+  <!-- 結算 -->
+  <div id="result" class="overlay" style="display:none">
+    <h1>任務結束</h1>
+    <div id="grade">S</div>
+    <table>
+      <tr><td>最終得分</td><td class="r" id="r-score">0</td></tr>
+      <tr><td>擊毀目標</td><td class="r" id="r-kills">0</td></tr>
+      <tr><td>發射 / 命中</td><td class="r" id="r-acc">0 / 0</td></tr>
+      <tr><td>命中率</td><td class="r" id="r-accp">0%</td></tr>
+      <tr><td>最高連擊</td><td class="r" id="r-combo">0</td></tr>
+      <tr><td>用錯武器/脫靶</td><td class="r" id="r-miss">0</td></tr>
+      <tr><td>攔截來襲飛彈</td><td class="r" id="r-intc">0</td></tr>
+      <tr><td>我機被擊中</td><td class="r" id="r-hit">0</td></tr>
+      <tr><td>歷史最高分</td><td class="r" id="r-best">0</td></tr>
+    </table>
+    <p id="r-comment" style="color:#ffe34d"></p>
+    <button id="againBtn" class="bigbtn">↻ 再來一次</button>
+  </div>
+
+  <!-- 起飛過場：航艦彈射升空 -->
+  <div id="launch" class="overlay" style="display:none">
+    <canvas id="launchCanvas"></canvas>
+    <button id="skipLaunch">跳過 ▶</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+(function(){
+  const hud=document.getElementById('hudCanvas'), hctx=hud.getContext('2d');
+  const rad=document.getElementById('radar'), rctx=rad.getContext('2d');
+  let W=0,H=0,RW=0,RH=0,DPR=Math.min(window.devicePixelRatio||1,2);
+  function resize(){
+    const hr=hud.getBoundingClientRect(); W=hr.width; H=hr.height;
+    hud.width=W*DPR; hud.height=H*DPR; hctx.setTransform(DPR,0,0,DPR,0,0);
+    const rr=rad.getBoundingClientRect(); RW=rr.width; RH=rr.height;
+    rad.width=RW*DPR; rad.height=RH*DPR; rctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize',resize);
+  // 手機旋轉 / 瀏覽器工具列伸縮：版面穩定後重算 canvas
+  window.addEventListener('orientationchange',()=>{ setTimeout(resize,250); setTimeout(resize,600); });
+  if(window.visualViewport) window.visualViewport.addEventListener('resize',resize);
+
+  // ===== 音效 =====
+  let actx=null;
+  function AC(){ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state==='suspended') actx.resume(); return actx; }
+  function beep(f,d,t,v){ try{ const a=AC(),o=a.createOscillator(),g=a.createGain();
+    o.type=t||'square'; o.frequency.value=f; g.gain.value=v||0.08; o.connect(g); g.connect(a.destination);
+    const tm=a.currentTime; o.start(tm); g.gain.setValueAtTime(g.gain.value,tm);
+    g.gain.exponentialRampToValueAtTime(0.0001,tm+d); o.stop(tm+d);}catch(e){} }
+  function noise(d,v){ try{ const a=AC(),n=a.createBufferSource();
+    const b=a.createBuffer(1,a.sampleRate*d,a.sampleRate),dt=b.getChannelData(0);
+    for(let i=0;i<dt.length;i++) dt[i]=(Math.random()*2-1)*(1-i/dt.length);
+    n.buffer=b; const g=a.createGain(); g.gain.value=v||0.18;
+    const f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=1400;
+    n.connect(f); f.connect(g); g.connect(a.destination); n.start();}catch(e){} }
+  function lockTone(){ beep(880,0.05,'sine',0.06); }
+  function explodeSound(){ noise(0.6,0.28); beep(80,0.5,'sawtooth',0.12); }
+
+  // ===== 中控塔台語音（Web Speech，台灣軍用報數讀法增加臨場感）=====
+  let voiceOn=true, ttsVoice=null;
+  const hasTTS = ('speechSynthesis' in window);
+  function pickVoice(){
+    try{ const vs=speechSynthesis.getVoices();
+      ttsVoice = vs.find(v=>/zh[-_]TW/i.test(v.lang)) || vs.find(v=>/zh[-_](CN|HK)|cmn/i.test(v.lang))
+              || vs.find(v=>/^zh/i.test(v.lang)) || null; }catch(e){}
+  }
+  if(hasTTS){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
+  function tower(txt,opt){
+    opt=opt||{}; if(!voiceOn||!hasTTS) return;
+    try{
+      if(opt.flush) speechSynthesis.cancel();
+      const u=new SpeechSynthesisUtterance(txt);
+      if(ttsVoice) u.voice=ttsVoice;
+      u.lang = ttsVoice? ttsVoice.lang : 'zh-TW';
+      u.rate = opt.rate||1.08; u.pitch = opt.pitch||0.85; u.volume = 1;
+      speechSynthesis.speak(u);
+    }catch(e){}
+  }
+  // 軍用讀數：0洞 1么 2兩 3三 4四 5五 6六 7拐 8八 9勾
+  function milDigits(n){
+    const m={'0':'洞','1':'么','2':'兩','3':'三','4':'四','5':'五','6':'六','7':'拐','8':'八','9':'勾'};
+    return ('00'+(n|0)).slice(-3).split('').map(c=>m[c]||c).join('');
+  }
+  function announceTarget(t){
+    if(!t) return;
+    const brg=milDigits(t.bearing), rng=Math.round(t.range), wn=WPN[t.rec].short;
+    const air=t.kind==='air';
+    const openers = air
+      ? ['塔台呼叫，雷達接觸','警告，發現空中目標','空情通報','緊急，敵機接近中']
+      : ['塔台呼叫，海面接觸','警告，偵獲水面艦艇','海情通報','注意，敵艦現蹤'];
+    const op = openers[(STATE.t+(t.born||0))%openers.length];
+    const name = t.name.replace('敵機 ','').replace(/^敵/,'');
+    let tail;
+    if(air && t.profile==='MERGE') tail='，已進入纏鬥距離，立即接戰！';
+    else if(rng<5) tail='，距離逼近，把握時機，'+wn+'接戰！';
+    else tail='，建議使用'+wn+'，鎖定後開火。';
+    tower(op+'，方位'+brg+'，距離'+rng+'海浬，目標'+name+tail, {flush:true});
+  }
+
+  // ===== 武器（含真實接戰規則）=====
+  // vs: 'air' / 'ship'  ；rmin/rmax: 有效射程(nm)
+  const WPN = {
+    gun:    { name:'M61 機砲',  short:'機砲',  lockNeed:false, dmg:30,  speed:900, color:'#ffe34d',
+              vs:['air','ship-small'], rmin:0, rmax:1.5, lock:'—' },
+    aim9:   { name:'AIM-9',     short:'AIM-9', lockNeed:true,  dmg:120, speed:420, color:'#ff7b3b',
+              vs:['air'], rmin:0.5, rmax:10, lock:'IR' },
+    aim120: { name:'AIM-120',   short:'AIM-120',lockNeed:true, dmg:160, speed:560, color:'#5bd6ff',
+              vs:['air'], rmin:8, rmax:50, lock:'RDR' },
+    harpoon:{ name:'AGM-84 魚叉',short:'魚叉',  lockNeed:true,  dmg:200, speed:340, color:'#ff5bd6',
+              vs:['ship','ship-small'], rmin:5, rmax:67, lock:'RDR/掠海' }
+  };
+
+  const STATE = {
+    weapon:'aim120',
+    ammo:{ gun:511, aim9:6, aim120:8, harpoon:6 },
+    target:null, locking:false, lockProgress:0, locked:false,
+    projectiles:[], effects:[], threats:[],
+    shake:0, flash:null, hitTaken:0,
+    // 任務
+    running:false,
+    timeLeft:180, timeTotal:180,
+    score:0, kills:0, shots:0, hits:0, misses:0, combo:0, maxCombo:0,
+    gunHitFlag:false, t:0, lastTs:0
+  };
+
+  // 最高分紀錄
+  function bestScore(){ try{ return parseInt(localStorage.getItem('f16_best')||'0',10)||0; }catch(e){ return 0; } }
+  function saveBest(s){ try{ localStorage.setItem('f16_best', String(s)); }catch(e){} }
+
+  // ===== 目標產生（依真實接戰距離設定）=====
+  function spawnTarget(){
+    const air = Math.random()<0.58;
+    if(air){
+      // 接戰型態：BVR(中遠)→AIM-120, WVR(近)→AIM-9, MERGE(超近)→機砲
+      const r=Math.random();
+      let profile, range, rec;
+      if(r<0.45){ profile='BVR'; range=12+Math.random()*30; rec='aim120'; }
+      else if(r<0.85){ profile='WVR'; range=1+Math.random()*8; rec='aim9'; }
+      else { profile='MERGE'; range=0.2+Math.random()*1.1; rec='gun'; }
+      const types=[
+        {name:'Su-35',hp:100,sz:30},{name:'MiG-29',hp:90,sz:28},
+        {name:'J-20',hp:115,sz:34},{name:'無人機 UAV',hp:55,sz:18}
+      ];
+      const k=types[(Math.random()*types.length)|0];
+      STATE.target={ kind:'air', cls:'air', name:'敵機 '+k.name, hp:k.hp, maxhp:k.hp, sz:k.sz,
+        x:W*(0.2+Math.random()*0.6), y:H*(0.16+Math.random()*0.34),
+        vx:(Math.random()*2-1)*0.6, vy:(Math.random()*2-1)*0.18,
+        range, speed:600+Math.random()*500, bearing:(Math.random()*360)|0,
+        rec, profile, born:STATE.t };
+    }else{
+      const small = Math.random()<0.35;
+      let range, rec, k;
+      if(small){
+        k={name:'飛彈快艇',hp:80,sz:34};
+        // 小艇有時很近可用機砲
+        if(Math.random()<0.5){ range=0.3+Math.random()*1.1; rec='gun'; }
+        else { range=6+Math.random()*30; rec='harpoon'; }
+      }else{
+        const big=[{name:'敵驅逐艦',hp:240,sz:64},{name:'敵巡防艦',hp:190,sz:54},{name:'敵登陸艦',hp:300,sz:74}];
+        k=big[(Math.random()*big.length)|0]; range=8+Math.random()*52; rec='harpoon';
+      }
+      STATE.target={ kind:'ship', cls: small?'ship-small':'ship', name:'敵'+ (small?'':'') + k.name.replace('敵',''), hp:k.hp, maxhp:k.hp, sz:k.sz,
+        x:W*(0.2+Math.random()*0.6), y:H*(0.62+Math.random()*0.18),
+        vx:(Math.random()*2-1)*0.25, vy:0,
+        range, speed:18+Math.random()*30, bearing:(Math.random()*360)|0,
+        rec, profile:'SEA', born:STATE.t };
+      STATE.target.name = small? '飛彈快艇' : k.name;
+    }
+    // 逼近設定：遠方目標朝我方接近（畫面由小放大），但不低於建議武器最小射程
+    const tg=STATE.target;
+    // 難度漸進：時間過越久，敵人逼近越快、開火越頻繁、稍硬
+    const elapsed = 1 - STATE.timeLeft/STATE.timeTotal;     // 0→1
+    const diff = 1 + elapsed*0.9;
+    tg.closeV = (tg.kind==='air' ? (1.6+Math.random()*2.6) : (0.5+Math.random()*1.1)) * diff;
+    tg.rangeFloor = Math.max(WPN[tg.rec].rmin+0.1, tg.kind==='air'?0.25:0.5);
+    tg.hp = Math.round(tg.hp*(1+elapsed*0.35)); tg.maxhp = tg.hp;
+    // 反擊：存活過久 → 對我機發射飛彈
+    tg.threatT = (tg.kind==='air' ? (3.4+Math.random()*2.4) : (5+Math.random()*3)) / diff;
+    tg.firedThreat = 0;
+    STATE.locked=false; STATE.locking=false; STATE.lockProgress=0;
+    document.getElementById('lockBtn').classList.remove('active');
+    updateStatus(); updateFireBtn();
+    const rn=WPN[STATE.target.rec].short;
+    showMsg('新目標：'+STATE.target.name+'　建議用 '+rn, '#ffe34d');
+    beep(440,0.08,'sine',0.05);
+    announceTarget(STATE.target);
+  }
+
+  // ===== 接戰判定 =====
+  function engage(wk,t){
+    const w=WPN[wk];
+    const typeOk = w.vs.indexOf(t.cls)>=0;          // 武器是否能對付此目標類別
+    const rangeOk = t.range>=w.rmin && t.range<=w.rmax; // 是否在有效射程
+    return { typeOk, rangeOk, ok: typeOk && rangeOk };
+  }
+
+  // ===== UI =====
+  function updateAmmo(){
+    document.getElementById('ammo-gun').textContent='發數 '+STATE.ammo.gun;
+    document.getElementById('ammo-aim9').textContent='× '+STATE.ammo.aim9;
+    document.getElementById('ammo-aim120').textContent='× '+STATE.ammo.aim120;
+    document.getElementById('ammo-harpoon').textContent='× '+STATE.ammo.harpoon;
+    document.querySelectorAll('.wbtn').forEach(b=>{
+      const w=b.dataset.w;
+      b.classList.toggle('empty', STATE.ammo[w]<=0);
+      b.classList.toggle('sel', w===STATE.weapon);
+    });
+  }
+  function updateStatus(){
+    const t=STATE.target, g=(id,v)=>document.getElementById(id).textContent=v;
+    if(!t){ ['st-range','st-bearing','st-speed','st-rec','st-env'].forEach(i=>g(i,'─'));
+      g('st-type','無'); g('st-lock','未鎖定'); return; }
+    g('st-type', t.name+'（'+(t.kind==='air'?'空中':'海面')+'）');
+    g('st-range', t.range.toFixed(1)+' nm');
+    g('st-bearing', t.bearing+'°');
+    g('st-speed', t.kind==='air'? Math.round(t.speed)+' km/h' : Math.round(t.speed)+' kt');
+    const lk=document.getElementById('st-lock');
+    lk.textContent = STATE.locked?('已鎖定 '+WPN[STATE.weapon].lock):(STATE.locking?'鎖定中…':'未鎖定');
+    lk.className='v '+(STATE.locked?'ok':STATE.locking?'amber':'warn');
+    g('st-rec', WPN[t.rec].name);
+    // 現用武器是否能命中
+    const e=engage(STATE.weapon,t), env=document.getElementById('st-env');
+    if(!e.typeOk){ env.textContent='✗ 武器不適用'; env.className='v warn'; }
+    else if(!e.rangeOk){ env.textContent= (t.range<WPN[STATE.weapon].rmin?'✗ 太近(射程外)':'✗ 太遠(射程外)'); env.className='v warn'; }
+    else { env.textContent='✓ 射程內'; env.className='v ok'; }
+  }
+  let msgTimer=null;
+  function showMsg(txt,color){ const m=document.getElementById('msgbar');
+    m.textContent=txt; m.style.color=color||'#39ff64'; m.style.opacity='1';
+    clearTimeout(msgTimer); msgTimer=setTimeout(()=>m.style.opacity='0',1600); }
+  function updateHUDScore(){
+    document.getElementById('scoreTxt').textContent=STATE.score;
+    document.getElementById('comboTxt').textContent= STATE.combo>=2? ('連擊 ×'+STATE.combo):'';
+  }
+
+  // ===== 武器選擇 =====
+  document.querySelectorAll('.wbtn').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const w=b.dataset.w;
+      if(STATE.ammo[w]<=0){ showMsg('該武器彈藥用罄','#ff5b5b'); beep(160,0.15,'square',0.08); return; }
+      STATE.weapon=w; updateAmmo(); updateStatus(); updateFireBtn(); beep(600,0.05,'sine',0.05);
+    });
+  });
+
+  const lockBtn=document.getElementById('lockBtn'), fireBtn=document.getElementById('fireBtn');
+  const autoBtn=document.getElementById('autoBtn'), autoBadge=document.getElementById('autoBadge');
+
+  // ===== 自動接戰（自動駕駛）=====
+  let autoOn=false, autoCd=0, autoStuck=0;
+  function setAuto(on){
+    autoOn=on; autoBtn.classList.toggle('on',on); autoBadge.classList.toggle('on',on);
+    if(on){ showMsg('🤖 自動接戰啟動：自動選武器→鎖定→開火','#7bc5ff'); beep(880,0.1,'sine',0.06); }
+    else  { showMsg('自動接戰關閉，恢復手動','#7fbf95'); beep(440,0.1,'sine',0.05); }
+  }
+  // 依目標挑選「打得到」的最佳武器：優先建議武器，否則任何射程/類別吻合且有彈的武器
+  function autoPickWeapon(t){
+    if(STATE.ammo[t.rec]>0 && engage(t.rec,t).ok) return t.rec;
+    for(const wk of ['aim120','aim9','harpoon','gun'])
+      if(STATE.ammo[wk]>0 && engage(wk,t).ok) return wk;
+    return null;
+  }
+  // 估算「已朝此目標飛去（命中後會生效）」的傷害，避免過度開火浪費彈藥
+  function autoCommittedDmg(t){
+    let d=0;
+    for(const p of STATE.projectiles) if(!p.tracer && p.willHit && p.target===t) d+=p.dmg;
+    if(gunBurst>0 && STATE.target===t) d += gunBurst*(WPN.gun.dmg/3.5); // 機砲整串估計
+    return d;
+  }
+  function autoTick(){
+    if(autoCd>0) autoCd--;
+    if(!autoOn||!STATE.running) return;
+    const t=STATE.target; if(!t){ autoStuck=0; return; }
+    const wk=autoPickWeapon(t);
+    if(!wk){                                              // 無對應武器（如魚叉用罄遇大型艦）
+      if(++autoStuck>42){                                 // 約 0.7s 仍無法接戰 → 放棄換下一個
+        autoStuck=0; STATE.target=null; STATE.locked=false; STATE.locking=false;
+        lockBtn.classList.remove('active'); updateStatus(); updateFireBtn();
+        showMsg('🤖 無對應武器，脫離並搜尋新目標','#ffae3b');
+        setTimeout(()=>{ if(STATE.running && !STATE.target) spawnTarget(); }, 200);
+      }
+      return;
+    }
+    autoStuck=0;
+    if(STATE.weapon!==wk){ STATE.weapon=wk; updateAmmo(); updateStatus(); updateFireBtn(); }
+    const w=WPN[wk];
+    if(w.lockNeed && !STATE.locked){ if(!STATE.locking) startLock(); return; }  // 等鎖定完成
+    if(gunBurst>0) return;                                // 機砲串發中：等本串打完
+    if(t.hp - autoCommittedDmg(t) <= 0) return;           // 在途彈藥已足夠擊毀 → 不再浪費
+    if(autoCd>0) return;
+    fire();
+    autoCd = (wk==='gun')? 30 : 4;                        // 飛彈冷卻極短→可對大型艦連射齊發
+  }
+  autoBtn.addEventListener('click',()=>{ if(!STATE.running) return; setAuto(!autoOn); });
+  const voiceBtn=document.getElementById('voiceBtn');
+  function setVoice(on){ voiceOn=on; voiceBtn.classList.toggle('on',on);
+    voiceBtn.textContent = on?'📢 塔台語音':'🔇 語音關';
+    if(!on && hasTTS){ try{ speechSynthesis.cancel(); }catch(e){} } }
+  if(voiceBtn){ voiceBtn.classList.add('on'); voiceBtn.addEventListener('click',()=>setVoice(!voiceOn)); }
+
+  function startLock(){
+    if(!STATE.running||!STATE.target){ return; }
+    if(STATE.locked) return;
+    STATE.locking=true; STATE.lockProgress=0; lockBtn.classList.add('active'); updateStatus();
+  }
+  lockBtn.addEventListener('click',startLock);
+
+  function updateFireBtn(){
+    const w=WPN[STATE.weapon];
+    const ready = STATE.running && STATE.target && STATE.ammo[STATE.weapon]>0 && (!w.lockNeed||STATE.locked);
+    fireBtn.classList.toggle('ready', ready);
+    fireBtn.disabled = !STATE.running || !STATE.target || STATE.ammo[STATE.weapon]<=0;
+  }
+
+  // ===== 發射 =====
+  let gunBurst=0;
+  fireBtn.addEventListener('click',fire);
+
+  // ===== 點擊來襲飛彈 → 機砲攔截（CIWS）=====
+  function tryIntercept(cx,cy){
+    if(!STATE.running || !STATE.threats.length) return;
+    let best=null, bd=1e9;
+    for(const th of STATE.threats){ const d=Math.hypot(th.x-cx,th.y-cy); if(d<bd){ bd=d; best=th; } }
+    if(best && bd<=44){ best.aeng=true; fireInterceptor(best); }   // 點到附近的來襲飛彈即開火攔截
+  }
+  hud.addEventListener('pointerdown',e=>{
+    const r=hud.getBoundingClientRect();
+    tryIntercept(e.clientX-r.left, e.clientY-r.top);
+  });
+  function fire(){
+    if(!STATE.running) return;
+    const t=STATE.target; if(!t){ return; }
+    const wk=STATE.weapon, w=WPN[wk];
+    if(STATE.ammo[wk]<=0){ showMsg('彈藥用罄','#ff5b5b'); beep(160,0.15); return; }
+    if(w.lockNeed && !STATE.locked){ showMsg('飛彈需先鎖定目標！','#ff5b5b'); beep(200,0.2,'square',0.1); return; }
+    const e=engage(wk,t);
+    if(wk==='gun'){ gunBurst=14; STATE.shots++; STATE.gunHitFlag=false; }
+    else {
+      STATE.ammo[wk]--; STATE.shots++;
+      launchProjectile(wk, e.ok); noise(0.25,0.2); beep(120,0.25,'sawtooth',0.1);
+      if(!e.typeOk) showMsg('⚠ '+w.short+' 不能打'+(t.kind==='air'?'空中目標? ':(t.kind))+'此類目標','#ff5b5b');
+      else if(!e.rangeOk) showMsg('⚠ 目標'+(t.range<w.rmin?'太近':'太遠')+'，超出'+w.short+'射程','#ff5b5b');
+    }
+    updateAmmo(); updateFireBtn();
+  }
+  function launchProjectile(wk, willHit){
+    const t=STATE.target, w=WPN[wk];
+    const seaSkim = (wk==='harpoon');
+    STATE.projectiles.push({ wk, x:W/2, y:H+10, tx:t.x, ty:t.y, target:t,
+      homing:w.lockNeed && willHit, willHit, speed:w.speed/60, dmg:w.dmg,
+      color:w.color, trail:[], life:340, seaSkim });
+  }
+  function fireTracer(willHit){
+    const t=STATE.target; if(!t) return;
+    const tx=t.x+(Math.random()*40-20), ty=t.y+(Math.random()*30-15);
+    STATE.projectiles.push({ wk:'gun', x:W/2+(Math.random()*30-15), y:H+10, tx, ty, target:t,
+      homing:false, willHit, speed:WPN.gun.speed/60, dmg:WPN.gun.dmg/3.5,
+      color: willHit?'#ffe34d':'#ff8b4d', trail:[], life:120, tracer:true });
+    beep(1200+Math.random()*300,0.03,'square',0.03);
+  }
+
+  // ===== 敵方反擊（來襲飛彈）=====
+  function ownPos(){ return { x:W/2, y:H*0.9 }; }
+  function launchThreat(t){
+    const o=ownPos();
+    STATE.threats.push({ x:t.x, y:t.y, tx:o.x, ty:o.y, source:t,
+      speed:(t.kind==='air'?3.6:2.8), trail:[], life:300 });
+    beep(300,0.3,'sawtooth',0.09); noise(0.15,0.08);
+    showMsg('⚠ 飛彈來襲！點擊飛彈攔截，或盡速擊毀目標','#ff3b3b');
+    tower('警告，偵測到來襲飛彈，點擊攔截或擊毀來源！',{flush:false});
+  }
+  function threatImpact(){
+    STATE.timeLeft=Math.max(0,STATE.timeLeft-5);
+    STATE.score=Math.max(0,STATE.score-60);
+    STATE.combo=0; STATE.hitTaken++; updateHUDScore();
+    STATE.shake=18; STATE.flash={a:0.6,color:'255,59,59'};
+    explodeSound();
+    showMsg('✖ 我機被擊中！-5秒 -60分','#ff3b3b');
+    tower('我機受創！',{flush:true});
+  }
+  function clearThreatsOf(t){ STATE.threats=STATE.threats.filter(th=>th.source!==t); }
+  // 機砲攔截（CIWS）：朝來襲飛彈發射近迫攔截彈
+  function fireInterceptor(th){
+    const o=ownPos();
+    const dx=th.x-o.x, dy=th.y-o.y, d=Math.hypot(dx,dy)||1, sp=11;
+    STATE.projectiles.push({ intercept:true, threat:th, x:o.x, y:o.y,
+      vx:dx/d*sp, vy:dy/d*sp, speed:sp, color:'#ffe34d', trail:[], life:70 });
+    beep(1500+Math.random()*200,0.04,'square',0.05); noise(0.06,0.05);
+  }
+  function interceptThreat(th){
+    const i=STATE.threats.indexOf(th); if(i<0) return; STATE.threats.splice(i,1);
+    STATE.effects.push({x:th.x,y:th.y,r:4,max:46,life:1});
+    explodeSound(); STATE.intercepts=(STATE.intercepts||0)+1;
+    STATE.score+=30; updateHUDScore();
+    showMsg('✔ 攔截成功！來襲飛彈被擊破　+30','#39ff64');
+    tower('來襲飛彈已攔截！',{flush:false});
+  }
+
+  // ===== 命中/脫靶/計分 =====
+  function registerMiss(reason){
+    STATE.misses++; STATE.combo=0; STATE.score=Math.max(0,STATE.score-40);
+    updateHUDScore(); showMsg(reason+'（-40，連擊中斷）','#ff5b5b');
+  }
+  function applyHit(p){
+    const t=p.target; if(!t || t!==STATE.target) return;
+    if(!p.willHit){
+      // 用錯武器/超射程：在目標附近引爆但無效
+      STATE.effects.push({x:p.x,y:p.y,r:4,max:26,life:1,dud:true});
+      if(!p.tracer){ noise(0.2,0.12); registerMiss(WPN[p.wk].short+' 失效'); }
+      return;
+    }
+    // 命中率：一次扳機計一次命中。機砲整串連射只計一次。
+    if(p.tracer){ if(!STATE.gunHitFlag){ STATE.gunHitFlag=true; STATE.hits++; } }
+    else STATE.hits++;
+    t.hp-=p.dmg;
+    STATE.effects.push({x:p.x,y:p.y,r:4,max:p.tracer?22:64,life:1,tracer:p.tracer});
+    if(!p.tracer) explodeSound();
+    if(t.hp<=0){
+      STATE.effects.push({x:t.x,y:t.y,r:6,max:t.sz*2.6,life:1,big:true}); explodeSound();
+      // 計分：基礎 + 用對建議武器加成 + 快速擊殺加成 + 連擊倍率
+      const base = t.kind==='ship'? (t.cls==='ship-small'?150:300) : 200;
+      const recBonus = (p.wk===t.rec)?1.0:0.6;           // 用最佳武器才滿分
+      const dt=(STATE.t-t.born)/60;                       // 出現到擊毀秒數
+      const fast = dt<4?60: dt<8?30:0;
+      STATE.combo++; if(STATE.combo>STATE.maxCombo) STATE.maxCombo=STATE.combo;
+      const mult=1+Math.min(STATE.combo-1,5)*0.2;         // 連擊最高 ×2
+      const gained=Math.round((base*recBonus+fast)*mult);
+      STATE.score+=gained; STATE.kills++;
+      clearThreatsOf(t);                                  // 來源被擊毀 → 取消其在途飛彈
+      updateHUDScore();
+      showMsg('★ 擊毀 '+t.name+'　+'+gained+(STATE.combo>=2?'（連擊×'+STATE.combo+'）':''),'#39ff64');
+      const kv=['目標擊毀，幹得好！','命中，目標摧毀！','擊殺確認，繼續搜索！','漂亮，敵蹤消失！'];
+      tower(STATE.combo>=3?'連續擊殺，火力全開！':kv[STATE.kills%kv.length],{flush:true});
+      STATE.target=null; STATE.locked=false; STATE.locking=false;
+      lockBtn.classList.remove('active'); updateStatus(); updateFireBtn();
+      if(STATE.running) setTimeout(()=>{ if(STATE.running && !STATE.target){ spawnTarget(); } }, autoOn?250:700);
+    } else if(!p.tracer){
+      showMsg('命中！剩 '+Math.max(0,Math.round(t.hp/t.maxhp*100))+'%','#ffe34d');
+    }
+  }
+
+  // ===== 主迴圈 =====
+  function loop(ts){
+    if(!STATE.running){ return; }
+    if(!STATE.lastTs) STATE.lastTs=ts;
+    const dt=Math.min(0.05,(ts-STATE.lastTs)/1000); STATE.lastTs=ts; STATE.t++;
+    // 計時
+    STATE.timeLeft-=dt;
+    if(STATE.timeLeft<=0){ STATE.timeLeft=0; endMission(); return; }
+    const frac=STATE.timeLeft/STATE.timeTotal;
+    document.getElementById('timerTxt').textContent=STATE.timeLeft.toFixed(1)+'s';
+    const tf=document.getElementById('timerFill');
+    tf.style.width=(frac*100)+'%';
+    tf.style.background = frac<0.2? '#ff3b3b' : frac<0.45? '#ffe34d':'linear-gradient(90deg,#39ff64,#9bff5b)';
+    if(STATE.timeLeft<=10 && Math.floor(STATE.timeLeft)!==Math.floor(STATE.timeLeft+dt)) beep(660,0.08,'square',0.08);
+
+    // 自動接戰
+    autoTick();
+
+    // 鎖定
+    if(STATE.locking && STATE.target){
+      STATE.lockProgress+= autoOn?0.06:0.022;            // 自動模式加速鎖定
+      if(STATE.t%6===0) lockTone();
+      if(STATE.lockProgress>=1){ STATE.locking=false; STATE.locked=true; STATE.lockProgress=1;
+        beep(1320,0.18,'sine',0.08); setTimeout(()=>beep(1760,0.18,'sine',0.08),120);
+        showMsg('目標鎖定 LOCKED','#39ff64'); updateStatus(); updateFireBtn(); }
+    }
+    // 機砲連射
+    if(gunBurst>0 && STATE.t%2===0){
+      if(STATE.ammo.gun>0 && STATE.target){ STATE.ammo.gun--; fireTracer(engage('gun',STATE.target).ok); gunBurst--; updateAmmo(); }
+      else gunBurst=0;
+    }
+    // 目標移動
+    const t=STATE.target;
+    if(t){ t.x+=t.vx; t.y+=t.vy;
+      if(t.kind==='air'){ if(t.x<W*0.12||t.x>W*0.88)t.vx*=-1; if(t.y<H*0.12||t.y>H*0.52)t.vy*=-1; }
+      else { if(t.x<W*0.1||t.x>W*0.9)t.vx*=-1; }
+      // 逼近：距離遞減，畫面上越變越大
+      if(t.closeV && t.range>t.rangeFloor) t.range=Math.max(t.rangeFloor, t.range-t.closeV*dt);
+      // 反擊倒數：時間到 → 對我機發射飛彈，之後間隔再射
+      if(t.threatT!=null){ t.threatT-=dt;
+        if(t.threatT<=0){ launchThreat(t); t.threatT = (t.kind==='air'?5.5:6.8); } }
+    }
+    // 來襲飛彈
+    for(let i=STATE.threats.length-1;i>=0;i--){
+      const th=STATE.threats[i], o=ownPos();
+      th.tx=o.x; th.ty=o.y;
+      const dx=th.tx-th.x, dy=th.ty-th.y, d=Math.hypot(dx,dy)||1;
+      th.x+=dx/d*th.speed; th.y+=dy/d*th.speed;
+      th.trail.push({x:th.x,y:th.y}); if(th.trail.length>16) th.trail.shift();
+      th.life--;
+      if(autoOn && !th.aeng){ th.aeng=true; fireInterceptor(th); }   // 自動接戰：CIWS 自動攔截
+      if(d<th.speed+10){ threatImpact(); STATE.threats.splice(i,1); continue; }
+      if(th.life<=0){ STATE.threats.splice(i,1); }
+    }
+    // 投射物
+    for(let i=STATE.projectiles.length-1;i>=0;i--){
+      const p=STATE.projectiles[i], tgt=p.target;
+      // 近迫攔截彈：追向指定的來襲飛彈
+      if(p.intercept){
+        const th=p.threat, alive=th && STATE.threats.indexOf(th)>=0;
+        if(alive){ const dx=th.x-p.x, dy=th.y-p.y, d=Math.hypot(dx,dy)||1;
+          p.vx=dx/d*p.speed; p.vy=dy/d*p.speed;
+          if(d<p.speed+10){ interceptThreat(th); STATE.projectiles.splice(i,1); continue; } }
+        p.x+=p.vx; p.y+=p.vy;
+        p.trail.push({x:p.x,y:p.y}); if(p.trail.length>10) p.trail.shift();
+        p.life--;
+        if(p.life<=0||p.y<-20||p.x<-20||p.x>W+20){
+          if(alive) th.aeng=false;                          // 攔截彈失效 → 允許重新接戰
+          STATE.projectiles.splice(i,1);
+        }
+        continue;
+      }
+      let aimx=p.tx, aimy=p.ty;
+      if(p.homing && tgt && tgt===STATE.target){ aimx=tgt.x; aimy=tgt.y; }
+      const dx=aimx-p.x, dy=aimy-p.y, d=Math.hypot(dx,dy)||1;
+      p.x+=dx/d*p.speed; p.y+=dy/d*p.speed;
+      p.trail.push({x:p.x,y:p.y}); if(p.trail.length>14) p.trail.shift();
+      p.life--;
+      const hd=(tgt&&tgt===STATE.target)?(tgt.sz*0.7+8):12;
+      if(d<p.speed+hd){ applyHit(p); STATE.projectiles.splice(i,1); continue; }
+      if(p.life<=0||p.y<-20||p.x<-20||p.x>W+20){
+        if(!p.tracer && !p.willHit) {} // 已在 applyHit 或飛出
+        STATE.projectiles.splice(i,1);
+      }
+    }
+    // 特效
+    for(let i=STATE.effects.length-1;i>=0;i--){ const e=STATE.effects[i];
+      e.r+=(e.max-e.r)*0.18; e.life-=0.045; if(e.life<=0) STATE.effects.splice(i,1); }
+    drawHUD(); drawRadar();
+    requestAnimationFrame(loop);
+  }
+
+  // ===== 繪製 HUD =====
+  function drawHUD(){
+    hctx.clearRect(0,0,W,H);
+    const horizon=H*0.6;
+    let sky=hctx.createLinearGradient(0,0,0,horizon); sky.addColorStop(0,'#0a2230'); sky.addColorStop(1,'#16404a');
+    hctx.fillStyle=sky; hctx.fillRect(0,0,W,horizon);
+    let sea=hctx.createLinearGradient(0,horizon,0,H); sea.addColorStop(0,'#0e2e33'); sea.addColorStop(1,'#06181b');
+    hctx.fillStyle=sea; hctx.fillRect(0,horizon,W,H-horizon);
+    hctx.strokeStyle='rgba(57,255,100,.05)'; hctx.lineWidth=1;
+    for(let y=horizon+12;y<H;y+=14){ hctx.beginPath(); hctx.moveTo(0,y); hctx.lineTo(W,y); hctx.stroke(); }
+
+    // 畫面震動（背景不抖，避免露出邊縫）
+    let _shk=false;
+    if(STATE.shake>0.4){ _shk=true; hctx.save();
+      hctx.translate((Math.random()*2-1)*STATE.shake,(Math.random()*2-1)*STATE.shake);
+      STATE.shake*=0.86; }
+    else STATE.shake=0;
+
+    hctx.strokeStyle='rgba(57,255,100,.55)'; hctx.lineWidth=1.4; hctx.font='12px Consolas'; hctx.fillStyle='rgba(57,255,100,.8)';
+    hctx.beginPath(); hctx.moveTo(W*0.12,horizon); hctx.lineTo(W*0.42,horizon);
+    hctx.moveTo(W*0.58,horizon); hctx.lineTo(W*0.88,horizon); hctx.stroke();
+    const cx=W/2, cy=horizon-10;
+    hctx.beginPath();
+    hctx.moveTo(cx-26,cy); hctx.lineTo(cx-8,cy); hctx.moveTo(cx+8,cy); hctx.lineTo(cx+26,cy);
+    hctx.moveTo(cx,cy-26); hctx.lineTo(cx,cy-12); hctx.arc(cx,cy,4,0,7); hctx.stroke();
+    hctx.fillText('SPD 480',W*0.10,H*0.32); hctx.fillText('ALT 12000',W*0.10,H*0.47);
+    hctx.fillText('HDG 027',W*0.80,H*0.32); hctx.fillText('G 1.0',W*0.80,H*0.47);
+    const wn=WPN[STATE.weapon], wtxt=wn.name+(STATE.weapon==='gun'?'  '+STATE.ammo.gun:'  ×'+STATE.ammo[STATE.weapon]);
+    hctx.fillText('WPN '+wtxt,W*0.10,H*0.93);
+
+    const t=STATE.target;
+    if(t){
+      drawTarget(t);
+      const es=t.sz*dispScale(t);
+      const e=engage(STATE.weapon,t);
+      const boxc = STATE.locked?'#ff3b3b':STATE.locking?'#ffe34d':(e.ok?'#39ff64':'#ff5b5b');
+      if(STATE.locking && !STATE.locked){ const g=1-STATE.lockProgress*0.45; dashBox(t.x,t.y,es*1.8*g+es*0.6,boxc); }
+      else dashBox(t.x,t.y,es*1.5,boxc);
+      if(STATE.locked){ hctx.fillStyle='#ff3b3b'; hctx.font='bold 13px Consolas'; hctx.fillText('● LOCKED',t.x-es,t.y-es*1.5-8); }
+      hctx.fillStyle=boxc; hctx.font='11px Consolas';
+      hctx.fillText(t.name+'  '+t.range.toFixed(1)+'nm  ['+WPN[t.rec].short+']', t.x-es, t.y+es*1.5+16);
+      const bw=es*2, bx=t.x-es, by=t.y-es*1.5-22;
+      hctx.fillStyle='rgba(0,0,0,.5)'; hctx.fillRect(bx,by,bw,5);
+      hctx.fillStyle=t.hp/t.maxhp>0.4?'#39ff64':'#ff5b5b'; hctx.fillRect(bx,by,bw*Math.max(0,t.hp/t.maxhp),5);
+    }
+    STATE.projectiles.forEach(p=>{
+      if(p.trail.length>1){ hctx.strokeStyle=p.color; hctx.lineWidth=p.tracer?2:3; hctx.globalAlpha=0.6;
+        hctx.beginPath(); hctx.moveTo(p.trail[0].x,p.trail[0].y);
+        for(const pt of p.trail) hctx.lineTo(pt.x,pt.y); hctx.stroke(); hctx.globalAlpha=1; }
+      hctx.fillStyle=p.color; hctx.beginPath(); hctx.arc(p.x,p.y,p.tracer?2.5:4,0,7); hctx.fill();
+      if(!p.tracer){ hctx.fillStyle='rgba(255,200,100,.4)'; hctx.beginPath(); hctx.arc(p.x,p.y,7,0,7); hctx.fill(); }
+    });
+    // 來襲飛彈（紅色，朝我機而來）
+    if(STATE.threats.length){
+      const o=ownPos();
+      hctx.strokeStyle='rgba(255,59,59,.85)'; hctx.lineWidth=2; hctx.globalAlpha=.7;
+      hctx.beginPath(); hctx.arc(o.x,o.y,16,0,7); hctx.stroke();
+      hctx.beginPath(); hctx.moveTo(o.x-10,o.y); hctx.lineTo(o.x+10,o.y); hctx.moveTo(o.x,o.y-10); hctx.lineTo(o.x,o.y+10); hctx.stroke();
+      hctx.globalAlpha=1;
+      STATE.threats.forEach(th=>{
+        if(th.trail.length>1){ hctx.strokeStyle='rgba(255,80,80,.7)'; hctx.lineWidth=2.5;
+          hctx.beginPath(); hctx.moveTo(th.trail[0].x,th.trail[0].y);
+          for(const pt of th.trail) hctx.lineTo(pt.x,pt.y); hctx.stroke(); }
+        hctx.fillStyle='rgba(255,160,60,.45)'; hctx.beginPath(); hctx.arc(th.x,th.y,8,0,7); hctx.fill();
+        hctx.fillStyle='#ff3b3b'; hctx.beginPath(); hctx.arc(th.x,th.y,4,0,7); hctx.fill();
+        // 可點擊攔截：脈動瞄準環
+        const pr=14+Math.sin(STATE.t*0.25)*3;
+        hctx.strokeStyle='rgba(255,227,77,.9)'; hctx.lineWidth=1.6;
+        hctx.beginPath(); hctx.arc(th.x,th.y,pr,0,7); hctx.stroke();
+        hctx.beginPath();
+        hctx.moveTo(th.x-pr-4,th.y); hctx.lineTo(th.x-pr+3,th.y);
+        hctx.moveTo(th.x+pr-3,th.y); hctx.lineTo(th.x+pr+4,th.y);
+        hctx.moveTo(th.x,th.y-pr-4); hctx.lineTo(th.x,th.y-pr+3);
+        hctx.moveTo(th.x,th.y+pr-3); hctx.lineTo(th.x,th.y+pr+4); hctx.stroke();
+      });
+    }
+    STATE.effects.forEach(e=>{ const a=Math.max(0,e.life);
+      const col0 = e.dud? 'rgba(180,180,180,'+a+')':'rgba(255,240,180,'+a+')';
+      const col1 = e.dud? 'rgba(120,120,120,'+(a*0.7)+')':'rgba(255,140,40,'+(a*0.8)+')';
+      const grd=hctx.createRadialGradient(e.x,e.y,1,e.x,e.y,e.r);
+      grd.addColorStop(0,col0); grd.addColorStop(0.4,col1); grd.addColorStop(1,'rgba(120,20,0,0)');
+      hctx.fillStyle=grd; hctx.beginPath(); hctx.arc(e.x,e.y,e.r,0,7); hctx.fill(); });
+    if(_shk) hctx.restore();                              // 結束震動位移
+    // 來襲警告（畫面固定，不受震動）
+    if(STATE.threats.length && STATE.t%24<14){
+      hctx.fillStyle='#ff3b3b'; hctx.font='bold 15px Consolas'; hctx.textAlign='center';
+      hctx.fillText('⚠ 飛彈來襲！點擊飛彈以機砲攔截',W/2,H*0.07); hctx.textAlign='left';
+    }
+    if(STATE.locked){ hctx.fillStyle='rgba(255,59,59,.9)'; hctx.font='bold 16px Consolas';
+      hctx.textAlign='center'; hctx.fillText('SHOOT',cx,H*0.16); hctx.textAlign='left'; }
+    // 紅光閃爍（被擊中）
+    if(STATE.flash){ hctx.fillStyle='rgba('+STATE.flash.color+','+STATE.flash.a+')';
+      hctx.fillRect(0,0,W,H); STATE.flash.a-=0.04; if(STATE.flash.a<=0) STATE.flash=null; }
+  }
+  function dashBox(x,y,r,c){ hctx.strokeStyle=c; hctx.lineWidth=2; const L=r*0.5;
+    function corner(px,py,dx,dy){ hctx.beginPath(); hctx.moveTo(px,py+dy*L); hctx.lineTo(px,py); hctx.lineTo(px+dx*L,py); hctx.stroke(); }
+    corner(x-r,y-r,1,1); corner(x+r,y-r,-1,1); corner(x+r,y+r,-1,-1); corner(x-r,y+r,1,-1); }
+  // 距離→畫面縮放：越遠越小，逼近時放大（遠小近大透視感）
+  function dispScale(t){ const s=1.25/(1+t.range/7); return Math.max(0.32, Math.min(1.25, s)); }
+  function drawTarget(t){ const ds=dispScale(t); hctx.save(); hctx.translate(t.x,t.y);
+    hctx.fillStyle='#0c1a14'; hctx.strokeStyle='#39ff64'; hctx.lineWidth=1.5;
+    if(t.kind==='air'){ const s=t.sz/30*ds; hctx.beginPath();
+      hctx.moveTo(0,-14*s); hctx.lineTo(4*s,-2*s); hctx.lineTo(26*s,4*s); hctx.lineTo(4*s,8*s);
+      hctx.lineTo(8*s,16*s); hctx.lineTo(0,12*s); hctx.lineTo(-8*s,16*s); hctx.lineTo(-4*s,8*s);
+      hctx.lineTo(-26*s,4*s); hctx.lineTo(-4*s,-2*s); hctx.closePath(); hctx.fill(); hctx.stroke();
+    } else { const s=t.sz/64*ds; hctx.beginPath();
+      hctx.moveTo(-50*s,4*s); hctx.lineTo(50*s,4*s); hctx.lineTo(40*s,14*s); hctx.lineTo(-44*s,14*s); hctx.closePath(); hctx.fill(); hctx.stroke();
+      hctx.fillRect(-20*s,-12*s,16*s,16*s); hctx.strokeRect(-20*s,-12*s,16*s,16*s);
+      hctx.fillRect(6*s,-6*s,12*s,10*s); hctx.strokeRect(6*s,-6*s,12*s,10*s);
+      hctx.beginPath(); hctx.moveTo(-12*s,-12*s); hctx.lineTo(-12*s,-26*s); hctx.stroke(); }
+    hctx.restore(); }
+
+  // ===== 雷達 =====
+  function drawRadar(){
+    rctx.clearRect(0,0,RW,RH);
+    const cx=RW/2,cy=RH/2,R=Math.min(RW,RH)/2-6;
+    rctx.strokeStyle='rgba(57,255,100,.3)'; rctx.lineWidth=1;
+    for(let i=1;i<=3;i++){ rctx.beginPath(); rctx.arc(cx,cy,R*i/3,0,7); rctx.stroke(); }
+    rctx.beginPath(); rctx.moveTo(cx-R,cy); rctx.lineTo(cx+R,cy); rctx.moveTo(cx,cy-R); rctx.lineTo(cx,cy+R); rctx.stroke();
+    const ang=(STATE.t*0.04)%(Math.PI*2);
+    rctx.save(); rctx.beginPath(); rctx.moveTo(cx,cy); rctx.arc(cx,cy,R,ang-0.5,ang); rctx.closePath();
+    rctx.fillStyle='rgba(57,255,100,.12)'; rctx.fill(); rctx.restore();
+    rctx.strokeStyle='rgba(57,255,100,.6)'; rctx.beginPath(); rctx.moveTo(cx,cy); rctx.lineTo(cx+Math.cos(ang)*R,cy+Math.sin(ang)*R); rctx.stroke();
+    rctx.fillStyle='#39ff64'; rctx.beginPath(); rctx.moveTo(cx,cy-6); rctx.lineTo(cx-4,cy+4); rctx.lineTo(cx+4,cy+4); rctx.closePath(); rctx.fill();
+    const t=STATE.target;
+    if(t){ const rr=Math.min(1,t.range/55), a=(t.bearing-90)*Math.PI/180;
+      const px=cx+Math.cos(a)*R*rr, py=cy+Math.sin(a)*R*rr;
+      const blink=STATE.locked?1:(0.5+0.5*Math.sin(STATE.t*0.2));
+      rctx.fillStyle=t.kind==='ship'?'rgba(91,214,255,'+blink+')':'rgba(255,91,91,'+blink+')';
+      if(t.kind==='ship'){ rctx.fillRect(px-5,py-5,10,10); } else { rctx.beginPath(); rctx.arc(px,py,5,0,7); rctx.fill(); }
+      if(STATE.locked){ rctx.strokeStyle='#ff3b3b'; rctx.lineWidth=2; rctx.strokeRect(px-9,py-9,18,18); } }
+  }
+
+  // ===== 任務開始/結束 =====
+  function startMission(){
+    AC();
+    Object.assign(STATE,{ weapon:'aim120', ammo:{gun:511,aim9:6,aim120:8,harpoon:6},
+      target:null, locking:false, lockProgress:0, locked:false, projectiles:[], effects:[],
+      threats:[], shake:0, flash:null, hitTaken:0,
+      running:true, timeLeft:180, timeTotal:180, score:0, kills:0, shots:0, hits:0, misses:0,
+      combo:0, maxCombo:0, gunHitFlag:false, intercepts:0, t:0, lastTs:0 });
+    document.getElementById('intro').style.display='none';
+    document.getElementById('result').style.display='none';
+    lockBtn.classList.remove('active');
+    autoOn=false; autoCd=0; autoStuck=0; autoBtn.classList.remove('on'); autoBadge.classList.remove('on');
+    resize(); updateAmmo(); updateStatus(); updateHUDScore(); updateFireBtn(); spawnTarget();
+    beep(660,0.1,'sine',0.06); setTimeout(()=>beep(880,0.12,'sine',0.06),110);
+    tower('各機注意，作戰開始，全程保持警戒，聽我號令。',{flush:true});
+    requestAnimationFrame(loop);
+  }
+  function endMission(){
+    STATE.running=false; STATE.target=null;
+    explodeSound();
+    tower('任務時間結束，全機脫離戰區，返航。',{flush:true});
+    const acc = STATE.shots? Math.round(STATE.hits/STATE.shots*100):0;
+    // 評級
+    let grade,gc,comment;
+    if(STATE.score>=2500 && acc>=70){ grade='S'; gc='#ffe34d'; comment='王牌飛行員！武器運用精準。'; }
+    else if(STATE.score>=1600){ grade='A'; gc='#39ff64'; comment='優秀，接戰判斷正確。'; }
+    else if(STATE.score>=900){ grade='B'; gc='#5bd6ff'; comment='合格，注意武器與射程的搭配。'; }
+    else if(STATE.score>=400){ grade='C'; gc='#ff9b3b'; comment='再加油，多用「建議武器」。'; }
+    else { grade='D'; gc='#ff5b5b'; comment='留意：用錯武器/超射程會扣分。'; }
+    document.getElementById('grade').textContent=grade;
+    document.getElementById('grade').style.color=gc;
+    document.getElementById('r-score').textContent=STATE.score;
+    document.getElementById('r-kills').textContent=STATE.kills;
+    document.getElementById('r-acc').textContent=STATE.shots+' / '+STATE.hits;
+    document.getElementById('r-accp').textContent=acc+'%';
+    document.getElementById('r-combo').textContent='×'+STATE.maxCombo;
+    document.getElementById('r-miss').textContent=STATE.misses;
+    document.getElementById('r-intc').textContent=STATE.intercepts||0;
+    document.getElementById('r-hit').textContent=STATE.hitTaken;
+    document.getElementById('r-comment').textContent=comment;
+    // 最高分紀錄
+    const prev=bestScore(), isNew=STATE.score>prev;
+    if(isNew) saveBest(STATE.score);
+    document.getElementById('r-best').textContent = (isNew?'🏆 '+STATE.score+'（新紀錄！）':String(Math.max(prev,STATE.score)));
+    document.getElementById('r-best').className = 'r'+(isNew?' amber':'');
+    document.getElementById('result').style.display='flex';
+  }
+
+  // ===== 起飛過場：從航空母艦彈射升空 =====
+  function launchSfx(){
+    AC();
+    noise(0.5,0.12);                                          // 甲板蒸氣 / 彈射器釋壓
+    try{ const a=AC(),o=a.createOscillator(),g=a.createGain(); const t0=a.currentTime;
+      o.type='sawtooth'; o.frequency.setValueAtTime(58,t0);
+      o.frequency.exponentialRampToValueAtTime(160,t0+2.2);   // 引擎推力漸增
+      g.gain.setValueAtTime(0.0001,t0);
+      g.gain.exponentialRampToValueAtTime(0.16,t0+1.0);
+      g.gain.setValueAtTime(0.16,t0+2.0);
+      g.gain.exponentialRampToValueAtTime(0.0001,t0+3.3);
+      o.connect(g); g.connect(a.destination); o.start(t0); o.stop(t0+3.4);
+    }catch(e){}
+    setTimeout(()=>{ noise(0.45,0.24); beep(70,0.55,'sawtooth',0.14); },900);   // 彈射！
+    setTimeout(()=>{ beep(520,0.5,'sine',0.05); },2050);      // 升空爬升
+    tower('甲板淨空，彈射器就位，三，兩，么，發射！',{flush:true});
+  }
+  function drawDeck(c,w,h,ms){
+    const dy=h*0.72;
+    c.fillStyle='#2a3138';                                    // 艦體
+    c.beginPath(); c.moveTo(w*0.04,dy); c.lineTo(w*0.96,dy);
+    c.lineTo(w*0.86,h*0.93); c.lineTo(w*0.16,h*0.93); c.closePath(); c.fill();
+    c.fillStyle='#3c4751'; c.fillRect(w*0.04,dy-10,w*0.92,10);// 甲板面
+    c.fillStyle='#475561'; c.fillRect(w*0.04,dy-10,w*0.92,3);
+    c.strokeStyle='rgba(240,230,160,.7)'; c.lineWidth=3; c.setLineDash([18,14]);
+    c.beginPath(); c.moveTo(w*0.10,dy-5); c.lineTo(w*0.90,dy-5); c.stroke(); c.setLineDash([]);
+    c.strokeStyle='rgba(255,255,255,.55)'; c.lineWidth=2; c.strokeRect(w*0.16,dy-9,w*0.05,8); // 彈射起點
+    // 艦島 + 桅桿
+    c.fillStyle='#1f262b'; c.fillRect(w*0.80,dy-58,w*0.10,48);
+    c.fillStyle='#11161a'; c.fillRect(w*0.835,dy-72,w*0.02,16);
+    c.fillStyle='rgba(45,214,255,.8)';
+    for(let i=0;i<3;i++) c.fillRect(w*0.815,dy-50+i*13,w*0.07,4);
+    // 甲板邊緣燈
+    c.fillStyle='rgba(255,90,90,.8)';
+    for(let x=w*0.10;x<w*0.92;x+=w*0.07){ c.beginPath(); c.arc(x,dy-1,2,0,7); c.fill(); }
+  }
+  function drawJet(c,x,y,s,pitch,ab,ms){
+    c.save(); c.translate(x,y); c.rotate(-pitch); c.scale(s,s);
+    if(ab>0){                                                 // 後燃器火焰
+      const fl=(42+Math.sin(ms*0.05)*9+Math.random()*6)*ab;
+      const g=c.createLinearGradient(-40,0,-40-fl,0);
+      g.addColorStop(0,'rgba(255,245,190,.95)'); g.addColorStop(0.3,'rgba(255,150,40,.85)');
+      g.addColorStop(1,'rgba(255,60,20,0)');
+      c.fillStyle=g; c.beginPath(); c.moveTo(-38,-5); c.lineTo(-40-fl,0); c.lineTo(-38,5); c.closePath(); c.fill();
+      const g2=c.createLinearGradient(-40,0,-40-fl*0.5,0);
+      g2.addColorStop(0,'rgba(190,235,255,.9)'); g2.addColorStop(1,'rgba(120,180,255,0)');
+      c.fillStyle=g2; c.beginPath(); c.moveTo(-38,-2.5); c.lineTo(-40-fl*0.5,0); c.lineTo(-38,2.5); c.closePath(); c.fill();
+    }
+    c.fillStyle='#d2dade'; c.strokeStyle='#39ff64'; c.lineWidth=1.4;
+    c.beginPath(); c.moveTo(46,0); c.lineTo(16,-6); c.lineTo(-30,-6); c.lineTo(-40,-3);
+    c.lineTo(-40,3); c.lineTo(-26,6); c.lineTo(16,6); c.closePath(); c.fill(); c.stroke();
+    c.fillStyle='#8fe0ff'; c.beginPath(); c.moveTo(24,-5); c.lineTo(12,-12); c.lineTo(2,-6); c.closePath(); c.fill(); // 座艙罩
+    c.fillStyle='#b8c0c6'; c.beginPath(); c.moveTo(-26,-6); c.lineTo(-40,-22); c.lineTo(-30,-22); c.lineTo(-18,-6); c.closePath(); c.fill(); c.stroke(); // 尾翼
+    c.fillStyle='#aeb8be'; c.beginPath(); c.moveTo(6,4); c.lineTo(-18,20); c.lineTo(-2,5); c.closePath(); c.fill(); c.stroke();           // 機翼
+    c.restore();
+  }
+  function drawLaunchScene(c,w,h,e,ms){
+    const sky=c.createLinearGradient(0,0,0,h);
+    sky.addColorStop(0,'#0a1830'); sky.addColorStop(0.5,'#13314a'); sky.addColorStop(0.78,'#1f4a5a');
+    c.fillStyle=sky; c.fillRect(0,0,w,h);
+    const sg=c.createRadialGradient(w*0.78,h*0.36,8,w*0.78,h*0.36,h*0.55);
+    sg.addColorStop(0,'rgba(255,180,90,.35)'); sg.addColorStop(1,'rgba(255,180,90,0)');
+    c.fillStyle=sg; c.fillRect(0,0,w,h);
+    const seaY=h*0.66, sea=c.createLinearGradient(0,seaY,0,h);
+    sea.addColorStop(0,'#10333b'); sea.addColorStop(1,'#06181b');
+    c.fillStyle=sea; c.fillRect(0,seaY,w,h-seaY);
+    c.strokeStyle='rgba(120,200,220,.10)'; c.lineWidth=1;
+    for(let i=1;i<12;i++){ const y=seaY+(i/12)*(h-seaY); c.beginPath(); c.moveTo(0,y); c.lineTo(w,y); c.stroke(); }
+
+    // 速度線（滾行/爬升時製造速度感）
+    if(e>=0.26 && e<0.78){ c.strokeStyle='rgba(255,255,255,.22)'; c.lineWidth=2;
+      for(let i=0;i<9;i++){ const ly=h*0.26+i*Math.max(14,h*0.04); const off=(ms*0.9+i*70)%(w+80);
+        const lx=w-off; c.beginPath(); c.moveTo(lx,ly); c.lineTo(lx-46,ly); c.stroke(); } }
+
+    drawDeck(c,w,h,ms);
+
+    const startX=w*0.205, endX=w*0.82, deckY=h*0.72, jetY=deckY-12;
+    let jx,jy,pitch,scale,ab;
+    if(e<0.26){ const k=e/0.26; jx=startX; jy=jetY; pitch=0; scale=1; ab=0.25+0.55*k;
+      // 彈射蒸氣
+      for(let i=0;i<5;i++){ const px=startX-26-i*12+Math.sin(ms*0.01+i)*4;
+        const py=jetY+5-((ms*0.045+i*22)%42); c.fillStyle='rgba(220,230,235,'+Math.max(0,0.2-i*0.035)+')';
+        c.beginPath(); c.arc(px,py,8+i*2,0,7); c.fill(); }
+    } else if(e<0.62){ const k=(e-0.26)/0.36, ke=k*k; jx=startX+(endX-startX)*ke; jy=jetY; pitch=0.06*k; scale=1; ab=1;
+    } else { const k=(e-0.62)/0.38; jx=endX+(w*0.45)*k; jy=jetY-(h*0.62)*k*k; pitch=0.18+0.28*k; scale=1-0.32*k; ab=1; }
+    drawJet(c,jx,jy,scale,pitch,ab,ms);
+
+    // 文字
+    c.textAlign='center';
+    if(e<0.26){
+      const n=Math.max(1,Math.ceil((0.26-e)/0.26*3));
+      c.fillStyle='#39ff64'; c.font='bold '+Math.round(Math.min(h*0.05,30))+'px Consolas';
+      c.fillText('彈射準備　CATAPULT READY', w/2, h*0.16);
+      c.fillStyle='#ffe34d'; c.font='bold '+Math.round(Math.min(h*0.18,150))+'px Consolas';
+      c.fillText(n, w/2, h*0.46);
+    } else if(e<0.62){
+      if(ms%300<190){ c.fillStyle='#ff5b5b'; c.font='bold '+Math.round(Math.min(h*0.07,46))+'px Consolas';
+        c.fillText('彈射發射！　LAUNCH', w/2, h*0.18); }
+    } else {
+      c.fillStyle='#7bc5ff'; c.font='bold '+Math.round(Math.min(h*0.06,40))+'px Consolas';
+      c.fillText('升空　AIRBORNE', w/2, h*0.16);
+    }
+    c.textAlign='left';
+
+    if(e<0.05){ c.fillStyle='rgba(5,8,10,'+(1-e/0.05)+')'; c.fillRect(0,0,w,h); }      // 淡入
+    if(e>0.9){ c.fillStyle='rgba(5,8,10,'+((e-0.9)/0.1)+')'; c.fillRect(0,0,w,h); }     // 淡出接 HUD
+  }
+  function playLaunch(done){
+    AC();
+    const ov=document.getElementById('launch'), cv=document.getElementById('launchCanvas');
+    document.getElementById('intro').style.display='none';
+    document.getElementById('result').style.display='none';
+    ov.style.display='flex';
+    const r=ov.getBoundingClientRect(), w=r.width, h=r.height;
+    cv.width=w*DPR; cv.height=h*DPR;
+    const c=cv.getContext('2d'); c.setTransform(DPR,0,0,DPR,0,0);
+    const DUR=3400; let start=null, finished=false;
+    function finish(){ if(finished) return; finished=true; ov.style.display='none'; done(); }
+    document.getElementById('skipLaunch').onclick=finish;
+    launchSfx();
+    function frame(ts){
+      if(finished) return;
+      if(start==null) start=ts;
+      const ms=ts-start, e=Math.min(1,ms/DUR);
+      drawLaunchScene(c,w,h,e,ms);
+      if(e>=1){ finish(); return; }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  document.getElementById('startBtn').addEventListener('click',()=>playLaunch(startMission));
+  document.getElementById('againBtn').addEventListener('click',()=>playLaunch(startMission));
+
+  window.addEventListener('keydown',e=>{
+    if(!STATE.running) return;
+    if(e.key==='1') document.querySelector('[data-w=gun]').click();
+    if(e.key==='2') document.querySelector('[data-w=aim9]').click();
+    if(e.key==='3') document.querySelector('[data-w=aim120]').click();
+    if(e.key==='4') document.querySelector('[data-w=harpoon]').click();
+    if(e.key==='l'||e.key==='L') startLock();
+    if(e.key==='a'||e.key==='A') setAuto(!autoOn);
+    if(e.key==='v'||e.key==='V') setVoice(!voiceOn);
+    if(e.key===' '){ e.preventDefault(); fire(); }
+  });
+
+  resize();
+  document.getElementById('introBest').textContent = bestScore();
+})();
+</script>
+</body>
+</html>
