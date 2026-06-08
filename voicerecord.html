@@ -162,6 +162,10 @@ let recog = null, listening = false, finalText = '', meterAudioCtx = null, meter
 // 手機（含 iPad）：部分裝置只允許單一來源獨佔麥克風，收音時必須關掉音量條避免搶麥
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)); // iPadOS 偽裝桌面
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent)
+  || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+// iOS 上只有 Safari 開放語音辨識；Chrome(CriOS)/Edge(EdgiOS)/Firefox(FxiOS) 都不行
+const isIOSNonSafari = isIOS && /CriOS|EdgiOS|FxiOS|OPiOS/.test(navigator.userAgent);
 let transSegs = [], pipWin = null, pipBody = null; // 即時翻譯段落 / 子母視窗
 const esc = t => (t||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
@@ -203,7 +207,8 @@ function render(interim){
 function buildRecognizer(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SR){
-    setStatus('此瀏覽器不支援語音辨識，請用 Chrome', 'err');
+    if(isIOS) setStatus('iPhone 請改用 Safari 開啟（iOS 的 Chrome／其他瀏覽器無法語音辨識）', 'err');
+    else setStatus('此瀏覽器不支援語音辨識，請用電腦版 Chrome', 'err');
     $('btnToggle').disabled = true;
     return null;
   }
@@ -425,7 +430,13 @@ async function openPip(){
 }
 $('btnPip').onclick = openPip;
 
-setStatus('就緒 — 按「開始收音」', '');
+// 一進來就先警告 iOS 非 Safari 使用者（不必等按下開始）
+if(isIOSNonSafari || (isIOS && !(window.SpeechRecognition || window.webkitSpeechRecognition))){
+  setStatus('⚠️ iPhone 請改用 Safari 開啟（iOS 的 Chrome 無法收音）', 'err');
+  $('btnToggle').disabled = true;
+} else {
+  setStatus('就緒 — 按「開始收音」', '');
+}
 </script>
 </body>
 </html>
