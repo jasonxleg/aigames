@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>小棋手學院 · 西洋棋教學</title>
+<style>
+  :root{
+    --bg1:#f7d9ff; --bg2:#c6e7ff; --bg3:#d6ffe9;
+    --panel:#ffffff; --ink:#34335c; --ink2:#7a799e;
+    --accent:#ff6fae; --accent2:#7c5cff; --good:#27c98f; --warn:#ffb02e;
+    --light:#f2e3c8; --dark:#b07a4e; --hi:#ffe681; --move:#7bdf9a; --cap:#ff8fb0;
+    --shadow:0 10px 30px rgba(80,60,150,.18);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; height:100%;}
+  body{
+    font-family:"Segoe UI","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+    color:var(--ink);
+    background:linear-gradient(135deg,var(--bg1),var(--bg2) 45%,var(--bg3));
+    background-attachment:fixed;
+    min-height:100%;
+    display:flex; flex-direction:column; align-items:center;
+    overflow-x:hidden;
+  }
+  /* floating decorations */
+  .deco{position:fixed; font-size:38px; opacity:.35; pointer-events:none; animation:float 9s ease-in-out infinite; z-index:0;}
+  @keyframes float{0%,100%{transform:translateY(0) rotate(-6deg);}50%{transform:translateY(-22px) rotate(8deg);}}
+
+  header{width:100%; text-align:center; padding:18px 10px 6px; z-index:2;}
+  .logo{font-size:30px; font-weight:900; letter-spacing:1px;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 2px 0 rgba(255,255,255,.5);}
+  .logo .pawn{-webkit-text-fill-color:initial; filter:drop-shadow(0 3px 2px rgba(0,0,0,.15));}
+  .tag{color:var(--ink2); font-size:14px; margin-top:2px;}
+
+  .wrap{width:100%; max-width:1040px; padding:10px 14px 40px; z-index:2;}
+
+  /* ===== home screen ===== */
+  .home{display:flex; flex-direction:column; gap:18px; align-items:center;}
+  .mascot{font-size:74px; filter:drop-shadow(0 8px 10px rgba(0,0,0,.15)); animation:bob 2.4s ease-in-out infinite;}
+  @keyframes bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-10px);}}
+  .bubble{background:var(--panel); border-radius:22px; padding:16px 22px; box-shadow:var(--shadow);
+    max-width:520px; text-align:center; font-size:18px; line-height:1.6; position:relative;}
+  .bubble:after{content:""; position:absolute; top:-14px; left:50%; transform:translateX(-50%);
+    border:8px solid transparent; border-bottom-color:var(--panel);}
+  .menu{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:16px; width:100%; max-width:720px;}
+  .card{background:var(--panel); border:none; border-radius:24px; padding:22px 18px; cursor:pointer;
+    box-shadow:var(--shadow); text-align:center; transition:transform .15s, box-shadow .15s; font-family:inherit;}
+  .card:hover{transform:translateY(-6px) scale(1.02); box-shadow:0 16px 36px rgba(80,60,150,.28);}
+  .card:active{transform:scale(.97);}
+  .card .ic{font-size:52px; line-height:1;}
+  .card .t{font-size:21px; font-weight:800; margin-top:8px; color:var(--ink);}
+  .card .d{font-size:13px; color:var(--ink2); margin-top:4px;}
+
+  /* ===== game layout ===== */
+  .stage{display:none; flex-direction:column; align-items:center; gap:14px;}
+  .topbar{display:flex; align-items:center; gap:10px; width:100%; max-width:560px;}
+  .btn{border:none; border-radius:16px; padding:10px 16px; font-size:15px; font-weight:700; cursor:pointer;
+    font-family:inherit; background:#fff; color:var(--ink); box-shadow:var(--shadow); transition:transform .1s;}
+  .btn:active{transform:scale(.94);}
+  .btn.pri{background:linear-gradient(90deg,var(--accent),var(--accent2)); color:#fff;}
+  .btn.ghost{background:rgba(255,255,255,.7);}
+  .btn:disabled{opacity:.45; cursor:default;}
+  .spacer{flex:1;}
+
+  /* teacher / status bubble */
+  .teacher{display:flex; align-items:flex-start; gap:10px; width:100%; max-width:560px;
+    background:var(--panel); border-radius:20px; padding:12px 16px; box-shadow:var(--shadow); min-height:64px;}
+  .teacher .face{font-size:40px; line-height:1; flex-shrink:0; animation:bob 2.4s ease-in-out infinite;}
+  .teacher .say{font-size:16px; line-height:1.5;}
+  .teacher .say b{color:var(--accent2);}
+
+  /* board */
+  .boardbox{position:relative;}
+  .board{display:grid; grid-template-columns:repeat(8,1fr); width:min(92vw,520px); height:min(92vw,520px);
+    border-radius:18px; overflow:hidden; box-shadow:0 14px 40px rgba(60,40,120,.35); border:6px solid #fff;}
+  .sq{position:relative; display:flex; align-items:center; justify-content:center; font-size:min(11vw,58px);
+    user-select:none; cursor:pointer;}
+  .sq.l{background:var(--light);} .sq.d{background:var(--dark);}
+  .sq .pc{position:relative; z-index:3; line-height:1; transition:transform .12s;
+    text-shadow:0 2px 2px rgba(0,0,0,.25);}
+  .sq .pc.w{color:#fff; text-shadow:0 0 1px #555,0 0 2px #555,0 2px 3px rgba(0,0,0,.35);}
+  .sq .pc.b{color:#3a3550; text-shadow:0 0 1px #000,0 2px 3px rgba(0,0,0,.4);}
+  .sq.sel{box-shadow:inset 0 0 0 5px var(--hi);}
+  .sq.sel .pc{transform:scale(1.12);}
+  .dot{position:absolute; width:30%; height:30%; border-radius:50%; background:var(--move); opacity:.85; z-index:2;
+    box-shadow:0 0 8px var(--move); animation:pulse 1.1s ease-in-out infinite;}
+  .ring{position:absolute; inset:8%; border-radius:50%; border:5px solid var(--cap); z-index:2; box-shadow:0 0 8px var(--cap);
+    animation:pulse 1.1s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.18);}}
+  .sq.star:before{content:"⭐"; position:absolute; z-index:1; font-size:min(8vw,40px); animation:bob 1.8s ease-in-out infinite;}
+  .sq.goal{box-shadow:inset 0 0 0 4px var(--good);}
+  .sq.last{background:#ffe9a8 !important;}
+  .sq.checkglow{box-shadow:inset 0 0 0 6px var(--accent); animation:flash .7s ease-in-out infinite;}
+  @keyframes flash{0%,100%{box-shadow:inset 0 0 0 6px var(--accent);}50%{box-shadow:inset 0 0 0 6px #ff0;}}
+  .coords{position:absolute; font-size:10px; font-weight:700; color:rgba(0,0,0,.35); z-index:4; pointer-events:none;}
+  .cfile{bottom:1px; right:3px;} .crank{top:1px; left:3px;}
+
+  /* captured tray */
+  .tray{display:flex; gap:2px; flex-wrap:wrap; min-height:30px; width:min(92vw,520px); font-size:24px;
+    background:rgba(255,255,255,.55); border-radius:14px; padding:4px 10px; align-items:center;}
+  .tray .lbl{font-size:13px; color:var(--ink2); margin-right:6px; font-weight:700;}
+
+  /* lesson progress */
+  .progress{display:flex; gap:6px; flex-wrap:wrap; justify-content:center; max-width:560px;}
+  .pill{font-size:12px; padding:4px 10px; border-radius:999px; background:rgba(255,255,255,.6); color:var(--ink2); font-weight:700;}
+  .pill.cur{background:linear-gradient(90deg,var(--accent),var(--accent2)); color:#fff;}
+  .pill.done{background:var(--good); color:#fff;}
+
+  /* overlay (popups) */
+  .overlay{position:fixed; inset:0; background:rgba(50,40,90,.45); display:none; align-items:center; justify-content:center;
+    z-index:50; backdrop-filter:blur(3px); padding:20px;}
+  .modal{background:var(--panel); border-radius:26px; padding:26px 24px; max-width:380px; text-align:center; box-shadow:var(--shadow);
+    animation:pop .35s cubic-bezier(.2,1.4,.4,1);}
+  @keyframes pop{from{transform:scale(.6); opacity:0;}to{transform:scale(1); opacity:1;}}
+  .modal .big{font-size:60px;}
+  .modal h2{margin:6px 0; font-size:26px;}
+  .modal p{color:var(--ink2); font-size:16px; line-height:1.6;}
+  .modal .row{display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap;}
+
+  /* promotion picker */
+  .promo{display:flex; gap:8px; justify-content:center; margin-top:14px;}
+  .promo button{font-size:42px; width:64px; height:64px; border-radius:16px; border:3px solid var(--bg2); background:#fff; cursor:pointer;}
+  .promo button:hover{border-color:var(--accent);}
+
+  /* difficulty pick */
+  .diffs{display:flex; flex-direction:column; gap:10px; margin-top:8px;}
+
+  /* confetti */
+  .confetti{position:fixed; top:-10px; width:10px; height:14px; z-index:60; pointer-events:none; border-radius:2px;}
+
+  .hint-flash{animation:hintp 1s ease-in-out 2;}
+  @keyframes hintp{0%,100%{box-shadow:inset 0 0 0 0 var(--warn);}50%{box-shadow:inset 0 0 0 6px var(--warn);}}
+
+  @media(max-width:560px){ .logo{font-size:24px;} .bubble{font-size:16px;} }
+</style>
+</head>
+<body>
+  <div class="deco" style="left:3%; top:14%;">♟️</div>
+  <div class="deco" style="right:5%; top:22%; animation-delay:1.2s;">♞</div>
+  <div class="deco" style="left:8%; bottom:10%; animation-delay:.6s;">♛</div>
+  <div class="deco" style="right:8%; bottom:16%; animation-delay:1.8s;">♜</div>
+
+  <header>
+    <div class="logo"><span class="pawn">♟️</span> 小棋手學院 <span class="pawn">♚</span></div>
+    <div class="tag">跟著小貓老師，一步一步學會西洋棋！</div>
+  </header>
+
+  <div class="wrap">
+    <!-- ============ HOME ============ -->
+    <div class="home" id="home">
+      <div class="mascot">🐱</div>
+      <div class="bubble" id="homeBubble">哈囉！我是<b>喵喵老師</b> 🎀<br>想學西洋棋嗎？先從「教學課程」開始，學完就能跟我對戰囉！</div>
+      <div class="menu">
+        <button class="card" onclick="startLessons()">
+          <div class="ic">🎓</div><div class="t">教學課程</div>
+          <div class="d">一課一課學會每個棋子</div>
+        </button>
+        <button class="card" onclick="openPractice()">
+          <div class="ic">🧩</div><div class="t">闖關練習</div>
+          <div class="d">用學到的招式解謎題</div>
+        </button>
+        <button class="card" onclick="openPlayMenu()">
+          <div class="ic">🆚</div><div class="t">和電腦對戰</div>
+          <div class="d">挑戰喵喵老師（可選難度）</div>
+        </button>
+        <button class="card" onclick="openRules()">
+          <div class="ic">📖</div><div class="t">小抄圖鑑</div>
+          <div class="d">忘記了？隨時來看走法</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ============ GAME STAGE (shared) ============ -->
+    <div class="stage" id="stage">
+      <div class="topbar">
+        <button class="btn ghost" onclick="goHome()">🏠 回首頁</button>
+        <div class="spacer"></div>
+        <button class="btn ghost" id="btnHint" onclick="onHint()">💡 提示</button>
+        <button class="btn ghost" id="btnUndo" onclick="onUndo()">↩️ 悔棋</button>
+      </div>
+
+      <div class="teacher">
+        <div class="face" id="teacherFace">🐱</div>
+        <div class="say" id="teacherSay">準備好了嗎？</div>
+      </div>
+
+      <div class="progress" id="progress" style="display:none"></div>
+
+      <div class="tray" id="trayTop" style="display:none"><span class="lbl">電腦吃到</span></div>
+
+      <div class="boardbox">
+        <div class="board" id="board"></div>
+      </div>
+
+      <div class="tray" id="trayBot" style="display:none"><span class="lbl">你吃到</span></div>
+
+      <div class="topbar" style="justify-content:center">
+        <button class="btn pri" id="btnNext" style="display:none" onclick="nextLesson()">下一課 ➡️</button>
+        <button class="btn ghost" id="btnRetry" style="display:none" onclick="retryStep()">🔄 再試一次</button>
+        <button class="btn ghost" id="btnSkip" style="display:none" onclick="nextLesson()">跳過 ⏭️</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ OVERLAY ============ -->
+  <div class="overlay" id="overlay">
+    <div class="modal" id="modal"></div>
+  </div>
+
+<script>
+/* =========================================================================
+   西洋棋引擎（純 JS）
+   棋盤 board[r][c]：r=0 在最上方(黑方陣地)，r=7 在最下方(白方/玩家)
+   棋子物件：{t:'p|r|n|b|q|k', c:'w|b'}  空格為 null
+   ========================================================================= */
+const GLYPH = {
+  w:{k:'♔',q:'♕',r:'♖',b:'♗',n:'♘',p:'♙'},
+  b:{k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'}
+};
+const NAME = {p:'兵',r:'城堡',n:'騎士',b:'主教',q:'皇后',k:'國王'};
+const VALUE = {p:100,n:320,b:330,r:500,q:900,k:20000};
+const inB = (r,c)=> r>=0&&r<8&&c>=0&&c<8;
+
+function startBoard(){
+  const b = Array.from({length:8},()=>Array(8).fill(null));
+  const back = ['r','n','b','q','k','b','n','r'];
+  for(let c=0;c<8;c++){
+    b[0][c]={t:back[c],c:'b'}; b[1][c]={t:'p',c:'b'};
+    b[7][c]={t:back[c],c:'w'}; b[6][c]={t:'p',c:'w'};
+  }
+  return b;
+}
+function cloneBoard(b){ return b.map(row=>row.map(p=> p?{t:p.t,c:p.c}:null)); }
+function newState(){ return {turn:'w', cast:{wK:true,wQ:true,bK:true,bQ:true}, ep:null}; }
+
+/* 棋子的「假合法」走法（不檢查王是否被將）。回傳 [{r,c,cap,ep,castle,promo}] */
+function pieceMoves(b, r, c, st){
+  const p = b[r][c]; if(!p) return [];
+  const me = p.c, opp = me==='w'?'b':'w';
+  const out = [];
+  const add=(rr,cc,extra={})=>{ if(!inB(rr,cc))return; const t=b[rr][cc];
+    if(t && t.c===me) return; out.push({r:rr,c:cc,cap:!!t,...extra}); };
+  const ray=(dirs)=>{ for(const[dr,dc]of dirs){ let rr=r+dr,cc=c+dc;
+    while(inB(rr,cc)){ const t=b[rr][cc];
+      if(!t){ out.push({r:rr,c:cc,cap:false}); }
+      else { if(t.c===opp) out.push({r:rr,c:cc,cap:true}); break; }
+      rr+=dr; cc+=dc; } } };
+  if(p.t==='p'){
+    const dir = me==='w'? -1: 1;
+    const startR = me==='w'? 6:1;
+    const promoR = me==='w'? 0:7;
+    // 前進一格
+    if(inB(r+dir,c) && !b[r+dir][c]){
+      out.push({r:r+dir,c:c,cap:false,promo:(r+dir===promoR)});
+      // 前進兩格
+      if(r===startR && !b[r+2*dir][c]) out.push({r:r+2*dir,c:c,cap:false,dbl:true});
+    }
+    // 斜吃
+    for(const dc of [-1,1]){ const rr=r+dir,cc=c+dc;
+      if(inB(rr,cc)){ const t=b[rr][cc];
+        if(t && t.c===opp) out.push({r:rr,c:cc,cap:true,promo:(rr===promoR)});
+        // 吃過路兵
+        if(st && st.ep && st.ep.r===rr && st.ep.c===cc) out.push({r:rr,c:cc,cap:true,ep:true});
+      } }
+  } else if(p.t==='n'){
+    for(const[dr,dc]of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]) add(r+dr,c+dc);
+  } else if(p.t==='b'){ ray([[-1,-1],[-1,1],[1,-1],[1,1]]);
+  } else if(p.t==='r'){ ray([[-1,0],[1,0],[0,-1],[0,1]]);
+  } else if(p.t==='q'){ ray([[-1,-1],[-1,1],[1,-1],[1,1],[-1,0],[1,0],[0,-1],[0,1]]);
+  } else if(p.t==='k'){
+    for(const[dr,dc]of [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]) add(r+dr,c+dc);
+    // 入堡（castling）
+    if(st){
+      const row = me==='w'?7:0;
+      if(r===row && c===4){
+        const kSide = me==='w'?st.cast.wK:st.cast.bK;
+        const qSide = me==='w'?st.cast.wQ:st.cast.bQ;
+        if(kSide && !b[row][5] && !b[row][6] && b[row][7] && b[row][7].t==='r' &&
+           !isAttacked(b,row,4,opp)&&!isAttacked(b,row,5,opp)&&!isAttacked(b,row,6,opp))
+          out.push({r:row,c:6,cap:false,castle:'K'});
+        if(qSide && !b[row][3] && !b[row][2] && !b[row][1] && b[row][0] && b[row][0].t==='r' &&
+           !isAttacked(b,row,4,opp)&&!isAttacked(b,row,3,opp)&&!isAttacked(b,row,2,opp))
+          out.push({r:row,c:2,cap:false,castle:'Q'});
+      }
+    }
+  }
+  return out;
+}
+
+/* 某格是否被 byColor 攻擊 */
+function isAttacked(b, r, c, byColor){
+  // 兵
+  const dir = byColor==='w'? -1: 1; // 該色兵前進方向；攻擊來自其後方
+  for(const dc of[-1,1]){ const rr=r-dir, cc=c+dc; // 反推
+    if(inB(rr,cc)){ const t=b[rr][cc]; if(t&&t.c===byColor&&t.t==='p') return true; } }
+  // 騎士
+  for(const[dr,dc]of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]){
+    const rr=r+dr,cc=c+dc; if(inB(rr,cc)){ const t=b[rr][cc]; if(t&&t.c===byColor&&t.t==='n')return true; } }
+  // 國王
+  for(const[dr,dc]of [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]){
+    const rr=r+dr,cc=c+dc; if(inB(rr,cc)){ const t=b[rr][cc]; if(t&&t.c===byColor&&t.t==='k')return true; } }
+  // 直線(城堡/皇后)
+  for(const[dr,dc]of [[-1,0],[1,0],[0,-1],[0,1]]){ let rr=r+dr,cc=c+dc;
+    while(inB(rr,cc)){ const t=b[rr][cc]; if(t){ if(t.c===byColor&&(t.t==='r'||t.t==='q'))return true; break; } rr+=dr;cc+=dc; } }
+  // 斜線(主教/皇后)
+  for(const[dr,dc]of [[-1,-1],[-1,1],[1,-1],[1,1]]){ let rr=r+dr,cc=c+dc;
+    while(inB(rr,cc)){ const t=b[rr][cc]; if(t){ if(t.c===byColor&&(t.t==='b'||t.t==='q'))return true; break; } rr+=dr;cc+=dc; } }
+  return false;
+}
+function findKing(b,color){ for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=b[r][c]; if(p&&p.c===color&&p.t==='k')return{r,c};} return null; }
+function inCheck(b,color){ const k=findKing(b,color); return k? isAttacked(b,k.r,k.c, color==='w'?'b':'w'):false; }
+
+/* 套用走法，回傳 {board,state}（不改原物件） */
+function applyMove(b, st, from, mv, promoChoice){
+  const nb = cloneBoard(b);
+  const ns = {turn: st.turn==='w'?'b':'w', cast:{...st.cast}, ep:null};
+  const p = nb[from.r][from.c];
+  nb[from.r][from.c]=null;
+  // 吃過路兵
+  if(mv.ep){ nb[from.r][mv.c]=null; }
+  // 落子
+  nb[mv.r][mv.c]= mv.promo ? {t:(promoChoice||'q'),c:p.c} : p;
+  // 入堡：移動城堡
+  if(mv.castle==='K'){ nb[mv.r][5]=nb[mv.r][7]; nb[mv.r][7]=null; }
+  if(mv.castle==='Q'){ nb[mv.r][3]=nb[mv.r][0]; nb[mv.r][0]=null; }
+  // 雙步兵 → 設定過路目標
+  if(mv.dbl){ ns.ep={r:(from.r+mv.r)/2, c:mv.c}; }
+  // 更新入堡權
+  if(p.t==='k'){ if(p.c==='w'){ns.cast.wK=ns.cast.wQ=false;} else {ns.cast.bK=ns.cast.bQ=false;} }
+  if(p.t==='r'){ if(from.r===7&&from.c===0)ns.cast.wQ=false; if(from.r===7&&from.c===7)ns.cast.wK=false;
+                 if(from.r===0&&from.c===0)ns.cast.bQ=false; if(from.r===0&&from.c===7)ns.cast.bK=false; }
+  if(mv.cap){ if(mv.r===7&&mv.c===0)ns.cast.wQ=false; if(mv.r===7&&mv.c===7)ns.cast.wK=false;
+              if(mv.r===0&&mv.c===0)ns.cast.bQ=false; if(mv.r===0&&mv.c===7)ns.cast.bK=false; }
+  return {board:nb, state:ns};
+}
+
+/* 真合法走法（過濾掉會讓自己王被將的走法） */
+function legalFrom(b, st, r, c){
+  const p=b[r][c]; if(!p||p.c!==st.turn) return [];
+  return pieceMoves(b,r,c,st).filter(mv=>{
+    const {board:nb}=applyMove(b,st,{r,c},mv);
+    return !inCheck(nb, p.c);
+  });
+}
+function allLegal(b, st){
+  const list=[];
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){ const p=b[r][c];
+    if(p&&p.c===st.turn){ for(const mv of legalFrom(b,st,r,c)) list.push({from:{r,c},mv}); } }
+  return list;
+}
+function statusOf(b, st){
+  const has = allLegal(b,st).length>0;
+  const chk = inCheck(b, st.turn);
+  if(!has) return chk?'checkmate':'stalemate';
+  return chk?'check':'normal';
+}
+
+/* ====== 電腦 AI：alpha-beta ====== */
+function evalBoard(b){
+  let s=0;
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){ const p=b[r][c]; if(!p)continue;
+    let v=VALUE[p.t];
+    // 鼓勵往中間發展一點點
+    const center = 3.5; v += (3.5-Math.abs(c-center))*2 + (3.5-Math.abs(r-center))*2;
+    s += p.c==='b'? v : -v;   // AI 是黑方，越大越好（黑優）
+  }
+  return s;
+}
+function search(b, st, depth, alpha, beta){
+  const stt = statusOf(b,st);
+  if(stt==='checkmate') return st.turn==='b'? -99999+ (5-depth) : 99999-(5-depth);
+  if(stt==='stalemate') return 0;
+  if(depth===0) return evalBoard(b);
+  let moves = allLegal(b,st);
+  // 走法排序：先看吃子
+  moves.sort((a,z)=> (z.mv.cap?1:0)-(a.mv.cap?1:0));
+  if(st.turn==='b'){ // maximizing
+    let best=-1e9;
+    for(const m of moves){ const {board:nb,state:ns}=applyMove(b,st,m.from,m.mv,'q');
+      best=Math.max(best, search(nb,ns,depth-1,alpha,beta)); alpha=Math.max(alpha,best); if(beta<=alpha)break; }
+    return best;
+  } else {
+    let best=1e9;
+    for(const m of moves){ const {board:nb,state:ns}=applyMove(b,st,m.from,m.mv,'q');
+      best=Math.min(best, search(nb,ns,depth-1,alpha,beta)); beta=Math.min(beta,best); if(beta<=alpha)break; }
+    return best;
+  }
+}
+function aiMove(b, st, depth){
+  const moves = allLegal(b,st);
+  if(!moves.length) return null;
+  if(depth<=0){ // 最簡單：能吃就吃，否則隨機（不亂送大子）
+    moves.sort((a,z)=> (z.mv.cap?VALUE[b[z.mv.r][z.mv.c].t]:0)-(a.mv.cap?VALUE[b[a.mv.r][a.mv.c].t]:0));
+    const top = moves.filter(m=>m.mv.cap);
+    const pick = top.length? top : moves;
+    return pick[Math.floor(seededRand()*Math.min(pick.length, top.length?top.length:pick.length))];
+  }
+  let best=null, bestV=-1e9;
+  moves.sort((a,z)=> (z.mv.cap?1:0)-(a.mv.cap?1:0));
+  for(const m of moves){ const {board:nb,state:ns}=applyMove(b,st,m.from,m.mv,'q');
+    const v = search(nb,ns,depth-1,-1e9,1e9);
+    if(v>bestV || (v===bestV && seededRand()<0.3)){ bestV=v; best=m; } }
+  return best;
+}
+let _seed=123456;
+function seededRand(){ _seed=(_seed*1103515245+12345)&0x7fffffff; return _seed/0x7fffffff; }
+
+/* =========================================================================
+   音效（Web Audio 簡單音）
+   ========================================================================= */
+let AC=null;
+function beep(freq,dur=0.12,type='sine',vol=0.18){
+  try{ AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.type=type; o.frequency.value=freq; o.connect(g); g.connect(AC.destination);
+    g.gain.setValueAtTime(vol,AC.currentTime); g.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+dur);
+    o.start(); o.stop(AC.currentTime+dur);
+  }catch(e){}
+}
+const SFX={
+  move:()=>beep(520,0.09,'triangle'),
+  cap:()=>{beep(300,0.08,'square',0.2); setTimeout(()=>beep(200,0.1,'square',0.18),60);},
+  good:()=>{[660,880,1100].forEach((f,i)=>setTimeout(()=>beep(f,0.12,'triangle'),i*90));},
+  win:()=>{[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,0.18,'triangle'),i*120));},
+  err:()=>beep(160,0.18,'sawtooth',0.12),
+  check:()=>{beep(880,0.1,'square',0.2); setTimeout(()=>beep(880,0.1,'square',0.2),140);}
+};
+
+/* =========================================================================
+   畫面與遊戲流程
+   ========================================================================= */
+const $=id=>document.getElementById(id);
+const boardEl=$('board');
+let G = null;   // 目前模式狀態
+
+function showStage(){ $('home').style.display='none'; $('stage').style.display='flex'; }
+function goHome(){ $('stage').style.display='none'; $('home').style.display='flex'; G=null; closeOverlay(); }
+
+function say(text, face='🐱'){ $('teacherSay').innerHTML=text; $('teacherFace').textContent=face; }
+
+/* ---- 繪製棋盤 ---- */
+function render(){
+  const b=G.board;
+  boardEl.innerHTML='';
+  // 玩家是白方，棋盤白方在下：r 由 0→7 自上而下顯示即可（黑在上、白在下）
+  for(let r=0;r<8;r++){
+    for(let c=0;c<8;c++){
+      const sq=document.createElement('div');
+      sq.className='sq '+(((r+c)%2===0)?'l':'d');
+      sq.dataset.r=r; sq.dataset.c=c;
+      // 座標標示
+      if(c===0){ const cr=document.createElement('div'); cr.className='coords crank'; cr.textContent=8-r; sq.appendChild(cr);}
+      if(r===7){ const cf=document.createElement('div'); cf.className='coords cfile'; cf.textContent='abcdefgh'[c]; sq.appendChild(cf);}
+      // 星星目標
+      if(G.stars && G.stars.some(s=>s.r===r&&s.c===c)) sq.classList.add('star');
+      // 最後一步高亮
+      if(G.last && ((G.last.from.r===r&&G.last.from.c===c)||(G.last.to.r===r&&G.last.to.c===c))) sq.classList.add('last');
+      // 棋子
+      const p=b[r][c];
+      if(p){ const pc=document.createElement('div'); pc.className='pc '+p.c; pc.textContent=GLYPH[p.c][p.t]; sq.appendChild(pc); }
+      // 選取與可走點
+      if(G.sel && G.sel.r===r && G.sel.c===c) sq.classList.add('sel');
+      if(G.hintMoves){ const m=G.hintMoves.find(x=>x.r===r&&x.c===c);
+        if(m){ const d=document.createElement('div'); d.className= (m.cap||p)?'ring':'dot'; sq.appendChild(d);} }
+      // 被將軍的王閃爍
+      if(G.checkSq && G.checkSq.r===r && G.checkSq.c===c) sq.classList.add('checkglow');
+      sq.addEventListener('click',()=>onSquare(r,c));
+      boardEl.appendChild(sq);
+    }
+  }
+}
+
+/* ---- 點擊格子（共用） ---- */
+function onSquare(r,c){
+  if(!G||G.locked) return;
+  if(AC&&AC.state==='suspended') AC.resume();
+  if(G.mode==='lesson') lessonClick(r,c);
+  else if(G.mode==='play') playClick(r,c);
+  else if(G.mode==='puzzle') playClick(r,c);
+}
+
+/* 選棋 / 走棋 的共用邏輯，回傳走出的 move 或 null */
+function selectOrMove(r,c, allowColor, useFullLegal){
+  const b=G.board, p=b[r][c];
+  // 已選取 → 嘗試走到該格
+  if(G.sel){
+    const mv=(G.hintMoves||[]).find(m=>m.r===r&&m.c===c);
+    if(mv){ return {from:{...G.sel}, mv}; }
+  }
+  // 選新棋
+  if(p && p.c===allowColor){
+    G.sel={r,c};
+    G.hintMoves = useFullLegal ? legalFrom(b,G.state,r,c) : pieceMoves(b,r,c,G.state);
+    render();
+    return null;
+  }
+  // 點空白取消
+  G.sel=null; G.hintMoves=null; render();
+  return null;
+}
+
+/* =========================================================================
+   模式一：教學課程
+   ========================================================================= */
+const LESSONS = [
+  {
+    title:'認識棋盤', icon:'🗺️',
+    setup:()=>startBoard(),
+    free:false,
+    intro:'這是<b>西洋棋盤</b>，有 8×8＝64 格，黑白相間。<br>你的棋子在<b>下面（白色）</b>，對手在上面（黑色）。<br>白方先走！看看這些可愛的棋子，接下來一個一個認識它們 👇',
+    auto:true
+  },
+  {
+    title:'兵 Pawn', icon:'♙', piece:'p',
+    desc:'<b>兵</b>只能往前走，一次一格（第一步可以走兩格）！<br>它<b>吃子要斜斜地吃</b>喔。試著走走看，把星星都吃光！⭐',
+    board:()=>{ const b=empty(); b[6][3]={t:'p',c:'w'}; return b; },
+    stars:[{r:4,c:3},{r:3,c:2},{r:2,c:2}], extras:(b)=>{ b[3][2]={t:'p',c:'b'}; },
+    tip:'先往前推兩格拿第一顆，再斜斜地吃掉黑兵拿第二顆，最後往前拿第三顆！'
+  },
+  {
+    title:'城堡 Rook', icon:'♖', piece:'r',
+    desc:'<b>城堡</b>走<b>直線</b>：上下左右，想走多遠都可以，但不能越過別人。<br>像十字一樣！把星星收集完吧 ⭐',
+    board:()=>{ const b=empty(); b[7][0]={t:'r',c:'w'}; return b; },
+    stars:[{r:7,c:5},{r:3,c:0},{r:3,c:5}],
+    tip:'城堡走直線，橫的或直的都行。'
+  },
+  {
+    title:'主教 Bishop', icon:'♗', piece:'b',
+    desc:'<b>主教</b>走<b>斜線</b>，像個大大的 X！<br>它一輩子只走同一種顏色的格子喔，很特別 ✨',
+    board:()=>{ const b=empty(); b[7][2]={t:'b',c:'w'}; return b; },
+    stars:[{r:5,c:4},{r:2,c:7},{r:4,c:1}],
+    tip:'主教走斜線，永遠在同色格子上。'
+  },
+  {
+    title:'騎士 Knight', icon:'♘', piece:'n',
+    desc:'<b>騎士（馬）</b>走<b>「日」字形</b>：先走兩格再轉一格，像英文字母 <b>L</b>！<br>它是唯一可以<b>跳過</b>別人的棋子，超酷 🐴',
+    board:()=>{ const b=empty(); b[7][1]={t:'n',c:'w'}; b[6][1]={t:'p',c:'w'}; b[6][2]={t:'p',c:'w'}; return b; },
+    stars:[{r:5,c:0},{r:5,c:2},{r:6,c:3}],
+    tip:'騎士走 L 形，還能跳過擋路的棋子！'
+  },
+  {
+    title:'皇后 Queen', icon:'♕', piece:'q',
+    desc:'<b>皇后</b>是最強的棋子！<br>直線＋斜線都能走，城堡和主教的本領她全會 👑',
+    board:()=>{ const b=empty(); b[7][3]={t:'q',c:'w'}; return b; },
+    stars:[{r:7,c:7},{r:3,c:3},{r:4,c:0},{r:2,c:5}],
+    tip:'皇后＝城堡＋主教，最厲害！但別輕易被吃掉。'
+  },
+  {
+    title:'國王 King', icon:'♔', piece:'k',
+    desc:'<b>國王</b>最重要，但走得慢，<b>一次只能走一格</b>（任何方向）。<br>保護好國王，因為遊戲的目標就是抓住對方的國王！',
+    board:()=>{ const b=empty(); b[7][4]={t:'k',c:'w'}; return b; },
+    stars:[{r:6,c:4},{r:5,c:4},{r:5,c:3}],
+    tip:'國王每次只走一格，要小心保護它。'
+  },
+  {
+    title:'將軍！Check', icon:'⚔️',
+    desc:'當你的棋子<b>威脅到對方國王</b>，就是「<b>將軍</b>」！<br>被將軍的一方<b>一定要先救國王</b>。<br>試試看：用你的皇后去將對方的軍（移到能攻擊黑王的位置）！',
+    board:()=>{ const b=empty(); b[7][3]={t:'q',c:'w'}; b[7][4]={t:'k',c:'w'}; b[0][3]={t:'k',c:'b'}; return b; },
+    checkGoal:true, mover:'w',
+    tip:'把皇后移到和黑國王同一直線/斜線上，就將軍了！'
+  },
+  {
+    title:'將死＝獲勝', icon:'🏆',
+    desc:'如果國王被將軍，<b>又怎麼逃都逃不掉</b>，就是「<b>將死</b>」，遊戲結束！<br>這題：把皇后移到 <b>b7</b>（黑王旁邊），由城堡保護，一步將死！試試看 💪',
+    board:()=>{ const b=empty(); b[0][1]={t:'k',c:'b'}; b[2][1]={t:'q',c:'w'}; b[7][1]={t:'r',c:'w'}; b[7][7]={t:'k',c:'w'}; return b; },
+    mateGoal:true, mover:'w',
+    tip:'把皇后走到黑王正下方那格（b7），城堡在後面撐腰＝將死！'
+  },
+  {
+    title:'特殊招式', icon:'✨',
+    desc:'西洋棋有 3 個特別招式：<br>① <b>兵升變</b>：兵走到最底，可以變成皇后！<br>② <b>入堡</b>：國王和城堡一起移動，保護國王。<br>③ <b>吃過路兵</b>：進階規則。<br>這課：把這顆兵推到底，看它<b>變身</b>成皇后！⬆️',
+    board:()=>{ const b=empty(); b[1][4]={t:'p',c:'w'}; return b; },
+    promoGoal:true, mover:'w',
+    tip:'把兵一直往前推到第 8 排，它就會變成皇后！'
+  },
+  {
+    title:'畢業典禮', icon:'🎉',
+    setup:()=>startBoard(), auto:true,
+    intro:'太棒了！你已經學會所有棋子和規則 🎓<br>每個棋子怎麼走還記得嗎？<br>現在你是真正的<b>小棋手</b>了，去「和電腦對戰」試試身手吧！'
+  }
+];
+function empty(){ return Array.from({length:8},()=>Array(8).fill(null)); }
+
+function startLessons(){ G={mode:'lesson', idx:0}; showStage(); loadLesson(); }
+function loadLesson(){
+  const L=LESSONS[G.idx];
+  G.locked=false; G.sel=null; G.hintMoves=null; G.last=null; G.checkSq=null; G.collected=0;
+  G.state=newState();
+  // 建立棋盤
+  if(L.setup){ G.board=L.setup(); }
+  else { G.board=L.board(); if(L.extras)L.extras(G.board); }
+  G.stars = L.stars? L.stars.map(s=>({...s})) : null;
+  G.lesson=L;
+  // 進度膠囊
+  const pg=$('progress'); pg.style.display='flex'; pg.innerHTML='';
+  LESSONS.forEach((x,i)=>{ const s=document.createElement('span');
+    s.className='pill'+(i<G.idx?' done':'')+(i===G.idx?' cur':''); s.textContent=x.icon; pg.appendChild(s); });
+  // 按鈕
+  $('btnNext').style.display='none'; $('btnRetry').style.display='none';
+  $('btnSkip').style.display = (L.checkGoal||L.mateGoal||L.promoGoal||L.stars)?'inline-block':'none';
+  $('btnHint').style.display = (L.checkGoal||L.mateGoal||L.promoGoal||L.stars)?'inline-block':'none';
+  $('btnUndo').style.display='none';
+  $('trayTop').style.display='none'; $('trayBot').style.display='none';
+  // 說明
+  say((L.intro||L.desc), '🐱');
+  if(L.auto){ $('btnNext').style.display='inline-block'; G.locked=true; }
+  render();
+  if(L.stars) say(L.desc+'<br>剩 <b>'+G.stars.length+'</b> 顆星星 ⭐','🐱');
+}
+
+function lessonClick(r,c){
+  const L=G.lesson;
+  if(L.auto) return;
+  const mover = L.mover||'w';
+  // 選棋/走棋；教學模式用棋子原始走法（不強制 check 規則，方便練習），但將軍/將死課用真合法
+  const useFull = !!(L.checkGoal||L.mateGoal||L.promoGoal);
+  const res = selectOrMove(r,c, mover, useFull);
+  if(!res) return;
+  // 執行走法
+  doLessonMove(res.from, res.mv);
+}
+function doLessonMove(from, mv){
+  const L=G.lesson;
+  const before=G.board;
+  const {board:nb,state:ns}=applyMove(before,G.state,from,mv,'q');
+  G.board=nb; G.state=ns; G.last={from, to:{r:mv.r,c:mv.c}};
+  G.sel=null; G.hintMoves=null;
+  if(mv.cap) SFX.cap(); else SFX.move();
+  render();
+  // 星星收集
+  if(G.stars){
+    const i=G.stars.findIndex(s=>s.r===mv.r&&s.c===mv.c);
+    if(i>=0){ G.stars.splice(i,1); SFX.good(); }
+    render();
+    if(G.stars.length===0){ lessonSuccess('你把星星全收集完了！'+L.tip); }
+    else { say(L.desc+'<br>還剩 <b>'+G.stars.length+'</b> 顆星星 ⭐ 加油！','😺'); }
+    return;
+  }
+  // 將軍目標
+  if(L.checkGoal){
+    if(inCheck(G.board,'b')){ const k=findKing(G.board,'b'); G.checkSq=k; render(); SFX.check();
+      lessonSuccess('成功將軍！你看黑國王被你威脅到了 ⚔️ 它一定要想辦法逃。'); }
+    else say(L.desc+'<br><i>還沒將到軍，把皇后對準黑國王再試一次！</i>','🤔');
+    return;
+  }
+  // 將死目標
+  if(L.mateGoal){
+    const stt=statusOf(G.board,{...G.state, turn:'b'});
+    if(stt==='checkmate'){ const k=findKing(G.board,'b'); G.checkSq=k; render(); SFX.win();
+      lessonSuccess('將死！黑國王無路可逃，你贏了這盤 🏆 這就是西洋棋的勝利！'); }
+    else if(inCheck(G.board,'b')) say('將到軍了，但黑王還能逃 🙈 再想想哪一步能完全堵死它（提示：b7）。','😼');
+    else say(L.desc+'<br><i>還沒喔，皇后要走到黑王旁邊那格。</i>','🤔');
+    return;
+  }
+  // 升變目標
+  if(L.promoGoal){
+    if(mv.promo){ SFX.win(); lessonSuccess('看到了嗎？兵變成<b>皇后</b>了 👑 這叫「升變」，是兵最威風的時刻！'); }
+    else say(L.desc,'😺');
+    return;
+  }
+}
+function lessonSuccess(msg){
+  G.locked=true; say('🎊 '+msg,'😻'); confetti();
+  $('btnNext').style.display='inline-block';
+  $('btnSkip').style.display='none';
+  $('btnHint').style.display='none';
+}
+function retryStep(){ loadLesson(); }
+function nextLesson(){
+  if(G.idx>=LESSONS.length-1){
+    popup('🎓','畢業啦！','你已經學會西洋棋的所有基礎！<br>要不要馬上跟喵喵老師對戰一場？',
+      [{t:'🆚 去對戰', cls:'pri', fn:()=>{closeOverlay();openPlayMenu();}},
+       {t:'🏠 回首頁', fn:()=>{closeOverlay();goHome();}}]);
+    return;
+  }
+  G.idx++; loadLesson();
+}
+
+/* =========================================================================
+   模式二：闖關練習（將軍一步 / 吃光等小謎題）
+   ========================================================================= */
+const PUZZLES=[
+  { name:'一步將死 ①', mover:'w', goal:'mate',
+    desc:'用<b>皇后</b>一步將死黑國王！（提示：走到 h7）',
+    board:()=>{ const b=empty(); b[0][7]={t:'k',c:'b'}; b[2][6]={t:'q',c:'w'}; b[3][5]={t:'b',c:'w'}; b[7][4]={t:'k',c:'w'}; return b; } },
+  { name:'一步將死 ②', mover:'w', goal:'mate',
+    desc:'兩個城堡一起合作，一步將死！想想國王往哪逃都不行。',
+    board:()=>{ const b=empty(); b[0][4]={t:'k',c:'b'}; b[1][0]={t:'r',c:'w'}; b[2][7]={t:'r',c:'w'}; b[7][4]={t:'k',c:'w'}; return b; } },
+  { name:'吃掉皇后', mover:'w', goal:'capQ',
+    desc:'用你的<b>騎士</b>吃掉對方的皇后 👑（找出 L 形走法）！',
+    board:()=>{ const b=empty(); b[4][4]={t:'n',c:'w'}; b[2][3]={t:'q',c:'b'}; b[7][4]={t:'k',c:'w'}; b[0][4]={t:'k',c:'b'}; return b; } },
+  { name:'兵的升變', mover:'w', goal:'promote',
+    desc:'把兵推到底變皇后，順便將軍！',
+    board:()=>{ const b=empty(); b[1][0]={t:'p',c:'w'}; b[7][4]={t:'k',c:'w'}; b[0][7]={t:'k',c:'b'}; return b; } },
+];
+let puzIdx=0;
+function openPractice(){
+  popup('🧩','闖關練習','選一個謎題來挑戰吧！每題都用得到你學過的招式 💪',
+    PUZZLES.map((p,i)=>({t:p.name, cls:i===0?'pri':'', fn:()=>{closeOverlay(); startPuzzle(i);}}))
+      .concat([{t:'🏠 回首頁', fn:()=>{closeOverlay();}}]));
+}
+function startPuzzle(i){
+  puzIdx=i; const P=PUZZLES[i];
+  G={mode:'puzzle', puzzle:P, state:newState(), board:P.board(), sel:null, hintMoves:null, last:null, checkSq:null, locked:false};
+  showStage();
+  $('progress').style.display='none'; $('trayTop').style.display='none'; $('trayBot').style.display='none';
+  $('btnNext').style.display='none'; $('btnRetry').style.display='inline-block'; $('btnSkip').style.display='none';
+  $('btnHint').style.display='inline-block'; $('btnUndo').style.display='none';
+  say('<b>'+P.name+'</b><br>'+P.desc, '🐱');
+  render();
+}
+
+/* =========================================================================
+   模式三：和電腦對戰
+   ========================================================================= */
+function openPlayMenu(){
+  popup('🆚','選擇難度','你想跟哪一隻喵喵老師對戰呢？',
+    [{t:'🐣 新手喵（很簡單）', cls:'pri', fn:()=>{closeOverlay();startPlay(0);}},
+     {t:'😺 普通喵（會思考）', fn:()=>{closeOverlay();startPlay(2);}},
+     {t:'😼 高手喵（要小心）', fn:()=>{closeOverlay();startPlay(3);}},
+     {t:'🏠 回首頁', fn:()=>{closeOverlay();}}]);
+}
+function startPlay(depth){
+  _seed = 987654 + depth*7;
+  G={mode:'play', depth, state:newState(), board:startBoard(), sel:null, hintMoves:null,
+     last:null, checkSq:null, locked:false, history:[], capByW:[], capByB:[]};
+  showStage();
+  $('progress').style.display='none';
+  $('trayTop').style.display='flex'; $('trayBot').style.display='flex';
+  $('trayTop').innerHTML='<span class="lbl">電腦吃到</span>'; $('trayBot').innerHTML='<span class="lbl">你吃到</span>';
+  $('btnNext').style.display='none'; $('btnRetry').style.display='none'; $('btnSkip').style.display='none';
+  $('btnHint').style.display='inline-block'; $('btnUndo').style.display='inline-block';
+  const lvl=['新手喵','','普通喵','高手喵'][depth]||'喵喵老師';
+  say('開始囉！你是<b>白方</b>先走。點一顆棋子，會出現綠點告訴你能走去哪 😺<br>對手：<b>'+lvl+'</b>','🐱');
+  render();
+}
+
+function playClick(r,c){
+  if(G.state.turn!=='w'||G.locked) return;
+  const b=G.board, p=b[r][c];
+  if(G.sel){
+    const mv=(G.hintMoves||[]).find(m=>m.r===r&&m.c===c);
+    if(mv){ humanMove(G.sel, mv); return; }
+  }
+  if(p && p.c==='w'){ G.sel={r,c}; G.hintMoves=legalFrom(b,G.state,r,c); render();
+    if(G.hintMoves.length===0){ SFX.err(); say('這顆'+NAME[p.t]+'現在沒地方可以走耶，換一顆試試 🙂','🤔'); }
+    return; }
+  G.sel=null; G.hintMoves=null; render();
+}
+
+function needPromo(from,mv){ return mv.promo; }
+function humanMove(from, mv){
+  if(needPromo(from,mv)){
+    askPromo(choice=>finishHuman(from,mv,choice));
+  } else finishHuman(from,mv,'q');
+}
+function finishHuman(from,mv,choice){
+  G.history.push({board:cloneBoard(G.board), state:JSON.parse(JSON.stringify(G.state)),
+                  capByW:[...G.capByW], capByB:[...G.capByB]});
+  const captured = mv.cap ? (mv.ep? {t:'p',c:'b'} : {...G.board[mv.r][mv.c]}) : null;
+  const {board:nb,state:ns}=applyMove(G.board,G.state,from,mv,choice);
+  G.board=nb; G.state=ns; G.last={from,to:{r:mv.r,c:mv.c}}; G.sel=null; G.hintMoves=null;
+  if(captured){ G.capByW.push(captured); SFX.cap(); } else SFX.move();
+  updateTrays(); G.checkSq=null; render();
+  if(checkEnd('w')) return;
+  // 換電腦
+  if(G.mode==='puzzle'){ checkPuzzleGoal(mv); return; }
+  G.locked=true;
+  if(inCheck(G.board,'b')){ const k=findKing(G.board,'b'); G.checkSq=k; render(); SFX.check(); say('將軍！你威脅到電腦的國王了 ⚔️','😼'); }
+  else say('換喵喵老師想一想… 🐱💭','🐱');
+  setTimeout(doAiMove, 420);
+}
+function doAiMove(){
+  const m=aiMove(G.board,G.state,G.depth);
+  if(!m){ checkEnd('b'); return; }
+  const captured = m.mv.cap ? (m.mv.ep? {t:'p',c:'w'} : {...G.board[m.mv.r][m.mv.c]}) : null;
+  const {board:nb,state:ns}=applyMove(G.board,G.state,m.from,m.mv,'q');
+  G.board=nb; G.state=ns; G.last={from:m.from,to:{r:m.mv.r,c:m.mv.c}};
+  if(captured){ G.capByB.push(captured); SFX.cap(); } else SFX.move();
+  updateTrays(); G.checkSq=null; render();
+  G.locked=false;
+  if(checkEnd('b')) return;
+  if(inCheck(G.board,'w')){ const k=findKing(G.board,'w'); G.checkSq=k; render(); SFX.check();
+    say('小心！你的國王被<b>將軍</b>了，快移動國王或擋住它 🛡️','😼'); }
+  else say('換你了！想好下一步 😺','🐱');
+}
+function checkEnd(mover){
+  const stt=statusOf(G.board,G.state);  // 此時 turn 已是對方
+  if(stt==='checkmate'){
+    const winnerW = (G.state.turn==='b'); // 輪到黑且被將死 → 白贏
+    G.locked=true;
+    if(winnerW){ SFX.win(); confetti();
+      popup('🏆','你贏了！','太厲害了，你把喵喵老師將死了！🎉<br>要再來一場嗎？',
+        [{t:'🔁 再玩一次', cls:'pri', fn:()=>{closeOverlay();startPlay(G.depth);}},
+         {t:'🏠 回首頁', fn:()=>{closeOverlay();goHome();}}]); }
+    else { SFX.err();
+      popup('😿','被將死了','沒關係，喵喵老師也練習很久呢！<br>再試一次，你會更強 💪',
+        [{t:'🔁 再玩一次', cls:'pri', fn:()=>{closeOverlay();startPlay(G.depth);}},
+         {t:'🎓 複習課程', fn:()=>{closeOverlay();startLessons();}},
+         {t:'🏠 回首頁', fn:()=>{closeOverlay();goHome();}}]); }
+    return true;
+  }
+  if(stt==='stalemate'){ G.locked=true; SFX.good();
+    popup('🤝','和棋','沒有人能再走了，這叫「逼和」，平手！<br>很接近勝利囉，再來一場？',
+      [{t:'🔁 再玩一次', cls:'pri', fn:()=>{closeOverlay();startPlay(G.depth);}},
+       {t:'🏠 回首頁', fn:()=>{closeOverlay();goHome();}}]);
+    return true;
+  }
+  return false;
+}
+function updateTrays(){
+  $('trayBot').innerHTML='<span class="lbl">你吃到</span>'+G.capByW.map(p=>'<span>'+GLYPH[p.c][p.t]+'</span>').join('');
+  $('trayTop').innerHTML='<span class="lbl">電腦吃到</span>'+G.capByB.map(p=>'<span>'+GLYPH[p.c][p.t]+'</span>').join('');
+}
+
+/* 闖關目標判定 */
+function checkPuzzleGoal(mv){
+  const P=G.puzzle;
+  let win=false, fail=false;
+  if(P.goal==='mate'){ const stt=statusOf(G.board,{...G.state,turn:'b'});
+    if(stt==='checkmate'){ win=true; const k=findKing(G.board,'b'); G.checkSq=k; render(); } else fail=true; }
+  else if(P.goal==='capQ'){ win = !findPiece('q','b'); fail=!win; }
+  else if(P.goal==='promote'){ win = !!mv.promo; fail=!win; }
+  if(win){ G.locked=true; SFX.win(); confetti();
+    popup('⭐','過關！','你成功解開「'+P.name+'」了！太聰明啦 🎉',
+      [ puzIdx<PUZZLES.length-1?{t:'➡️ 下一關', cls:'pri', fn:()=>{closeOverlay();startPuzzle(puzIdx+1);}}:{t:'🆚 去對戰', cls:'pri', fn:()=>{closeOverlay();openPlayMenu();}},
+        {t:'🔁 再玩這關', fn:()=>{closeOverlay();startPuzzle(puzIdx);}},
+        {t:'🏠 回首頁', fn:()=>{closeOverlay();goHome();}}]); }
+  else if(fail){ SFX.err(); say('這步好像不是答案 🙈 按「🔄 再試一次」重來，或按「💡 提示」。','🤔'); }
+}
+function findPiece(t,col){ for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=G.board[r][c]; if(p&&p.t===t&&p.c===col)return{r,c};} return null; }
+
+/* =========================================================================
+   提示 / 悔棋
+   ========================================================================= */
+function onHint(){
+  if(!G) return;
+  if(AC&&AC.state==='suspended')AC.resume();
+  let best=null;
+  if(G.mode==='play'){ best=aiMove(G.board,{...G.state,turn:'w'}, Math.max(2,G.depth)); }
+  else if(G.mode==='puzzle'){ best=aiMove(G.board,{...G.state,turn:G.puzzle.mover}, 3); }
+  else if(G.mode==='lesson'){
+    const L=G.lesson;
+    if(L.stars){ // 找白棋，貪婪選「最靠近最近星星」的一步（優先剛好踩到星星）
+      let sr=-1,sc=-1;
+      for(let r=0;r<8&&sr<0;r++)for(let c=0;c<8;c++){const p=G.board[r][c]; if(p&&p.c==='w'){sr=r;sc=c;break;}}
+      if(sr>=0){
+        const ms=pieceMoves(G.board,sr,sc,G.state);
+        const dist=(m)=>Math.min(...G.stars.map(s=>Math.max(Math.abs(s.r-m.r),Math.abs(s.c-m.c))));
+        const onStar=ms.find(m=>G.stars.some(s=>s.r===m.r&&s.c===m.c));
+        if(onStar) best={from:{r:sr,c:sc},mv:onStar};
+        else if(ms.length){ ms.sort((a,z)=>dist(a)-dist(z)); best={from:{r:sr,c:sc},mv:ms[0]}; }
+      }
+    } else { best=aiMove(G.board,{...G.state,turn:L.mover||'w'}, 3); }
+    say('💡 提示：'+(G.lesson.tip||'試試把棋子移到亮起來的格子！'),'😺');
+  }
+  if(best){ flashHint(best.from, best.mv); }
+  else say('💡 '+(G.lesson?.tip||'仔細看看棋子能走的綠點吧！'),'😺');
+}
+function flashHint(from,to){
+  G.sel={...from}; G.hintMoves = G.mode==='lesson'&&G.lesson.stars ? pieceMoves(G.board,from.r,from.c,G.state) : legalFrom(G.board,G.state,from.r,from.c);
+  render();
+  const idx=from.r*8+from.c;
+  const fromEl=boardEl.children[idx]; if(fromEl)fromEl.classList.add('hint-flash');
+  const toIdx=to.r*8+to.c; const toEl=boardEl.children[toIdx]; if(toEl)toEl.classList.add('hint-flash');
+  beep(700,0.1,'triangle');
+}
+function onUndo(){
+  if(G.mode!=='play'||!G.history.length){ return; }
+  const h=G.history.pop();
+  G.board=h.board; G.state=h.state; G.capByW=h.capByW; G.capByB=h.capByB;
+  G.sel=null; G.hintMoves=null; G.last=null; G.checkSq=null; G.locked=false;
+  updateTrays(); render(); say('好，幫你退回上一步，再想想看 🙂','🐱'); beep(300,0.1);
+}
+
+/* =========================================================================
+   小抄圖鑑
+   ========================================================================= */
+function openRules(){
+  const rows=[
+    ['♙','兵 Pawn','往前走一格（首步可兩格），斜斜地吃子，到底變皇后'],
+    ['♖','城堡 Rook','直線：上下左右，想走多遠都行'],
+    ['♘','騎士 Knight','走「日」字 L 形，可以跳過別人'],
+    ['♗','主教 Bishop','斜線移動，只走同色格'],
+    ['♕','皇后 Queen','直線＋斜線，最強！'],
+    ['♔','國王 King','每次一格，最重要，要保護好'],
+  ];
+  const html='<div style="text-align:left">'+rows.map(r=>
+    '<div style="display:flex;gap:10px;align-items:center;margin:8px 0;">'+
+    '<span style="font-size:34px">'+r[0]+'</span>'+
+    '<div><b>'+r[1]+'</b><br><span style="color:#7a799e;font-size:14px">'+r[2]+'</span></div></div>').join('')+
+    '<hr style="border:none;border-top:1px dashed #ddd"><div style="font-size:14px;color:#7a799e">'+
+    '🎯 <b>目標</b>：將死對方國王（讓它被攻擊又無路可逃）。<br>⚔️ <b>將軍</b>：威脅到國王，對方必須先救王。</div></div>';
+  popup('📖','棋子小抄', html, [{t:'知道了！', cls:'pri', fn:closeOverlay}]);
+}
+
+/* =========================================================================
+   彈窗 / 升變 / 彩帶
+   ========================================================================= */
+function popup(big,title,body,buttons){
+  const m=$('modal');
+  m.innerHTML='<div class="big">'+big+'</div><h2>'+title+'</h2><p>'+body+'</p>';
+  const row=document.createElement('div'); row.className='row';
+  (buttons||[{t:'好',fn:closeOverlay}]).forEach(b=>{
+    const btn=document.createElement('button'); btn.className='btn '+(b.cls||'ghost'); btn.textContent=b.t;
+    btn.onclick=b.fn; row.appendChild(btn);
+  });
+  m.appendChild(row);
+  $('overlay').style.display='flex';
+}
+function closeOverlay(){ $('overlay').style.display='none'; }
+function askPromo(cb){
+  const m=$('modal');
+  m.innerHTML='<div class="big">⬆️</div><h2>兵升變！</h2><p>你的兵走到底啦，要變成什麼？（通常選最強的皇后）</p>';
+  const row=document.createElement('div'); row.className='promo';
+  [['q','♕'],['r','♖'],['b','♗'],['n','♘']].forEach(([t,g])=>{
+    const btn=document.createElement('button'); btn.textContent=g;
+    btn.onclick=()=>{ closeOverlay(); cb(t); }; row.appendChild(btn);
+  });
+  m.appendChild(row);
+  $('overlay').style.display='flex';
+}
+function confetti(){
+  const colors=['#ff6fae','#7c5cff','#27c98f','#ffb02e','#4cc9ff','#ff5d5d'];
+  for(let i=0;i<60;i++){
+    const d=document.createElement('div'); d.className='confetti';
+    d.style.left=Math.random()*100+'vw';
+    d.style.background=colors[i%colors.length];
+    d.style.transform='rotate('+(Math.random()*360)+'deg)';
+    const dur=2+Math.random()*2;
+    d.animate([{transform:'translateY(-20px) rotate(0)',opacity:1},
+               {transform:'translateY(100vh) rotate('+(720*(Math.random()>.5?1:-1))+'deg)',opacity:.9}],
+              {duration:dur*1000, easing:'ease-in'});
+    document.body.appendChild(d);
+    setTimeout(()=>d.remove(), dur*1000);
+  }
+}
+
+/* 首頁泡泡換句話 */
+const hi=['想學西洋棋嗎？先從「教學課程」開始，學完就能跟我對戰囉！',
+  '西洋棋是全世界都在玩的棋喔，學會超有成就感 ✨',
+  '別怕輸，每位大師都是從第一步開始的 💪',
+  '點「小抄圖鑑」隨時可以複習棋子怎麼走 📖'];
+let hidx=0;
+setInterval(()=>{ if($('home').style.display!=='none'){ hidx=(hidx+1)%hi.length;
+  $('homeBubble').innerHTML='哈囉！我是<b>喵喵老師</b> 🎀<br>'+hi[hidx]; } },4500);
+</script>
+</body>
+</html>
