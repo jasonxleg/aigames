@@ -30,6 +30,8 @@
     background:linear-gradient(#000a,transparent); display:flex; gap:10px; align-items:center; }
   #docname{ font-size:14px; font-weight:600; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #pagebadge{ font-size:13px; color:#fff; background:#0008; padding:3px 10px; border-radius:999px; border:1px solid #fff3; }
+  #delbtn{ font-size:15px; line-height:1; color:#fff; background:#0008; border:1px solid var(--bad);
+    border-radius:999px; padding:4px 9px; cursor:pointer; display:none; }
   #thumbs{ position:absolute; bottom:8px; left:0; right:0; display:flex; gap:6px;
     overflow-x:auto; padding:0 10px; scrollbar-width:none; }
   #thumbs::-webkit-scrollbar{ display:none; }
@@ -80,6 +82,7 @@
   <div id="docbar">
     <span id="docname">尚未建立文件</span>
     <span id="pagebadge">0 頁</span>
+    <button id="delbtn" onclick="deleteDoc()" title="刪除這份文件">🗑</button>
   </div>
   <div id="log"></div>
   <div id="thumbs"></div>
@@ -172,6 +175,9 @@ function idbPut(store,val){ return new Promise((res,rej)=>{ const q=tx(store,'re
 function idbGet(store,key){ return new Promise((res,rej)=>{ const q=tx(store,'readonly').get(key); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); }
 function idbPagesOf(docId){ return new Promise((res,rej)=>{ const out=[]; const idx=tx('pages','readonly').index('byDoc');
   const q=idx.openCursor(IDBKeyRange.only(docId)); q.onsuccess=e=>{ const c=e.target.result; if(c){ out.push(c.value); c.continue(); } else res(out.sort((a,b)=>a.seq-b.seq)); }; q.onerror=()=>rej(q.error); }); }
+function idbDel(store,key){ return new Promise((res,rej)=>{ const q=tx(store,'readwrite').delete(key); q.onsuccess=()=>res(); q.onerror=()=>rej(q.error); }); }
+function idbDelPagesOf(docId){ return new Promise((res,rej)=>{ const idx=tx('pages','readwrite').index('byDoc');
+  const q=idx.openCursor(IDBKeyRange.only(docId)); q.onsuccess=e=>{ const c=e.target.result; if(c){ c.delete(); c.continue(); } else res(); }; q.onerror=()=>rej(q.error); }); }
 
 /* ---------- Google OAuth (GIS token client) ---------- */
 function clientId(){ return localStorage.getItem(LS.cid) || ''; }
@@ -288,6 +294,27 @@ async function addPage(jpgBytes){
 function renderDoc(){
   $('docname').textContent = cur ? cur.name : '尚未建立文件';
   $('pagebadge').textContent = (cur?cur.pages:0) + ' 頁';
+  $('delbtn').style.display = cur ? 'inline-flex' : 'none';
+}
+
+// 刪除目前文件：從 Google Drive 移除該 PDF + 清掉本機 IndexedDB 頁面
+async function deleteDoc(){
+  if(!cur){ toast('沒有可刪除的文件'); return; }
+  if(!confirm(`確定刪除「${cur.name}」？\n會從 Google Drive 移除這份 PDF，且無法復原。`)) return;
+  try{
+    if(cur.fileId){
+      const r = await driveFetch(`https://www.googleapis.com/drive/v3/files/${cur.fileId}`, { method:'DELETE' });
+      if(!r.ok && r.status!==404) throw new Error('Drive 刪除失敗 '+r.status);
+    }
+    await idbDelPagesOf(cur.id);
+    await idbDel('docs', cur.id);
+    localStorage.removeItem(LS.doc);
+    const name = cur.name;
+    cur = null; pdfDoc = null;
+    $('thumbs').innerHTML = '';
+    renderDoc();
+    toast('已刪除：'+name,'good');
+  }catch(e){ toast('刪除失敗：'+e.message,'bad'); }
 }
 function addThumb(jpgBytes){
   const url = URL.createObjectURL(new Blob([jpgBytes],{type:'image/jpeg'}));
@@ -368,6 +395,7 @@ function toggleMic(){
     for(let i=e.resultIndex;i<e.results.length;i++){
       const t = e.results[i][0].transcript.replace(/\s/g,'');
       if(/開新|新文件|新檔/.test(t)){ toast('🎤 開新文件'); confirmNewDoc(); }
+      else if(/刪除|刪掉/.test(t)){ toast('🎤 刪除文件'); deleteDoc(); }
       else if(/掃描|拍照|拍/.test(t)){ toast('🎤 掃描'); doScan(); }
     }
   };
