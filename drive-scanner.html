@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>掃描存 Drive</title>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root{ --bg:#0d1117; --panel:#161b22; --line:#30363d; --txt:#e6edf3; --sub:#8b949e;
+         --accent:#2f81f7; --good:#2ea043; --warn:#d29922; --bad:#f85149; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; background:var(--bg); color:var(--txt);
+    font-family:-apple-system,"PingFang TC","Microsoft JhengHei",system-ui,sans-serif; }
+  body{ display:flex; flex-direction:column; }
+  header{ padding:env(safe-area-inset-top) 14px 0; padding-top:max(env(safe-area-inset-top),10px);
+    display:flex; align-items:center; gap:10px; }
+  header h1{ font-size:17px; margin:8px 0; flex:1; }
+  .pill{ font-size:12px; padding:4px 9px; border-radius:999px; border:1px solid var(--line);
+    color:var(--sub); white-space:nowrap; }
+  .pill.on{ color:#fff; background:var(--good); border-color:var(--good); }
+  .pill.off{ color:#fff; background:var(--bad); border-color:var(--bad); }
+  #stage{ position:relative; flex:1; min-height:0; background:#000;
+    display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  #cam{ width:100%; height:100%; object-fit:cover; }
+  #flash{ position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none;
+    transition:opacity .08s; }
+  #docbar{ position:absolute; left:0; right:0; top:0; padding:8px 12px;
+    background:linear-gradient(#000a,transparent); display:flex; gap:10px; align-items:center; }
+  #docname{ font-size:14px; font-weight:600; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #pagebadge{ font-size:13px; color:#fff; background:#0008; padding:3px 10px; border-radius:999px; border:1px solid #fff3; }
+  #thumbs{ position:absolute; bottom:8px; left:0; right:0; display:flex; gap:6px;
+    overflow-x:auto; padding:0 10px; scrollbar-width:none; }
+  #thumbs::-webkit-scrollbar{ display:none; }
+  #thumbs img{ height:62px; border-radius:6px; border:2px solid #fff5; flex:0 0 auto; }
+  .controls{ padding:12px 14px calc(env(safe-area-inset-bottom) + 12px);
+    background:var(--panel); border-top:1px solid var(--line);
+    display:grid; grid-template-columns:1fr 1.6fr 1fr; gap:10px; align-items:center; }
+  button{ font:inherit; color:var(--txt); border:1px solid var(--line); background:#21262d;
+    border-radius:12px; padding:14px 10px; font-size:15px; font-weight:600; cursor:pointer; }
+  button:active{ transform:scale(.97); }
+  button.primary{ background:var(--accent); border-color:var(--accent); color:#fff; font-size:18px; padding:18px 10px; }
+  button.danger{ color:#ff9c95; }
+  button:disabled{ opacity:.45; }
+  #micbtn.listening{ background:var(--good); border-color:var(--good); color:#fff; }
+  #log{ position:absolute; left:10px; bottom:78px; right:10px; pointer-events:none;
+    display:flex; flex-direction:column; gap:5px; align-items:flex-start; }
+  .toast{ font-size:13px; padding:6px 11px; border-radius:9px; background:#0009; border:1px solid #fff2;
+    max-width:100%; }
+  .toast.good{ border-color:var(--good); } .toast.bad{ border-color:var(--bad); }
+  /* overlay panels */
+  .overlay{ position:fixed; inset:0; background:#000c; display:none; align-items:center;
+    justify-content:center; padding:20px; z-index:20; }
+  .overlay.show{ display:flex; }
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    padding:20px; width:100%; max-width:420px; }
+  .card h2{ margin:0 0 6px; font-size:18px; }
+  .card p{ color:var(--sub); font-size:13px; line-height:1.6; margin:6px 0; }
+  .card a{ color:var(--accent); }
+  .card input{ width:100%; padding:12px; margin:8px 0; border-radius:10px; border:1px solid var(--line);
+    background:#0d1117; color:var(--txt); font-size:15px; }
+  .card .row{ display:flex; gap:10px; margin-top:12px; }
+  .card .row button{ flex:1; }
+  ol{ padding-left:20px; color:var(--sub); font-size:12.5px; line-height:1.7; }
+  code{ background:#0d1117; padding:1px 5px; border-radius:5px; color:#e6edf3; font-size:12px; }
+  .linklike{ background:none; border:none; color:var(--accent); padding:6px; font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📄 掃描存 Drive</h1>
+  <span id="authpill" class="pill off" onclick="signIn()">未登入</span>
+  <span class="pill" onclick="openSettings()">⚙︎</span>
+</header>
+
+<div id="stage">
+  <video id="cam" playsinline autoplay muted></video>
+  <div id="flash"></div>
+  <div id="docbar">
+    <span id="docname">尚未建立文件</span>
+    <span id="pagebadge">0 頁</span>
+  </div>
+  <div id="log"></div>
+  <div id="thumbs"></div>
+</div>
+
+<div class="controls">
+  <button id="newbtn" onclick="askNewDoc()">＋ 開新文件</button>
+  <button id="scanbtn" class="primary" onclick="doScan()">📸 掃描</button>
+  <button id="micbtn" onclick="toggleMic()">🎤 語音</button>
+</div>
+
+<!-- 設定 / 登入 -->
+<div id="settings" class="overlay">
+  <div class="card">
+    <h2>設定</h2>
+    <p>需要一組 <b>Google OAuth Web Client ID</b>（瀏覽器端用）。第一次設定步驟：</p>
+    <ol>
+      <li>到 <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console → 憑證</a></li>
+      <li>建立憑證 → OAuth 用戶端 ID → 類型選 <b>網頁應用程式</b></li>
+      <li>「已授權的 JavaScript 來源」加入本頁網址（例：<code id="origin"></code>）</li>
+      <li>確定已啟用 <b>Google Drive API</b></li>
+      <li>把產生的 Client ID 貼到下面</li>
+    </ol>
+    <input id="cid" placeholder="xxxxx.apps.googleusercontent.com" autocapitalize="off" autocorrect="off">
+    <div class="row">
+      <button onclick="closeSettings()">取消</button>
+      <button class="primary" onclick="saveSettings()">儲存</button>
+    </div>
+    <button class="linklike" onclick="signOut()">登出 Google</button>
+  </div>
+</div>
+
+<!-- 開新文件命名 -->
+<div id="newdlg" class="overlay">
+  <div class="card">
+    <h2>開新文件</h2>
+    <p>之後每次「掃描」都會把新的一頁加進這份文件，直到你再開新的。</p>
+    <input id="newname" placeholder="文件名稱（留空用日期）" autocapitalize="off">
+    <div class="row">
+      <button onclick="hide('newdlg')">取消</button>
+      <button class="primary" onclick="confirmNewDoc()">建立</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="grab" hidden></canvas>
+<script>
+const { PDFDocument } = PDFLib;
+const $ = id => document.getElementById(id);
+const LS = { cid:'ds_client_id', doc:'ds_cur_doc' };
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const FOLDER_NAME = '掃描文件';
+
+let accessToken = null, tokenClient = null, tokenExpiry = 0;
+let pdfDoc = null;            // 目前文件的 pdf-lib 物件（記憶體）
+let cur = null;              // { id, name, fileId, pages }  ← id 是本機 IndexedDB key
+let busy = false;
+let folderId = null;
+
+/* ---------- toast / log ---------- */
+function toast(msg, kind){
+  const el = document.createElement('div');
+  el.className = 'toast' + (kind ? ' '+kind : '');
+  el.textContent = msg;
+  $('log').appendChild(el);
+  setTimeout(()=>{ el.style.opacity=0; el.style.transition='opacity .4s'; }, 2600);
+  setTimeout(()=> el.remove(), 3100);
+  if(kind==='bad') console.error(msg);
+}
+
+/* ---------- IndexedDB（存每頁 JPEG，重開頁面可復原） ---------- */
+let db;
+function openDB(){
+  return new Promise((res,rej)=>{
+    const r = indexedDB.open('driveScanner', 1);
+    r.onupgradeneeded = e=>{
+      const d = e.target.result;
+      if(!d.objectStoreNames.contains('docs')) d.createObjectStore('docs',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('pages')){
+        const s = d.createObjectStore('pages',{keyPath:'pid',autoIncrement:true});
+        s.createIndex('byDoc','docId',{unique:false});
+      }
+    };
+    r.onsuccess = e=>{ db=e.target.result; res(db); };
+    r.onerror = ()=> rej(r.error);
+  });
+}
+function tx(store,mode){ return db.transaction(store,mode).objectStore(store); }
+function idbPut(store,val){ return new Promise((res,rej)=>{ const q=tx(store,'readwrite').put(val); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); }
+function idbGet(store,key){ return new Promise((res,rej)=>{ const q=tx(store,'readonly').get(key); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); }
+function idbPagesOf(docId){ return new Promise((res,rej)=>{ const out=[]; const idx=tx('pages','readonly').index('byDoc');
+  const q=idx.openCursor(IDBKeyRange.only(docId)); q.onsuccess=e=>{ const c=e.target.result; if(c){ out.push(c.value); c.continue(); } else res(out.sort((a,b)=>a.seq-b.seq)); }; q.onerror=()=>rej(q.error); }); }
+
+/* ---------- Google OAuth (GIS token client) ---------- */
+function clientId(){ return localStorage.getItem(LS.cid) || ''; }
+function initTokenClient(){
+  if(!clientId() || !window.google?.accounts?.oauth2) return false;
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: clientId(), scope: DRIVE_SCOPE,
+    callback: resp=>{
+      if(resp.error){ toast('登入失敗：'+resp.error,'bad'); return; }
+      accessToken = resp.access_token;
+      tokenExpiry = Date.now() + (resp.expires_in-60)*1000;
+      setAuth(true);
+      toast('已登入 Google','good');
+      if(pendingAfterAuth){ const f=pendingAfterAuth; pendingAfterAuth=null; f(); }
+    }
+  });
+  return true;
+}
+let pendingAfterAuth = null;
+function signIn(){
+  if(!clientId()){ openSettings(); return; }
+  if(!tokenClient && !initTokenClient()){ toast('OAuth 未就緒，稍候再試','bad'); return; }
+  tokenClient.requestAccessToken({ prompt: accessToken ? '' : 'consent' });
+}
+function signOut(){
+  if(accessToken && google?.accounts?.oauth2) google.accounts.oauth2.revoke(accessToken,()=>{});
+  accessToken=null; tokenExpiry=0; setAuth(false); toast('已登出');
+}
+function setAuth(on){
+  const p=$('authpill');
+  p.textContent = on ? '已登入' : '未登入';
+  p.className = 'pill ' + (on?'on':'off');
+}
+async function ensureToken(){
+  if(accessToken && Date.now() < tokenExpiry) return accessToken;
+  return new Promise((res,rej)=>{
+    if(!clientId()){ openSettings(); rej(new Error('需先設定 Client ID')); return; }
+    if(!tokenClient && !initTokenClient()){ rej(new Error('OAuth 未就緒')); return; }
+    pendingAfterAuth = ()=> res(accessToken);
+    tokenClient.requestAccessToken({ prompt: accessToken ? '' : 'consent' });
+  });
+}
+
+/* ---------- Drive REST ---------- */
+async function driveFetch(url, opts){
+  const tok = await ensureToken();
+  const r = await fetch(url, { ...opts, headers:{ Authorization:'Bearer '+tok, ...(opts?.headers||{}) } });
+  if(r.status===401){ accessToken=null; const t2=await ensureToken();
+    return fetch(url,{ ...opts, headers:{ Authorization:'Bearer '+t2, ...(opts?.headers||{}) } }); }
+  return r;
+}
+async function ensureFolder(){
+  if(folderId) return folderId;
+  const q = encodeURIComponent(`name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const r = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+  const j = await r.json();
+  if(j.files && j.files.length){ folderId=j.files[0].id; return folderId; }
+  const cr = await driveFetch('https://www.googleapis.com/drive/v3/files',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ name:FOLDER_NAME, mimeType:'application/vnd.google-apps.folder' }) });
+  folderId = (await cr.json()).id; return folderId;
+}
+// 建立新 PDF 檔，回傳 fileId
+async function driveCreatePdf(name, bytes){
+  const fid = await ensureFolder();
+  const meta = { name: name.endsWith('.pdf')?name:name+'.pdf', mimeType:'application/pdf', parents:[fid] };
+  const boundary='-------ds'+Math.floor(Math.random()*1e9).toString(36);
+  const head = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: application/pdf\r\n\r\n`;
+  const tail = `\r\n--${boundary}--`;
+  const body = new Blob([head, bytes, tail], {type:'multipart/related; boundary='+boundary});
+  const r = await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink',{
+    method:'POST', headers:{'Content-Type':'multipart/related; boundary='+boundary}, body });
+  if(!r.ok) throw new Error('建立檔案失敗 '+r.status+' '+await r.text());
+  return (await r.json()).id;
+}
+// 覆蓋更新既有 PDF
+async function driveUpdatePdf(fileId, bytes){
+  const r = await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,{
+    method:'PATCH', headers:{'Content-Type':'application/pdf'}, body: bytes });
+  if(!r.ok) throw new Error('更新檔案失敗 '+r.status+' '+await r.text());
+}
+
+/* ---------- 文件 / 頁面 ---------- */
+function pad(n){ return String(n).padStart(2,'0'); }
+function todayName(){ const d=new Date();
+  return `掃描 ${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}${pad(d.getMinutes())}`; }
+
+async function startNewDoc(name){
+  name = (name||'').trim() || todayName();
+  pdfDoc = await PDFDocument.create();
+  cur = { id:'doc_'+Date.now(), name, fileId:null, pages:0 };
+  await idbPut('docs', cur);
+  localStorage.setItem(LS.doc, cur.id);
+  renderDoc();
+  toast('已開新文件：'+name,'good');
+}
+
+// 把一張 JPEG（Uint8Array）加進目前 pdf，建/更新 Drive
+async function addPage(jpgBytes){
+  if(!pdfDoc || !cur){ await startNewDoc(); }
+  const img = await pdfDoc.embedJpg(jpgBytes);
+  const page = pdfDoc.addPage([img.width, img.height]);
+  page.drawImage(img, { x:0, y:0, width:img.width, height:img.height });
+  const pdfBytes = await pdfDoc.save();
+  if(cur.fileId){ await driveUpdatePdf(cur.fileId, pdfBytes); }
+  else { cur.fileId = await driveCreatePdf(cur.name, pdfBytes); }
+  cur.pages += 1;
+  await idbPut('docs', cur);
+  await idbPut('pages', { docId:cur.id, seq:cur.pages, blob:new Blob([jpgBytes],{type:'image/jpeg'}) });
+  renderDoc();
+  addThumb(jpgBytes);
+}
+
+function renderDoc(){
+  $('docname').textContent = cur ? cur.name : '尚未建立文件';
+  $('pagebadge').textContent = (cur?cur.pages:0) + ' 頁';
+}
+function addThumb(jpgBytes){
+  const url = URL.createObjectURL(new Blob([jpgBytes],{type:'image/jpeg'}));
+  const im = new Image(); im.src=url; $('thumbs').appendChild(im);
+  $('thumbs').scrollLeft = $('thumbs').scrollWidth;
+}
+
+// 重開頁面 → 從 IndexedDB 復原目前文件（讓後續掃描能正確接續加頁）
+async function restoreDoc(){
+  const id = localStorage.getItem(LS.doc); if(!id) return;
+  const d = await idbGet('docs', id); if(!d) return;
+  cur = d;
+  pdfDoc = await PDFDocument.create();
+  $('thumbs').innerHTML='';
+  const pages = await idbPagesOf(id);
+  for(const p of pages){
+    const buf = new Uint8Array(await p.blob.arrayBuffer());
+    try{
+      const img = await pdfDoc.embedJpg(buf);
+      const pg = pdfDoc.addPage([img.width,img.height]);
+      pg.drawImage(img,{x:0,y:0,width:img.width,height:img.height});
+      addThumb(buf);
+    }catch(e){}
+  }
+  cur.pages = pages.length;
+  renderDoc();
+  toast('已接續文件：'+cur.name+'（'+cur.pages+' 頁）');
+}
+
+/* ---------- 相機 ---------- */
+async function startCamera(){
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:{ ideal:'environment' }, width:{ideal:2560}, height:{ideal:1440} }, audio:false });
+    $('cam').srcObject = stream;
+  }catch(e){ toast('相機開啟失敗：'+e.message,'bad'); }
+}
+function captureJpeg(){
+  const v=$('cam'), c=$('grab');
+  const w=v.videoWidth, h=v.videoHeight;
+  if(!w||!h) throw new Error('相機尚未就緒');
+  c.width=w; c.height=h;
+  c.getContext('2d').drawImage(v,0,0,w,h);
+  // flash 效果
+  const fl=$('flash'); fl.style.opacity=1; setTimeout(()=>fl.style.opacity=0,90);
+  return new Promise(res=> c.toBlob(b=> b.arrayBuffer().then(a=>res(new Uint8Array(a))), 'image/jpeg', 0.85));
+}
+
+async function doScan(){
+  if(busy) return; busy=true;
+  $('scanbtn').disabled=true;
+  try{
+    await ensureToken();
+    const jpg = await captureJpeg();
+    toast('上傳中…');
+    await addPage(jpg);
+    toast('已加入第 '+cur.pages+' 頁','good');
+  }catch(e){ toast('掃描失敗：'+e.message,'bad'); }
+  finally{ busy=false; $('scanbtn').disabled=false; }
+}
+
+/* ---------- 開新文件對話框 ---------- */
+function askNewDoc(){ $('newname').value=''; show('newdlg'); }
+async function confirmNewDoc(){
+  hide('newdlg');
+  try{ await ensureToken(); await startNewDoc($('newname').value); }
+  catch(e){ toast('開新文件失敗：'+e.message,'bad'); }
+}
+
+/* ---------- 語音控制 ---------- */
+let rec=null, micOn=false;
+function toggleMic(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ toast('此瀏覽器不支援語音','bad'); return; }
+  if(micOn){ micOn=false; rec&&rec.stop(); $('micbtn').classList.remove('listening'); toast('語音關閉'); return; }
+  rec = new SR(); rec.lang='zh-TW'; rec.continuous=true; rec.interimResults=false;
+  rec.onresult = e=>{
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t = e.results[i][0].transcript.replace(/\s/g,'');
+      if(/開新|新文件|新檔/.test(t)){ toast('🎤 開新文件'); confirmNewDoc(); }
+      else if(/掃描|拍照|拍/.test(t)){ toast('🎤 掃描'); doScan(); }
+    }
+  };
+  rec.onend = ()=>{ if(micOn){ try{ rec.start(); }catch(e){} } };  // iOS 會自動停，重啟
+  rec.onerror = e=>{ if(e.error==='not-allowed'){ micOn=false; $('micbtn').classList.remove('listening'); toast('麥克風被拒','bad'); } };
+  micOn=true; $('micbtn').classList.add('listening');
+  try{ rec.start(); toast('🎤 聽：說「掃描」或「開新文件」','good'); }catch(e){}
+}
+
+/* ---------- 設定 / 對話框 ---------- */
+function show(id){ $(id).classList.add('show'); }
+function hide(id){ $(id).classList.remove('show'); }
+function openSettings(){ $('origin').textContent=location.origin; $('cid').value=clientId(); show('settings'); }
+function closeSettings(){ hide('settings'); }
+function saveSettings(){
+  const v=$('cid').value.trim();
+  localStorage.setItem(LS.cid, v);
+  tokenClient=null; initTokenClient();
+  hide('settings');
+  if(v){ toast('已儲存 Client ID','good'); signIn(); } else toast('Client ID 已清空');
+}
+
+/* ---------- 啟動 ---------- */
+(async function init(){
+  await openDB();
+  await startCamera();
+  await restoreDoc();
+  // GIS 腳本可能還沒載完，輪詢初始化
+  const t=setInterval(()=>{ if(window.google?.accounts?.oauth2){ clearInterval(t); if(clientId()) initTokenClient(); else openSettings(); } }, 400);
+})();
+</script>
+</body>
+</html>
