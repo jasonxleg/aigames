@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>即時收音轉文字</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#181b22; --panel2:#20242e; --line:#2c313d;
+    --txt:#e8ebf0; --muted:#8b93a4; --accent:#4f9dff; --accent2:#34d399;
+    --warn:#fbbf24; --err:#f87171;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Microsoft JhengHei","Segoe UI",system-ui,sans-serif;
+       background:var(--bg);color:var(--txt);height:100vh;display:flex;flex-direction:column}
+  header{padding:14px 20px;background:var(--panel);border-bottom:1px solid var(--line);
+         display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  header h1{font-size:18px;margin:0;font-weight:600}
+  .dot{width:11px;height:11px;border-radius:50%;background:#555;transition:.2s}
+  .dot.on{background:var(--accent2);box-shadow:0 0 10px var(--accent2)}
+  .dot.err{background:var(--err)}
+  .statusText{font-size:13px;color:var(--muted)}
+  .controls{display:flex;gap:10px;padding:12px 20px;background:var(--panel);
+            border-bottom:1px solid var(--line);align-items:center;flex-wrap:wrap}
+  select{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+         border-radius:8px;padding:7px 10px;font-size:13px;outline:none}
+  label.opt{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;cursor:pointer}
+  button{border:none;border-radius:9px;padding:9px 16px;font-size:14px;font-weight:600;
+         cursor:pointer;transition:.15s;font-family:inherit}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .btn-main{background:var(--accent);color:#fff;font-size:15px;padding:11px 26px}
+  .btn-main.rec{background:var(--err)}
+  .btn-sec{background:var(--panel2);color:var(--txt);border:1px solid var(--line)}
+  .btn-sec:hover:not(:disabled){border-color:var(--accent)}
+  .meterWrap{display:flex;align-items:center;gap:10px;flex:1;min-width:200px}
+  .meter{flex:1;height:14px;background:#0a0c10;border-radius:8px;overflow:hidden;
+         border:1px solid var(--line);position:relative}
+  .meterBar{height:100%;width:0%;background:linear-gradient(90deg,#34d399,#fbbf24 70%,#f87171);
+            transition:width .05s linear}
+  .meterDb{font-size:12px;color:var(--muted);width:80px;text-align:right;font-variant-numeric:tabular-nums}
+  main{flex:1;display:flex;flex-direction:column;padding:16px 20px;overflow:hidden}
+  #out{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+       padding:18px;font-size:17px;line-height:1.8;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
+  #out:empty::before{content:"按「開始收音」後，講話的文字會即時出現在這裡…";color:var(--muted)}
+  .interim{color:var(--muted);font-style:italic}
+  .ts{color:var(--accent);font-size:13px;font-weight:600;margin-right:4px}
+  footer{display:flex;gap:14px;padding:10px 20px;background:var(--panel);
+         border-top:1px solid var(--line);align-items:center;flex-wrap:wrap}
+  .count{font-size:13px;color:var(--muted);margin-left:auto}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--accent2);
+         color:#04211a;padding:10px 20px;border-radius:10px;font-weight:600;opacity:0;
+         transition:.3s;pointer-events:none}
+  .toast.show{opacity:1}
+  .hint{font-size:12px;color:var(--muted)}
+  .mobileNote{font-size:12px;color:var(--warn);width:100%;display:none}
+  /* 原文 / 譯文 雙欄 */
+  main{gap:12px}
+  .pane{flex:1;display:flex;flex-direction:column;min-height:0}
+  .paneHead{font-size:13px;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:10px}
+  .paneHead .tag{font-weight:600;color:var(--txt)}
+  #transOut{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+            padding:16px;overflow-y:auto;word-break:break-word}
+  #transOut:empty::before{content:"勾選上方「即時翻譯」後，譯文會即時出現在這裡…";color:var(--muted)}
+  .seg{margin-bottom:14px}
+  .seg .o{font-size:13px;color:var(--muted);display:block;margin-bottom:2px}
+  .seg .t{font-size:19px;color:var(--txt);line-height:1.6}
+  .seg .t.pending{color:var(--muted);font-style:italic}
+  .seg .t.fail{color:var(--warn)}
+  .pipBtn{padding:4px 10px;font-size:12px}
+  /* 小螢幕（手機）版面：按鈕加大好點、控制項堆疊 */
+  @media (max-width:640px){
+    header{padding:12px 14px;gap:8px}
+    header h1{font-size:16px}
+    .controls{padding:10px 14px;gap:8px}
+    .btn-main{width:100%;order:-1;padding:14px}
+    .meterWrap{width:100%;order:1}
+    main{padding:12px 14px}
+    #out{font-size:18px;padding:14px}
+    footer{padding:10px 14px;gap:8px}
+    button{padding:12px 14px}
+    .count{width:100%;text-align:right}
+  }
+</style>
+</head>
+<body>
+<header>
+  <span id="dot" class="dot"></span>
+  <h1>🎙️ 即時收音轉文字</h1>
+  <span id="status" class="statusText">尚未開始</span>
+</header>
+
+<div class="controls">
+  <button id="btnToggle" class="btn-main">▶ 開始收音</button>
+
+  <label class="opt">語言
+    <select id="lang">
+      <option value="zh-TW" selected>中文（台灣）</option>
+      <option value="zh-CN">中文（普通話）</option>
+      <option value="en-US">English</option>
+      <option value="ja-JP">日本語</option>
+      <option value="es-ES">Español</option>
+    </select>
+  </label>
+
+  <label class="opt"><input type="checkbox" id="tsChk"> 加時間戳</label>
+
+  <div class="meterWrap">
+    <button id="btnMeter" class="btn-sec">🔊 測試麥克風</button>
+    <div class="meter"><div id="meterBar" class="meterBar"></div></div>
+    <span id="meterDb" class="meterDb">—</span>
+  </div>
+  <span id="mobileNote" class="mobileNote">📱 手機收音中已暫停音量條，以釋放麥克風給辨識使用</span>
+</div>
+
+<div class="controls" id="transBar">
+  <label class="opt"><input type="checkbox" id="transChk"> 🌐 即時翻譯成</label>
+  <select id="transLang">
+    <option value="en">English</option>
+    <option value="ja">日本語</option>
+    <option value="ko">한국어</option>
+    <option value="zh-TW">中文（繁體）</option>
+    <option value="zh-CN">中文（简体）</option>
+    <option value="es">Español</option>
+    <option value="fr">Français</option>
+    <option value="de">Deutsch</option>
+    <option value="th">ไทย</option>
+    <option value="vi">Tiếng Việt</option>
+  </select>
+  <span class="hint">每段辨識完成自動翻譯</span>
+</div>
+
+<main>
+  <div class="pane">
+    <div class="paneHead"><span class="tag">原文</span></div>
+    <div id="out"></div>
+  </div>
+  <div id="transPane" class="pane" style="display:none">
+    <div class="paneHead">
+      <span class="tag">譯文</span>
+      <button id="btnPip" class="btn-sec pipBtn">📺 子母視窗（浮動）</button>
+    </div>
+    <div id="transOut"></div>
+  </div>
+</main>
+
+<footer>
+  <label class="opt">測試裝置
+    <select id="device"><option>（授權麥克風後顯示）</option></select>
+  </label>
+  <button id="btnCopy" class="btn-sec">📋 複製</button>
+  <button id="btnSave" class="btn-sec">💾 下載 .txt</button>
+  <button id="btnClear" class="btn-sec">🗑️ 清除</button>
+  <span id="count" class="count">0 字</span>
+</footer>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const out = $('out'), dot = $('dot'), statusEl = $('status');
+let recog = null, listening = false, finalText = '', meterAudioCtx = null, meterRAF = null, meterStream = null;
+// 手機（含 iPad）：部分裝置只允許單一來源獨佔麥克風，收音時必須關掉音量條避免搶麥
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)); // iPadOS 偽裝桌面
+let transSegs = [], pipWin = null, pipBody = null; // 即時翻譯段落 / 子母視窗
+const esc = t => (t||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+function setStatus(txt, state){ // state: '', 'on', 'err'
+  statusEl.textContent = txt;
+  dot.className = 'dot' + (state ? ' ' + state : '');
+}
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1600);
+}
+function nowTs(){
+  const d = new Date();
+  const p = n => String(n).padStart(2,'0');
+  return `[${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}]`;
+}
+function updateCount(){
+  const n = finalText.replace(/\s/g,'').length;
+  $('count').textContent = n + ' 字';
+}
+function render(interim){
+  // finalText 已含換行；interim 用灰色斜體即時顯示
+  out.innerHTML = '';
+  if(finalText){
+    const f = document.createElement('span');
+    f.textContent = finalText;
+    out.appendChild(f);
+  }
+  if(interim){
+    const i = document.createElement('span');
+    i.className = 'interim';
+    i.textContent = interim;
+    out.appendChild(i);
+  }
+  out.scrollTop = out.scrollHeight;
+}
+
+// ---------- 語音辨識 ----------
+function buildRecognizer(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){
+    setStatus('此瀏覽器不支援語音辨識，請用 Chrome', 'err');
+    $('btnToggle').disabled = true;
+    return null;
+  }
+  const r = new SR();
+  r.continuous = true;
+  r.interimResults = true;
+  r.lang = $('lang').value;
+
+  r.onstart = () => setStatus('收音中…請說話', 'on');
+  r.onresult = (e) => {
+    let interim = '';
+    for(let i = e.resultIndex; i < e.results.length; i++){
+      const res = e.results[i];
+      if(res.isFinal){
+        const raw = res[0].transcript.trim();
+        if(raw){
+          const seg = $('tsChk').checked ? nowTs() + ' ' + raw : raw;
+          finalText += (finalText ? '\n' : '') + seg;
+          if($('transChk').checked){
+            const obj = { orig: raw, trans: '翻譯中…', state: 'pending' };
+            transSegs.push(obj);
+            renderTrans();
+            translateSeg(obj);
+          }
+        }
+      } else {
+        interim += res[0].transcript;
+      }
+    }
+    render(interim);
+    updateCount();
+  };
+  r.onerror = (e) => {
+    if(e.error === 'no-speech'){ setStatus('沒聽到聲音，繼續等待…', 'on'); return; }
+    if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){
+      setStatus('麥克風權限被拒，請允許麥克風存取', 'err'); stop(); return;
+    }
+    if(e.error === 'audio-capture'){
+      setStatus('找不到麥克風／收不到音訊（檢查接線）', 'err'); stop(); return;
+    }
+    if(e.error === 'aborted') return;
+    setStatus('辨識錯誤：' + e.error, 'err');
+  };
+  r.onend = () => {
+    // continuous 仍可能自動結束；只要還在收音狀態就自動重啟
+    if(listening){ try{ r.start(); }catch(_){} }
+    else setStatus('已停止', '');
+  };
+  return r;
+}
+
+function start(){
+  recog = buildRecognizer();
+  if(!recog) return;
+  listening = true;
+  try{ recog.start(); }catch(_){}
+  $('btnToggle').textContent = '⏸ 停止收音';
+  $('btnToggle').classList.add('rec');
+  if(isMobile){
+    // 手機：釋放麥克風給辨識，關掉音量條
+    stopMeter();
+    $('mobileNote').style.display = 'block';
+  } else {
+    // 桌面：辨識與音量條可並存，順手開音量條讓使用者看到聲音
+    if(!meterStream) startMeter();
+  }
+}
+function stop(){
+  listening = false;
+  if(recog){ try{ recog.stop(); }catch(_){} }
+  $('btnToggle').textContent = '▶ 開始收音';
+  $('btnToggle').classList.remove('rec');
+  $('mobileNote').style.display = 'none';
+  setStatus('已停止', '');
+}
+$('btnToggle').onclick = () => listening ? stop() : start();
+$('lang').onchange = () => { if(listening){ stop(); setTimeout(start, 200); } };
+
+// ---------- 即時音量表（也用來確認麥克風是否收音）----------
+async function startMeter(deviceId){
+  if(isMobile && listening){
+    toast('手機收音中無法同時測試麥克風');
+    return;
+  }
+  stopMeter();
+  $('btnMeter').textContent = '⏹ 停止測試';
+  try{
+    const constraints = { audio: deviceId ? { deviceId: { exact: deviceId } } : true };
+    meterStream = await navigator.mediaDevices.getUserMedia(constraints);
+    await populateDevices(); // 取得權限後才有裝置標籤
+    meterAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = meterAudioCtx.createMediaStreamSource(meterStream);
+    const analyser = meterAudioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    src.connect(analyser);
+    const buf = new Float32Array(analyser.fftSize);
+    const loop = () => {
+      analyser.getFloatTimeDomainData(buf);
+      let sum = 0;
+      for(let i=0;i<buf.length;i++) sum += buf[i]*buf[i];
+      const rms = Math.sqrt(sum / buf.length);
+      const db = rms > 0 ? 20 * Math.log10(rms) : -100;
+      // 把 -60dB..0dB 映射成 0..100%
+      const pct = Math.max(0, Math.min(100, (db + 60) / 60 * 100));
+      $('meterBar').style.width = pct.toFixed(1) + '%';
+      $('meterDb').textContent = db <= -99 ? '靜音' : db.toFixed(1) + ' dB';
+      meterRAF = requestAnimationFrame(loop);
+    };
+    loop();
+  }catch(err){
+    setStatus('無法存取麥克風：' + err.name, 'err');
+  }
+}
+function stopMeter(){
+  if(meterRAF) cancelAnimationFrame(meterRAF);
+  if(meterAudioCtx) { meterAudioCtx.close(); meterAudioCtx = null; }
+  if(meterStream){ meterStream.getTracks().forEach(t=>t.stop()); meterStream = null; }
+  $('meterBar').style.width = '0%'; $('meterDb').textContent = '—';
+  $('btnMeter').textContent = '🔊 測試麥克風';
+}
+$('btnMeter').onclick = () => meterStream ? stopMeter() : startMeter($('device').value || undefined);
+async function populateDevices(){
+  try{
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    const mics = devs.filter(d => d.kind === 'audioinput');
+    const sel = $('device');
+    const cur = sel.value;
+    sel.innerHTML = '';
+    mics.forEach((m,i)=>{
+      const o = document.createElement('option');
+      o.value = m.deviceId;
+      o.textContent = m.label || ('麥克風 ' + (i+1));
+      sel.appendChild(o);
+    });
+    if(cur) sel.value = cur;
+  }catch(_){}
+}
+$('device').onchange = () => { if(meterStream) startMeter($('device').value); };
+
+// ---------- 工具列 ----------
+$('btnCopy').onclick = () => {
+  if(!finalText){ toast('沒有內容'); return; }
+  navigator.clipboard.writeText(finalText).then(()=>toast('已複製到剪貼簿'));
+};
+$('btnSave').onclick = () => {
+  if(!finalText){ toast('沒有內容'); return; }
+  const blob = new Blob([finalText], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  const d = new Date(); const p = n => String(n).padStart(2,'0');
+  a.download = `轉錄_${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.txt`;
+  a.href = URL.createObjectURL(blob); a.click(); URL.revokeObjectURL(a.href);
+  toast('已下載');
+};
+$('btnClear').onclick = () => {
+  if(finalText && !confirm('確定清除所有文字？')) return;
+  finalText = ''; render(''); updateCount();
+  transSegs = []; renderTrans();
+};
+
+// ---------- 即時翻譯（透過本機 server 代理 Google 翻譯，免金鑰）----------
+function renderTrans(){
+  const html = transSegs.map(s => {
+    const cls = s.state === 'fail' ? 't fail' : (s.state === 'pending' ? 't pending' : 't');
+    return `<div class="seg"><span class="o">${esc(s.orig)}</span><span class="${cls}">${esc(s.trans)}</span></div>`;
+  }).join('');
+  $('transOut').innerHTML = html;
+  $('transOut').scrollTop = $('transOut').scrollHeight;
+  if(pipBody){ pipBody.innerHTML = html; pipBody.scrollTop = pipBody.scrollHeight; }
+}
+async function translateSeg(obj){
+  try{
+    const r = await fetch(`/translate?sl=auto&tl=${encodeURIComponent($('transLang').value)}&q=${encodeURIComponent(obj.orig)}`);
+    if(!r.ok) throw new Error('http ' + r.status);
+    const j = await r.json();
+    if(j.error || typeof j.text !== 'string' || j.text === '') throw new Error(j.error || 'empty');
+    obj.trans = j.text; obj.state = '';
+  }catch(e){
+    // 翻不到（無網路 / 端點被擋 / 非經本機 server）→ 提示手動翻譯，原文仍保留在上方
+    obj.trans = '⚠️ 無法使用 Google 翻譯，請手動自己翻譯'; obj.state = 'fail';
+  }
+  renderTrans();
+}
+$('transChk').onchange = () => {
+  $('transPane').style.display = $('transChk').checked ? 'flex' : 'none';
+};
+$('transLang').onchange = () => { if($('transChk').checked) toast('之後的段落會翻成新語言'); };
+
+// ---------- 子母視窗（Document Picture-in-Picture，可浮在其他程式上）----------
+function buildPipDoc(doc){
+  doc.body.style.margin = '0';
+  doc.body.innerHTML =
+    '<div style="font-family:\'Microsoft JhengHei\',sans-serif;background:#0f1115;color:#e8ebf0;height:100vh;display:flex;flex-direction:column">' +
+      '<div style="padding:8px 12px;background:#181b22;border-bottom:1px solid #2c313d;font-size:13px;color:#8b93a4">🌐 即時翻譯</div>' +
+      '<div id="pipTrans" style="flex:1;overflow-y:auto;padding:14px"></div>' +
+    '</div>';
+  const st = doc.createElement('style');
+  st.textContent = '.seg{margin-bottom:14px}.seg .o{font-size:12px;color:#8b93a4;display:block;margin-bottom:2px}.seg .t{font-size:21px;color:#e8ebf0;line-height:1.6}.seg .t.pending{color:#8b93a4;font-style:italic}.seg .t.fail{color:#fbbf24}';
+  doc.head.appendChild(st);
+  pipBody = doc.getElementById('pipTrans');
+  renderTrans();
+}
+async function openPip(){
+  if(pipWin){ try{ pipWin.focus(); }catch(_){} return; }
+  if(!$('transChk').checked){ $('transChk').checked = true; $('transChk').onchange(); }
+  try{
+    if('documentPictureInPicture' in window){
+      pipWin = await documentPictureInPicture.requestWindow({ width: 460, height: 340 });
+      buildPipDoc(pipWin.document);
+      pipWin.addEventListener('pagehide', () => { pipWin = null; pipBody = null; });
+    } else {
+      // 後備：一般彈出視窗（不一定永遠置頂，但仍是獨立浮動視窗；手機也走這條）
+      pipWin = window.open('', 'transPip', 'width=460,height=340');
+      if(!pipWin){ toast('彈出視窗被瀏覽器攔截，請允許'); return; }
+      buildPipDoc(pipWin.document);
+      pipWin.addEventListener('beforeunload', () => { pipWin = null; pipBody = null; });
+      toast('此瀏覽器不支援浮動子母視窗，已用獨立視窗代替');
+    }
+  }catch(e){ toast('無法開啟子母視窗：' + e.message); }
+}
+$('btnPip').onclick = openPip;
+
+setStatus('就緒 — 按「開始收音」', '');
+</script>
+</body>
+</html>
