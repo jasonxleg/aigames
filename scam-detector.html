@@ -83,11 +83,12 @@
 <body>
 <div class="wrap">
   <h1>🛡️ 詐騙檢測器</h1>
-  <div class="sub">貼上可疑「網址」或「手機簡訊內容」，立即用本地規則判斷風險。可選填 Gemini API Key 做 AI 二次判讀。所有分析皆在你裝置上完成。</div>
+  <div class="sub">貼上可疑「網址」「手機簡訊」或「電話號碼」，立即用本地規則判斷風險。可選填 Gemini API Key 做 AI 二次判讀。所有分析皆在你裝置上完成。</div>
 
   <div class="tabs">
-    <div class="tab active" data-tab="url">🔗 網址檢測</div>
-    <div class="tab" data-tab="sms">💬 簡訊檢測</div>
+    <div class="tab active" data-tab="url">🔗 網址</div>
+    <div class="tab" data-tab="sms">💬 簡訊</div>
+    <div class="tab" data-tab="phone">📞 電話</div>
   </div>
 
   <!-- URL panel -->
@@ -126,6 +127,24 @@
     <div class="result" id="smsResult"></div>
   </div>
 
+  <!-- Phone panel -->
+  <div class="panel" id="panel-phone">
+    <div class="card">
+      <label>輸入來電 / 可疑電話號碼</label>
+      <input type="text" id="phoneInput" placeholder="例如：+886912345678 或 02-1234-5678" autocomplete="off" inputmode="tel">
+      <div style="margin-top:6px">
+        <span class="ex" onclick="fillTel('+886912345678')">範例:+886來電</span>
+        <span class="ex" onclick="fillTel('+855977123456')">範例:柬埔寨</span>
+        <span class="ex" onclick="fillTel('0912345678')">範例:正常手機</span>
+      </div>
+      <div class="row">
+        <button class="go" onclick="analyzePhone()">開始檢測</button>
+        <button class="ghost" onclick="document.getElementById('phoneInput').value='';clear('phone')">清除</button>
+      </div>
+    </div>
+    <div class="result" id="phoneResult"></div>
+  </div>
+
   <!-- AI key -->
   <div class="card">
     <label>🤖 Gemini API Key（選填，啟用 AI 二次判讀）<span class="pill">存在瀏覽器本機</span></label>
@@ -145,6 +164,7 @@
     <summary>這個工具怎麼判斷的？（檢測邏輯說明）</summary>
     <p><b>網址：</b>檢查 IP 位址網域、Punycode 偽冒(xn--)、網址含 @、品牌名出現在子網域但主網域不符(如 paypal.xxx.com)、高風險 TLD(.xyz .top .tk .cc 等)、短網址服務、非 https、過多連字號/數字替換(g00gle)、可疑路徑關鍵字(login/verify/otp)等。</p>
     <p><b>簡訊：</b>檢查急迫用語(立即/逾期/凍結)、誘餌(中獎/退稅/補助/回饋)、帳號安全(異常/解除限制/重新綁定)、包裹物流、金融關鍵字、要求回撥或加 LINE、冒充公務機關，並把訊息內的網址一起做網址檢測。</p>
+    <p><b>電話：</b>檢查境外冒打台灣號碼(+886 開頭)、詐騙園區／一響詐騙高風險國際區碼(柬埔寨/菲律賓/緬甸/奈及利亞等)、0800/0809 受話付費門號被冒用、號碼長度異常、官方短碼偽造。並提醒「來電顯示可被竄改」，不能只看號碼判斷。</p>
     <p>分數越高越可疑。<b>本工具僅供參考，最終請以官方管道(165 反詐騙專線、各機關官網)查證。</b></p>
   </details>
 
@@ -166,6 +186,7 @@ document.querySelectorAll('.tab').forEach(t=>{
 });
 function fillUrl(v){document.getElementById('urlInput').value=v;analyzeUrl();}
 function fillSms(v){document.getElementById('smsInput').value=v;analyzeSms();}
+function fillTel(v){document.getElementById('phoneInput').value=v;analyzePhone();}
 function clear(which){document.getElementById(which+'Result').innerHTML='';}
 
 /* ---------- API key persistence ---------- */
@@ -361,6 +382,88 @@ function scoreSms(text){
   return {score,flags,input:text,urls};
 }
 
+/* ============ PHONE ANALYSIS ============ */
+// 常被用於詐騙/一響詐騙/詐騙園區的國際區碼（依國碼開頭比對）
+const HIRISK_CC={
+  '+855':'柬埔寨','+95':'緬甸','+856':'寮國','+63':'菲律賓','+66':'泰國',
+  '+234':'奈及利亞','+231':'賴比瑞亞','+232':'獅子山','+252':'索馬利亞','+225':'象牙海岸',
+  '+243':'剛果','+221':'塞內加爾','+233':'迦納','+248':'塞席爾',
+  '+375':'白俄羅斯','+371':'拉脫維亞','+370':'立陶宛','+373':'摩爾多瓦','+381':'塞爾維亞',
+  '+377':'摩納哥','+672':'諾福克島','+675':'巴布亞紐幾內亞','+679':'斐濟','+676':'東加'
+};
+const OFFICIAL_SHORT={'110':'警察報案','119':'消防／救護','112':'行動電話緊急','113':'婦幼保護','165':'反詐騙諮詢','166':'氣象','104':'查號台','117':'報時'};
+
+function analyzePhone(){
+  const raw=document.getElementById('phoneInput').value.trim();
+  if(!raw){document.getElementById('phoneResult').innerHTML='';return;}
+  const r=scorePhone(raw);
+  renderResult('phoneResult',r);
+}
+
+function scorePhone(raw){
+  const flags=[];let score=0;
+  // 正規化：移除空白、連字號、括號、全形空白
+  let norm=raw.replace(/[\s\-().　]/g,'');
+  if(!norm){return {score:0,flags:[{lv:'good',ic:'✅',t:'未輸入號碼',d:''}],input:raw};}
+  if(/[a-zA-Z]/.test(norm)){
+    score+=30;flags.push({lv:'hi',ic:'🚩',t:'號碼含英文字母',d:'正常電話號碼不會有字母，可能是偽造或網路電話顯示的假號碼。'});
+  }
+  const e164=norm.replace(/^00/,'+');         // 00 → + 視為國際撥號
+  const isIntl=/^\+/.test(e164);
+  const digits=norm.replace(/\D/g,'');
+
+  // 官方短碼（來電顯示可偽造）
+  if(OFFICIAL_SHORT[digits]){
+    flags.push({lv:'mid',ic:'🏛️',t:'官方短碼（'+OFFICIAL_SHORT[digits]+'）',d:'這是政府／緊急短碼。注意：來電顯示可被偽造，真正的 165／110／銀行不會主動打來要你操作 ATM、提供帳號或驗證碼。'});
+    score+=6;
+  }
+
+  if(isIntl){
+    if(/^\+886/.test(e164)){
+      score+=26;
+      flags.push({lv:'hi',ic:'🌍',t:'境外冒打台灣號碼（+886 開頭）',d:'台灣國內互打不會顯示國碼「+886」。看到 +886 開頭的來電，多半是境外透過網路電話偽冒台灣號碼（除非是你認識的人在國外漫遊撥打）。'});
+    }else{
+      let hit=null;
+      for(const code of Object.keys(HIRISK_CC).sort((a,b)=>b.length-a.length)){
+        if(e164.startsWith(code)){hit=code;break;}
+      }
+      if(hit){
+        score+=32;
+        flags.push({lv:'hi',ic:'🚨',t:'高風險國際區碼（'+HIRISK_CC[hit]+' '+hit+'）',d:'此區域為詐騙園區／國際詐騙／一響誘撥的高發地。若你與當地無往來，極可能是詐騙，勿回撥。'});
+      }else{
+        score+=20;
+        flags.push({lv:'mid',ic:'🌐',t:'國際來電（'+(e164.match(/^\+\d{1,4}/)||['+?'])[0]+'）',d:'這是境外來電。若你近期沒有國外往來或不認識對方，要特別小心一響詐騙與假冒檢警／客服的境外詐騙。'});
+      }
+    }
+  }else{
+    // 台灣本地號碼格式判讀
+    if(OFFICIAL_SHORT[digits]){
+      /* 已在上方標記為官方短碼，不再判長度 */
+    }else if(/^09\d{8}$/.test(digits)){
+      flags.push({lv:'good',ic:'📱',t:'台灣手機門號格式正常',d:'格式為 09 開頭共 10 碼。格式正常不代表一定安全，仍要看對方說了什麼。'});
+    }else if(/^0800\d{6}$|^0809\d{6}$/.test(digits)){
+      score+=12;
+      flags.push({lv:'mid',ic:'📞',t:'0800／0809 受話付費門號',d:'這類是企業客服的「免付費受話」門號，正常情況是你打進去，極少主動打給你；被用來主動來電時要提高警覺。'});
+    }else if(/^0[2-8]\d{6,8}$/.test(digits)){
+      flags.push({lv:'good',ic:'☎️',t:'台灣市話格式正常',d:'格式像是市內電話。注意市話號碼一樣能被偽造顯示。'});
+    }else if(digits.length<8){
+      score+=10;
+      flags.push({lv:'lo',ic:'📏',t:'號碼偏短（'+digits.length+' 碼）',d:'長度不像一般市話或手機，可能是特殊短碼或變造號碼。'});
+    }else if(digits.length>11){
+      score+=14;
+      flags.push({lv:'mid',ic:'📏',t:'號碼異常過長（'+digits.length+' 碼）',d:'超過台灣一般號碼長度，常見於網路電話或刻意變造的號碼。'});
+    }else{
+      flags.push({lv:'lo',ic:'❓',t:'無法辨識的號碼格式',d:'不符合台灣常見手機／市話格式，請格外留意。'});
+    }
+  }
+
+  // 一律提醒：來電顯示可偽造
+  flags.push({lv:'good',ic:'🛡️',t:'重要提醒：來電顯示可被竄改',d:'詐騙集團能把來電號碼偽裝成銀行、公務機關甚至你的聯絡人。只要對方要求操作 ATM、轉帳、提供帳號密碼或驗證碼，一律掛斷，改撥 165 或自行查官方電話查證。'});
+
+  score=Math.min(100,score);
+  return {score,flags,input:raw};
+}
+
 /* ============ RENDER ============ */
 function levelInfo(s){
   if(s>=55)return {cls:'v-bad',lv:'高風險 · 極可能是詐騙',dsc:'強烈建議不要點擊連結、不要回覆、不要提供任何資料。請撥 165 查證。'};
@@ -493,6 +596,7 @@ async function checkSafeBrowsing(key,urls){
     const q=new URLSearchParams(location.search);
     const sms=q.get('sms')||q.get('text')||q.get('t');
     const url=q.get('url')||q.get('u');
+    const tel=q.get('tel')||q.get('phone')||q.get('p');
     if(sms){
       document.querySelector('.tab[data-tab="sms"]').click();
       document.getElementById('smsInput').value=sms;
@@ -503,6 +607,11 @@ async function checkSafeBrowsing(key,urls){
       document.getElementById('urlInput').value=url;
       analyzeUrl();
       document.getElementById('urlResult').scrollIntoView({behavior:'smooth'});
+    }else if(tel){
+      document.querySelector('.tab[data-tab="phone"]').click();
+      document.getElementById('phoneInput').value=tel;
+      analyzePhone();
+      document.getElementById('phoneResult').scrollIntoView({behavior:'smooth'});
     }
   }catch(e){}
 })();
