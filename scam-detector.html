@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>詐騙檢測器 · 網址 / 簡訊</title>
+<style>
+  :root{
+    --bg:#0f1226; --bg2:#171a3a; --card:#1d2150; --line:#2c3170;
+    --txt:#e8eaff; --sub:#9aa0d8; --accent:#6c7cff;
+    --ok:#23c187; --warn:#f5a623; --bad:#ff5d6c;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;font-family:"Segoe UI","Microsoft JhengHei",system-ui,sans-serif;
+    background:radial-gradient(1200px 600px at 70% -10%,#2a2f6e 0%,var(--bg) 55%);
+    color:var(--txt);min-height:100vh;padding:24px 14px 60px;
+  }
+  .wrap{max-width:820px;margin:0 auto}
+  h1{font-size:24px;margin:0 0 4px;display:flex;align-items:center;gap:10px}
+  .sub{color:var(--sub);font-size:13px;margin-bottom:18px}
+  .tabs{display:flex;gap:8px;margin-bottom:16px}
+  .tab{
+    flex:1;padding:12px;border-radius:14px;border:1px solid var(--line);
+    background:var(--bg2);color:var(--sub);cursor:pointer;font-size:15px;
+    font-weight:600;text-align:center;transition:.15s;
+  }
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 6px 18px rgba(108,124,255,.35)}
+  .panel{display:none}
+  .panel.active{display:block}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:14px}
+  label{font-size:13px;color:var(--sub);display:block;margin-bottom:6px}
+  input[type=text],textarea{
+    width:100%;background:var(--bg);border:1px solid var(--line);border-radius:12px;
+    color:var(--txt);padding:12px 14px;font-size:15px;font-family:inherit;outline:none;
+  }
+  input:focus,textarea:focus{border-color:var(--accent)}
+  textarea{min-height:120px;resize:vertical;line-height:1.6}
+  .row{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+  button.go{
+    background:var(--accent);color:#fff;border:none;border-radius:12px;padding:12px 22px;
+    font-size:15px;font-weight:700;cursor:pointer;flex:1;min-width:140px;
+  }
+  button.go:hover{filter:brightness(1.1)}
+  button.ghost{
+    background:transparent;border:1px solid var(--line);color:var(--sub);
+    border-radius:12px;padding:12px 16px;cursor:pointer;font-size:13px;
+  }
+  .result{margin-top:6px}
+  .verdict{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:16px;margin-bottom:14px}
+  .verdict .score{font-size:38px;font-weight:800;line-height:1}
+  .verdict .meta{flex:1}
+  .verdict .lv{font-size:20px;font-weight:800}
+  .verdict .dsc{font-size:13px;opacity:.9;margin-top:2px}
+  .v-ok{background:rgba(35,193,135,.15);border:1px solid var(--ok)}
+  .v-warn{background:rgba(245,166,35,.15);border:1px solid var(--warn)}
+  .v-bad{background:rgba(255,93,108,.15);border:1px solid var(--bad)}
+  .v-ok .score,.v-ok .lv{color:var(--ok)}
+  .v-warn .score,.v-warn .lv{color:var(--warn)}
+  .v-bad .score,.v-bad .lv{color:var(--bad)}
+  .flag{display:flex;gap:10px;padding:10px 12px;border-radius:10px;background:var(--bg2);margin-bottom:8px;font-size:14px;align-items:flex-start}
+  .flag .ic{font-size:16px;line-height:1.4}
+  .flag .t{font-weight:600}
+  .flag .d{color:var(--sub);font-size:12.5px;margin-top:2px}
+  .flag.hi{border-left:3px solid var(--bad)}
+  .flag.mid{border-left:3px solid var(--warn)}
+  .flag.lo{border-left:3px solid var(--sub)}
+  .flag.good{border-left:3px solid var(--ok)}
+  .sectitle{font-size:13px;color:var(--sub);margin:14px 0 8px;font-weight:700;letter-spacing:.5px}
+  .ai-box{margin-top:10px;border-top:1px dashed var(--line);padding-top:12px}
+  .ai-box .body{white-space:pre-wrap;font-size:14px;line-height:1.7;color:#dfe2ff}
+  details{margin-top:14px;font-size:13px;color:var(--sub)}
+  summary{cursor:pointer;color:var(--accent)}
+  .key-row{display:flex;gap:8px;align-items:center;margin-top:8px}
+  .key-row input{flex:1}
+  .pill{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--bg2);color:var(--sub);border:1px solid var(--line)}
+  .foot{text-align:center;color:var(--sub);font-size:12px;margin-top:24px;line-height:1.8}
+  .ex{font-size:12px;color:var(--accent);cursor:pointer;margin-right:12px}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid #fff5;border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🛡️ 詐騙檢測器</h1>
+  <div class="sub">貼上可疑「網址」或「手機簡訊內容」，立即用本地規則判斷風險。可選填 Gemini API Key 做 AI 二次判讀。所有分析皆在你裝置上完成。</div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="url">🔗 網址檢測</div>
+    <div class="tab" data-tab="sms">💬 簡訊檢測</div>
+  </div>
+
+  <!-- URL panel -->
+  <div class="panel active" id="panel-url">
+    <div class="card">
+      <label>輸入網址（可含 http/https，或直接貼網域）</label>
+      <input type="text" id="urlInput" placeholder="例如：https://event-7-11.com.tw-login.xyz/verify" autocomplete="off">
+      <div style="margin-top:6px">
+        <span class="ex" onclick="fillUrl('http://event-711.com.tw-login.xyz/verify?id=001')">範例:假7-11</span>
+        <span class="ex" onclick="fillUrl('https://reurl.cc/abc123')">範例:短網址</span>
+        <span class="ex" onclick="fillUrl('https://www.google.com')">範例:正常站</span>
+      </div>
+      <div class="row">
+        <button class="go" onclick="analyzeUrl()">開始檢測</button>
+        <button class="ghost" onclick="document.getElementById('urlInput').value='';clear('url')">清除</button>
+      </div>
+    </div>
+    <div class="result" id="urlResult"></div>
+  </div>
+
+  <!-- SMS panel -->
+  <div class="panel" id="panel-sms">
+    <div class="card">
+      <label>貼上手機簡訊全文</label>
+      <textarea id="smsInput" placeholder="例如：【中華電信】您的帳單已逾期，請於今日內點擊連結完成繳費以免停話 https://bit.ly/xxxx"></textarea>
+      <div style="margin-top:6px">
+        <span class="ex" onclick="fillSms('【財政部】您有一筆退稅尚未領取，請點擊連結填寫帳戶資料 http://tax-gov.cc/r')">範例:假退稅</span>
+        <span class="ex" onclick="fillSms('您的包裹地址有誤無法配送，請更新 https://reurl.cc/x9 否則退回')">範例:假包裹</span>
+        <span class="ex" onclick="fillSms('媽我手機摔壞了 這是我的新號碼 先記一下')">範例:假冒親友</span>
+      </div>
+      <div class="row">
+        <button class="go" onclick="analyzeSms()">開始檢測</button>
+        <button class="ghost" onclick="document.getElementById('smsInput').value='';clear('sms')">清除</button>
+      </div>
+    </div>
+    <div class="result" id="smsResult"></div>
+  </div>
+
+  <!-- AI key -->
+  <div class="card">
+    <label>🤖 Gemini API Key（選填，啟用 AI 二次判讀）<span class="pill">存在瀏覽器本機</span></label>
+    <div class="key-row">
+      <input type="text" id="apiKey" placeholder="貼上 Gemini API Key（留空則只用本地規則）" autocomplete="off">
+      <button class="ghost" onclick="saveKey()">記住</button>
+    </div>
+    <label style="margin-top:14px">🛰️ Safe Browsing API Key（選填，比對 Google 惡意網址黑名單）<span class="pill">存在瀏覽器本機</span></label>
+    <div class="key-row">
+      <input type="text" id="sbKey" placeholder="貼上 Safe Browsing API Key（留空則略過此查詢）" autocomplete="off">
+      <button class="ghost" onclick="saveKey()">記住</button>
+    </div>
+    <div style="font-size:11.5px;color:var(--sub);margin-top:6px">※ Safe Browsing 從本機檔案直連可能被瀏覽器 CORS 擋下；若查不到會自動略過，不影響上方本地規則結果。</div>
+  </div>
+
+  <details>
+    <summary>這個工具怎麼判斷的？（檢測邏輯說明）</summary>
+    <p><b>網址：</b>檢查 IP 位址網域、Punycode 偽冒(xn--)、網址含 @、品牌名出現在子網域但主網域不符(如 paypal.xxx.com)、高風險 TLD(.xyz .top .tk .cc 等)、短網址服務、非 https、過多連字號/數字替換(g00gle)、可疑路徑關鍵字(login/verify/otp)等。</p>
+    <p><b>簡訊：</b>檢查急迫用語(立即/逾期/凍結)、誘餌(中獎/退稅/補助/回饋)、帳號安全(異常/解除限制/重新綁定)、包裹物流、金融關鍵字、要求回撥或加 LINE、冒充公務機關，並把訊息內的網址一起做網址檢測。</p>
+    <p>分數越高越可疑。<b>本工具僅供參考，最終請以官方管道(165 反詐騙專線、各機關官網)查證。</b></p>
+  </details>
+
+  <div class="foot">
+    🛡️ 詐騙檢測器 · 純前端離線工具 · 規則僅供參考<br>
+    遇可疑情形請撥打 <b>165 反詐騙專線</b> 查證
+  </div>
+</div>
+
+<script>
+/* ---------- tabs ---------- */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+  };
+});
+function fillUrl(v){document.getElementById('urlInput').value=v;analyzeUrl();}
+function fillSms(v){document.getElementById('smsInput').value=v;analyzeSms();}
+function clear(which){document.getElementById(which+'Result').innerHTML='';}
+
+/* ---------- API key persistence ---------- */
+const KEY_LS='scamdetect_gemini_key';
+const SB_LS='scamdetect_sb_key';
+try{const k=localStorage.getItem(KEY_LS);if(k)document.getElementById('apiKey').value=k;
+    const s=localStorage.getItem(SB_LS);if(s)document.getElementById('sbKey').value=s;}catch(e){}
+function saveKey(){
+  try{localStorage.setItem(KEY_LS,document.getElementById('apiKey').value.trim());
+  localStorage.setItem(SB_LS,document.getElementById('sbKey').value.trim());
+  toast('已記住 API Key');}catch(e){alert('無法儲存');}
+}
+function toast(m){
+  const d=document.createElement('div');d.textContent=m;
+  d.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#23c187;color:#042;padding:10px 18px;border-radius:20px;font-weight:700;z-index:99';
+  document.body.appendChild(d);setTimeout(()=>d.remove(),1600);
+}
+
+/* ============ URL ANALYSIS ============ */
+const SUSPICIOUS_TLD=['xyz','top','tk','ml','ga','cf','gq','work','click','link','live','online','site','club','icu','rest','cyou','sbs','fit','men','loan','date','cc','vip','buzz','win','bond','quest','autos','cn','ru'];
+const SHORTENERS=['bit.ly','reurl.cc','lihi.cc','lihi1.cc','lihi2.cc','lihi3.cc','tinyurl.com','goo.gl','t.co','is.gd','ppt.cc','pse.is','risu.io','psee.io','myppt.cc','rebrand.ly','cutt.ly','soo.gd','ezurl.cc','tiny.cc','reurl.io','0rz.tw','reur.cc'];
+const BRANDS=['google','facebook','apple','paypal','amazon','microsoft','line','linepay','711','7-11','7eleven','fami','familymart','momo','shopee','pchome','ruten','jkos','jko','esun','ctbc','cathay','fubon','taishin','bot','megabank','post','chunghwa','cht','taipower','etc','nhi','mohw','etax','tax','gov','icash','easycard','jkopay','街口','全聯','pxmart'];
+const HIRISK_PATH=['login','signin','verify','verification','account','update','secure','security','confirm','bank','wallet','otp','password','unlock','suspend','billing','payment','recover','validate','authorize'];
+
+function analyzeUrl(){
+  const raw=document.getElementById('urlInput').value.trim();
+  if(!raw){document.getElementById('urlResult').innerHTML='';return;}
+  const r=scoreUrl(raw);
+  renderResult('urlResult',r);
+  let work=raw;if(!/^https?:\/\//i.test(work))work='http://'+work;
+  maybeSafeBrowsing('urlResult',[work]);
+  maybeAI('url',raw,r);
+}
+
+function scoreUrl(raw){
+  const flags=[];let score=0;
+  let work=raw;
+  if(!/^https?:\/\//i.test(work))work='http://'+work;
+  let u;
+  try{u=new URL(work);}catch(e){
+    return {score:50,flags:[{lv:'mid',ic:'⚠️',t:'網址格式異常',d:'無法正常解析這個網址，請確認是否完整或被刻意變造。'}],input:raw};
+  }
+  const host=u.hostname.toLowerCase();
+  const proto=u.protocol;
+  const hasHttps=/^https?:/.test(raw)? /^https:/i.test(raw):null;
+
+  // 1. IP host
+  if(/^\d{1,3}(\.\d{1,3}){3}$/.test(host)){
+    score+=35;flags.push({lv:'hi',ic:'🚩',t:'使用 IP 位址當網域',d:'正常公司網站幾乎不會直接用數字 IP，常見於釣魚站。'});
+  }
+  // 2. punycode
+  if(host.includes('xn--')){
+    score+=35;flags.push({lv:'hi',ic:'🚩',t:'偵測到 Punycode（xn--）',d:'可能用外觀相似的外語字母偽冒知名網站（如用西里爾字母假冒 apple）。'});
+  }
+  // 3. @ in url
+  if(raw.includes('@')){
+    score+=30;flags.push({lv:'hi',ic:'🚩',t:'網址含「@」符號',d:'@ 之前的內容會被瀏覽器忽略，常被用來把你導向 @ 後面的真實惡意網站。'});
+  }
+  // 4. non-https
+  if(proto==='http:' && hasHttps===false){
+    score+=12;flags.push({lv:'mid',ic:'🔓',t:'非加密連線（http）',d:'未使用 https，輸入的資料可能被竊取；正規金融/政府網站都用 https。'});
+  }
+  // 5. shorteners
+  const shortHit=SHORTENERS.find(s=>host===s||host.endsWith('.'+s));
+  if(shortHit){
+    score+=22;flags.push({lv:'mid',ic:'🩹',t:'短網址服務（'+shortHit+'）',d:'短網址會隱藏真正的目的地，詐騙簡訊最常用。點之前無法得知會被導去哪。'});
+  }
+  // 6. suspicious TLD
+  const parts=host.split('.');
+  const tld=parts[parts.length-1];
+  if(SUSPICIOUS_TLD.includes(tld)){
+    score+=18;flags.push({lv:'mid',ic:'🏷️',t:'高風險網域結尾（.'+tld+'）',d:'這類頂級網域申請便宜、常被詐騙集團大量註冊。'});
+  }
+  // 7. brand in subdomain/path but registrable domain mismatch
+  const rootDomain=parts.slice(-2).join('.');
+  const labels=host.split('.');
+  const sld=labels.length>=2?labels[labels.length-2]:labels[0]; // 可註冊網域的主標籤
+  let brandImpersonation=false;
+  for(const b of BRANDS){
+    if(!host.includes(b))continue;
+    const isRealBrandDomain=(sld===b);            // 主網域就是該品牌本身 -> 視為正當
+    if(isRealBrandDomain)continue;
+    const asSubLabel=labels.slice(0,-2).some(l=>l.includes(b)); // 品牌出現在子網域
+    const hyphenTrick=labels.some(l=>l.includes(b+'-')||l.includes('-'+b)); // 用連字號拼接
+    if(asSubLabel||hyphenTrick){
+      brandImpersonation=true;
+      score+=28;
+      flags.push({lv:'hi',ic:'🎭',t:'疑似偽冒品牌「'+b+'」',d:'品牌名出現在子網域或用連字號拼接（如 '+b+'-login.xxx），但真正的主網域並不是它。'});
+      break;
+    }
+  }
+  // 8. excessive subdomains
+  if(labels.length>=5){
+    score+=12;flags.push({lv:'mid',ic:'🪜',t:'子網域層數過多',d:'過長的子網域常被用來把可信品牌名塞在前面混淆視聽。'});
+  }
+  // 9. digit substitution in host (g00gle, paypa1)
+  if(/[a-z]\d[a-z]|\d[a-z]\d/.test(rootDomain.replace(/^\d+\./,'')) && /[a-z]/.test(rootDomain) && /\d/.test(rootDomain)){
+    score+=10;flags.push({lv:'lo',ic:'🔢',t:'網域夾雜數字',d:'可能用數字假冒字母（如 0 假冒 o、1 假冒 l）。'});
+  }
+  // 10. many hyphens
+  const hyphens=(host.match(/-/g)||[]).length;
+  if(hyphens>=2){
+    score+=10;flags.push({lv:'lo',ic:'➖',t:'網域含多個連字號',d:'有 '+hyphens+' 個「-」，詐騙網域常用連字號拼湊看似官方的字串。'});
+  }
+  // 11. risky path keywords
+  const fullLower=(u.pathname+u.search).toLowerCase();
+  const pathHits=HIRISK_PATH.filter(k=>fullLower.includes(k));
+  if(pathHits.length){
+    score+=Math.min(18,pathHits.length*8);
+    flags.push({lv:'mid',ic:'🔑',t:'網址含敏感字眼',d:'路徑出現 '+pathHits.slice(0,4).join(' / ')+' 等字，誘導你輸入帳密或個資。'});
+  }
+  // 12. very long url
+  if(raw.length>90){
+    score+=8;flags.push({lv:'lo',ic:'📏',t:'網址異常冗長',d:'長度 '+raw.length+' 字元，可能藏有混淆參數。'});
+  }
+  // 13. port
+  if(u.port && u.port!=='80' && u.port!=='443'){
+    score+=10;flags.push({lv:'lo',ic:'🔌',t:'使用非標準連接埠（:'+u.port+'）',d:'一般網站不會指定特殊埠號。'});
+  }
+
+  // positives
+  if(score===0){
+    flags.push({lv:'good',ic:'✅',t:'未發現明顯的網址風險特徵',d:'但仍請確認網域拼字是否與官方完全一致；無法 100% 保證安全。'});
+  }
+  if(hasHttps===true && !shortHit && !brandImpersonation){
+    flags.push({lv:'good',ic:'🔒',t:'使用加密連線（https）',d:'連線加密，但 https 不代表網站本身可信。'});
+  }
+
+  score=Math.min(100,score);
+  return {score,flags,input:raw,host};
+}
+
+/* ============ SMS ANALYSIS ============ */
+const SMS_RULES=[
+  {w:18,ic:'⏰',t:'急迫/恐嚇用語',d:'製造時間壓力讓你來不及思考。',re:/(立即|馬上|盡速|限時|逾期|過期|今日內|24小時|凍結|停權|停話|停用|封鎖|註銷|終止|否則|將被|即將|最後通知|限您)/},
+  {w:20,ic:'🎁',t:'誘餌（中獎/退稅/補助）',d:'用利益引誘你點連結或提供資料。',re:/(中獎|得獎|抽中|退稅|退費|補助|津貼|回饋金|紅利|點數|現金|免費領|優惠|折抵|積分到期|尾牙抽獎|發票中獎)/},
+  {w:22,ic:'🏦',t:'帳號/金融安全話術',d:'假稱帳戶有問題，誘導你重新驗證或解除限制。',re:/(帳號異常|帳戶異常|異常登入|解除限制|重新綁定|重新驗證|身分驗證|安全驗證|信用卡|網銀|網路銀行|約定帳戶|分期|盜刷|扣款|凍結帳戶|認證碼|驗證碼|otp|密碼)/i},
+  {w:18,ic:'📦',t:'包裹/物流話術',d:'假冒物流公司宣稱包裹有問題。',re:/(包裹|物流|貨運|宅配|配送|快遞|海關|超商取貨|地址有誤|無法配送|待領取|簽收|郵局|黑貓|新竹貨運|蝦皮店到店)/},
+  {w:16,ic:'🏛️',t:'冒充公務機關',d:'假冒政府/公家單位增加可信度。',re:/(健保署|國稅局|財政部|監理站|監理所|法院|警局|警察局|地檢署|衛福部|戶政|內政部|交通部|勞保局|勞動部|疾管署|疫苗|etc|遠通電收|裁罰|罰單|傳票|公文)/i},
+  {w:14,ic:'📞',t:'要求回撥/加好友',d:'引導你脫離簡訊、改用電話或 LINE 進一步操控。',re:/(回撥|回電|來電|請撥|撥打|加(我)?line|加賴|加入好友|客服專線|聯絡客服|私訊|加我好友|官方帳號)/i},
+  {w:16,ic:'💰',t:'投資/博弈/兼職誘餌',d:'高報酬低風險是典型詐騙。',re:/(投資|飆股|內線|穩賺|保證獲利|高報酬|日賺|月入|在家賺|兼職|刷單|墊付|博弈|娛樂城|穩賺不賠|帶你賺|老師帶單|包牌)/},
+  {w:26,ic:'👨‍👩‍👧',t:'假冒親友/換號',d:'假裝是熟人換了新號碼，常為後續借錢或騙取個資鋪路。',re:/(猜猜我是誰|手機(摔)?壞|換(了)?新(的)?號碼|這是我的新(號碼|電話)|改用這支|記一下我的新|存一下我的新)/}
+];
+
+function analyzeSms(){
+  const raw=document.getElementById('smsInput').value.trim();
+  if(!raw){document.getElementById('smsResult').innerHTML='';return;}
+  const r=scoreSms(raw);
+  renderResult('smsResult',r);
+  if(r.urls&&r.urls.length){
+    const norm=r.urls.map(u=>/^https?:\/\//i.test(u)?u:'http://'+u);
+    maybeSafeBrowsing('smsResult',norm);
+  }
+  maybeAI('sms',raw,r);
+}
+
+function scoreSms(text){
+  const flags=[];let score=0;
+  for(const rule of SMS_RULES){
+    if(rule.re.test(text)){
+      score+=rule.w;
+      flags.push({lv:rule.w>=20?'hi':rule.w>=15?'mid':'lo',ic:rule.ic,t:rule.t,d:rule.d});
+    }
+  }
+  // extract urls
+  const urls=text.match(/https?:\/\/[^\s，。、）)】]+|[a-z0-9.-]+\.[a-z]{2,}\/[^\s，。、）)】]*/gi)||[];
+  if(urls.length){
+    score+=14;
+    flags.push({lv:'mid',ic:'🔗',t:'簡訊內含網址（'+urls.length+' 個）',d:'官方簡訊極少要你「點連結」操作；下方已自動檢測該網址。'});
+    // analyze first url, fold into flags
+    const ur=scoreUrl(urls[0]);
+    score+=Math.round(ur.score*0.4);
+    if(ur.score>=40){
+      flags.push({lv:'hi',ic:'🔗',t:'內含網址風險偏高（'+ur.score+'/100）',d:'網址：'+urls[0]+'（可切到「網址檢測」看完整分析）'});
+    }
+  }
+  // suspicious sender markers / no greeting + link combo handled above
+  // bracket impersonation like 【中華電信】
+  const bracket=text.match(/[【\[]([^】\]]{1,10})[】\]]/);
+  if(bracket && urls.length){
+    score+=8;
+    flags.push({lv:'lo',ic:'🏷️',t:'冒用發送單位署名',d:'署名「'+bracket[1]+'」可任意偽造，搭配連結時更需警覺。'});
+  }
+  // weird unicode / fullwidth digits to evade filters
+  if(/[０-９Ａ-Ｚａ-ｚ]/.test(text) && urls.length){
+    score+=6;flags.push({lv:'lo',ic:'🔤',t:'夾雜全形字元',d:'刻意用全形字躲避電信業者關鍵字過濾，是詐騙特徵之一。'});
+  }
+
+  if(score===0){
+    flags.push({lv:'good',ic:'✅',t:'未發現明顯詐騙話術',d:'但若內容要求你提供個資、轉帳或點連結，仍請保持警覺並向官方查證。'});
+  }
+  score=Math.min(100,score);
+  return {score,flags,input:text,urls};
+}
+
+/* ============ RENDER ============ */
+function levelInfo(s){
+  if(s>=55)return {cls:'v-bad',lv:'高風險 · 極可能是詐騙',dsc:'強烈建議不要點擊連結、不要回覆、不要提供任何資料。請撥 165 查證。'};
+  if(s>=25)return {cls:'v-warn',lv:'可疑 · 請提高警覺',dsc:'出現多項可疑特徵，務必透過官方管道查證後再行動。'};
+  return {cls:'v-ok',lv:'風險偏低',dsc:'未發現明顯詐騙特徵，但仍無法 100% 保證安全，請自行斟酌。'};
+}
+function renderResult(id,r){
+  const li=levelInfo(r.score);
+  let html=`<div class="verdict ${li.cls}">
+      <div class="score">${r.score}</div>
+      <div class="meta"><div class="lv">${li.lv}</div><div class="dsc">${li.dsc}</div></div>
+    </div>`;
+  const bad=r.flags.filter(f=>f.lv!=='good');
+  const good=r.flags.filter(f=>f.lv==='good');
+  if(bad.length){html+=`<div class="sectitle">⚠️ 偵測到的風險特徵（${bad.length}）</div>`;
+    bad.forEach(f=>html+=flagHtml(f));}
+  if(good.length){html+=`<div class="sectitle">參考資訊</div>`;
+    good.forEach(f=>html+=flagHtml(f));}
+  html+=`<div id="${id}-sb"></div>`;
+  html+=`<div class="ai-box" id="${id}-ai"></div>`;
+  document.getElementById(id).innerHTML=html;
+}
+function flagHtml(f){
+  return `<div class="flag ${f.lv}"><div class="ic">${f.ic}</div><div><div class="t">${esc(f.t)}</div><div class="d">${esc(f.d)}</div></div></div>`;
+}
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+/* ============ OPTIONAL GEMINI AI ============ */
+function maybeAI(kind,content,localResult){
+  const key=document.getElementById('apiKey').value.trim();
+  if(!key)return;
+  const boxId=(kind==='url'?'urlResult':'smsResult')+'-ai';
+  const box=document.getElementById(boxId);
+  if(!box)return;
+  box.innerHTML=`<div class="sectitle">🤖 AI 二次判讀</div><div class="body"><span class="spin"></span>分析中…</div>`;
+  const what=kind==='url'?'網址':'手機簡訊';
+  const prompt=`你是台灣資安與反詐騙專家。請判斷以下${what}是否為詐騙/釣魚，用繁體中文回答。\n`+
+    `請依此格式簡潔回覆：\n`+
+    `風險等級：（高/中/低）\n`+
+    `判斷理由：（2-4 點，針對台灣常見詐騙手法）\n`+
+    `給使用者的建議：（1-2 句具體該怎麼做）\n\n`+
+    `本地規則分數為 ${localResult.score}/100，僅供你參考。\n\n`+
+    `要分析的${what}內容：\n"""${content}"""`;
+  callGemini(key,prompt).then(txt=>{
+    box.innerHTML=`<div class="sectitle">🤖 AI 二次判讀</div><div class="body">${esc(txt)}</div>`;
+  }).catch(err=>{
+    box.innerHTML=`<div class="sectitle">🤖 AI 二次判讀</div><div class="body" style="color:var(--warn)">無法取得 AI 判讀：${esc(err.message||err)}（不影響上方本地規則結果）</div>`;
+  });
+}
+
+async function callGemini(key,prompt){
+  const endpoints=[
+    {ver:'v1beta',model:'gemini-3-flash-preview'},
+    {ver:'v1',model:'gemini-3-flash'},
+    {ver:'v1',model:'gemini-2.5-pro'},
+    {ver:'v1',model:'gemini-2.5-flash'}
+  ];
+  let lastErr;
+  for(const ep of endpoints){
+    const url=`https://generativelanguage.googleapis.com/${ep.ver}/models/${ep.model}:generateContent?key=${encodeURIComponent(key)}`;
+    try{
+      const res=await fetch(url,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})
+      });
+      if(!res.ok){
+        const t=await res.text();
+        lastErr=new Error('HTTP '+res.status);
+        // 404/400 model issue -> try next; auth/quota -> stop
+        if(res.status===404||res.status===400){continue;}
+        throw new Error('HTTP '+res.status+' '+t.slice(0,120));
+      }
+      const data=await res.json();
+      const txt=data?.candidates?.[0]?.content?.parts?.map(p=>p.text).join('')||'';
+      if(txt)return txt.trim();
+      lastErr=new Error('AI 無回應內容');
+    }catch(e){lastErr=e;}
+  }
+  throw lastErr||new Error('所有模型端點皆失敗');
+}
+
+/* ============ OPTIONAL GOOGLE SAFE BROWSING ============ */
+function maybeSafeBrowsing(resultId,urls){
+  const key=document.getElementById('sbKey').value.trim();
+  const box=document.getElementById(resultId+'-sb');
+  if(!key||!box||!urls.length)return;
+  box.innerHTML=`<div class="sectitle">🛰️ Safe Browsing 黑名單比對</div><div class="flag lo"><div class="ic"><span class="spin"></span></div><div><div class="t">查詢中…</div></div></div>`;
+  checkSafeBrowsing(key,urls).then(hits=>{
+    if(hits===null){
+      box.innerHTML=`<div class="sectitle">🛰️ Safe Browsing 黑名單比對</div><div class="flag lo"><div class="ic">➖</div><div><div class="t">未能查詢（已略過）</div><div class="d">瀏覽器可能因 CORS 擋下本機直連，不影響上方本地規則結果。可改用 localhost 伺服器模式。</div></div></div>`;
+      return;
+    }
+    if(hits.length){
+      box.innerHTML=`<div class="sectitle">🛰️ Safe Browsing 黑名單比對</div><div class="flag hi"><div class="ic">🚫</div><div><div class="t">命中 Google 惡意網址黑名單！</div><div class="d">類型：${esc(hits.map(h=>h.type).join(' / '))}。這是已知惡意網址，請立即停止操作、勿點擊。</div></div></div>`;
+    }else{
+      box.innerHTML=`<div class="sectitle">🛰️ Safe Browsing 黑名單比對</div><div class="flag good"><div class="ic">✅</div><div><div class="t">未列入 Google 已知惡意黑名單</div><div class="d">但黑名單未必涵蓋最新詐騙站，仍請參考上方特徵綜合判斷。</div></div></div>`;
+    }
+  }).catch(()=>{
+    box.innerHTML=`<div class="sectitle">🛰️ Safe Browsing 黑名單比對</div><div class="flag lo"><div class="ic">➖</div><div><div class="t">未能查詢（已略過）</div><div class="d">連線或 CORS 問題，不影響上方本地規則結果。</div></div></div>`;
+  });
+}
+
+async function checkSafeBrowsing(key,urls){
+  const url=`https://safebrowsing.googleapis.com/v4/threatMatches:find?key=${encodeURIComponent(key)}`;
+  const body={
+    client:{clientId:'scam-detector',clientVersion:'1.0'},
+    threatInfo:{
+      threatTypes:['MALWARE','SOCIAL_ENGINEERING','UNWANTED_SOFTWARE','POTENTIALLY_HARMFUL_APPLICATION'],
+      platformTypes:['ANY_PLATFORM'],
+      threatEntryTypes:['URL'],
+      threatEntries:urls.slice(0,5).map(u=>({url:u}))
+    }
+  };
+  let res;
+  try{
+    res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  }catch(e){return null;/* network/CORS blocked -> graceful skip */}
+  if(!res.ok)throw new Error('HTTP '+res.status);
+  const data=await res.json();
+  const matches=data&&data.matches?data.matches:[];
+  const TYPE_ZH={MALWARE:'惡意軟體',SOCIAL_ENGINEERING:'釣魚/社交工程',UNWANTED_SOFTWARE:'不受歡迎軟體',POTENTIALLY_HARMFUL_APPLICATION:'潛在有害程式'};
+  return matches.map(m=>({type:TYPE_ZH[m.threatType]||m.threatType,url:m.threat&&m.threat.url}));
+}
+
+/* ============ URL 參數自動帶入（供 iOS 捷徑「分享給工具檢查」） ============
+   範例： .../?sms=<簡訊內容>   或   .../?url=<可疑網址>
+   iOS 捷徑把分享的文字 URL-encode 後接在後面，開啟即自動檢測。 */
+(function initFromQuery(){
+  try{
+    const q=new URLSearchParams(location.search);
+    const sms=q.get('sms')||q.get('text')||q.get('t');
+    const url=q.get('url')||q.get('u');
+    if(sms){
+      document.querySelector('.tab[data-tab="sms"]').click();
+      document.getElementById('smsInput').value=sms;
+      analyzeSms();
+      document.getElementById('smsResult').scrollIntoView({behavior:'smooth'});
+    }else if(url){
+      document.querySelector('.tab[data-tab="url"]').click();
+      document.getElementById('urlInput').value=url;
+      analyzeUrl();
+      document.getElementById('urlResult').scrollIntoView({behavior:'smooth'});
+    }
+  }catch(e){}
+})();
+</script>
+</body>
+</html>
