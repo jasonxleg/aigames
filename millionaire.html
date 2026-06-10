@@ -1,0 +1,827 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>貧民百萬富翁 ‧ 字音字型大挑戰</title>
+<style>
+:root{
+  --gold:#f5c542; --gold2:#ffe08a; --bg0:#040a1e; --bg1:#0b1a3f; --bg2:#13284f;
+  --line:#2a4a86; --good:#27d07a; --bad:#ff5b6e; --txt:#eaf2ff; --dim:#9fb6e0;
+  --A:#7aa2ff;--lock:#ff9f1c;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{
+  font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",system-ui,sans-serif;
+  color:var(--txt); background:
+    radial-gradient(1200px 700px at 50% -10%,#1d3e85 0%,transparent 60%),
+    radial-gradient(900px 600px at 50% 120%,#0a2f6b 0%,transparent 55%),
+    linear-gradient(180deg,var(--bg0),#02060f);
+  min-height:100%; overflow-x:hidden;
+}
+/* spotlight stage */
+body::before{content:"";position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(closest-side at 50% 8%,rgba(245,197,66,.10),transparent 70%);}
+.wrap{max-width:840px;margin:0 auto;padding:16px 14px 40px}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.logo{font-weight:900;letter-spacing:.5px;font-size:clamp(18px,4.6vw,26px);
+  background:linear-gradient(180deg,var(--gold2),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 2px 12px rgba(245,197,66,.25)}
+.logo small{display:block;font-size:11px;letter-spacing:3px;color:var(--dim);-webkit-text-fill-color:var(--dim)}
+.iconbtn{background:#0e2150;border:1px solid var(--line);color:var(--txt);border-radius:10px;
+  padding:8px 11px;font-size:14px;cursor:pointer}
+.iconbtn:hover{border-color:var(--gold)}
+.who{display:inline-flex;align-items:center;gap:4px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  background:#0e2150;border:1px solid var(--line);color:var(--gold2);border-radius:999px;
+  padding:7px 12px;font-size:13px;font-weight:800;cursor:pointer}
+.who:hover{border-color:var(--gold)}
+
+/* leaderboard */
+.board{display:flex;flex-direction:column;gap:8px;margin:4px 0 14px}
+.brow{display:flex;align-items:center;gap:12px;background:linear-gradient(180deg,#0f2350,#0a1838);
+  border:1px solid var(--line);border-radius:12px;padding:11px 14px}
+.brow .rk{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:900;
+  background:#091a3e;border:1px solid var(--line);color:var(--dim);font-size:14px}
+.brow.r1 .rk{background:linear-gradient(180deg,#ffe08a,#f5c542);color:#5a3d00;border-color:var(--gold)}
+.brow.r2 .rk{background:linear-gradient(180deg,#e8edf7,#aab8d4);color:#23314d}
+.brow.r3 .rk{background:linear-gradient(180deg,#e7a86b,#c07a36);color:#3a2200}
+.brow .nm{flex:1;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brow .sc{flex:none;font-weight:900;color:var(--gold2);font-size:18px}
+.brow .meta{flex:none;font-size:11px;color:var(--dim);margin-left:2px}
+.brow.me{box-shadow:0 0 0 2px rgba(245,197,66,.45)}
+.bempty{text-align:center;color:var(--dim);font-size:13px;padding:18px 0}
+
+/* scoreboard */
+.scoreboard{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:6px 0 14px}
+.stat{background:linear-gradient(180deg,#0f2350,#0a1838);border:1px solid var(--line);
+  border-radius:12px;padding:9px 6px;text-align:center}
+.stat .v{font-size:clamp(18px,5vw,24px);font-weight:900;color:var(--gold2)}
+.stat .k{font-size:11px;color:var(--dim);margin-top:2px}
+#scoreStat .v{color:#fff}
+
+/* timer */
+.timerbar{height:14px;border-radius:9px;background:#0a1838;border:1px solid var(--line);overflow:hidden;margin:0 0 12px;position:relative}
+.timerfill{height:100%;width:100%;background:linear-gradient(90deg,#27d07a,#7aff9f);
+  transition:width .25s linear,background .3s}
+.timerfill.warn{background:linear-gradient(90deg,#ffb547,#ffe08a)}
+.timerfill.danger{background:linear-gradient(90deg,#ff5b6e,#ff9aa6)}
+.tlabel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:800;color:#04122e;text-shadow:0 0 4px rgba(255,255,255,.5)}
+
+/* question card */
+.qcard{background:linear-gradient(180deg,rgba(20,42,90,.85),rgba(8,20,46,.92));
+  border:1px solid var(--line);border-radius:18px;padding:18px 16px;margin-bottom:14px;
+  box-shadow:0 14px 40px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06);min-height:120px}
+.qtag{display:inline-block;font-size:12px;font-weight:800;letter-spacing:1px;padding:3px 10px;border-radius:999px;
+  background:rgba(245,197,66,.14);color:var(--gold2);border:1px solid rgba(245,197,66,.4);margin-bottom:10px}
+.qtag.sound{background:rgba(122,162,255,.14);color:#bcd0ff;border-color:rgba(122,162,255,.4)}
+.qtext{font-size:clamp(19px,5vw,26px);line-height:1.5;font-weight:700}
+.qtext b{color:var(--gold2);font-size:1.25em}
+
+/* options diamond/list */
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+@media(max-width:560px){.opts{grid-template-columns:1fr}}
+.opt{display:flex;align-items:center;gap:12px;cursor:pointer;text-align:left;
+  background:linear-gradient(180deg,#13284f,#0a1838);border:1px solid var(--line);
+  color:var(--txt);border-radius:14px;padding:14px 14px;font-size:clamp(16px,4.3vw,20px);font-weight:600;
+  transition:transform .08s,border-color .15s,background .15s;position:relative}
+.opt:hover:not(.locked){border-color:var(--gold);transform:translateY(-1px)}
+.opt .let{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
+  font-weight:900;color:var(--gold2);background:#091a3e;border:1px solid var(--line)}
+.opt.locked{cursor:default;opacity:.96}
+.opt.correct{background:linear-gradient(180deg,#16623f,#0c3d28);border-color:var(--good);box-shadow:0 0 0 2px rgba(39,208,122,.4),0 0 24px rgba(39,208,122,.3)}
+.opt.correct .let{background:var(--good);color:#04210f}
+.opt.wrong{background:linear-gradient(180deg,#6e1f2a,#3d0c14);border-color:var(--bad);box-shadow:0 0 0 2px rgba(255,91,110,.35)}
+.opt.wrong .let{background:var(--bad);color:#2a0007}
+.opt.picked{outline:2px solid var(--lock)}
+
+/* explain */
+.explain{background:#091a3e;border:1px dashed var(--line);border-radius:12px;padding:12px 14px;
+  font-size:15px;line-height:1.6;color:#dceaff;margin-bottom:12px;display:none}
+.explain.show{display:block;animation:pop .25s}
+.explain .r{font-weight:800;color:var(--good)}
+.explain .x{font-weight:800;color:var(--bad)}
+@keyframes pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* actions */
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.btn{flex:1;min-width:130px;border:none;border-radius:14px;padding:15px;font-size:17px;font-weight:900;cursor:pointer;
+  color:#04122e;background:linear-gradient(180deg,var(--gold2),var(--gold));box-shadow:0 8px 22px rgba(245,197,66,.3)}
+.btn:hover{filter:brightness(1.05)}
+.btn.ghost{background:#0e2150;color:var(--txt);border:1px solid var(--line);box-shadow:none}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+
+/* status line */
+.status{text-align:center;font-size:13px;color:var(--dim);min-height:18px;margin-top:8px}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid var(--gold);border-right-color:transparent;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px;margin-right:5px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* toast feedback */
+.flash{position:fixed;inset:0;pointer-events:none;z-index:40}
+.flash .big{position:absolute;top:34%;left:50%;transform:translate(-50%,-50%) scale(.6);
+  font-size:clamp(46px,16vw,120px);font-weight:900;opacity:0}
+.flash .big.go{animation:flashpop 1s ease-out}
+@keyframes flashpop{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}
+  30%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}
+  70%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.2)}}
+
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(2,6,15,.78);display:none;align-items:center;justify-content:center;z-index:60;padding:16px}
+.modal.show{display:flex}
+.sheet{width:100%;max-width:440px;background:linear-gradient(180deg,#0f2350,#081434);
+  border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.sheet h2{margin:0 0 4px;font-size:20px;color:var(--gold2)}
+.sheet p{margin:0 0 14px;font-size:13px;color:var(--dim);line-height:1.6}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;color:var(--dim);margin-bottom:6px;font-weight:700}
+.field input,.field select{width:100%;padding:11px;border-radius:10px;background:#091a3e;border:1px solid var(--line);color:var(--txt);font-size:15px}
+.field .hint{font-size:11px;color:var(--dim);margin-top:5px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{flex:1;min-width:60px;padding:9px;border-radius:9px;background:#091a3e;border:1px solid var(--line);color:var(--dim);font-weight:700;cursor:pointer}
+.seg button.on{background:linear-gradient(180deg,var(--gold2),var(--gold));color:#04122e;border-color:var(--gold)}
+.linkrow{text-align:center;margin-top:6px}
+.linkrow a{color:var(--A);font-size:12px}
+.foot{text-align:center;font-size:11px;color:#5d76ab;margin-top:18px}
+.foot a{color:#7d97cc}
+.muteline{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px;font-size:12px;color:var(--dim);cursor:pointer}
+
+/* 主持人 host */
+.host{display:flex;align-items:flex-start;gap:10px;margin:2px 0 12px;min-height:46px}
+.hostav{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:23px;
+  background:radial-gradient(circle at 30% 28%,#244a9c,#0a1f4d);border:1px solid var(--gold);
+  box-shadow:0 0 14px rgba(245,197,66,.35);transition:transform .1s}
+.hostav.talk{animation:talk .35s ease-in-out infinite alternate}
+@keyframes talk{from{transform:scale(1)}to{transform:scale(1.1)}}
+.hostbubble{position:relative;background:linear-gradient(180deg,#163056,#0a1838);border:1px solid var(--line);
+  border-radius:12px;padding:9px 13px;font-size:14.5px;line-height:1.5;color:#eaf2ff;flex:1;
+  box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.hostbubble::before{content:"";position:absolute;left:-7px;top:15px;border:7px solid transparent;border-right-color:var(--line)}
+.hostbubble.urgent{border-color:var(--bad);color:#ffd7dc;box-shadow:0 0 16px rgba(255,91,110,.4)}
+.hostbubble.flash{animation:hbflash .45s}
+@keyframes hbflash{0%{transform:scale(.96);opacity:.55}100%{transform:scale(1);opacity:1}}
+
+/* 緊張 vignette + 抖動 */
+.vignette{position:fixed;inset:0;pointer-events:none;z-index:30;opacity:0;transition:opacity .3s}
+body.tense .vignette{opacity:1;animation:pulseV .9s ease-in-out infinite}
+@keyframes pulseV{0%,100%{box-shadow:inset 0 0 120px 28px rgba(255,40,60,.22)}
+  50%{box-shadow:inset 0 0 190px 64px rgba(255,40,60,.5)}}
+body.tense .timerbar{animation:shake .35s infinite}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
+body.tense .qcard{border-color:rgba(255,91,110,.5)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">貧民百萬富翁<small>字音字型大挑戰</small></div>
+    <div class="row" style="flex:none;align-items:center">
+      <span class="who" id="who" title="點此切換名字">👤 未登入</span>
+      <button class="iconbtn" id="boardBtn" title="排行榜">🏆</button>
+      <button class="iconbtn" id="muteBtn" title="音效開關">🔊</button>
+      <button class="iconbtn" id="setBtn" title="設定">⚙️</button>
+    </div>
+  </header>
+
+  <div class="host">
+    <div class="hostav" id="hostav">🎤</div>
+    <div class="hostbubble" id="hostbubble">各位觀眾晚安！燈光打下、鏡頭就位…字音字型百萬挑戰，現在開始！</div>
+  </div>
+
+  <div class="scoreboard">
+    <div class="stat" id="scoreStat"><div class="v" id="score">0</div><div class="k">分數</div></div>
+    <div class="stat"><div class="v" id="streak">0</div><div class="k">連勝</div></div>
+    <div class="stat"><div class="v" id="qno">0</div><div class="k">第幾題</div></div>
+    <div class="stat"><div class="v" id="acc">—</div><div class="k">答對率</div></div>
+  </div>
+
+  <div class="timerbar"><div class="timerfill" id="timerFill"></div><div class="tlabel" id="tlabel"></div></div>
+
+  <div class="qcard">
+    <span class="qtag" id="qtag">準備開始</span>
+    <div class="qtext" id="qtext">按「開始挑戰」即可登場！每題限時作答，時間到公佈答案 —— 答對加分、答錯扣分，題目源源不絕。</div>
+  </div>
+
+  <div class="opts" id="opts"></div>
+  <div class="explain" id="explain"></div>
+
+  <div class="row">
+    <button class="btn" id="mainBtn">▶ 開始挑戰</button>
+    <button class="btn ghost" id="skipBtn" disabled>跳過 ⏭</button>
+  </div>
+  <div class="status" id="status"></div>
+
+  <div class="foot">
+    純前端離線可玩 · 出題由 Google Gemini 提供（需自備金鑰）· 國小三年級以上字音字型訓練<br>
+    <span id="srcInfo"></span>
+  </div>
+</div>
+
+<div class="vignette"></div>
+<div class="flash"><div class="big" id="flashBig"></div></div>
+
+<!-- settings modal -->
+<div class="modal" id="modal">
+  <div class="sheet">
+    <h2>⚙️ 遊戲設定</h2>
+    <p>填入 Gemini 金鑰即可「無限」自動出題；留空則使用內建題庫（題數有限）。</p>
+    <div class="field">
+      <label>Gemini API 金鑰</label>
+      <input type="password" id="apiKey" placeholder="貼上你的 Gemini API Key（留空用內建題庫）" autocomplete="off">
+      <div class="hint">只存在這台裝置的瀏覽器（localStorage），不會上傳到任何伺服器。<a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">免費取得金鑰 →</a></div>
+    </div>
+    <div class="field">
+      <label>適合年級</label>
+      <div class="seg" id="gradeSeg">
+        <button data-g="3">3年級</button>
+        <button data-g="4">4年級</button>
+        <button data-g="5">5年級</button>
+        <button data-g="6">6年級</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>題型</label>
+      <div class="seg" id="typeSeg">
+        <button data-t="mix">混合</button>
+        <button data-t="字音">字音（讀音）</button>
+        <button data-t="字形">字形（寫法）</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>每題秒數：<b id="secLbl">20</b> 秒</label>
+      <input type="range" id="secRange" min="8" max="40" step="1" value="20">
+    </div>
+    <div class="row">
+      <button class="btn" id="saveBtn">儲存並開始</button>
+      <button class="btn ghost" id="closeBtn">關閉</button>
+    </div>
+    <div class="muteline" id="resetScore">↺ 重設本次分數</div>
+  </div>
+</div>
+
+<!-- login modal -->
+<div class="modal" id="loginModal">
+  <div class="sheet">
+    <h2>🏆 登入挑戰者</h2>
+    <p>輸入你的名字，分數會記入排行榜（只顯示前五名）。離開或關閉頁面時自動結算成績。</p>
+    <div class="field">
+      <label>你的名字</label>
+      <input id="playerName" maxlength="10" placeholder="輸入暱稱（最多 10 字）" autocomplete="off">
+      <div class="hint">同名會以最高分為準。可隨時點右上角名字切換。</div>
+    </div>
+    <div class="row">
+      <button class="btn" id="loginBtn">開始挑戰 ▶</button>
+    </div>
+  </div>
+</div>
+
+<!-- leaderboard modal -->
+<div class="modal" id="boardModal">
+  <div class="sheet">
+    <h2>🏆 排行榜 · 前五名</h2>
+    <p>關閉頁面時自動結算；同名取最高分。</p>
+    <div class="board" id="boardList"></div>
+    <div class="row">
+      <button class="btn ghost" id="boardClose">關閉</button>
+      <button class="btn ghost" id="boardClear" style="flex:none;min-width:auto">清空</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================== 設定/狀態 ============================== */
+const LS={key:'mw_gemini_key',grade:'mw_grade',type:'mw_type',sec:'mw_sec',mute:'mw_mute',player:'mw_player',board:'mw_board'};
+const cfg={
+  key:localStorage.getItem(LS.key)||'',
+  grade:localStorage.getItem(LS.grade)||'3',
+  type:localStorage.getItem(LS.type)||'mix',
+  sec:+(localStorage.getItem(LS.sec)||20),
+  mute:localStorage.getItem(LS.mute)==='1',
+  player:localStorage.getItem(LS.player)||''
+};
+const TOP_N=5;           // 記分板最多顯示前 5 名
+const SCORE_RIGHT=10, SCORE_WRONG=-5;
+const BATCH=5;            // 每批向 Gemini 要的題數＝每答滿幾題就預抓下一批
+const state={score:0,streak:0,qno:0,right:0,answered:0,playing:false,locked:false,cur:null};
+const queue=[];          // 預抓題目佇列
+let fetching=false;
+let timer=null, tEnd=0, tTotal=0;
+
+const $=id=>document.getElementById(id);
+
+/* ============================== 音效 (WebAudio) ============================== */
+let actx=null;
+function beep(freq,dur,type='sine',vol=.18){
+  if(cfg.mute)return;
+  try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(),g=actx.createGain();
+    o.type=type;o.frequency.value=freq;o.connect(g);g.connect(actx.destination);
+    const t=actx.currentTime;g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    o.start(t);o.stop(t+dur);
+  }catch(e){}
+}
+const sfx={
+  tick:()=>beep(880,.04,'square',.05),
+  right:()=>{beep(660,.12,'triangle');setTimeout(()=>beep(990,.2,'triangle'),110);},
+  wrong:()=>{beep(200,.3,'sawtooth',.18);},
+  timeup:()=>{beep(330,.15,'square');setTimeout(()=>beep(247,.35,'square'),150);},
+  click:()=>beep(520,.05,'sine',.12),
+  heartbeat:()=>{beep(72,.13,'sine',.30);setTimeout(()=>beep(54,.16,'sine',.26),155);},
+  drum:()=>{for(let i=0;i<6;i++)setTimeout(()=>beep(120,.05,'square',.12),i*55);}
+};
+
+/* ============================== 主持人旁白 + 語音 ============================== */
+const HOST={
+  intro:[
+    '這一題…我看有點難喔，撐得住嗎？',
+    '深呼吸，看清楚題目再下手！',
+    '全場觀眾都屏住呼吸了，加油！',
+    '燈光、鏡頭——準備，開始！',
+    '簡單題？還是陷阱？自己判斷囉～',
+    '前面表現不錯，這題可別大意！',
+    '聚光燈打在你身上，秀一下實力吧！',
+    '這題答對的人不多喔，你行嗎？'
+  ],
+  mid:[
+    '時間正一秒一秒流逝喔…',
+    '別猶豫太久，相信直覺！',
+    '心跳開始加速了嗎？',
+    '時間過一半囉，快決定！',
+    '觀眾席好安靜…大家都在等你。'
+  ],
+  urgent:[
+    '快！只剩幾秒了！',
+    '快選快選！來不及啦！',
+    '倒數！趕快決定！',
+    '時間快沒了，衝啊！',
+    '別再想了，按下去！'
+  ],
+  correct:[
+    '答對啦！太漂亮了！',
+    '正確！這也難不倒你！',
+    '了不起，分數到手！',
+    '完全正確，全場歡呼！',
+    '穩！繼續保持手感！'
+  ],
+  wrong:[
+    '哎呀…可惜了！',
+    '差一點點，下次小心！',
+    '答錯囉，別灰心，再來！',
+    '這題是陷阱題呢～',
+    '唉唷，扣分了，振作起來！'
+  ],
+  timeout:[
+    '鈴響了！時間到，答案揭曉！',
+    '太慢囉，這題沒作答好可惜～',
+    '時間到！下一題要加快囉！',
+    '來不及了！看一下正解吧。'
+  ],
+  streak:[
+    '{n} 連勝！你是隱藏高手嗎？！',
+    '連續答對 {n} 題！全場沸騰！',
+    '{n} 連擊！停不下來了！',
+    '哇喔 {n} 連勝，氣勢如虹！'
+  ]
+};
+function rand(a){return a[Math.floor(Math.random()*a.length)];}
+
+let _voices=[];
+function loadVoices(){try{_voices=speechSynthesis.getVoices()||[];}catch(e){}}
+function pickVoice(){
+  return _voices.find(v=>/zh[-_]?(TW|HK|Hant)/i.test(v.lang))
+      || _voices.find(v=>/^zh/i.test(v.lang)) || null;
+}
+function speak(text,rate){
+  if(cfg.mute||!('speechSynthesis' in window))return;
+  try{
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text);
+    const v=pickVoice(); if(v)u.voice=v;
+    u.lang=(v&&v.lang)||'zh-TW'; u.rate=rate||1.08; u.pitch=1.15; u.volume=1;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+function sayHost(line,opts){
+  opts=opts||{};
+  const b=$('hostbubble'); b.textContent=line;
+  b.classList.toggle('urgent',!!opts.urgent);
+  b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash');
+  const av=$('hostav'); av.classList.add('talk');
+  clearTimeout(sayHost._t); sayHost._t=setTimeout(()=>av.classList.remove('talk'),1700);
+  if(!opts.silent)speak(line,opts.rate);
+}
+
+/* ============================== 內建題庫（無金鑰時） ============================== */
+const BANK=[
+ {type:'字音',question:'「率領」的「率」正確讀音是？',options:['ㄕㄨㄞˋ','ㄌㄩˋ','ㄌㄧˋ','ㄕㄨㄛˋ'],answer:0,explain:'「率領」的率讀ㄕㄨㄞˋ（帶領）；「機率、效率」才讀ㄌㄩˋ。'},
+ {type:'字形',question:'下列哪一個詞語沒有錯別字？',options:['再接再厲','再接再勵','再接再歷','再接再立'],answer:0,explain:'正確寫法是「再接再厲」，厲是磨利、奮發之意。'},
+ {type:'字音',question:'「鑰匙」的「鑰」讀作什麼？',options:['ㄧㄠˋ','ㄩㄝˋ','ㄌㄩㄝˋ','ㄎㄜˋ'],answer:0,explain:'「鑰匙」的鑰讀ㄧㄠˋ。'},
+ {type:'字形',question:'「ㄒㄩㄢˊ渦」的「ㄒㄩㄢˊ」正確的字是？',options:['漩','旋','璇','炫'],answer:0,explain:'水流打轉是「漩渦」，從水（氵）部。'},
+ {type:'字音',question:'「曝曬」的「曝」讀作？',options:['ㄆㄨˋ','ㄅㄠˋ','ㄆㄠˋ','ㄈㄨˊ'],answer:0,explain:'「曝曬、曝光」的曝讀ㄆㄨˋ。'},
+ {type:'字形',question:'下列哪個「ㄐㄧˊ」字用在「即將」是對的？',options:['即','既','急','集'],answer:0,explain:'「即將」用「即」（馬上）；「既然」才用「既」。'},
+ {type:'字音',question:'「比較」的「較」讀音為？',options:['ㄐㄧㄠˋ','ㄐㄧㄠˇ','ㄎㄠˋ','ㄐㄩㄝˊ'],answer:0,explain:'「較」讀ㄐㄧㄠˋ。'},
+ {type:'字形',question:'「ㄈㄣ芳」的「ㄈㄣ」正確寫法是？',options:['芬','芳','紛','分'],answer:0,explain:'香氣是「芬芳」，從艸（艹）部。'},
+ {type:'字音',question:'多音字「行」在「行列」中讀作？',options:['ㄏㄤˊ','ㄒㄧㄥˊ','ㄏㄥˋ','ㄒㄧㄥˋ'],answer:0,explain:'「行列、銀行」讀ㄏㄤˊ；「行走、行動」讀ㄒㄧㄥˊ。'},
+ {type:'字形',question:'下列詞語完全正確的是？',options:['川流不息','穿流不息','川留不息','穿留不息'],answer:0,explain:'像河川一樣不停是「川流不息」。'},
+ {type:'字音',question:'「處理」的「處」讀作？',options:['ㄔㄨˇ','ㄔㄨˋ','ㄗㄨˇ','ㄔㄨㄛˋ'],answer:0,explain:'「處理、相處」讀ㄔㄨˇ；「到處、住處」讀ㄔㄨˋ。'},
+ {type:'字形',question:'「ㄐㄧˊ妒」的「ㄐㄧˊ」是哪個字？',options:['嫉','疾','急','即'],answer:0,explain:'羨慕別人到不舒服是「嫉妒」，從女部。'},
+ {type:'字音',question:'「血液」的「血」在此讀作？',options:['ㄒㄧㄝˇ','ㄒㄩㄝˋ','ㄒㄧㄠˇ','ㄒㄩㄝˇ'],answer:0,explain:'口語「血液、流血」常讀ㄒㄧㄝˇ；「血型、血壓」讀ㄒㄩㄝˋ。'},
+ {type:'字形',question:'下列哪一個沒有寫錯？',options:['一如既往','一如即往','一如繼往','一如記往'],answer:0,explain:'跟以前一樣是「一如既往」，用「既」。'},
+ {type:'字音',question:'「教室」的「教」讀作？',options:['ㄐㄧㄠˋ','ㄐㄧㄠ','ㄐㄧㄠˇ','ㄑㄧㄠˊ'],answer:0,explain:'「教室、教育」讀ㄐㄧㄠˋ；「教書」可讀ㄐㄧㄠ。'}
+];
+let bankIdx=0;
+function bankNext(){
+  const pool = cfg.type==='mix'?BANK:BANK.filter(q=>q.type===cfg.type);
+  const src = pool.length?pool:BANK;
+  const q = src[bankIdx % src.length]; bankIdx++;
+  return JSON.parse(JSON.stringify(q));
+}
+
+/* ============================== Gemini 出題 ============================== */
+async function callGemini(prompt){
+  const endpoints=[
+    {ver:'v1beta',model:'gemini-3-flash-preview'},
+    {ver:'v1',model:'gemini-3-flash'},
+    {ver:'v1',model:'gemini-2.5-pro'},
+    {ver:'v1',model:'gemini-2.5-flash'}
+  ];
+  let lastErr;
+  for(const ep of endpoints){
+    const url=`https://generativelanguage.googleapis.com/${ep.ver}/models/${ep.model}:generateContent?key=${encodeURIComponent(cfg.key)}`;
+    try{
+      const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          contents:[{parts:[{text:prompt}]}],
+          generationConfig:{temperature:1.0,responseMimeType:'application/json'}
+        })});
+      if(!res.ok){const t=await res.text();lastErr=new Error('HTTP '+res.status);
+        if(res.status===404||res.status===400){continue;}throw new Error('HTTP '+res.status+' '+t.slice(0,100));}
+      const data=await res.json();
+      const txt=data?.candidates?.[0]?.content?.parts?.map(p=>p.text).join('')||'';
+      if(txt)return txt;
+      lastErr=new Error('AI 無回應');
+    }catch(e){lastErr=e;}
+  }
+  throw lastErr||new Error('所有模型端點皆失敗');
+}
+
+const seen=[]; // 近期題目避免重複
+function buildPrompt(){
+  const t = cfg.type==='mix' ? '字音（讀音/注音/多音字）與字形（正確寫法/錯別字/形近字）混合' :
+            (cfg.type==='字音' ? '字音（讀音、注音符號、多音字/破音字）' : '字形（正確寫法、錯別字辨識、形近字）');
+  const avoid = seen.slice(-12).map(s=>'「'+s+'」').join('、');
+  return `你是台灣國小國語老師。請為「國小${cfg.grade}年級以上」的學生出 ${BATCH} 題繁體中文「${t}」的單選選擇題，用來訓練字音字型。
+要求：
+1. 使用台灣教育部用字與「注音符號」（不要用漢語拼音）。
+2. 難度適合國小${cfg.grade}年級到六年級，題目要清楚、用詞口語化、貼近生活。
+3. 每題 4 個選項，只有 1 個正確答案；其他 3 個是合理的誘答（常見錯誤）。
+4. answer 為正確選項的索引（0~3）。
+5. explain 用 1~2 句白話解析，說明為什麼，並可舉相對的讀音/寫法對比。
+6. type 必須是 "字音" 或 "字形"。
+${avoid?'7. 請避免重複出現這些最近出過的題幹關鍵：'+avoid+'。\n':''}
+只回傳 JSON 陣列，格式：
+[{"type":"字音","question":"題目","options":["A","B","C","D"],"answer":0,"explain":"解析"}]`;
+}
+
+function parseQuestions(txt){
+  let s=txt.trim().replace(/^```(json)?/i,'').replace(/```$/,'').trim();
+  let arr;
+  try{arr=JSON.parse(s);}catch(e){
+    const m=s.match(/\[[\s\S]*\]/); if(!m)throw new Error('解析失敗');
+    arr=JSON.parse(m[0]);
+  }
+  if(!Array.isArray(arr))arr=[arr];
+  return arr.filter(q=>q&&q.question&&Array.isArray(q.options)&&q.options.length===4
+    &&Number.isInteger(q.answer)&&q.answer>=0&&q.answer<4);
+}
+
+async function refill(force){
+  if(fetching)return;
+  if(!cfg.key){ // 內建題庫
+    while(queue.length<3)queue.push(bankNext());
+    return;
+  }
+  // force：每答滿 BATCH 題的「預抓下一批」一定要打；否則僅在佇列偏低時當安全網補題
+  if(!force && queue.length>=BATCH)return;
+  fetching=true;
+  try{
+    const txt=await callGemini(buildPrompt());
+    const qs=parseQuestions(txt);
+    for(const q of qs){queue.push(q);}
+    if(state.playing&&queue.length)setStatus('');
+  }catch(e){
+    // 失敗則退回內建題庫，遊戲不中斷
+    setStatus('⚠️ AI 出題失敗（'+(e.message||e)+'），暫用內建題庫');
+    while(queue.length<2)queue.push(bankNext());
+  }finally{fetching=false;}
+}
+
+/* ============================== 遊戲流程 ============================== */
+function setStatus(s){$('status').innerHTML=s;}
+function updateBoard(){
+  $('score').textContent=state.score;
+  $('streak').textContent=state.streak;
+  $('qno').textContent=state.qno;
+  $('acc').textContent=state.answered?Math.round(state.right/state.answered*100)+'%':'—';
+  $('scoreStat').querySelector('.v').style.color = state.score<0?'#ff8a98':'#fff';
+}
+
+function flash(txt,color){
+  const el=$('flashBig'); el.textContent=txt; el.style.color=color;
+  el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
+}
+
+function startTimer(){
+  clearInterval(timer);
+  tTotal=cfg.sec*1000; tEnd=performance.now()+tTotal;
+  let lastSec=cfg.sec+1;
+  const fill=$('timerFill'); fill.className='timerfill';
+  document.body.classList.remove('tense');
+  const midAt=Math.max(2,Math.round(cfg.sec/2));
+  tick();
+  timer=setInterval(tick,100);
+  function tick(){
+    const left=Math.max(0,tEnd-performance.now());
+    const pct=left/tTotal*100;
+    fill.style.width=pct+'%';
+    fill.classList.toggle('warn',pct<=50&&pct>22);
+    fill.classList.toggle('danger',pct<=22);
+    const secs=Math.ceil(left/1000);
+    $('tlabel').textContent=secs+' 秒';
+    if(secs!==lastSec){
+      lastSec=secs;
+      if(secs<=5&&secs>0){ document.body.classList.add('tense'); sfx.heartbeat(); }
+      else if(secs>5){ if(pct<=55)sfx.tick(); }
+      // 中段催促（過半時一次）
+      if(!state.midSaid && secs===midAt && secs>5){ state.midSaid=true; sayHost(rand(HOST.mid)); }
+      // 最後關頭催促
+      if(!state.urgentSaid && secs===5){ state.urgentSaid=true; sayHost(rand(HOST.urgent),{urgent:true,rate:1.25}); }
+    }
+    if(left<=0){clearInterval(timer); onTimeUp();}
+  }
+}
+
+function renderQuestion(q){
+  state.cur=q; state.locked=false;
+  state.midSaid=false; state.urgentSaid=false;
+  document.body.classList.remove('tense');
+  const isSound=q.type==='字音';
+  $('qtag').textContent=isSound?'🔊 字音 · 讀音':'✏️ 字形 · 寫法';
+  $('qtag').className='qtag'+(isSound?' sound':'');
+  $('qtext').innerHTML=highlight(q.question);
+  const opts=$('opts'); opts.innerHTML='';
+  q.options.forEach((o,i)=>{
+    const b=document.createElement('button');
+    b.className='opt';
+    b.innerHTML=`<span class="let">${'ABCD'[i]}</span><span>${esc(o)}</span>`;
+    b.onclick=()=>choose(i,b);
+    opts.appendChild(b);
+  });
+  $('explain').className='explain'; $('explain').innerHTML='';
+  $('skipBtn').disabled=false;
+  $('mainBtn').textContent='下一題 ➜'; $('mainBtn').disabled=true;
+  startTimer();
+  sayHost(rand(HOST.intro));
+}
+
+function highlight(text){
+  // 把「…」內的關鍵字放大
+  return esc(text).replace(/「([^」]{1,6})」/g,'「<b>$1</b>」');
+}
+
+function choose(i,btn){
+  if(state.locked)return;
+  state.locked=true; clearInterval(timer); sfx.click();
+  btn.classList.add('picked');
+  revealAnswer(i);
+}
+
+function onTimeUp(){
+  if(state.locked)return;
+  state.locked=true; sfx.timeup();
+  revealAnswer(-1); // 未作答
+}
+
+function revealAnswer(picked){
+  const q=state.cur, correct=q.answer;
+  const btns=[...$('opts').children];
+  btns.forEach((b,i)=>{
+    b.classList.add('locked'); b.onclick=null;
+    if(i===correct)b.classList.add('correct');
+    else if(i===picked)b.classList.add('wrong');
+  });
+  state.answered++;
+  let head;
+  if(picked===correct){
+    state.right++; state.streak++; state.score+=SCORE_RIGHT;
+    sfx.right(); flash('答對 +'+SCORE_RIGHT,'#27d07a');
+    head=`<span class="r">✔ 答對了！＋${SCORE_RIGHT} 分</span>`;
+  }else if(picked===-1){
+    state.streak=0;
+    head=`<span class="x">⏰ 時間到！正確答案是 ${'ABCD'[correct]}</span>`;
+    flash('時間到','#ffb547');
+  }else{
+    state.streak=0; state.score+=SCORE_WRONG;
+    sfx.wrong(); flash('答錯 '+SCORE_WRONG,'#ff5b6e');
+    head=`<span class="x">✗ 答錯了… ${SCORE_WRONG} 分（正確：${'ABCD'[correct]}）</span>`;
+  }
+  $('explain').innerHTML=`${head}<br><b>正解：</b>${esc(q.options[correct])}<br>${esc(q.explain||'')}`;
+  $('explain').className='explain show';
+  document.body.classList.remove('tense');
+  if(picked===correct){
+    sayHost(state.streak>=3 ? rand(HOST.streak).replace('{n}',state.streak) : rand(HOST.correct));
+  }else if(picked===-1){
+    sfx.drum(); sayHost(rand(HOST.timeout));
+  }else{
+    sayHost(rand(HOST.wrong));
+  }
+  $('mainBtn').disabled=false; $('skipBtn').disabled=true;
+  $('tlabel').textContent='';
+  if(state.score<0&&state.streak===0){} // 可擴充破產動畫
+  updateBoard();
+  saveScore();
+  // 補題策略：題庫模式隨時補滿；Gemini 模式每答滿 BATCH 題就「預先」要下一批 BATCH 題
+  if(!cfg.key){ refill(); }
+  else if(state.answered % BATCH === 0){
+    setStatus('🛰️ 已答 '+state.answered+' 題，預先向 Gemini 取下 '+BATCH+' 題…');
+    refill(true);
+  }
+}
+
+async function nextQuestion(){
+  $('mainBtn').disabled=true;
+  if(!queue.length){
+    setStatus('<span class="spin"></span>出題中…');
+    await refill();
+    // 等待最多數秒
+    let wait=0;
+    while(!queue.length&&wait<60){await new Promise(r=>setTimeout(r,150));wait++;}
+  }
+  if(!queue.length){
+    setStatus('⚠️ 無法取得題目，請到設定檢查金鑰或網路');
+    $('mainBtn').disabled=false;
+    return;
+  }
+  setStatus('');
+  const q=queue.shift();
+  if(q.question)seen.push(q.question.slice(0,12));
+  state.qno++;
+  renderQuestion(q);
+  // 題庫模式背景補滿；Gemini 模式靠「每答滿 BATCH 題」預抓，這裡不重複觸發以維持節奏
+  if(!cfg.key && queue.length<3)refill();
+}
+
+/* ============================== 主按鈕 / 控制 ============================== */
+$('mainBtn').onclick=async ()=>{
+  if(!cfg.player){ openLogin(); return; } // 未登入先要求輸入名字
+  if(actx&&actx.state==='suspended')actx.resume();
+  if(!state.playing){state.playing=true;}
+  await nextQuestion();
+};
+$('skipBtn').onclick=()=>{ // 跳過＝不計分直接下一題
+  if(state.locked||!state.playing)return;
+  clearInterval(timer); nextQuestion();
+};
+
+/* ============================== 設定面板 ============================== */
+function syncSeg(){
+  document.querySelectorAll('#gradeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.g===cfg.grade));
+  document.querySelectorAll('#typeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.t===cfg.type));
+  $('secRange').value=cfg.sec; $('secLbl').textContent=cfg.sec;
+  $('apiKey').value=cfg.key;
+  updateSrc();
+}
+function updateSrc(){
+  $('srcInfo').textContent = cfg.key
+    ? '目前：Gemini 自動出題（無限題）｜'+cfg.grade+'年級｜'+(cfg.type==='mix'?'字音+字形':cfg.type)
+    : '目前：內建題庫（'+BANK.length+'題循環）｜填入 Gemini 金鑰可無限出題';
+}
+$('setBtn').onclick=()=>{$('modal').classList.add('show');syncSeg();};
+$('closeBtn').onclick=()=>$('modal').classList.remove('show');
+document.querySelectorAll('#gradeSeg button').forEach(b=>b.onclick=()=>{cfg.grade=b.dataset.g;syncSeg();});
+document.querySelectorAll('#typeSeg button').forEach(b=>b.onclick=()=>{cfg.type=b.dataset.t;syncSeg();});
+$('secRange').oninput=e=>{cfg.sec=+e.target.value;$('secLbl').textContent=cfg.sec;};
+$('saveBtn').onclick=()=>{
+  cfg.key=$('apiKey').value.trim();
+  localStorage.setItem(LS.key,cfg.key);
+  localStorage.setItem(LS.grade,cfg.grade);
+  localStorage.setItem(LS.type,cfg.type);
+  localStorage.setItem(LS.sec,cfg.sec);
+  $('modal').classList.remove('show');
+  queue.length=0; bankIdx=0; updateSrc();
+  refill();
+  setStatus('設定已儲存，按「開始挑戰／下一題」即可。');
+};
+$('resetScore').onclick=()=>{
+  state.score=0;state.streak=0;state.qno=0;state.right=0;state.answered=0;
+  updateBoard();saveScore();setStatus('分數已重設。');
+};
+/* ============================== 登入 / 排行榜面板 ============================== */
+function openLogin(){
+  $('playerName').value=cfg.player||'';
+  $('loginModal').classList.add('show');
+  setTimeout(()=>$('playerName').focus(),50);
+}
+$('who').onclick=openLogin;
+$('loginBtn').onclick=()=>{
+  const n=$('playerName').value.trim().slice(0,10);
+  if(!n){$('playerName').focus();return;}
+  const switched = cfg.player && cfg.player!==n;
+  setPlayer(n);
+  if(switched){ // 換人：本次分數歸零重新挑戰
+    state.score=0;state.streak=0;state.qno=0;state.right=0;state.answered=0;
+    updateBoard();
+  }
+  $('loginModal').classList.remove('show');
+  sayHost(n+'，歡迎登場！準備好就按開始挑戰！',{silent:false});
+};
+$('playerName').addEventListener('keydown',e=>{if(e.key==='Enter')$('loginBtn').click();});
+$('boardBtn').onclick=()=>{settle();renderBoard();$('boardModal').classList.add('show');};
+$('boardClose').onclick=()=>$('boardModal').classList.remove('show');
+$('boardClear').onclick=()=>{
+  if(!confirm('確定清空排行榜？此動作無法復原。'))return;
+  try{localStorage.removeItem(LS.board);}catch(e){}
+  renderBoard();
+};
+// 關閉/離開頁面：自動登記結算
+window.addEventListener('pagehide',settle);
+window.addEventListener('beforeunload',settle);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')settle();});
+
+$('muteBtn').onclick=()=>{
+  cfg.mute=!cfg.mute;localStorage.setItem(LS.mute,cfg.mute?'1':'0');
+  $('muteBtn').textContent=cfg.mute?'🔈':'🔊';
+  $('muteBtn').title=cfg.mute?'音效/旁白：關':'音效/旁白：開';
+  if(cfg.mute){ try{speechSynthesis.cancel();}catch(e){} } else sfx.click();
+};
+
+/* ============================== 儲存分數 ============================== */
+function saveScore(){
+  try{localStorage.setItem('mw_state',JSON.stringify({s:state.score,q:state.qno,r:state.right,a:state.answered}));}catch(e){}
+  settle(); // 即時結算到排行榜，避免成績遺失
+}
+function loadScore(){
+  try{const o=JSON.parse(localStorage.getItem('mw_state')||'{}');
+    if(o.s!=null){state.score=o.s;state.qno=o.q||0;state.right=o.r||0;state.answered=o.a||0;}}catch(e){}
+}
+
+/* ============================== 玩家 / 排行榜 ============================== */
+function loadBoard(){
+  try{const a=JSON.parse(localStorage.getItem(LS.board)||'[]');return Array.isArray(a)?a:[];}catch(e){return [];}
+}
+function rankBoard(arr){
+  // 同名取最高分，排序：分數→答對率→答題數
+  const best={};
+  for(const e of arr){
+    if(!e||!e.name)continue;
+    const k=e.name;
+    if(!best[k]||e.score>best[k].score||(e.score===best[k].score&&(e.answered||0)>(best[k].answered||0))) best[k]=e;
+  }
+  return Object.values(best).sort((a,b)=>
+    (b.score-a.score) || ((b.right||0)/(b.answered||1)-(a.right||0)/(a.answered||1)) || ((b.answered||0)-(a.answered||0)));
+}
+// 結算：把目前玩家本次成績登記進排行榜（同名取最高分），保留前 50 筆
+function settle(){
+  if(!cfg.player||!state.answered)return;
+  const arr=loadBoard();
+  arr.push({name:cfg.player,score:state.score,qno:state.qno,right:state.right,answered:state.answered});
+  const ranked=rankBoard(arr).slice(0,50);
+  try{localStorage.setItem(LS.board,JSON.stringify(ranked));}catch(e){}
+}
+function renderBoard(){
+  const top=rankBoard(loadBoard()).slice(0,TOP_N);
+  const el=$('boardList');
+  if(!top.length){el.innerHTML='<div class="bempty">還沒有人上榜，快來搶頭香！</div>';return;}
+  el.innerHTML=top.map((e,i)=>{
+    const acc=e.answered?Math.round((e.right||0)/e.answered*100)+'%':'—';
+    const me=e.name===cfg.player?' me':'';
+    const medal=['🥇','🥈','🥉'][i]||(i+1);
+    return `<div class="brow r${i+1}${me}"><div class="rk">${medal}</div>`+
+      `<div class="nm">${esc(e.name)}</div>`+
+      `<div class="meta">${e.qno||0}題·${acc}</div>`+
+      `<div class="sc">${e.score}</div></div>`;
+  }).join('');
+}
+function setPlayer(name){
+  cfg.player=name; localStorage.setItem(LS.player,name);
+  $('who').textContent='👤 '+name;
+}
+
+/* ============================== utils ============================== */
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+/* ============================== init ============================== */
+if('speechSynthesis' in window){ loadVoices(); speechSynthesis.onvoiceschanged=loadVoices; }
+(function init(){
+  $('muteBtn').textContent=cfg.mute?'🔈':'🔊';
+  loadScore(); updateBoard(); updateSrc();
+  $('who').textContent = cfg.player ? '👤 '+cfg.player : '👤 未登入';
+  refill();
+  if(!cfg.key){
+    setStatus('提示：未設定 Gemini 金鑰，先用內建題庫試玩；到 ⚙️ 設定貼上金鑰即可無限出題。');
+  }
+  if(!cfg.player) openLogin(); // 首次進入要求登入
+})();
+</script>
+</body>
+</html>
