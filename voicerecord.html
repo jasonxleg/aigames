@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>即時收音轉文字</title>
+<title>即時收音轉文字v2</title>
 <style>
   :root{
     --bg:#0f1115; --panel:#181b22; --panel2:#20242e; --line:#2c313d;
@@ -166,6 +166,8 @@ const $ = id => document.getElementById(id);
 const out = $('out'), dot = $('dot'), statusEl = $('status');
 let recog = null, listening = false, meterAudioCtx = null, meterRAF = null, meterStream = null;
 let relocating = false; // 防止移動插入點時遞迴觸發 selection 事件
+let savedRange = null;  // 使用者最後停留的游標（決定下次錄音的插入點）
+let caretMoved = false; // 游標移動過、待套用
 // 手機（含 iPad）：部分裝置只允許單一來源獨佔麥克風，收音時必須關掉音量條避免搶麥
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)); // iPadOS 偽裝桌面
@@ -227,6 +229,7 @@ function updatePlaceholder(){
 function scrollOut(){ if(listening) out.scrollTop = out.scrollHeight; }
 // 插入一段定稿文字到 live 之前（即目前的插入點）
 function insertFinal(seg){
+  honorCaret();
   const live = ensureLive();
   const r = document.createRange();
   r.setStart(out, 0); r.setEndBefore(live);
@@ -237,23 +240,35 @@ function insertFinal(seg){
 }
 // 即時顯示暫定字
 function setInterim(t){
+  honorCaret();
   ensureLive().textContent = t || '';
   scrollOut(); updatePlaceholder();
 }
-// 使用者點選／用方向鍵移動游標時，把插入錨點 live 搬到游標處
-function relocateLive(){
+// 使用者移動游標時只「記住」位置（selectionchange 比 mouseup/keyup 可靠，點選與方向鍵都會觸發）；
+// 真正把插入錨點 live 搬過去，延後到下一段要插入文字時才做（honorCaret），避免與 selectionchange 互相觸發成迴圈。
+function rememberCaret(){
   if(relocating) return;
   const sel = window.getSelection();
   if(!sel || !sel.rangeCount) return;
   const range = sel.getRangeAt(0);
-  if(!range.collapsed || !out.contains(range.startContainer)) return;
-  if(!listening && getText().trim() === '') return; // 還沒有內容就不用標插入點
-  const live = ensureLive();
-  if(live.contains(range.startContainer)) return; // 游標已在錨點內
-  relocating = true;
-  try{ range.insertNode(live); }catch(_){}
-  relocating = false;
+  if(!range.collapsed || !out.contains(range.startContainer)) return; // 只記原文區內的游標
+  savedRange = range.cloneRange();
+  caretMoved = true;
 }
+// 把 live 搬到使用者最後停留的游標處（若移動過且位置仍有效）
+function honorCaret(){
+  const live = ensureLive();
+  if(!caretMoved) return;
+  caretMoved = false;
+  if(!savedRange) return;
+  const c = savedRange.startContainer;
+  if(c !== out && !out.contains(c)){ savedRange = null; return; } // 位置已失效
+  if(c === live || live.contains(c)) return; // 游標已在錨點處
+  relocating = true;
+  try{ savedRange.insertNode(live); }catch(_){}
+  setTimeout(() => { relocating = false; }, 0); // 等自己造成的 selectionchange 回波過去再解鎖
+}
+document.addEventListener('selectionchange', rememberCaret);
 
 // ---------- 語音辨識 ----------
 function buildRecognizer(){
@@ -341,12 +356,8 @@ function stop(){
 $('btnToggle').onclick = () => listening ? stop() : start();
 $('lang').onchange = () => { if(listening){ stop(); setTimeout(start, 200); } };
 
-// 原文區可編輯：使用者手動改字時更新字數/提示；點選或方向鍵移動游標時更新下次插入點
+// 原文區可編輯：使用者手動改字時更新字數/提示（游標位置由 document 的 selectionchange 記錄）
 out.addEventListener('input', () => { updateCount(); updatePlaceholder(); });
-out.addEventListener('mouseup', relocateLive);
-out.addEventListener('keyup', (e) => {
-  if(e.key && (e.key.indexOf('Arrow') === 0 || e.key === 'Home' || e.key === 'End')) relocateLive();
-});
 
 // ---------- 即時音量表（也用來確認麥克風是否收音）----------
 async function startMeter(deviceId){
