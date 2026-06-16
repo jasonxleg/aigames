@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>未來訊息 · 排程寄信時間軸</title>
+<style>
+  :root{
+    --bg:#0f1420; --bg2:#161d2e; --card:#1b2233; --card2:#212a40;
+    --line:#2b3550; --txt:#e7ecf6; --mut:#93a0bd; --acc:#5b8cff; --acc2:#7c5cff;
+    --ok:#34d399; --warn:#fbbf24; --bad:#f87171; --pend:#5b8cff;
+    --r:14px; --sh:0 8px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI","Microsoft JhengHei",system-ui,sans-serif;
+    background:radial-gradient(1200px 600px at 10% -10%,#1d2740 0,var(--bg) 55%);
+    color:var(--txt);min-height:100vh}
+  header{display:flex;align-items:center;gap:12px;padding:16px 22px;
+    border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;
+    backdrop-filter:blur(8px);background:rgba(15,20,32,.72)}
+  header .logo{font-size:24px}
+  header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.5px}
+  header .sub{color:var(--mut);font-size:12px;margin-top:2px}
+  header .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .dot{width:9px;height:9px;border-radius:50%;background:#555;box-shadow:0 0 8px #0008}
+  .dot.on{background:var(--ok);box-shadow:0 0 10px var(--ok)}
+  .dot.off{background:var(--bad);box-shadow:0 0 10px var(--bad)}
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:10px;
+    padding:10px 14px;font-size:14px;color:#fff;background:var(--card2);
+    transition:.15s;border:1px solid var(--line)}
+  button:hover{filter:brightness(1.15)}
+  button.primary{background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;font-weight:600}
+  button.ghost{background:transparent}
+  button.sm{padding:6px 10px;font-size:12.5px}
+  button.danger{color:var(--bad)}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px;display:grid;
+    grid-template-columns:420px 1fr;gap:22px;align-items:start}
+  @media(max-width:920px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+    box-shadow:var(--sh)}
+  .compose{position:sticky;top:84px}
+  .card h2{font-size:15px;margin:0;padding:15px 18px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:8px}
+  .card .body{padding:16px 18px}
+  label{display:block;font-size:12.5px;color:var(--mut);margin:0 0 6px 2px}
+  .field{margin-bottom:14px}
+  input[type=text],input[type=email],input[type=datetime-local],textarea{
+    width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:10px;
+    color:var(--txt);padding:11px 12px;font-size:14px;font-family:inherit;outline:none}
+  input:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px #5b8cff22}
+  textarea{resize:vertical;min-height:120px;line-height:1.55}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;background:var(--bg2);border:1px solid var(--line);
+    border-radius:10px;padding:7px 8px;min-height:44px;align-items:center}
+  .chips input{flex:1;min-width:120px;background:transparent;border:none;padding:4px;color:var(--txt);outline:none;font-size:14px}
+  .chip{background:#2a3656;border:1px solid #3a4a72;border-radius:8px;padding:4px 8px;
+    font-size:12.5px;display:flex;align-items:center;gap:6px}
+  .chip b{font-weight:500}
+  .chip .x{cursor:pointer;color:var(--mut);font-weight:700}
+  .chip .x:hover{color:var(--bad)}
+  .chip.bad{border-color:var(--bad);background:#3a2330}
+  .presets{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+  .presets button{background:var(--bg2);font-size:12.5px;padding:7px 11px;border-radius:20px;color:var(--mut)}
+  .presets button:hover{color:#fff;border-color:var(--acc)}
+  .when-readout{font-size:12.5px;color:var(--acc);margin-top:7px;min-height:17px}
+  .row{display:flex;gap:10px}
+  .row>*{flex:1}
+  .actions{display:flex;gap:10px;margin-top:6px}
+  .actions .primary{flex:1}
+  .toggle-cc{font-size:12px;color:var(--acc);cursor:pointer;user-select:none}
+  .milestone{background:linear-gradient(135deg,#1d2440,#241d3e);border:1px solid #36406a;
+    border-radius:12px;padding:12px 13px;margin-bottom:14px}
+  .milestone .mt{font-size:13px;font-weight:600;margin-bottom:9px;display:flex;align-items:center;gap:7px}
+  .milestone .mt .x{margin-left:auto;cursor:pointer;color:var(--mut);font-size:12px;font-weight:400}
+  .milestone .mrow{display:flex;gap:8px;align-items:flex-end}
+  .milestone .mrow>div{flex:1}
+  .milestone input{padding:8px 10px}
+  .milestone .age{flex:0 0 92px}
+  .milestone .mhint{font-size:12px;color:#b9c2ff;margin-top:9px;min-height:16px}
+  .milestone .open-btn{font-size:12.5px;color:var(--acc);cursor:pointer;user-select:none}
+  .aiopt{background:linear-gradient(135deg,#2a1d3e,#1d2a40);border:1px solid #4a3a6a;
+    border-radius:12px;padding:12px 13px;margin-bottom:16px}
+  .chk{display:flex;align-items:flex-start;gap:9px;cursor:pointer;font-size:13.5px;
+    font-weight:600;color:#e9ddff;line-height:1.4;margin:0}
+  .chk input{margin-top:2px;width:17px;height:17px;accent-color:var(--acc2);cursor:pointer}
+  .chk .tag{font-size:11px;background:#4a3a6a;padding:1px 7px;border-radius:10px;margin-left:4px;font-weight:600}
+  #aiFields{margin-top:12px;padding-top:11px;border-top:1px dashed #4a3a6a}
+  .dim{opacity:.45;pointer-events:none}
+  .badge.yearly{background:#3a2a52;color:#c9b0ff}
+  .badge.ai{background:#1b3a3a;color:#7ee0d6}
+  .badge.notify{background:#2a2f1b;color:#d8e07e}
+  .chk2{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut);
+    cursor:pointer;margin:2px 2px 14px;user-select:none}
+  .chk2 input{width:16px;height:16px;accent-color:var(--acc);cursor:pointer}
+  /* timeline */
+  .tl-head{display:flex;align-items:center;gap:10px;padding:4px 2px 14px}
+  .tabs{display:flex;gap:6px;background:var(--card);border:1px solid var(--line);
+    border-radius:10px;padding:4px}
+  .tabs button{background:transparent;padding:6px 12px;font-size:13px;color:var(--mut);border:none}
+  .tabs button.on{background:var(--card2);color:#fff}
+  .count{margin-left:auto;color:var(--mut);font-size:13px}
+  .timeline{position:relative;padding-left:20px}
+  .daygroup{margin-bottom:10px}
+  .dayhdr{font-size:13px;color:var(--mut);font-weight:600;margin:14px 0 8px;
+    display:flex;align-items:center;gap:8px}
+  .dayhdr .pill{background:var(--card2);border:1px solid var(--line);padding:2px 9px;border-radius:20px;font-size:11.5px}
+  .item{position:relative;background:var(--card);border:1px solid var(--line);
+    border-radius:12px;padding:13px 15px 13px 18px;margin:0 0 10px 14px;overflow:hidden}
+  .item:before{content:"";position:absolute;left:-14px;top:18px;width:11px;height:11px;
+    border-radius:50%;background:var(--pend);border:2px solid var(--bg);box-shadow:0 0 0 3px var(--pend)33}
+  .item.sent:before{background:var(--ok);box-shadow:0 0 0 3px #34d39933}
+  .item.failed:before{background:var(--bad);box-shadow:0 0 0 3px #f8717133}
+  .item.cancelled:before{background:#6b7280}
+  .item .bar{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--pend)}
+  .item.sent .bar{background:var(--ok)} .item.failed .bar{background:var(--bad)}
+  .item.cancelled .bar{background:#6b7280}
+  .it-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .it-time{font-weight:700;font-size:15px}
+  .it-when{color:var(--mut);font-size:12.5px}
+  .badge{font-size:11.5px;padding:3px 9px;border-radius:20px;font-weight:600}
+  .badge.pending{background:#1c2c52;color:#9bb6ff}
+  .badge.sent{background:#0f3a2c;color:#5fe3b0}
+  .badge.failed{background:#3a1c20;color:#ff9b9b}
+  .badge.cancelled{background:#2a2f3a;color:#9aa3b2}
+  .it-to{margin:8px 0 2px;font-size:13.5px}
+  .it-to .lab{color:var(--mut)}
+  .it-subj{font-weight:600;margin:7px 0 4px;font-size:14.5px}
+  .it-body{color:var(--mut);font-size:13px;line-height:1.5;white-space:pre-wrap;
+    max-height:60px;overflow:hidden;position:relative}
+  .it-body.open{max-height:none}
+  .it-note{margin-top:7px;font-size:12px;color:var(--warn)}
+  .it-act{display:flex;gap:6px;margin-top:11px;flex-wrap:wrap}
+  .empty{text-align:center;color:var(--mut);padding:50px 20px}
+  .empty .big{font-size:40px;margin-bottom:10px}
+  /* modal */
+  .modal{position:fixed;inset:0;background:#0008;display:none;align-items:center;
+    justify-content:center;z-index:50;padding:20px}
+  .modal.on{display:flex}
+  .modal .card{width:min(520px,100%)}
+  .help{font-size:12px;color:var(--mut);line-height:1.6;margin-top:8px}
+  .help code{background:var(--bg2);padding:1px 6px;border-radius:5px;color:#cdd}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+    background:var(--card2);border:1px solid var(--line);padding:12px 18px;border-radius:12px;
+    box-shadow:var(--sh);z-index:60;opacity:0;transition:.25s;pointer-events:none;font-size:14px}
+  .toast.on{opacity:1;bottom:32px}
+  .toast.bad{border-color:var(--bad)} .toast.ok{border-color:var(--ok)}
+  a{color:var(--acc)}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">📬</div>
+  <div>
+    <h1>未來訊息</h1>
+    <div class="sub">排程一封未來才寄出的 Email — 到點由 Google 自動送出</div>
+  </div>
+  <div class="right">
+    <span class="dot" id="dot" title="連線狀態"></span>
+    <button class="ghost sm" id="btnRefresh" title="重新整理">↻</button>
+    <button class="ghost sm" id="btnSettings">⚙ 設定</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- 撰寫 -->
+  <div class="card compose">
+    <h2>✏️ <span id="formTitle">排一封未來訊息</span></h2>
+    <div class="body">
+      <div class="aiopt">
+        <label class="chk"><input type="checkbox" id="aiYearly">
+          <span>🎉 每年他生日，由 AI 自動寫一封祝福信<span class="tag">自動續訂</span><br>
+          <span style="font-weight:400;color:var(--mut);font-size:12px">內含生日祝福、未來方向建議與鼓勵，每年生日當天自動產生並寄出</span></span></label>
+        <div id="aiFields">
+          <div class="field" style="margin-top:4px">
+            <label>對象稱呼（AI 會這樣稱呼他）</label>
+            <input id="aiName" type="text" placeholder="例：小宇 / 兒子">
+          </div>
+          <div class="row">
+            <div class="field"><label>對象生日</label><input id="aiBirth" type="date"></div>
+            <div class="field"><label>每年幾點寄</label><input id="aiTime" type="time" value="09:00"></div>
+          </div>
+          <div class="field" style="margin-bottom:4px">
+            <label>想特別叮嚀／今年近況（可選，AI 會融入信中）</label>
+            <textarea id="aiGuide" style="min-height:56px" placeholder="例：今年升國中、最近在學吉他、希望他更勇敢嘗試…"></textarea>
+          </div>
+          <div class="mhint" id="aiHint" style="color:#c9b0ff"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label>收件人（可多位，打字後按 Enter 或逗號）</label>
+        <div class="chips" id="toChips"><input id="toInput" type="text" placeholder="someone@example.com"></div>
+      </div>
+      <div class="field">
+        <label><span class="toggle-cc" id="toggleCc">＋ 加副本 Cc</span></label>
+        <div class="chips" id="ccChips" style="display:none"><input id="ccInput" type="text" placeholder="cc@example.com"></div>
+      </div>
+      <div class="field">
+        <label>主旨</label>
+        <input id="subject" type="text" placeholder="信件主旨">
+      </div>
+      <div class="field">
+        <label>內文</label>
+        <textarea id="body" placeholder="想對未來的他/她/自己說的話…"></textarea>
+      </div>
+      <div class="field">
+        <label><span class="open-btn" id="msToggle">🎂 用生日里程碑推算發送日</span></label>
+        <div class="milestone" id="msBox" style="display:none">
+          <div class="mt">🎂 里程碑推算<span class="x" id="msClose">收起</span></div>
+          <div class="mrow">
+            <div>
+              <label>對象的生日</label>
+              <input id="msBirth" type="date">
+            </div>
+            <div class="age">
+              <label>幾歲時收到</label>
+              <input id="msAge" type="number" min="1" max="120" value="10">
+            </div>
+          </div>
+          <div class="mrow" style="margin-top:9px">
+            <div>
+              <label>當天幾點寄</label>
+              <input id="msTime" type="time" value="09:00">
+            </div>
+            <div style="flex:0 0 auto;align-self:flex-end">
+              <button class="primary sm" id="msApply" style="padding:9px 14px">套用為發送日</button>
+            </div>
+          </div>
+          <div class="mhint" id="msHint">輸入生日後，會幫你算出他「N 歲生日」當天的日期。</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>發送時間</label>
+        <input id="sendAt" type="datetime-local">
+        <div class="presets" id="presets"></div>
+        <div class="when-readout" id="whenReadout"></div>
+      </div>
+      <label class="chk2"><input type="checkbox" id="notifyMe" checked>
+        📥 寄出後 email 通知我（收到一封「已寄出哪一則」的回報）</label>
+      <div class="actions">
+        <button class="primary" id="btnSave">📌 排入時間軸</button>
+        <button class="ghost" id="btnCancelEdit" style="display:none">取消編輯</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 時間軸 -->
+  <div>
+    <div class="tl-head">
+      <div class="tabs" id="tabs">
+        <button data-f="pending" class="on">待發送</button>
+        <button data-f="sent">已寄出</button>
+        <button data-f="all">全部</button>
+      </div>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="timeline" id="timeline"></div>
+  </div>
+</div>
+
+<!-- 設定 -->
+<div class="modal" id="settings">
+  <div class="card">
+    <h2>⚙ 連線設定</h2>
+    <div class="body">
+      <div class="field">
+        <label>Apps Script 網頁應用程式網址（/exec 結尾）</label>
+        <input id="apiUrl" type="text" placeholder="https://script.google.com/macros/s/AKfy…/exec">
+      </div>
+      <div class="field">
+        <label>分享密碼（要和 Code.gs 裡的 SECRET 一致）</label>
+        <input id="apiToken" type="text" placeholder="你在 Code.gs 設的那串字">
+      </div>
+      <div class="actions">
+        <button class="primary" id="btnSaveSettings">儲存並連線測試</button>
+        <button class="ghost" id="btnCloseSettings">關閉</button>
+      </div>
+      <div class="help">
+        設定只存在你這台瀏覽器（localStorage），不會上傳。<br>
+        還沒部署？打開專案資料夾的 <code>README.md</code> 照步驟做一次即可。
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const LS = { url:'fm_api_url', tok:'fm_api_token' };
+let CFG = { url: localStorage.getItem(LS.url)||'', token: localStorage.getItem(LS.tok)||'' };
+let MESSAGES = [];
+let editingId = null;
+let filter = 'pending';
+
+// ───── 連線層：GET 用 JSONP（免 CORS）、寫入用 text/plain POST ─────
+function jsonp(params){
+  return new Promise((resolve,reject)=>{
+    if(!CFG.url) return reject(new Error('尚未設定 API 網址'));
+    const cb = 'fm_cb_'+Math.random().toString(36).slice(2);
+    const qs = new URLSearchParams({...params, token:CFG.token, callback:cb}).toString();
+    const s = document.createElement('script');
+    const timer = setTimeout(()=>{ cleanup(); reject(new Error('連線逾時')); }, 20000);
+    function cleanup(){ clearTimeout(timer); delete window[cb]; s.remove(); }
+    window[cb] = data => { cleanup(); resolve(data); };
+    s.onerror = () => { cleanup(); reject(new Error('連線失敗（檢查網址）')); };
+    s.src = CFG.url + (CFG.url.includes('?')?'&':'?') + qs;
+    document.body.appendChild(s);
+  });
+}
+async function apiGet(params){
+  const r = await jsonp(params);
+  if(!r || r.ok===false) throw new Error((r&&r.error)||'未知錯誤');
+  return r;
+}
+// 寫入：POST text/plain（簡單請求，不觸發 preflight）。讀不到回應也沒關係，之後重抓清單。
+async function apiWrite(payload){
+  if(!CFG.url) throw new Error('尚未設定 API 網址');
+  payload.token = CFG.token;
+  try{
+    const res = await fetch(CFG.url, {method:'POST', body:JSON.stringify(payload),
+      headers:{'Content-Type':'text/plain;charset=utf-8'}, redirect:'follow'});
+    const txt = await res.text();
+    const j = JSON.parse(txt);
+    if(j.ok===false) throw new Error(j.error||'操作失敗');
+    return j;
+  }catch(e){
+    // CORS 讀不到回應時，POST 多半已成功執行；改用 JSONP 走同一動作確保完成
+    if(e instanceof SyntaxError || /Failed to fetch|CORS|NetworkError/i.test(e.message)){
+      return await apiGet(payload); // GET 也能執行同一 action（內文短時可行）
+    }
+    throw e;
+  }
+}
+
+// ───── 收件人 chips ─────
+function makeChips(boxId,inputId){
+  const box=$('#'+boxId), inp=$('#'+inputId);
+  box._emails=[];
+  function render(){
+    box.querySelectorAll('.chip').forEach(c=>c.remove());
+    box._emails.forEach((em,i)=>{
+      const ok=/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em);
+      const c=document.createElement('span');
+      c.className='chip'+(ok?'':' bad');
+      c.innerHTML=`<b>${em}</b><span class="x">×</span>`;
+      c.querySelector('.x').onclick=()=>{box._emails.splice(i,1);render();};
+      box.insertBefore(c,inp);
+    });
+  }
+  function add(v){ v=v.trim().replace(/[,;]$/,'').trim();
+    if(v && !box._emails.includes(v)){ box._emails.push(v); } inp.value=''; render(); }
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'||e.key===','||e.key===';'){ e.preventDefault(); add(inp.value); }
+    else if(e.key==='Backspace'&&!inp.value){ box._emails.pop(); render(); }
+  });
+  inp.addEventListener('blur',()=>{ if(inp.value.trim()) add(inp.value); });
+  box.addEventListener('click',()=>inp.focus());
+  box.setList = arr => { box._emails = arr.filter(Boolean); render(); };
+  box.getList = () => box._emails.slice();
+  return box;
+}
+const toBox = makeChips('toChips','toInput');
+const ccBox = makeChips('ccChips','ccInput');
+$('#toggleCc').onclick=()=>{ const c=$('#ccChips'); const show=c.style.display==='none';
+  c.style.display=show?'flex':'none'; $('#toggleCc').textContent=show?'－ 收起副本':'＋ 加副本 Cc'; };
+
+// ───── 時間 presets ─────
+function pad(n){return String(n).padStart(2,'0');}
+function toLocalInput(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;}
+function setWhen(d){ $('#sendAt').value=toLocalInput(d); updateReadout(); }
+const PRESETS=[
+  ['今天稍後(+1h)', ()=>{const d=new Date();d.setHours(d.getHours()+1,Math.ceil(d.getMinutes()/5)*5,0,0);return d;}],
+  ['明天 09:00', ()=>{const d=new Date();d.setDate(d.getDate()+1);d.setHours(9,0,0,0);return d;}],
+  ['今晚 20:00', ()=>{const d=new Date();d.setHours(20,0,0,0);return d;}],
+  ['下週一 09:00', ()=>{const d=new Date();const dn=d.getDay();const add=((8-dn)%7)||7;d.setDate(d.getDate()+add);d.setHours(9,0,0,0);return d;}],
+  ['一週後', ()=>{const d=new Date();d.setDate(d.getDate()+7);d.setHours(9,0,0,0);return d;}],
+  ['一個月後', ()=>{const d=new Date();d.setMonth(d.getMonth()+1);d.setHours(9,0,0,0);return d;}],
+  ['一年後', ()=>{const d=new Date();d.setFullYear(d.getFullYear()+1);d.setHours(9,0,0,0);return d;}],
+];
+const pbox=$('#presets');
+PRESETS.forEach(([lab,fn])=>{const b=document.createElement('button');b.textContent=lab;
+  b.onclick=()=>setWhen(fn());pbox.appendChild(b);});
+$('#sendAt').addEventListener('input',updateReadout);
+function parseLocal(v){ if(!v)return null; const m=v.match(/(\d+)-(\d+)-(\d+)T(\d+):(\d+)/);
+  return m?new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5]):null; }
+function relText(d){
+  const ms=d-new Date(); if(ms<=0) return '⚠ 時間已過，存檔後會在下一輪(最多5分鐘)內寄出';
+  const mins=Math.round(ms/60000), h=Math.floor(mins/60), days=Math.floor(h/24);
+  if(days>=1) return `還有 ${days} 天 ${h%24} 小時`;
+  if(h>=1) return `還有 ${h} 小時 ${mins%60} 分`;
+  return `還有 ${mins} 分鐘`;
+}
+function updateReadout(){ const d=parseLocal($('#sendAt').value);
+  $('#whenReadout').textContent = d ? '⏰ '+relText(d) : ''; }
+
+// ───── 生日里程碑推算 ─────
+$('#msToggle').onclick=()=>{ $('#msBox').style.display='block'; $('#msToggle').style.display='none'; };
+$('#msClose').onclick=()=>{ $('#msBox').style.display='none'; $('#msToggle').style.display='inline'; };
+function milestoneDate(){
+  const b=$('#msBirth').value; const age=parseInt($('#msAge').value,10);
+  if(!b||!age) return null;
+  const m=b.match(/(\d{4})-(\d{2})-(\d{2})/); if(!m) return null;
+  const [hh,mm]=($('#msTime').value||'09:00').split(':');
+  // 第 age 歲生日 = 出生年 + age
+  return new Date(+m[1]+age, +m[2]-1, +m[3], +hh||9, +mm||0, 0);
+}
+function updateMsHint(){
+  const d=milestoneDate(); const age=$('#msAge').value;
+  if(!d){ $('#msHint').textContent='輸入生日後，會幫你算出他「N 歲生日」當天的日期。'; return; }
+  const wd='日一二三四五六'[d.getDay()];
+  const past=d<new Date();
+  $('#msHint').innerHTML=`他 <b>${age}</b> 歲生日是 <b>${toLocalInput(d).replace('T',' ')}</b>（星期${wd}）`+
+    (past?' ⚠ 這天已經過了':` · ${relText(d)}`);
+}
+['#msBirth','#msAge','#msTime'].forEach(s=>$(s).addEventListener('input',updateMsHint));
+$('#msApply').onclick=()=>{
+  const d=milestoneDate();
+  if(!d) return toast('請先填生日和歲數','bad');
+  setWhen(d);
+  if(!$('#subject').value.trim()) $('#subject').value=`給 ${$('#msAge').value} 歲的你`;
+  toast(`已設為 ${$('#msAge').value} 歲生日：${toLocalInput(d).replace('T',' ')}`,'ok');
+};
+
+// ───── 每年生日 AI 祝福信 ─────
+function nextBirthdayLocal(birthStr,timeStr){
+  const m=String(birthStr||'').match(/(\d{4})-(\d{2})-(\d{2})/); if(!m) return null;
+  const [hh,mm]=(timeStr||'09:00').split(':');
+  const now=new Date(), y=now.getFullYear();
+  let d=new Date(y,+m[2]-1,+m[3],+hh||9,+mm||0,0);
+  if(d<=now) d=new Date(y+1,+m[2]-1,+m[3],+hh||9,+mm||0,0);
+  return d;
+}
+function aiOn(){ return $('#aiYearly').checked; }
+function syncAiMode(){
+  const on=aiOn();
+  $('#aiFields').style.display=on?'block':'none';
+  // AI 模式下主旨/內文交給 AI，淡化提示
+  $('#subject').closest('.field').classList.toggle('dim',on);
+  $('#body').closest('.field').classList.toggle('dim',on);
+  $('#subject').placeholder=on?'（留空則 AI 自動產生：🎂 稱呼，N 歲生日快樂）':'信件主旨';
+  $('#body').placeholder=on?'（每年生日由 AI 自動撰寫，可留空）':'想對未來的他/她/自己說的話…';
+  if(on) recalcAi();
+}
+function recalcAi(){
+  const d=nextBirthdayLocal($('#aiBirth').value,$('#aiTime').value);
+  const name=$('#aiName').value.trim()||'他';
+  if(!d){ $('#aiHint').textContent='填上生日後，會自動排到下一次生日當天。'; return; }
+  // 算那次生日他幾歲
+  const by=+$('#aiBirth').value.slice(0,4); const age=d.getFullYear()-by;
+  const wd='日一二三四五六'[d.getDay()];
+  $('#aiHint').innerHTML=`下一封：<b>${toLocalInput(d).replace('T',' ')}</b>（星期${wd}，${name} ${age} 歲）· ${relText(d)}<br>之後每年生日自動續訂`;
+  setWhen(d);
+}
+$('#aiYearly').addEventListener('change',syncAiMode);
+['#aiName','#aiBirth','#aiTime'].forEach(s=>$(s).addEventListener('input',()=>{ if(aiOn())recalcAi(); }));
+syncAiMode();
+
+// ───── 存檔 / 編輯 ─────
+$('#btnSave').onclick=async()=>{
+  const to=toBox.getList(), cc=ccBox.getList();
+  const ai=aiOn();
+  if(!to.length) return toast('請至少填一位收件人','bad');
+  const bad=to.concat(cc).find(e=>!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+  if(bad) return toast('Email 格式怪怪的：'+bad,'bad');
+  let d;
+  if(ai){
+    if(!$('#aiBirth').value) return toast('請填對象生日','bad');
+    d=nextBirthdayLocal($('#aiBirth').value,$('#aiTime').value);
+  }else{
+    if(!$('#sendAt').value) return toast('請選發送時間','bad');
+    d=parseLocal($('#sendAt').value);
+  }
+  const fmt=x=>`${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())} ${pad(x.getHours())}:${pad(x.getMinutes())}`;
+  const payload={ action: editingId?'update':'add', id:editingId||undefined,
+    to:to.join(', '), cc:cc.join(', '), subject:$('#subject').value, body:$('#body').value,
+    sendAt:fmt(d),
+    type: ai?'每年':'一次', ai: ai,
+    birth: ai?$('#aiBirth').value:'', name: ai?$('#aiName').value:'', aiPrompt: ai?$('#aiGuide').value:'',
+    notifyMe: $('#notifyMe').checked };
+  const btn=$('#btnSave'); btn.disabled=true; btn.textContent='儲存中…';
+  try{
+    await apiWrite(payload);
+    toast(editingId?'已更新 ✓':'已排入時間軸 ✓','ok');
+    resetForm(); await load();
+  }catch(e){ toast('儲存失敗：'+e.message,'bad'); }
+  finally{ btn.disabled=false; btn.textContent='📌 排入時間軸'; }
+};
+function resetForm(){
+  editingId=null; toBox.setList([]); ccBox.setList([]);
+  $('#subject').value=''; $('#body').value=''; $('#sendAt').value='';
+  $('#aiYearly').checked=false; $('#aiName').value=''; $('#aiBirth').value=''; $('#aiGuide').value='';
+  $('#aiTime').value='09:00'; syncAiMode();
+  $('#notifyMe').checked=true;
+  $('#whenReadout').textContent=''; $('#formTitle').textContent='排一封未來訊息';
+  $('#btnSave').textContent='📌 排入時間軸'; $('#btnCancelEdit').style.display='none';
+}
+$('#btnCancelEdit').onclick=resetForm;
+function startEdit(m){
+  editingId=m.id;
+  toBox.setList(splitAddrs(m.to)); ccBox.setList(splitAddrs(m.cc));
+  if(m.cc){ $('#ccChips').style.display='flex'; $('#toggleCc').textContent='－ 收起副本'; }
+  $('#subject').value=m.subject||''; $('#body').value=m.body||'';
+  const isYearly=(m.type==='每年')||m.ai;
+  $('#aiYearly').checked=!!isYearly;
+  $('#aiName').value=m.name||''; $('#aiBirth').value=(m.birth||'').slice(0,10); $('#aiGuide').value=m.aiPrompt||'';
+  const dd=parseWhenStr(m.sendAt); if(dd) $('#aiTime').value=`${pad(dd.getHours())}:${pad(dd.getMinutes())}`;
+  syncAiMode();
+  $('#notifyMe').checked = (m.notifyMe!==false);
+  const d=parseWhenStr(m.sendAt); if(d) $('#sendAt').value=toLocalInput(d);
+  updateReadout();
+  $('#formTitle').textContent='修改訊息'; $('#btnSave').textContent='💾 更新';
+  $('#btnCancelEdit').style.display='block';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function splitAddrs(s){ return String(s||'').split(/[,;]/).map(x=>x.trim()).filter(Boolean); }
+function parseWhenStr(s){ const m=String(s||'').match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})[ T]+(\d{1,2}):(\d{2})/);
+  return m?new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5]):null; }
+
+// ───── 時間軸渲染 ─────
+const STAT={ '待發送':'pending','已寄出':'sent','失敗':'failed','已取消':'cancelled' };
+$('#tabs').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return;
+  filter=b.dataset.f; [...$('#tabs').children].forEach(x=>x.classList.toggle('on',x===b)); render(); });
+$('#btnRefresh').onclick=()=>load(true);
+
+function render(){
+  const tl=$('#timeline');
+  let list=MESSAGES.slice();
+  if(filter==='pending') list=list.filter(m=>m.status==='待發送'||m.status==='失敗');
+  else if(filter==='sent') list=list.filter(m=>m.status==='已寄出');
+  // 排序：待發送照時間近→遠；其餘照時間新→舊
+  list.sort((a,b)=>{ const da=parseWhenStr(a.sendAt)?.getTime()||0, db=parseWhenStr(b.sendAt)?.getTime()||0;
+    return filter==='sent'? db-da : da-db; });
+  $('#count').textContent=`共 ${list.length} 筆`;
+  if(!list.length){ tl.innerHTML=`<div class="empty"><div class="big">🗓️</div>
+    ${CFG.url?'目前沒有訊息，從左邊排第一封吧。':'請先點右上「⚙ 設定」連上你的 Apps Script。'}</div>`; return; }
+  // 依日期分組
+  const groups={};
+  list.forEach(m=>{ const d=parseWhenStr(m.sendAt); const key=d?`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`:'未排定';
+    (groups[key]=groups[key]||[]).push(m); });
+  let html='';
+  Object.keys(groups).forEach(day=>{
+    const d=parseWhenStr(groups[day][0].sendAt);
+    const wd=d?'日一二三四五六'[d.getDay()]:'';
+    html+=`<div class="daygroup"><div class="dayhdr">📅 ${day}${wd?` 星期${wd}`:''}<span class="pill">${groups[day].length} 封</span></div>`;
+    groups[day].forEach(m=>html+=itemHtml(m));
+    html+='</div>';
+  });
+  tl.innerHTML=html;
+  tl.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>act(b.dataset.act,b.dataset.id));
+  tl.querySelectorAll('.it-body').forEach(el=>el.onclick=()=>el.classList.toggle('open'));
+}
+function esc(s){return String(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function itemHtml(m){
+  const cls=STAT[m.status]||'pending';
+  const d=parseWhenStr(m.sendAt);
+  const time=d?`${pad(d.getHours())}:${pad(d.getMinutes())}`:'—';
+  const rel=(m.status==='待發送'&&d)?`· ${relText(d)}`:(m.status==='已寄出'&&m.sentAt?`· 實寄 ${m.sentAt}`:'');
+  const acts=[];
+  if(m.status!=='已寄出'){
+    acts.push(`<button class="sm" data-act="edit" data-id="${m.id}">✏️ 編輯</button>`);
+    acts.push(`<button class="sm primary" data-act="send" data-id="${m.id}">⚡ 立即寄出</button>`);
+  }
+  if(m.status==='待發送') acts.push(`<button class="sm ghost" data-act="cancel" data-id="${m.id}">⏸ 取消排程</button>`);
+  acts.push(`<button class="sm ghost danger" data-act="del" data-id="${m.id}">🗑 刪除</button>`);
+  const tags=[];
+  if(m.type==='每年') tags.push('<span class="badge yearly">🔁 每年生日</span>');
+  if(m.ai) tags.push('<span class="badge ai">🤖 AI 撰寫</span>');
+  if(m.notifyMe) tags.push('<span class="badge notify">📥 寄出通知我</span>');
+  const subjShown = m.subject || (m.ai?`<span style="color:#9c8">🎂 ${esc(m.name||'他')} 生日祝福（AI 自動產生）</span>`:'<span style="color:#777">(無主旨)</span>');
+  const bodyShown = m.body ? `<div class="it-body" title="點一下展開">${esc(m.body)}</div>`
+    : (m.ai?`<div class="it-body" style="color:#7ee0d6">✨ 內容將在生日當天由 AI 自動撰寫（祝福＋未來建議＋鼓勵）</div>`:'');
+  return `<div class="item ${cls}"><div class="bar"></div>
+    <div class="it-top"><span class="it-time">🕘 ${time}</span>
+      <span class="badge ${cls}">${m.status}</span>${tags.join('')}
+      <span class="it-when">${rel}</span></div>
+    <div class="it-to"><span class="lab">收件：</span>${esc(m.to)}${m.cc?` <span class="lab">· 副本：</span>${esc(m.cc)}`:''}</div>
+    <div class="it-subj">${subjShown}</div>
+    ${bodyShown}
+    ${m.note?`<div class="it-note">⚠ ${esc(m.note)}</div>`:''}
+    <div class="it-act">${acts.join('')}</div></div>`;
+}
+async function act(a,id){
+  const m=MESSAGES.find(x=>x.id===id); if(!m)return;
+  if(a==='edit') return startEdit(m);
+  if(a==='del' && !confirm('確定刪除這封未來訊息？')) return;
+  if(a==='send' && !confirm('現在就立刻寄出這封信？')) return;
+  if(a==='cancel' && !confirm('取消這封的排程？(不會刪除，可再編輯重排)')) return;
+  const map={del:'delete',send:'sendNow',cancel:'cancel'};
+  try{ await apiWrite({action:map[a],id}); toast('完成 ✓','ok'); await load(); }
+  catch(e){ toast('操作失敗：'+e.message,'bad'); }
+}
+
+// ───── 載入 / 連線 ─────
+async function load(manual){
+  setDot(null);
+  if(!CFG.url){ render(); setDot(false); if(manual)toast('尚未設定 API 網址','bad'); return; }
+  try{
+    const r=await apiGet({action:'list'});
+    MESSAGES=r.items||[]; setDot(true); render();
+    if(manual)toast('已更新 ✓','ok');
+  }catch(e){ setDot(false); render(); toast('連線失敗：'+e.message,'bad'); }
+}
+function setDot(state){ const d=$('#dot'); d.className='dot'+(state===true?' on':state===false?' off':''); }
+
+// ───── 設定 modal ─────
+$('#btnSettings').onclick=()=>{ $('#apiUrl').value=CFG.url; $('#apiToken').value=CFG.token; $('#settings').classList.add('on'); };
+$('#btnCloseSettings').onclick=()=>$('#settings').classList.remove('on');
+$('#btnSaveSettings').onclick=async()=>{
+  CFG.url=$('#apiUrl').value.trim(); CFG.token=$('#apiToken').value.trim();
+  localStorage.setItem(LS.url,CFG.url); localStorage.setItem(LS.tok,CFG.token);
+  $('#settings').classList.remove('on');
+  await load(true);
+};
+function toast(msg,kind){ const t=$('#toast'); t.textContent=msg; t.className='toast on '+(kind||'');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.className='toast',2600); }
+
+// 預設帶入「明天 09:00」方便快速排
+setWhen(PRESETS[1][1]());
+// 啟動
+load();
+setInterval(()=>{ if(CFG.url && !editingId) load(); }, 60000); // 每分鐘自動刷新
+</script>
+</body>
+</html>
