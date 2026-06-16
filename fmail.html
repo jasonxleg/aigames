@@ -144,6 +144,35 @@
   .toast.on{opacity:1;bottom:32px}
   .toast.bad{border-color:var(--bad)} .toast.ok{border-color:var(--ok)}
   a{color:var(--acc)}
+  /* ───── 手機（iPhone 等窄螢幕）───── */
+  @media(max-width:600px){
+    /* iOS Safari：input 字級 <16px 會在聚焦時自動放大，把版面推歪 */
+    input[type=text],input[type=email],input[type=datetime-local],
+    input[type=date],input[type=time],input[type=number],textarea,
+    .chips input{font-size:16px}
+    header{padding:12px 14px;gap:10px}
+    header .logo{font-size:20px}
+    header h1{font-size:16px}
+    header .sub{display:none}          /* 副標太長會撐高 sticky header */
+    header .right{gap:8px}
+    button{padding:9px 12px}
+    button.sm{padding:6px 9px}
+    .wrap{padding:14px;gap:16px}
+    .compose{position:static;top:auto} /* 單欄時別黏住，會蓋到時間軸 */
+    .card .body{padding:14px}
+    .card h2{padding:13px 14px}
+    /* 並排欄位在窄螢幕改直排，避免擠壓溢出 */
+    .row{flex-direction:column;gap:0}
+    .milestone .mrow{flex-wrap:wrap}
+    .milestone .mrow>div{flex:1 1 100%}
+    .milestone .age{flex:1 1 100%}
+    .presets button{flex:1 1 auto}
+    .tl-head{flex-wrap:wrap}
+    .timeline{padding-left:14px}
+    .item{padding:12px 13px 12px 16px;margin-left:12px}
+    .it-act{gap:5px}
+    .modal{padding:14px}
+  }
 </style>
 </head>
 <body>
