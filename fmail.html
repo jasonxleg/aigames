@@ -61,6 +61,7 @@
   .presets{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
   .presets button{background:var(--bg2);font-size:12.5px;padding:7px 11px;border-radius:20px;color:var(--mut)}
   .presets button:hover{color:#fff;border-color:var(--acc)}
+  .occ-btn.on{color:#fff;background:linear-gradient(135deg,var(--acc),var(--acc2));border-color:transparent;font-weight:600}
   .when-readout{font-size:12.5px;color:var(--acc);margin-top:7px;min-height:17px}
   .row{display:flex;gap:10px}
   .row>*{flex:1}
@@ -196,20 +197,24 @@
     <div class="body">
       <div class="aiopt">
         <label class="chk"><input type="checkbox" id="aiYearly">
-          <span>🎉 每年他生日，由 AI 自動寫一封祝福信<span class="tag">自動續訂</span><br>
-          <span style="font-weight:400;color:var(--mut);font-size:12px">內含生日祝福、未來方向建議與鼓勵，每年生日當天自動產生並寄出</span></span></label>
+          <span>🎉 每年指定節日，由 AI 自動寫一封祝福信<span class="tag">自動續訂</span><br>
+          <span style="font-weight:400;color:var(--mut);font-size:12px">選一個節日，每年到日子自動產生祝福信並寄出（不必綁定對象，暱稱自由填）</span></span></label>
         <div id="aiFields">
           <div class="field" style="margin-top:4px">
-            <label>對象稱呼（AI 會這樣稱呼他）</label>
-            <input id="aiName" type="text" placeholder="例：小宇 / 兒子">
+            <label>選擇節日</label>
+            <div class="presets" id="occPicker"></div>
+          </div>
+          <div class="field" style="margin-bottom:8px">
+            <label>對象暱稱（AI 會這樣稱呼，可自由填寫）</label>
+            <input id="aiName" type="text" placeholder="例：小宇 / 親愛的 / 老婆 / 自己">
           </div>
           <div class="row">
-            <div class="field"><label>對象生日</label><input id="aiBirth" type="date"></div>
+            <div class="field" id="aiBirthField"><label>對象生日</label><input id="aiBirth" type="date"></div>
             <div class="field"><label>每年幾點寄</label><input id="aiTime" type="time" value="09:00"></div>
           </div>
           <div class="field" style="margin-bottom:4px">
-            <label>想特別叮嚀／今年近況（可選，AI 會融入信中）</label>
-            <textarea id="aiGuide" style="min-height:56px" placeholder="例：今年升國中、最近在學吉他、希望他更勇敢嘗試…"></textarea>
+            <label>想特別叮嚀／近況（可選，AI 會融入信中）</label>
+            <textarea id="aiGuide" style="min-height:56px" placeholder="例：最近在學吉他、希望他更勇敢嘗試…"></textarea>
           </div>
           <div class="mhint" id="aiHint" style="color:#c9b0ff"></div>
         </div>
@@ -449,14 +454,37 @@ $('#msApply').onclick=()=>{
   toast(`已設為 ${$('#msAge').value} 歲生日：${toLocalInput(d).replace('T',' ')}`,'ok');
 };
 
-// ───── 每年生日 AI 祝福信 ─────
-function nextBirthdayLocal(birthStr,timeStr){
-  const m=String(birthStr||'').match(/(\d{4})-(\d{2})-(\d{2})/); if(!m) return null;
-  const [hh,mm]=(timeStr||'09:00').split(':');
-  const now=new Date(), y=now.getFullYear();
-  let d=new Date(y,+m[2]-1,+m[3],+hh||9,+mm||0,0);
-  if(d<=now) d=new Date(y+1,+m[2]-1,+m[3],+hh||9,+mm||0,0);
-  return d;
+// ───── 每年節日 AI 祝福信 ─────
+const OCCASIONS=[['生日','🎂'],['情人節','💝'],['兒童節','🧒'],['萬聖節','🎃'],['聖誕節','🎄'],['端午節','🐉']];
+const OCC_EMOJI=Object.fromEntries(OCCASIONS);
+const FIXED_OCC={'情人節':[2,14],'兒童節':[4,4],'萬聖節':[10,31],'聖誕節':[12,25]};
+// 端午節（農曆五月初五）國曆對照，yyyy -> 'MM-dd'
+const DUANWU={2024:'06-10',2025:'05-31',2026:'06-19',2027:'06-09',2028:'05-28',2029:'06-16',2030:'06-05',2031:'06-24',2032:'06-12',2033:'06-01',2034:'06-20',2035:'06-10',2036:'05-30',2037:'06-18',2038:'06-07',2039:'05-27',2040:'06-14'};
+let occSel='生日';
+
+const occBox=$('#occPicker');
+OCCASIONS.forEach(([name,emo])=>{
+  const b=document.createElement('button'); b.type='button';
+  b.className='occ-btn'+(name===occSel?' on':''); b.dataset.occ=name; b.textContent=emo+' '+name;
+  b.onclick=()=>{ occSel=name; [...occBox.children].forEach(x=>x.classList.toggle('on',x.dataset.occ===name));
+    syncOccFields(); if(aiOn())recalcAi(); };
+  occBox.appendChild(b);
+});
+function setOcc(name){ occSel=name||'生日';
+  [...occBox.children].forEach(x=>x.classList.toggle('on',x.dataset.occ===occSel)); syncOccFields(); }
+function syncOccFields(){ $('#aiBirthField').style.display = (occSel==='生日')?'block':'none'; }
+
+function occMonthDay(occ,birthStr,year){
+  if(occ==='生日'){ const m=String(birthStr||'').match(/(\d{4})-(\d{2})-(\d{2})/); return m?[+m[2],+m[3]]:null; }
+  if(FIXED_OCC[occ]) return FIXED_OCC[occ];
+  if(occ==='端午節'){ const p=(DUANWU[year]||'06-14').split('-'); return [+p[0],+p[1]]; }
+  return null;
+}
+function nextOccasionLocal(occ,birthStr,timeStr){
+  const [hh,mm]=(timeStr||'09:00').split(':'); const now=new Date(), y=now.getFullYear();
+  for(let k=0;k<3;k++){ const md=occMonthDay(occ,birthStr,y+k); if(!md) return null;
+    const d=new Date(y+k,md[0]-1,md[1],+hh||9,+mm||0,0); if(d>now) return d; }
+  return null;
 }
 function aiOn(){ return $('#aiYearly').checked; }
 function syncAiMode(){
@@ -465,18 +493,18 @@ function syncAiMode(){
   // AI 模式下主旨/內文交給 AI，淡化提示
   $('#subject').closest('.field').classList.toggle('dim',on);
   $('#body').closest('.field').classList.toggle('dim',on);
-  $('#subject').placeholder=on?'（留空則 AI 自動產生：🎂 稱呼，N 歲生日快樂）':'信件主旨';
-  $('#body').placeholder=on?'（每年生日由 AI 自動撰寫，可留空）':'想對未來的他/她/自己說的話…';
-  if(on) recalcAi();
+  $('#subject').placeholder=on?'（留空則 AI 自動產生：稱呼＋節日祝福）':'信件主旨';
+  $('#body').placeholder=on?'（每年節日由 AI 自動撰寫，可留空）':'想對未來的他/她/自己說的話…';
+  if(on){ syncOccFields(); recalcAi(); }
 }
 function recalcAi(){
-  const d=nextBirthdayLocal($('#aiBirth').value,$('#aiTime').value);
-  const name=$('#aiName').value.trim()||'他';
-  if(!d){ $('#aiHint').textContent='填上生日後，會自動排到下一次生日當天。'; return; }
-  // 算那次生日他幾歲
-  const by=+$('#aiBirth').value.slice(0,4); const age=d.getFullYear()-by;
+  const name=$('#aiName').value.trim()||'你';
+  const d=nextOccasionLocal(occSel,$('#aiBirth').value,$('#aiTime').value);
+  if(!d){ $('#aiHint').textContent = occSel==='生日'?'填上生日後，會自動排到下一次生日當天。':'無法推算日期。'; return; }
   const wd='日一二三四五六'[d.getDay()];
-  $('#aiHint').innerHTML=`下一封：<b>${toLocalInput(d).replace('T',' ')}</b>（星期${wd}，${name} ${age} 歲）· ${relText(d)}<br>之後每年生日自動續訂`;
+  let extra='';
+  if(occSel==='生日'){ const by=+($('#aiBirth').value.slice(0,4)); if(by) extra=`，${name} ${d.getFullYear()-by} 歲`; }
+  $('#aiHint').innerHTML=`下一封（${OCC_EMOJI[occSel]||''}${occSel}）：<b>${toLocalInput(d).replace('T',' ')}</b>（星期${wd}${extra}）· ${relText(d)}<br>之後每年自動續訂`;
   setWhen(d);
 }
 $('#aiYearly').addEventListener('change',syncAiMode);
@@ -492,8 +520,9 @@ $('#btnSave').onclick=async()=>{
   if(bad) return toast('Email 格式怪怪的：'+bad,'bad');
   let d;
   if(ai){
-    if(!$('#aiBirth').value) return toast('請填對象生日','bad');
-    d=nextBirthdayLocal($('#aiBirth').value,$('#aiTime').value);
+    if(occSel==='生日' && !$('#aiBirth').value) return toast('生日節日請填對象生日','bad');
+    d=nextOccasionLocal(occSel,$('#aiBirth').value,$('#aiTime').value);
+    if(!d) return toast('無法推算下一次日期','bad');
   }else{
     if(!$('#sendAt').value) return toast('請選發送時間','bad');
     d=parseLocal($('#sendAt').value);
@@ -502,8 +531,8 @@ $('#btnSave').onclick=async()=>{
   const payload={ action: editingId?'update':'add', id:editingId||undefined,
     to:to.join(', '), cc:cc.join(', '), subject:$('#subject').value, body:$('#body').value,
     sendAt:fmt(d),
-    type: ai?'每年':'一次', ai: ai,
-    birth: ai?$('#aiBirth').value:'', name: ai?$('#aiName').value:'', aiPrompt: ai?$('#aiGuide').value:'',
+    type: ai?'每年':'一次', ai: ai, occasion: ai?occSel:'',
+    birth: (ai&&occSel==='生日')?$('#aiBirth').value:'', name: ai?$('#aiName').value:'', aiPrompt: ai?$('#aiGuide').value:'',
     notifyMe: $('#notifyMe').checked };
   const btn=$('#btnSave'); btn.disabled=true; btn.textContent='儲存中…';
   try{
@@ -517,7 +546,7 @@ function resetForm(){
   editingId=null; toBox.setList([]); ccBox.setList([]);
   $('#subject').value=''; $('#body').value=''; $('#sendAt').value='';
   $('#aiYearly').checked=false; $('#aiName').value=''; $('#aiBirth').value=''; $('#aiGuide').value='';
-  $('#aiTime').value='09:00'; syncAiMode();
+  $('#aiTime').value='09:00'; setOcc('生日'); syncAiMode();
   $('#notifyMe').checked=true;
   $('#whenReadout').textContent=''; $('#formTitle').textContent='排一封未來訊息';
   $('#btnSave').textContent='📌 排入時間軸'; $('#btnCancelEdit').style.display='none';
@@ -531,6 +560,7 @@ function startEdit(m){
   const isYearly=(m.type==='每年')||m.ai;
   $('#aiYearly').checked=!!isYearly;
   $('#aiName').value=m.name||''; $('#aiBirth').value=(m.birth||'').slice(0,10); $('#aiGuide').value=m.aiPrompt||'';
+  setOcc(m.occasion||'生日');
   const dd=parseWhenStr(m.sendAt); if(dd) $('#aiTime').value=`${pad(dd.getHours())}:${pad(dd.getMinutes())}`;
   syncAiMode();
   $('#notifyMe').checked = (m.notifyMe!==false);
@@ -590,13 +620,15 @@ function itemHtml(m){
   }
   if(m.status==='待發送') acts.push(`<button class="sm ghost" data-act="cancel" data-id="${m.id}">⏸ 取消排程</button>`);
   acts.push(`<button class="sm ghost danger" data-act="del" data-id="${m.id}">🗑 刪除</button>`);
+  const occ=m.occasion||'生日';
+  const occEmo=(typeof OCC_EMOJI!=='undefined'&&OCC_EMOJI[occ])||'🎉';
   const tags=[];
-  if(m.type==='每年') tags.push('<span class="badge yearly">🔁 每年生日</span>');
+  if(m.type==='每年') tags.push(`<span class="badge yearly">🔁 每年${esc(occ)}</span>`);
   if(m.ai) tags.push('<span class="badge ai">🤖 AI 撰寫</span>');
   if(m.notifyMe) tags.push('<span class="badge notify">📥 寄出通知我</span>');
-  const subjShown = m.subject || (m.ai?`<span style="color:#9c8">🎂 ${esc(m.name||'他')} 生日祝福（AI 自動產生）</span>`:'<span style="color:#777">(無主旨)</span>');
+  const subjShown = m.subject || (m.ai?`<span style="color:#9c8">${occEmo} ${esc(m.name||'你')} ${esc(occ)}祝福（AI 自動產生）</span>`:'<span style="color:#777">(無主旨)</span>');
   const bodyShown = m.body ? `<div class="it-body" title="點一下展開">${esc(m.body)}</div>`
-    : (m.ai?`<div class="it-body" style="color:#7ee0d6">✨ 內容將在生日當天由 AI 自動撰寫（祝福＋未來建議＋鼓勵）</div>`:'');
+    : (m.ai?`<div class="it-body" style="color:#7ee0d6">✨ 內容將在${esc(occ)}當天由 AI 自動撰寫</div>`:'');
   return `<div class="item ${cls}"><div class="bar"></div>
     <div class="it-top"><span class="it-time">🕘 ${time}</span>
       <span class="badge ${cls}">${m.status}</span>${tags.join('')}
