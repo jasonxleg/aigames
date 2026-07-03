@@ -1,0 +1,640 @@
+<meta charset="utf-8">
+<title>照片 EXIF 資訊寫入器</title>
+<style>
+  :root{
+    --bg:#0f1220; --panel:#171a2b; --panel2:#1e2236; --line:#2a2f4a;
+    --txt:#e7e9f5; --sub:#9aa0c0; --accent:#6ea8fe; --accent2:#8b5cf6;
+    --ok:#34d399; --warn:#fbbf24; --err:#f87171;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI","Microsoft JhengHei",system-ui,sans-serif;
+       background:radial-gradient(1200px 600px at 20% -10%,#1b2140 0%,var(--bg) 60%);color:var(--txt);min-height:100vh}
+  header{padding:22px 28px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px}
+  header .logo{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;font-size:22px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 6px 20px rgba(110,168,254,.35)}
+  header h1{font-size:19px;margin:0}
+  header p{margin:2px 0 0;color:var(--sub);font-size:13px}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 20px 60px}
+  .grid{display:grid;grid-template-columns:340px 1fr;gap:22px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .card h2{font-size:14px;margin:0 0 14px;color:var(--sub);letter-spacing:.06em;text-transform:uppercase}
+  .drop{border:2px dashed var(--line);border-radius:14px;padding:26px 16px;text-align:center;cursor:pointer;
+        transition:.15s;background:var(--panel2)}
+  .drop:hover,.drop.over{border-color:var(--accent);background:#20263f}
+  .drop .big{font-size:34px;margin-bottom:8px}
+  .drop small{color:var(--sub)}
+  .thumb{margin-top:14px;text-align:center}
+  .thumb img{max-width:100%;max-height:230px;border-radius:10px;border:1px solid var(--line)}
+  .meta{margin-top:10px;font-size:12.5px;color:var(--sub);line-height:1.6;word-break:break-all}
+  label{display:block;font-size:12.5px;color:var(--sub);margin:0 0 5px}
+  .field{margin-bottom:13px}
+  input,select{width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--line);
+    background:var(--panel2);color:var(--txt);font-size:14px;font-family:inherit}
+  input:focus,select:focus{outline:none;border-color:var(--accent)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .sect{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--accent);border-left:3px solid var(--accent);padding-left:8px}
+  .sect+.sect{margin-top:22px}
+  .actions{margin-top:18px;display:flex;gap:12px;flex-wrap:wrap}
+  button{border:none;border-radius:11px;padding:12px 20px;font-size:15px;font-weight:600;cursor:pointer;
+    font-family:inherit;transition:.15s}
+  .primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;flex:1;min-width:180px}
+  .primary:hover{filter:brightness(1.08)}
+  .primary:disabled{opacity:.45;cursor:not-allowed;filter:none}
+  .ghost{background:var(--panel2);color:var(--txt);border:1px solid var(--line)}
+  .status{margin-top:14px;padding:12px 14px;border-radius:10px;font-size:13.5px;display:none;white-space:pre-wrap;line-height:1.6}
+  .status.ok{display:block;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.4);color:#a7f3d0}
+  .status.err{display:block;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.4);color:#fecaca}
+  .hint{font-size:11.5px;color:var(--sub);margin-top:-6px;margin-bottom:12px}
+  .chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--sub);margin:6px 0 14px}
+  .chk input{width:auto}
+</style>
+
+<header>
+  <div class="logo">🕒</div>
+  <div>
+    <h1>照片 EXIF 資訊寫入器</h1>
+    <p>選本地照片 → 填入相機／拍攝資訊 → 輸出 JPG（JPEG 來源不重壓、畫質不變）</p>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+    <!-- 左：選檔 -->
+    <div class="card">
+      <h2>1. 選擇照片</h2>
+      <div class="drop" id="drop">
+        <div class="big">📷</div>
+        <div>點此選擇 或 拖曳圖片到這裡</div>
+        <small>支援 JPG / PNG（PNG 會轉存為 JPG）</small>
+      </div>
+      <input type="file" id="file" accept="image/*" style="display:none">
+      <div class="thumb" id="thumb"></div>
+      <div class="meta" id="fileMeta"></div>
+
+      <h2 style="margin-top:22px">參考照片（可選）</h2>
+      <div class="hint" style="margin-top:-6px">選一張你「想要長這樣」的照片，會把它<b>整段 EXIF 原封複製</b>到輸出圖 —— 最像這張圖，且不碰目標像素。</div>
+      <div class="drop" id="refdrop" style="padding:16px">
+        <div class="big" style="font-size:26px">📋</div>
+        <div>選擇參考照片</div>
+        <small>選了就用它的資訊，忽略右側欄位</small>
+      </div>
+      <input type="file" id="reffile" accept="image/*" style="display:none">
+      <div class="meta" id="refMeta"></div>
+    </div>
+
+    <!-- 右：表單 -->
+    <div class="card">
+      <h2>2. 要寫入的資訊</h2>
+
+      <div class="sect">相機</div>
+      <div class="row2">
+        <div class="field"><label>相機製造商 (Make)</label><input id="make" value="Canon"></div>
+        <div class="field"><label>相機型號 (Model)</label><input id="model" value="Canon EOS 5D Mark IV"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>光圈孔徑 f/ (FNumber)</label><input id="fnumber" value="11"></div>
+        <div class="field"><label>曝光時間 (秒)</label><input id="exposure" value="1/100"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>ISO 速度</label><input id="iso" value="400"></div>
+        <div class="field"><label>曝光偏差 (步)</label><input id="ebias" value="0"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>焦距 (mm)</label><input id="focal" value="100"></div>
+        <div class="field"><label>最大光圈 (APEX)</label><input id="maxap" value="3"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>測光模式</label>
+          <select id="metering">
+            <option value="">—</option>
+            <option value="1">平均測光</option>
+            <option value="2">中央重點</option>
+            <option value="3">點測光</option>
+            <option value="5" selected>分區測光</option>
+            <option value="6">部分測光</option>
+          </select>
+        </div>
+        <div class="field"><label>閃光燈模式</label>
+          <select id="flash">
+            <option value="">—</option>
+            <option value="0">未閃光</option>
+            <option value="1">閃光燈</option>
+            <option value="9" selected>閃光燈，強制</option>
+            <option value="16">未閃光，強制關閉</option>
+            <option value="25">閃光燈，自動</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>35mm 焦距 (可留空)</label><input id="focal35" value="" placeholder="留空則不寫入"></div>
+      <div class="row2">
+        <div class="field"><label>鏡頭型號 (LensModel)</label><input id="lensModel" value="EF100mm f/2.8L Macro IS USM"></div>
+        <div class="field"><label>機身序號 (BodySerial)</label><input id="bodySerial" value="304057009002"></div>
+      </div>
+
+      <div class="sect">來源</div>
+      <div class="field"><label>作者 (可留空)</label><input id="artist" value="" placeholder="留空則不寫入"></div>
+      <div class="row2">
+        <div class="field">
+          <label>拍攝日期 (DateTimeOriginal) <a href="#" id="nowBtn" style="color:var(--accent);text-decoration:none;font-size:12px">🕒 設為現在</a></label>
+          <input type="datetime-local" id="dtOrig" step="1" value="2026-04-17T19:53:20">
+        </div>
+        <div class="field"><label>取得的日期 (可留空)</label><input type="datetime-local" id="dtDigi" step="1" value="2026-04-17T19:53:20"></div>
+      </div>
+      <div class="chk"><input type="checkbox" id="overrideDate"><label for="overrideDate" style="margin:0">複製參考照片時，仍把日期覆寫成上方拍攝日期（點「設為現在」會自動勾選）</label></div>
+      <div class="field"><label>程式名稱 (Software)</label><input id="software" value="Adobe Photoshop 24.0 (Windows)"></div>
+      <div class="field"><label>著作權 (可留空)</label><input id="copyright" value="" placeholder="留空則不寫入"></div>
+
+      <div class="chk"><input type="checkbox" id="syncModify" checked><label for="syncModify" style="margin:0">修改日期 (DateTime) 同步為拍攝日期</label></div>
+
+      <div class="sect">輸出</div>
+      <div class="field">
+        <label>輸出檔名</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input id="outname" value="" placeholder="選檔後自動帶入，可自行修改">
+          <span style="color:var(--sub);font-size:14px">.jpg</span>
+        </div>
+      </div>
+      <div class="hint">不用打副檔名，會自動加 .jpg</div>
+      <div class="chk"><input type="checkbox" id="cropEnable"><label for="cropEnable" style="margin:0">裁成直式 2:3（置中裁掉左右兩邊；會重新編碼、像素改變）</label></div>
+      <div class="chk"><input type="checkbox" id="compress"><label for="compress" style="margin:0">自動壓縮到 2MB 以下（僅在超過時才重壓；不縮到小於 400×600）</label></div>
+
+      <div class="actions">
+        <button class="primary" id="go" disabled>產生並下載 JPG</button>
+        <button class="ghost" id="reset">重設欄位</button>
+      </div>
+      <div class="status" id="status"></div>
+    </div>
+  </div>
+
+  <!-- 峇里島電子簽證檢驗 -->
+  <div class="card" style="margin-top:22px">
+    <h2>3. 峇里島（印尼）電子簽證照片檢驗</h2>
+    <div class="hint" style="margin-top:-6px">依印尼官方 e-Visa 照片規格檢查<b>目前左側選取的照片</b>（純白背景、最小 400×600、≤2MB、頭部/眼睛比例）。輔助檢查，最終以官方系統上傳為準。</div>
+    <button class="ghost" id="visaCheck">🛂 檢驗目前照片</button>
+    <div id="visaResult" style="margin-top:14px"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ============ EXIF 編碼器（big-endian / Motorola "MM"）============ */
+const TYPE={ASCII:2,SHORT:3,LONG:4,RATIONAL:5,UNDEFINED:7,SRATIONAL:10};
+const be16=n=>[(n>>8)&255,n&255];
+const be32=n=>{n>>>=0;return[(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255];};
+function gcd(a,b){a=Math.abs(a);b=Math.abs(b);while(b){[a,b]=[b,a%b];}return a||1;}
+function toRat(x){
+  if(typeof x==='string'&&x.includes('/')){const p=x.split('/');return[Math.round(+p[0])||0,Math.round(+p[1])||1];}
+  x=+x; if(!isFinite(x))x=0;
+  if(Number.isInteger(x))return[x,1];
+  let den=10000,num=Math.round(x*den),g=gcd(num,den);return[num/g,den/g];
+}
+// 值 bytes 產生器（皆 big-endian）
+const V={
+  ascii:s=>{const a=[];for(let i=0;i<s.length;i++)a.push(s.charCodeAt(i)&255);a.push(0);return{type:TYPE.ASCII,count:a.length,bytes:a};},
+  short:n=>({type:TYPE.SHORT,count:1,bytes:be16(n&65535)}),
+  long:n=>({type:TYPE.LONG,count:1,bytes:be32(n)}),
+  rat:x=>{const[a,b]=toRat(x);return{type:TYPE.RATIONAL,count:1,bytes:be32(a).concat(be32(b))};},
+  srat:x=>{const[a,b]=toRat(x);return{type:TYPE.SRATIONAL,count:1,bytes:be32(a>>>0).concat(be32(b>>>0))};},
+  undef:s=>{const a=[];for(let i=0;i<s.length;i++)a.push(s.charCodeAt(i)&255);return{type:TYPE.UNDEFINED,count:a.length,bytes:a};},
+};
+function E(tag,v){return{tag,type:v.type,count:v.count,val:v.bytes};}
+
+// fields → APP1 payload(Uint8Array，含 0xFFE1 marker)
+function buildExifApp1(f){
+  const ifd0=[],exif=[];
+  if(f.make)      ifd0.push(E(0x010F,V.ascii(f.make)));
+  if(f.model)     ifd0.push(E(0x0110,V.ascii(f.model)));
+  if(f.software)  ifd0.push(E(0x0131,V.ascii(f.software)));
+  if(f.dateModify)ifd0.push(E(0x0132,V.ascii(f.dateModify)));
+  if(f.artist)    ifd0.push(E(0x013B,V.ascii(f.artist)));
+  if(f.copyright) ifd0.push(E(0x8298,V.ascii(f.copyright)));
+  // ExifIFD
+  exif.push(E(0x9000,V.undef('0230'))); // ExifVersion
+  if(f.exposure!=null&&f.exposure!=='') exif.push(E(0x829A,V.rat(f.exposure)));
+  if(f.fnumber!=='')                    exif.push(E(0x829D,V.rat(f.fnumber)));
+  if(f.iso!=='')                        exif.push(E(0x8827,V.short(parseInt(f.iso,10)||0)));
+  if(f.dateOriginal)                    exif.push(E(0x9003,V.ascii(f.dateOriginal)));
+  if(f.dateDigitized)                   exif.push(E(0x9004,V.ascii(f.dateDigitized)));
+  if(f.maxAperture!=='')                exif.push(E(0x9205,V.rat(f.maxAperture)));
+  if(f.exposureBias!=='')               exif.push(E(0x9204,V.srat(f.exposureBias)));
+  if(f.metering)                        exif.push(E(0x9207,V.short(parseInt(f.metering,10))));
+  if(f.flash!=='')                      exif.push(E(0x9209,V.short(parseInt(f.flash,10))));
+  if(f.focalLength!=='')                exif.push(E(0x920A,V.rat(f.focalLength)));
+  if(f.focal35)                         exif.push(E(0xA405,V.short(parseInt(f.focal35,10))));
+  if(f.bodySerial)                      exif.push(E(0xA431,V.ascii(f.bodySerial)));
+  if(f.lensModel)                       exif.push(E(0xA434,V.ascii(f.lensModel)));
+
+  const byTag=(a,b)=>a.tag-b.tag;
+  ifd0.sort(byTag); exif.sort(byTag);
+
+  // 版面配置
+  const ifd0Count=ifd0.length+1; // +ExifPtr
+  const ifd0Off=8;
+  const ifd0Size=2+12*ifd0Count+4;
+  const exifOff=ifd0Off+ifd0Size;
+  const exifSize=2+12*exif.length+4;
+  const dataOff=exifOff+exifSize;
+
+  const dataBlob=[];
+  let cursor=dataOff;
+  const place=list=>list.forEach(e=>{
+    if(e.val.length<=4){const p=e.val.slice();while(p.length<4)p.push(0);e.field=p;}
+    else{e.field=be32(cursor);for(const b of e.val)dataBlob.push(b);cursor+=e.val.length;
+         if(cursor%2){dataBlob.push(0);cursor++;}}
+  });
+  place(ifd0); place(exif);
+
+  const emitEntry=e=>be16(e.tag).concat(be16(e.type),be32(e.count),e.field);
+  // IFD0
+  const ifd0Bytes=be16(ifd0Count);
+  ifd0.forEach(e=>{for(const b of emitEntry(e))ifd0Bytes.push(b);});
+  // ExifPtr 也要照 tag 排序插入正確位置——0x8769 大於上面所有 IFD0 tag(最大 0x8298)，放最後即可
+  for(const b of emitEntry({tag:0x8769,type:TYPE.LONG,count:1,field:be32(exifOff)}))ifd0Bytes.push(b);
+  for(const b of be32(0))ifd0Bytes.push(b); // next IFD = 0
+  // ExifIFD
+  const exifBytes=be16(exif.length);
+  exif.forEach(e=>{for(const b of emitEntry(e))exifBytes.push(b);});
+  for(const b of be32(0))exifBytes.push(b);
+
+  const header=[0x4D,0x4D].concat(be16(0x002A),be32(8));
+  const tiff=header.concat(ifd0Bytes,exifBytes,dataBlob);
+  const payload=[0x45,0x78,0x69,0x66,0,0].concat(tiff); // "Exif\0\0"
+  const len=payload.length+2;
+  if(len>65535)throw new Error('EXIF 過大');
+  const app1=[0xFF,0xE1].concat(be16(len),payload);
+  return new Uint8Array(app1);
+}
+
+/* ============ JPEG 拼接：移除舊 Exif APP1，插入新的 ============ */
+function stripExifApp1(b){ // b:Uint8Array
+  if(b[0]!==0xFF||b[1]!==0xD8)throw new Error('不是 JPEG');
+  const parts=[b.subarray(0,2)];let p=2;
+  while(p<b.length){
+    if(b[p]!==0xFF){parts.push(b.subarray(p));break;}
+    let m=b[p+1];
+    while(m===0xFF){p++;m=b[p+1];}
+    if(m===0xD9||m===0xDA){parts.push(b.subarray(p));break;}
+    const len=(b[p+2]<<8)|b[p+3];
+    const seg=b.subarray(p,p+2+len);
+    let isExif=false;
+    if(m===0xE1){
+      let sig='';for(let i=0;i<6;i++)sig+=String.fromCharCode(b[p+4+i]);
+      if(sig==='Exif\0\0')isExif=true;
+    }
+    if(!isExif)parts.push(seg);
+    p+=2+len;
+  }
+  let total=0;parts.forEach(x=>total+=x.length);
+  const out=new Uint8Array(total);let o=0;parts.forEach(x=>{out.set(x,o);o+=x.length;});
+  return out;
+}
+function injectExif(jpegBytes,app1){
+  const stripped=stripExifApp1(jpegBytes);
+  const out=new Uint8Array(stripped.length+app1.length);
+  out.set(stripped.subarray(0,2),0);
+  out.set(app1,2);
+  out.set(stripped.subarray(2),2+app1.length);
+  return out;
+}
+
+/* ============ UI ============ */
+const $=id=>document.getElementById(id);
+let currentFile=null,currentBytes=null,currentIsJpeg=false;
+let refBytes=null,refApp1=null;
+
+// 就地把日期覆寫進一段 APP1（日期是固定長度 ASCII，不動其他 bytes / 位移）
+function patchDatesInApp1(app1,dateStr){
+  const b=app1.slice(); // 複製，不改原參考
+  const ts=10; // 0xFFE1(2)+len(2)+"Exif\0\0"(6)
+  const le=(b[ts]===0x49&&b[ts+1]===0x49);
+  const u16=o=>le?(b[o]|b[o+1]<<8):(b[o]<<8|b[o+1]);
+  const u32=o=>le?(b[o]|b[o+1]<<8|b[o+2]<<16|b[o+3]*16777216):(b[o]*16777216|b[o+1]<<16|b[o+2]<<8|b[o+3]);
+  const bytes=[];for(let i=0;i<dateStr.length&&i<19;i++)bytes.push(dateStr.charCodeAt(i));
+  const writeAt=(off,count)=>{for(let i=0;i<count;i++)b[off+i]=i<bytes.length?bytes[i]:0;};
+  const walk=(ifdOff,tags)=>{
+    let extra=0;
+    const n=u16(ifdOff);let e=ifdOff+2;
+    for(let i=0;i<n;i++,e+=12){
+      const tag=u16(e),type=u16(e+2),cnt=u32(e+4);
+      const sz={1:1,2:1,3:2,4:4,5:8,10:8}[type]||1,blen=sz*cnt;
+      const voff=blen<=4?e+8:ts+u32(e+8);
+      if(tags.datetime&&tag===0x0132&&type===2)writeAt(voff,cnt);
+      if(tag===0x8769)extra=ts+u32(e+8); // ExifIFD ptr
+      if(tags.orig&&tag===0x9003&&type===2)writeAt(voff,cnt);
+      if(tags.digi&&tag===0x9004&&type===2)writeAt(voff,cnt);
+    }
+    return extra;
+  };
+  const ifd0=ts+u32(ts+4);
+  const exifPtr=walk(ifd0,{datetime:true});
+  if(exifPtr)walk(exifPtr,{orig:true,digi:true});
+  return b;
+}
+
+// 從 JPEG 取出整段 Exif APP1（含 0xFFE1 marker）；沒有則回 null
+function extractExifApp1(b){
+  if(b[0]!==0xFF||b[1]!==0xD8)throw new Error('參考檔不是 JPEG');
+  let p=2;
+  while(p<b.length){
+    if(b[p]!==0xFF){break;}
+    let m=b[p+1];while(m===0xFF){p++;m=b[p+1];}
+    if(m===0xD9||m===0xDA)break;
+    const len=(b[p+2]<<8)|b[p+3];
+    if(m===0xE1){
+      let sig='';for(let i=0;i<6;i++)sig+=String.fromCharCode(b[p+4+i]);
+      if(sig==='Exif\0\0')return b.subarray(p,p+2+len);
+    }
+    p+=2+len;
+  }
+  return null;
+}
+
+function fmtDT(v){ // "2026-04-17T19:55" -> "2026:04:17 19:55:00"
+  if(!v)return'';
+  const d=v.split('T'); if(d.length<2)return'';
+  const dt=d[0].replace(/-/g,':');
+  let t=d[1]; if(t.length===5)t+=':00';
+  return dt+' '+t;
+}
+
+function loadFile(file){
+  if(!file||!file.type.startsWith('image/')){setStatus('請選擇圖片檔','err');return;}
+  currentFile=file;
+  const r=new FileReader();
+  r.onload=e=>{
+    currentBytes=new Uint8Array(e.target.result);
+    currentIsJpeg=currentBytes[0]===0xFF&&currentBytes[1]===0xD8;
+    const url=URL.createObjectURL(file);
+    $('thumb').innerHTML='<img src="'+url+'">';
+    $('fileMeta').innerHTML='<b>'+file.name+'</b><br>'+
+      (file.size/1024).toFixed(1)+' KB · '+(currentIsJpeg?'JPEG（將無損保留像素）':'非 JPEG（將轉存為 JPG）');
+    $('go').disabled=false;
+    const base=(file.name.replace(/\.[^.]+$/,''))||'photo';
+    if(!$('outname').value.trim())$('outname').value=base+'_exif';
+    setStatus('',null);
+  };
+  r.readAsArrayBuffer(file);
+}
+
+function gatherFields(){
+  const dtOrig=fmtDT($('dtOrig').value);
+  return{
+    make:$('make').value.trim(), model:$('model').value.trim(),
+    software:$('software').value.trim(), artist:$('artist').value.trim(),
+    copyright:$('copyright').value.trim(),
+    fnumber:$('fnumber').value.trim(), exposure:$('exposure').value.trim(),
+    iso:$('iso').value.trim(), exposureBias:$('ebias').value.trim(),
+    focalLength:$('focal').value.trim(), maxAperture:$('maxap').value.trim(),
+    metering:$('metering').value, flash:$('flash').value,
+    focal35:$('focal35').value.trim(),
+    lensModel:$('lensModel').value.trim(), bodySerial:$('bodySerial').value.trim(),
+    dateOriginal:dtOrig, dateDigitized:fmtDT($('dtDigi').value),
+    dateModify:$('syncModify').checked?dtOrig:'',
+  };
+}
+
+// 統一的 canvas 編碼管線：可選置中裁成 cropRatio=[rw,rh]，可選壓到 targetBytes 以下
+// 壓縮策略：先降 JPEG 品質，仍超過就縮尺寸（但不低於 400×600），逐步逼近目標。
+function encodeCanvas(file,cropRatio,targetBytes){
+  file=file||currentFile;
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=async()=>{
+      try{
+        const sw=img.naturalWidth,sh=img.naturalHeight;
+        let x=0,y=0,w=sw,h=sh;
+        if(cropRatio){const tr=cropRatio[0]/cropRatio[1],cr=sw/sh;
+          if(cr>tr){w=Math.round(sh*tr);x=Math.round((sw-w)/2);}       // 太寬 → 裁左右
+          else if(cr<tr){h=Math.round(sw/tr);y=Math.round((sh-h)/2);}} // 太高 → 裁上下
+        const enc=(scl,q)=>new Promise((r,j)=>{
+          const cw=Math.max(1,Math.round(w*scl)),ch=Math.max(1,Math.round(h*scl));
+          const c=document.createElement('canvas');c.width=cw;c.height=ch;
+          c.getContext('2d').drawImage(img,x,y,w,h,0,0,cw,ch);
+          c.toBlob(b=>b?b.arrayBuffer().then(ab=>r({bytes:new Uint8Array(ab),w:cw,h:ch,q,scl})):j(new Error('編碼失敗')),'image/jpeg',q);
+        });
+        if(!targetBytes){const o=await enc(1,0.95);return res({...o,cutX:x,cutY:y});}
+        const qs=[0.95,0.9,0.85,0.8,0.72,0.65,0.55,0.45];
+        let scl=1,best=null;
+        for(let pass=0;pass<8;pass++){
+          for(const q of qs){
+            const o=await enc(scl,q); best=o;
+            if(o.bytes.length<=targetBytes)return res({...o,cutX:x,cutY:y});
+          }
+          const nscl=scl*0.85;
+          if(Math.round(w*nscl)<400||Math.round(h*nscl)<600)break; // 不低於最小尺寸
+          scl=nscl;
+        }
+        return res({...best,cutX:x,cutY:y,over:best.bytes.length>targetBytes});
+      }catch(e){rej(e);}
+    };
+    img.onerror=()=>rej(new Error('圖片載入失敗'));
+    img.src=URL.createObjectURL(file);
+  });
+}
+// 裁切用薄包裝（無目標大小）
+function cropToJpegBytes(rw,rh,file){return encodeCanvas(file,[rw,rh],null);}
+
+function toJpegBytes(){ // returns Promise<Uint8Array> of jpeg (無 exif)
+  if(currentIsJpeg)return Promise.resolve(currentBytes);
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;
+      c.getContext('2d').drawImage(img,0,0);
+      c.toBlob(b=>{if(!b)return rej(new Error('轉檔失敗'));
+        b.arrayBuffer().then(ab=>res(new Uint8Array(ab)));},'image/jpeg',0.95);
+    };
+    img.onerror=()=>rej(new Error('圖片載入失敗'));
+    img.src=URL.createObjectURL(currentFile);
+  });
+}
+
+function loadRef(file){
+  if(!file){return;}
+  const r=new FileReader();
+  r.onload=e=>{
+    refBytes=new Uint8Array(e.target.result);
+    try{
+      refApp1=extractExifApp1(refBytes);
+      if(!refApp1){$('refMeta').innerHTML='<span style="color:var(--warn)">⚠ 這張參考照片沒有 EXIF，無法複製。</span>';return;}
+      $('refMeta').innerHTML='<b>'+file.name+'</b><br><span style="color:var(--ok)">✓ 已載入參考 EXIF（'+refApp1.length+' bytes），產生時會直接複製到輸出。</span>';
+    }catch(err){refApp1=null;$('refMeta').innerHTML='<span style="color:var(--err)">❌ '+err.message+'</span>';}
+  };
+  r.readAsArrayBuffer(file);
+}
+
+async function generate(){
+  if(!currentBytes){setStatus('請先選擇照片','err');return;}
+  $('go').disabled=true;
+  try{
+    const f=gatherFields();
+    let app1,mode;
+    if(refApp1){
+      app1=refApp1;mode='ref';
+      if($('overrideDate').checked&&f.dateOriginal)app1=patchDatesInApp1(refApp1,f.dateOriginal);
+    }else{app1=buildExifApp1(f);mode='form';}
+    const doCrop=$('cropEnable').checked,doComp=$('compress').checked;
+    const LIMIT=2*1024*1024;
+    let jpeg,info=null;
+    if(doComp){
+      // 已 <2MB 且不裁切、來源為 JPEG → 維持無損；否則重壓到目標以下
+      if(!doCrop&&currentIsJpeg&&(currentBytes.length+app1.length)<=LIMIT)jpeg=currentBytes;
+      else{info=await encodeCanvas(currentFile,doCrop?[2,3]:null,LIMIT-app1.length-2048);jpeg=info.bytes;}
+    }else if(doCrop){info=await encodeCanvas(currentFile,[2,3],null);jpeg=info.bytes;}
+    else jpeg=await toJpegBytes();
+    const out=injectExif(jpeg,app1);
+    const blob=new Blob([out],{type:'image/jpeg'});
+    let name=$('outname').value.trim()||((currentFile.name.replace(/\.[^.]+$/,''))||'photo')+'_exif';
+    name=name.replace(/[\\/:*?"<>|]/g,'_').replace(/\.jpe?g$/i,'')+'.jpg';
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);a.download=name;
+    document.body.appendChild(a);a.click();a.remove();
+    const finalMB=(out.length/1024/1024).toFixed(2);
+    let pixLine;
+    if(info){
+      const ops=[];if(doCrop)ops.push('裁成 2:3');if(doComp)ops.push('壓縮');
+      pixLine='✂ '+ops.join(' + ')+' → '+info.w+'×'+info.h+' px、'+finalMB+' MB（重新編碼為 JPG）';
+      if(info.over)pixLine+='\n⚠ 已用最低設定（不小於 400×600）仍略大於 2MB，建議改用較小的原圖。';
+    }else{
+      pixLine=(currentIsJpeg?'JPEG 像素未重壓，尺寸與畫質 100% 不變':'⚠ 來源非 JPEG，已重新編碼為 JPG')+'（'+finalMB+' MB）。';
+    }
+    setStatus('✅ 已產生並下載：'+name+'\n'+
+      (mode==='ref'?'已複製參考照片的完整 EXIF 到輸出。':'已依右側欄位寫入 EXIF。')+'\n'+
+      pixLine+'\n可用「檔案 → 內容 → 詳細資料」檢視寫入的 EXIF。','ok');
+  }catch(err){
+    setStatus('❌ '+err.message,'err');console.error(err);
+  }finally{$('go').disabled=false;}
+}
+
+function setStatus(msg,type){
+  const s=$('status');s.textContent=msg;s.className='status'+(type?' '+type:'');
+  if(!msg)s.className='status';
+}
+
+// 事件
+$('drop').onclick=()=>$('file').click();
+$('file').onchange=e=>loadFile(e.target.files[0]);
+$('refdrop').onclick=()=>$('reffile').click();
+$('reffile').onchange=e=>loadRef(e.target.files[0]);
+$('go').onclick=generate;
+$('reset').onclick=()=>location.reload();
+$('visaCheck').onclick=async()=>{
+  if(!currentFile){$('visaResult').innerHTML='<div style="color:var(--warn)">請先在左側「1. 選擇照片」選一張照片。</div>';return;}
+  $('visaResult').innerHTML='<div style="color:var(--sub)">檢驗中…</div>';
+  try{const rows=await analyzeVisa(currentFile);$('visaResult').innerHTML=renderVisa(rows);}
+  catch(e){$('visaResult').innerHTML='<div style="color:var(--err)">檢驗失敗：'+e.message+'</div>';}
+};
+$('nowBtn').onclick=e=>{
+  e.preventDefault();
+  const d=new Date(),p=n=>String(n).padStart(2,'0');
+  const s=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+  $('dtOrig').value=s; $('dtDigi').value=s;
+  $('overrideDate').checked=true;
+};
+const dz=$('drop');
+['dragover','dragenter'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('over');}));
+dz.addEventListener('drop',e=>{if(e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0]);});
+
+/* ============ 峇里島（印尼）電子簽證照片檢驗 ============ */
+// 官方 e-Visa 規格：JPEG/JPG/PNG 彩色、最小 400×600、≤2MB、純白背景、
+// 頭頂(含髮)到下巴佔全高 50–60%、眼睛高度位於全高 50–60%。
+function drawToCanvas(file,maxSide){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>{
+      let w=img.naturalWidth,h=img.naturalHeight,s=1;
+      if(maxSide&&Math.max(w,h)>maxSide)s=maxSide/Math.max(w,h);
+      const c=document.createElement('canvas');c.width=Math.round(w*s);c.height=Math.round(h*s);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      res({canvas:c,natW:w,natH:h});
+    };
+    img.onerror=()=>rej(new Error('圖片無法載入'));
+    img.src=URL.createObjectURL(file);
+  });
+}
+// 取一塊區域的平均色與亮度變異
+function sampleRegion(ctx,x,y,w,h){
+  const d=ctx.getImageData(x,y,w,h).data;let r=0,g=0,b=0,n=0;
+  for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}
+  r/=n;g/=n;b/=n;
+  let varSum=0;
+  for(let i=0;i<d.length;i+=4){const lum=(d[i]+d[i+1]+d[i+2])/3;varSum+=(lum-(r+g+b)/3)**2;}
+  return{r,g,b,std:Math.sqrt(varSum/n)};
+}
+async function analyzeVisa(file){
+  const out=[];
+  const add=(label,status,detail)=>out.push({label,status,detail});
+  // 1 格式
+  const t=(file.type||'').toLowerCase();
+  if(t==='image/jpeg'||t==='image/jpg'||t==='image/png')add('檔案格式','pass',t+' ✓（官方接受 JPG/JPEG/PNG 彩色）');
+  else add('檔案格式','fail',(t||'未知')+'（需為 JPG/JPEG/PNG）');
+  // 2 檔案大小
+  const kb=file.size/1024;
+  if(kb>2048)add('檔案大小','fail',kb.toFixed(0)+' KB（超過官方上限 2 MB）');
+  else if(kb<15)add('檔案大小','warn',kb.toFixed(1)+' KB（偏小，可能過度壓縮、清晰度不足）');
+  else add('檔案大小','pass',kb.toFixed(0)+' KB（≤ 2 MB ✓）');
+
+  const {canvas,natW,natH}=await drawToCanvas(file,900);
+  const ctx=canvas.getContext('2d');const W=canvas.width,H=canvas.height;
+  // 3 尺寸
+  if(natW>=400&&natH>=600)add('尺寸','pass',natW+'×'+natH+' px（≥ 400×600 ✓）');
+  else add('尺寸','fail',natW+'×'+natH+' px（未達最小 400×600）');
+  // 4 方向/比例
+  if(natH>natW)add('方向','pass','直式 ✓（比例 '+(natW/natH).toFixed(2)+'，建議接近 3:4=0.75）');
+  else add('方向','warn','非直式（大頭照建議直式）');
+  // 5 背景（取上方兩角，頭髮通常置中、上角必為背景）
+  const bw=Math.max(6,Math.round(W*0.12)),bh=Math.max(6,Math.round(H*0.10));
+  const tl=sampleRegion(ctx,0,0,bw,bh), tr=sampleRegion(ctx,W-bw,0,bw,bh);
+  const mr=(tl.r+tr.r)/2,mg=(tl.g+tr.g)/2,mb=(tl.b+tr.b)/2;
+  const near=Math.max(mr,mg,mb)-Math.min(mr,mg,mb);
+  const bright=(mr+mg+mb)/3, uniform=Math.max(tl.std,tr.std);
+  const rgbTxt='RGB('+mr.toFixed(0)+','+mg.toFixed(0)+','+mb.toFixed(0)+')';
+  if(bright>=235&&near<=14&&uniform<=14)add('背景','pass','純白 ✓ '+rgbTxt);
+  else if(bright>=205&&near<=30)add('背景','warn','偏白但非純白 '+rgbTxt+'（官方要求純白、無陰影/雜物）');
+  else add('背景','fail','背景非白 '+rgbTxt+'（官方要求純白背景）');
+  // 6 臉部構圖（若瀏覽器支援 FaceDetector）
+  if('FaceDetector' in window){
+    try{
+      const fd=new window.FaceDetector({fastMode:false,maxDetectedFaces:5});
+      const faces=await fd.detect(canvas);
+      if(faces.length===0)add('臉部','warn','未偵測到人臉（請確認正面清晰、無遮擋）');
+      else if(faces.length>1)add('臉部','fail','偵測到 '+faces.length+' 張臉（只能有本人一人）');
+      else{
+        const bb=faces[0].boundingBox;
+        const headRatio=bb.height/H; // 偵測框≈臉部，略小於「髮頂到下巴」
+        const cx=(bb.x+bb.width/2)/W;
+        let s='pass',msg='臉部框佔高 '+(headRatio*100).toFixed(0)+'%、水平置中 '+(cx*100).toFixed(0)+'%';
+        if(headRatio<0.40||headRatio>0.72)s='warn',msg+='（頭部佔比建議約 50–60%，過大/過小請調整）';
+        if(cx<0.40||cx>0.60)s='warn',msg+='（臉未置中）';
+        add('臉部構圖',s,msg+'（估算值，僅供參考）');
+      }
+    }catch(e){add('臉部構圖','warn','此瀏覽器無法自動偵測臉部，請人工確認：頭部佔全高 50–60%、眼睛在 50–60% 高度。');}
+  }else{
+    add('臉部構圖','warn','此瀏覽器不支援自動臉部偵測，請人工確認：頭部佔全高 50–60%、眼睛在 50–60% 高度、正面無遮擋。');
+  }
+  return out;
+}
+function renderVisa(rows){
+  const icon={pass:'✅',warn:'⚠️',fail:'❌'};
+  const col={pass:'var(--ok)',warn:'var(--warn)',fail:'var(--err)'};
+  const fails=rows.filter(r=>r.status==='fail').length,warns=rows.filter(r=>r.status==='warn').length;
+  let head=fails?('❌ 有 '+fails+' 項不符合，'+(warns?'另 '+warns+' 項需注意':'')):
+           warns?('⚠️ 大致可用，但有 '+warns+' 項建議確認'):'✅ 全部通過，符合官方規格';
+  let html='<div style="font-size:15px;font-weight:600;margin-bottom:10px;color:'+
+    (fails?'var(--err)':warns?'var(--warn)':'var(--ok)')+'">'+head+'</div>';
+  html+='<div style="display:flex;flex-direction:column;gap:8px">';
+  rows.forEach(r=>{
+    html+='<div style="display:flex;gap:10px;align-items:flex-start;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 12px">'+
+      '<span>'+icon[r.status]+'</span>'+
+      '<span style="min-width:78px;color:'+col[r.status]+';font-weight:600">'+r.label+'</span>'+
+      '<span style="color:var(--sub);font-size:13px">'+r.detail+'</span></div>';
+  });
+  html+='</div><div class="hint" style="margin-top:10px">規格來源：印尼官方 e-Visa（imigrasi.go.id）。背景與臉部為自動估算，僅供參考。</div>';
+  return html;
+}
+
+// 供無頭測試呼叫
+window.__t={buildExifApp1,injectExif,stripExifApp1,extractExifApp1,patchDatesInApp1,analyzeVisa,renderVisa,cropToJpegBytes,encodeCanvas};
+</script>
