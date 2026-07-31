@@ -1,0 +1,1658 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<!-- 由 build-single.js 自動產生：circuit.js 與 app.js 已內嵌，這是單一檔案版，可直接放 GitHub / GitHub Pages。要改程式請改 K:\Html5\breadboard-sim 下的原始檔後重新產生。 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=3">
+<title>麵包板模擬器 · 蠟筆發電 → 橋式整流 → 電容 → LED</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c222c; --line:#2a3140;
+    --tx:#e6edf3; --dim:#8b97a8; --acc:#ffd43b; --ok:#40c057; --err:#e5484d; --warn:#f08c00;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);
+    font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,-apple-system,sans-serif;}
+  header{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;
+    gap:10px;align-items:center;background:linear-gradient(180deg,#171d26,#111620)}
+  header h1{font-size:17px;margin:0;letter-spacing:.5px}
+  header .sub{font-size:12px;color:var(--dim)}
+  header .grow{flex:1}
+  button{font-family:inherit;font-size:13px;color:var(--tx);background:var(--panel2);
+    border:1px solid var(--line);border-radius:8px;padding:7px 11px;cursor:pointer}
+  button:hover{border-color:#3d4757;background:#232b37}
+  button.on{background:#2b3a2b;border-color:#40c057;color:#d3f9d8}
+  button.danger:hover{border-color:var(--err);color:#ffc9c9}
+  main{display:grid;grid-template-columns:212px minmax(0,1fr) 340px;gap:12px;padding:12px;align-items:start}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px;margin-bottom:11px}
+  .card h2{font-size:13px;margin:0 0 8px;color:#cfd8e3;letter-spacing:.4px;
+    display:flex;align-items:center;gap:6px}
+  .dim{color:var(--dim)}
+  /* 零件盒 */
+  .part{width:100%;display:flex;align-items:center;gap:8px;margin-bottom:6px;text-align:left;padding:6px 8px}
+  .part .pico{width:40px;height:18px;flex:0 0 40px}
+  .part .pico svg{width:40px;height:18px}
+  .part .pname{flex:1;font-size:12px;line-height:1.2}
+  .part .pcnt{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .part.active{border-color:var(--acc);background:#2e2a16;box-shadow:0 0 0 1px var(--acc) inset}
+  .part.used{opacity:.45}
+  #wireColors{display:flex;gap:5px;margin-top:4px}
+  .wc{width:22px;height:22px;border-radius:50%;padding:0;border:2px solid #444}
+  .wc.on{border-color:var(--acc);transform:scale(1.12)}
+  #toolHint{font-size:12px;line-height:1.5}
+  .selbtns{display:flex;gap:6px;margin-top:8px}
+  .selbtns button{flex:1;font-size:12px;padding:6px 4px}
+  /* 麵包板 */
+  #boardWrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px;overflow:auto}
+  #board{width:100%;min-width:760px;display:block;touch-action:manipulation}
+  #board .hit{cursor:pointer}
+  #board .hole{transition:fill .12s linear}
+  #board .comp{cursor:pointer}
+  #board .comp.sel .pick{stroke:rgba(255,212,59,.35)}
+  text.bnum{font-size:10px;fill:#8a8474}
+  text.brow{font-size:11px;fill:#6f6a5c;font-weight:700}
+  text.brail{font-size:13px;font-weight:700}
+  text.bmark{font-size:10px;fill:#8f8877}
+  text.clabel{font-size:10px;fill:#dfe6ef;paint-order:stroke;stroke:#0e1116;stroke-width:3px;stroke-linejoin:round}
+  /* 儀表 */
+  #tapBtn{width:100%;font-size:16px;padding:15px 10px;background:linear-gradient(180deg,#3a2c12,#2a2010);
+    border-color:#7a5a20;font-weight:700}
+  #tapBtn.on{background:linear-gradient(180deg,#6b5116,#4a3810);border-color:var(--acc);color:#fff3bf;
+    box-shadow:0 0 18px rgba(255,212,59,.35)}
+  .btnrow{display:flex;gap:6px;margin-top:7px}
+  .btnrow button{flex:1;font-size:12px}
+  .spd{min-width:0}
+  .ro{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:12px}
+  .ro .lb{flex:0 0 96px;color:var(--dim)}
+  .ro .vl{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+  .ro .vl.lit{color:#ffd8a8;text-shadow:0 0 10px rgba(255,150,80,.8)}
+  .meter{flex:1;height:8px;background:#0d1017;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+  .meter i{display:block;height:100%;width:0;background:var(--ok);transition:width .12s linear}
+  #ledBulb{font-size:26px;line-height:1;transition:opacity .1s linear}
+  #scope{width:100%;height:120px;border-radius:8px;border:1px solid var(--line);display:block}
+  .msg{font-size:12px;line-height:1.55;padding:6px 8px;border-radius:7px;margin-bottom:5px;
+    border-left:3px solid var(--line);background:#12161d}
+  .msg.err{border-left-color:var(--err);background:#231216}
+  .msg.warn{border-left-color:var(--warn);background:#231c11}
+  .msg.ok{border-left-color:var(--ok);background:#121e16}
+  .msg.info{border-left-color:#4a5568}
+  .step{font-size:12px;padding:5px 6px;border-radius:7px;margin-bottom:4px;background:#12161d;
+    display:flex;gap:7px;align-items:flex-start;line-height:1.45}
+  .step .sn{flex:0 0 17px;height:17px;border-radius:50%;background:#2a3140;color:#aeb8c6;
+    font-size:11px;text-align:center;line-height:17px;font-weight:700}
+  .step.done{background:#121e16;color:#c8f0d4}
+  .step.done .sn{background:var(--ok);color:#08210f}
+  .prow{display:flex;align-items:center;gap:8px;font-size:12px;margin:7px 0}
+  .prow label{flex:0 0 92px;color:var(--dim)}
+  .prow input[type=range]{flex:1;min-width:0}
+  .prow select{flex:1;background:var(--panel2);color:var(--tx);border:1px solid var(--line);
+    border-radius:6px;padding:4px 6px;font-family:inherit}
+  .prow .pv{flex:0 0 62px;text-align:right;font-variant-numeric:tabular-nums}
+  #probeBox{display:none}
+  #toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);background:#232b37;
+    border:1px solid var(--acc);color:#fff3bf;padding:9px 15px;border-radius:9px;font-size:13px;
+    opacity:0;pointer-events:none;transition:.25s;z-index:99}
+  #toast.show{opacity:1;transform:translate(-50%,0)}
+  dialog{background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:14px;
+    max-width:640px;padding:18px;line-height:1.7;font-size:13px}
+  dialog::backdrop{background:rgba(0,0,0,.6)}
+  dialog h3{margin:14px 0 6px;font-size:14px;color:var(--acc)}
+  dialog ul{margin:4px 0;padding-left:20px}
+  kbd{background:#0d1017;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:1px 5px;font-size:11px}
+  @media (max-width:1280px){
+    main{grid-template-columns:1fr}
+    aside.left{order:2}
+    section.center{order:1}
+    aside.right{order:3}
+    .part{display:inline-flex;width:auto;margin-right:6px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🍞 麵包板模擬器</h1>
+    <div class="sub">蠟筆摩擦發電 → 橋式整流（1N4007 ×4）→ 10 µF 儲能電容 → LED</div>
+  </div>
+  <div class="grow"></div>
+  <button id="btnRef">⚡ 一鍵標準接線</button>
+  <button id="btnUndo">↶ 復原</button>
+  <button id="btnVolt" class="on">🎨 電壓顏色</button>
+  <button id="btnClear" class="danger">🗑 清空</button>
+  <button id="btnHelp">❔ 怎麼玩</button>
+</header>
+
+<main>
+  <aside class="left">
+    <div class="card">
+      <h2>🧰 零件盒（點一下拿起）</h2>
+      <div id="bin"></div>
+      <div class="dim" style="font-size:11px;margin-top:8px">導線顏色</div>
+      <div id="wireColors"></div>
+    </div>
+    <div class="card">
+      <h2>👆 現在要做的事</h2>
+      <div id="toolHint"></div>
+    </div>
+    <div class="card">
+      <h2>🔎 選取中的零件</h2>
+      <div id="selBox" style="font-size:12px;line-height:1.6"></div>
+    </div>
+  </aside>
+
+  <section class="center">
+    <div id="boardWrap">
+      <svg id="board" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="glow">
+            <stop offset="0%" stop-color="#fff" stop-opacity=".95"/>
+            <stop offset="35%" stop-color="#ff8787" stop-opacity=".7"/>
+            <stop offset="100%" stop-color="#ff6b6b" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <g id="boardStatic"></g>
+        <g id="boardParts"></g>
+      </svg>
+    </div>
+    <div class="card" style="margin-top:11px">
+      <h2>📐 麵包板的相通規則（跟真板子一樣）</h2>
+      <div class="dim" style="font-size:12px;line-height:1.7">
+        ① <b>同一縱欄的 5 個孔（A~E 或 F~J）內部是相通的</b>——同一顆零件的兩隻腳千萬不要插在同一欄。<br>
+        ② <b>中溝把上下兩區隔開</b>：A~E 與 F~J 即使同一欄也<b>不相通</b>。<br>
+        ③ <b>上下的電源軌（＋／−）是整條水平相通</b>，適合當直流正負極的匯流排。
+      </div>
+    </div>
+  </section>
+
+  <aside class="right">
+    <div class="card">
+      <h2>🖐 發電（拍打蠟筆板）</h2>
+      <button id="tapBtn">👋 按住＝壓下放開＝發電<br><span style="font-size:11px;font-weight:400">（也可以按住空白鍵）</span></button>
+      <div class="btnrow"><button id="autoBtn">🔁 自動拍打（節拍器）</button></div>
+      <div class="btnrow">
+        <button class="spd on" data-s="1">×1</button>
+        <button class="spd" data-s="5">×5</button>
+        <button class="spd" data-s="20">×20</button>
+        <button id="btnReset">⟲ 放電歸零</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📊 儀表板 <span id="ledBulb" style="margin-left:auto">🔴</span></h2>
+      <div class="ro"><div class="lb">電容電壓</div><div class="vl" id="roCap">0.00 V</div></div>
+      <div class="ro"><div class="lb"></div><div class="meter"><i id="roCapBar"></i></div></div>
+      <div class="ro"><div class="lb">LED 電流</div><div class="vl" id="roLed">0.0 nA</div></div>
+      <div class="ro"><div class="lb">LED 狀態</div><div class="vl" id="roBright">不亮</div></div>
+      <div class="ro"><div class="lb">發電瞬時電壓</div><div class="vl" id="roSrc">0.0 V</div></div>
+      <div class="ro"><div class="lb">最高電容電壓</div><div class="vl" id="roPeak">0.00 V</div></div>
+      <div class="ro"><div class="lb">LED 閃亮次數</div><div class="vl" id="roFlash">0 次</div></div>
+      <div class="ro"><div class="lb">模擬時間</div><div class="vl" id="roTime">0.0 s</div></div>
+      <div id="probeBox" class="ro"><div class="lb">🔴🖤 電表讀數</div><div class="vl" id="probeVal">0.00 V</div></div>
+      <canvas id="scope" width="620" height="240" style="margin-top:8px"></canvas>
+      <div id="warnBox" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card">
+      <h2>🩺 接線檢查（會告訴你哪裡錯）</h2>
+      <div id="checks"></div>
+    </div>
+
+    <div class="card">
+      <h2>🎯 闖關步驟</h2>
+      <div id="steps"></div>
+    </div>
+
+    <div class="card">
+      <h2>🔧 進階參數</h2>
+      <div class="prow"><label>電源種類</label>
+        <select id="pMode">
+          <option value="teng">蠟筆摩擦發電（交流脈衝）</option>
+          <option value="dc">9V 乾電池（直流，對照用）</option>
+        </select></div>
+      <div id="tengOnly">
+        <div class="prow"><label>峰值電壓</label><input id="pPeak" type="range" min="20" max="400" step="10" value="150"><span class="pv" id="pPeakV">150 V</span></div>
+        <div class="prow"><label>拍打頻率</label><input id="pHz" type="range" min="0.5" max="5" step="0.5" value="2"><span class="pv" id="pHzV">2 下/秒</span></div>
+        <div class="prow"><label>模組內阻</label><input id="pR" type="range" min="0.1" max="20" step="0.1" value="1"><span class="pv" id="pRV">1 MΩ</span></div>
+      </div>
+      <div class="prow"><label>電容容量</label>
+        <select id="pCap">
+          <option value="1">1 µF</option>
+          <option value="10" selected>10 µF（題目用的）</option>
+          <option value="100">100 µF</option>
+          <option value="470">470 µF</option>
+        </select></div>
+      <div class="prow"><label>電容耐壓</label>
+        <select id="pVmax">
+          <option value="16">16 V</option>
+          <option value="25">25 V</option>
+          <option value="50" selected>50 V</option>
+          <option value="100">100 V</option>
+        </select></div>
+      <div class="prow"><label>電容漏電</label>
+        <select id="pLeak">
+          <option value="1e9">很好（1 GΩ）</option>
+          <option value="2e7" selected>一般電解電容（20 MΩ）</option>
+          <option value="2e6">劣質／老化（2 MΩ）</option>
+        </select></div>
+      <div class="dim" style="font-size:11px;line-height:1.6;margin-top:6px">
+        真實 TENG 的特徵就是「電壓很高、電流極小（內阻上百萬歐姆）」，所以要靠電容慢慢累積。
+        把內阻調小就會很快亮——那其實已經不像摩擦發電了。
+      </div>
+    </div>
+  </aside>
+</main>
+
+<dialog id="helpDlg">
+  <h2 style="margin:0">🍞 怎麼玩這個麵包板模擬器</h2>
+  <h3>1. 插零件</h3>
+  <ul>
+    <li>左邊<b>點一下零件</b>拿起來 → 在麵包板上<b>點第一個孔</b>（第一隻腳）→ <b>再點第二個孔</b>（第二隻腳），就插好了。</li>
+    <li>有極性的零件會告訴你哪一腳先插：二極體先插<b>陽極</b>、後插<b>陰極（白線那端）</b>；電容先插<b>＋</b>、後插<b>−</b>；LED 先插<b>長腳</b>。</li>
+    <li>插錯方向不用刪：選起來按 <kbd>R</kbd> 或「↔ 反轉方向」。</li>
+    <li>點零件可以<b>拖曳移動</b>；<kbd>Del</kbd> 或按右鍵可刪除；<kbd>Ctrl</kbd>+<kbd>Z</kbd> 復原；<kbd>Esc</kbd> 放下零件。</li>
+  </ul>
+  <h3>2. 發電</h3>
+  <ul>
+    <li><b>按住</b>「按住＝壓下放開＝發電」（或按住 <kbd>空白鍵</kbd>）：按下去是「接觸」、放開是「分離」，各產生一次反向的電脈衝——這就是要用橋式整流的原因。</li>
+    <li>懶得一直按可以開<b>自動拍打</b>（節拍器），再用 <b>×5 / ×20</b> 加速時間，看電容 30/60/120 秒充到幾伏特。</li>
+  </ul>
+  <h3>3. 這樣接才對（橋式整流）</h3>
+  <ul>
+    <li>發電模組兩條線＝菱形的<b>左右兩角</b>（交流進）。</li>
+    <li>兩顆二極體的<b>白線端（陰極）一起指向直流 +</b>；另兩顆的<b>陽極一起接直流 −</b>。</li>
+    <li>直流 + / − 建議各拉一條導線到<b>電源軌</b>，電容和 LED 就跨在這兩條軌上，很好接。</li>
+    <li>不會接就按 <b>⚡ 一鍵標準接線</b> 看正確答案，再自己拆掉重接一次。</li>
+  </ul>
+  <h3>4. 為什麼我的 LED 只有微微亮？</h3>
+  <ul>
+    <li>這是<b>真的物理</b>：摩擦發電電壓很高但電流只有微安培級。LED 一直掛著就會把電容的電偷走，電壓卡在 1.7 V 左右。</li>
+    <li>想看它<b>閃一下</b>：拿「按鍵開關」串在 LED 那一路 → 開關放開（斷路）先充電幾十秒 → 按下去，瞬間電流可達 mA 級，會亮得很明顯。</li>
+  </ul>
+  <div style="text-align:right;margin-top:14px"><button onclick="document.getElementById('helpDlg').close()">知道了</button></div>
+</dialog>
+
+<div id="toast"></div>
+<script>
+/* ==== circuit.js ==== */
+/* =====================================================================
+   circuit.js — 麵包板拓樸 + 非線性電路暫態解算器（純函式，無 DOM）
+   ---------------------------------------------------------------------
+   刻意不碰 DOM，方便用 Node 直接 require 做離線驗證：
+       const C = require('K:/Html5/breadboard-sim/circuit.js');
+
+   ● 麵包板拓樸：孔位字串 -> 電氣節點（net），再用 union-find 把導線/閉合
+     開關短路成同一個 net。
+   ● 解算：純節點法（MNA 只有節點電壓當未知數）
+       - 二極體/LED：Shockley 指數模型 + 內部串聯電阻（多一個內部節點）
+       - 電容：Backward Euler 伴隨模型（Geq = C/dt）+ 漏電阻
+       - 發電模組：Norton 等效（Voc(t)/Rs 電流源 ‖ 1/Rs 電導）
+       - Newton-Raphson + pnjlim 電壓限幅（避免 exp 爆掉不收斂）
+   ===================================================================== */
+(function (global) {
+  'use strict';
+
+  // ---------------- 麵包板幾何 / 拓樸 ----------------
+  var COLS = 30;
+  var ROWS_UP = ['A', 'B', 'C', 'D', 'E'];
+  var ROWS_LO = ['F', 'G', 'H', 'I', 'J'];
+  var RAILS = ['TP', 'TN', 'BP', 'BN']; // 上+ 上- 下+ 下-
+
+  function isRail(row) { return RAILS.indexOf(row) >= 0; }
+
+  function parseHole(id) {
+    var i = String(id).indexOf(':');
+    if (i < 0) return null;
+    return { row: id.slice(0, i), col: parseInt(id.slice(i + 1), 10) };
+  }
+
+  /** 孔位 -> 基礎 net 名稱。同一縱欄 5 孔一體；電源軌整條一體。 */
+  function holeNet(id) {
+    var h = parseHole(id);
+    if (!h || !(h.col >= 1 && h.col <= COLS)) return null;
+    if (isRail(h.row)) return h.row;                       // 電源軌：水平整條連通
+    if (ROWS_UP.indexOf(h.row) >= 0) return 'U' + h.col;   // 上半區 A~E
+    if (ROWS_LO.indexOf(h.row) >= 0) return 'L' + h.col;   // 下半區 F~J
+    return null;
+  }
+
+  /** 人看得懂的 net 名稱（提示訊息用） */
+  function netLabel(net) {
+    if (net === 'TP') return '頂部電源軌 +';
+    if (net === 'TN') return '頂部電源軌 −';
+    if (net === 'BP') return '底部電源軌 +';
+    if (net === 'BN') return '底部電源軌 −';
+    if (net[0] === 'U') return '上半區 第' + net.slice(1) + '欄';
+    if (net[0] === 'L') return '下半區 第' + net.slice(1) + '欄';
+    return net;
+  }
+
+  // 短路類元件（會把兩個 net 併成一個）
+  function isShorting(c) {
+    if (c.type === 'wire') return true;
+    if (c.type === 'switch') return !!c.closed;
+    return false;
+  }
+
+  /**
+   * 建立 net 連通關係。
+   * 回傳 { root(hole) , rootOfNet(net) , nets:[...] , pinsOf: {net: [{comp,pin}]} }
+   */
+  function buildNets(comps) {
+    var parent = {};
+    function add(n) { if (n && !(n in parent)) parent[n] = n; }
+    function find(n) {
+      if (!(n in parent)) return null;
+      while (parent[n] !== n) { parent[n] = parent[parent[n]]; n = parent[n]; }
+      return n;
+    }
+    function union(a, b) {
+      a = find(a); b = find(b);
+      if (a && b && a !== b) parent[b] = a;
+    }
+
+    comps.forEach(function (c) {
+      (c.pins || []).forEach(function (p) { add(holeNet(p)); });
+    });
+    comps.forEach(function (c) {
+      if (isShorting(c) && c.pins && c.pins.length === 2) {
+        union(holeNet(c.pins[0]), holeNet(c.pins[1]));
+      }
+    });
+
+    var pinsOf = {};
+    comps.forEach(function (c) {
+      (c.pins || []).forEach(function (p, i) {
+        var r = find(holeNet(p));
+        if (!r) return;
+        (pinsOf[r] = pinsOf[r] || []).push({ comp: c, pin: i });
+      });
+    });
+
+    var nets = Object.keys(parent).filter(function (n) { return find(n) === n; });
+
+    return {
+      root: function (hole) { return find(holeNet(hole)); },
+      rootOfNet: function (net) { return find(net); },
+      nets: nets,
+      pinsOf: pinsOf,
+      members: function (root) {
+        return Object.keys(parent).filter(function (n) { return find(n) === root; });
+      }
+    };
+  }
+
+  // ---------------- 預設元件參數（貼近真實零件） ----------------
+  var DEFAULTS = {
+    VT: 0.025852,        // 熱電壓 (300K)
+    // 1N4007：Vf ≈ 0.7~1.0V @ mA 級
+    diodeIs: 2e-9, diodeN: 1.9, diodeRs: 1.2,
+    // 一般紅光 LED：Vf ≈ 1.9~2.1V @ 10mA
+    ledIs: 1.6e-19, ledN: 2.0, ledRs: 18,
+    capC: 10e-6,         // 10 µF
+    capLeakR: 2e7,       // 電解電容漏電（20 MΩ）
+    // 摩擦發電模組（TENG）等效：高電壓、極高內阻
+    vPeak: 150, tapHz: 2, srcR: 1e6, pulseMs: 40,
+    dcV: 9, dcR: 10,     // 附加：切成「乾電池」模式時
+    gmin: 1e-12,
+    switchOnR: 0.02
+  };
+
+  // ---------------- 線性代數：高斯消去（部分軸選取） ----------------
+  function solveLinear(A, b, n) {
+    for (var col = 0; col < n; col++) {
+      // 選軸
+      var piv = col, best = Math.abs(A[col * n + col]);
+      for (var r = col + 1; r < n; r++) {
+        var v = Math.abs(A[r * n + col]);
+        if (v > best) { best = v; piv = r; }
+      }
+      if (best < 1e-300) { A[col * n + col] += 1e-12; piv = col; }
+      if (piv !== col) {
+        for (var k = 0; k < n; k++) {
+          var t = A[col * n + k]; A[col * n + k] = A[piv * n + k]; A[piv * n + k] = t;
+        }
+        var tb = b[col]; b[col] = b[piv]; b[piv] = tb;
+      }
+      var d = A[col * n + col];
+      for (var r2 = col + 1; r2 < n; r2++) {
+        var f = A[r2 * n + col] / d;
+        if (f === 0) continue;
+        for (var k2 = col; k2 < n; k2++) A[r2 * n + k2] -= f * A[col * n + k2];
+        b[r2] -= f * b[col];
+      }
+    }
+    var x = new Float64Array(n);
+    for (var i = n - 1; i >= 0; i--) {
+      var s = b[i];
+      for (var j = i + 1; j < n; j++) s -= A[i * n + j] * x[j];
+      x[i] = s / A[i * n + i];
+    }
+    return x;
+  }
+
+  /** SPICE 的 pn 接面電壓限幅，防止 Newton 在指數區發散 */
+  function pnjlim(vnew, vold, vt, vcrit) {
+    if (vnew > vcrit && Math.abs(vnew - vold) > 2 * vt) {
+      if (vold > 0) {
+        var arg = 1 + (vnew - vold) / vt;
+        vnew = arg > 0 ? vold + vt * Math.log(arg) : vcrit;
+      } else {
+        vnew = vnew > 0 ? vt * Math.log(Math.max(vnew / vt, 1e-9)) : vcrit;
+      }
+    }
+    if (vnew < -50) vnew = -50; // 逆向不用算太深
+    return vnew;
+  }
+
+  // ---------------- 模擬器 ----------------
+  function Sim(comps, params) {
+    this.p = Object.assign({}, DEFAULTS, params || {});
+    this.t = 0;
+    this.mode = 'off';      // 'off' | 'ac'(拍打發電) | 'dc'(乾電池)
+    this.autoTap = false;
+    this.taps = [];         // 手動拍打 {down, up}
+    this.capV = {};         // 依元件 id 保存電容電壓（改接線不會歸零）
+    this.build(comps);
+  }
+
+  Sim.prototype.build = function (comps) {
+    var p = this.p;
+    this.comps = comps.slice();
+    var nl = buildNets(this.comps);
+    this.netlist = nl;
+
+    var idx = {};          // net root -> node index
+    var nodes = [];
+    nl.nets.forEach(function (n) { idx[n] = nodes.length; nodes.push(n); });
+
+    // 元件展開
+    var els = [];
+    var extra = 0;         // 二極體內部節點
+    var self = this;
+    var src = null;
+
+    this.comps.forEach(function (c) {
+      if (!c.pins || c.pins.length !== 2) return;
+      var a = nl.root(c.pins[0]), b = nl.root(c.pins[1]);
+      if (a == null || b == null) return;
+      var na = idx[a], nb = idx[b];
+      if (c.type === 'diode' || c.type === 'led') {
+        var isLed = c.type === 'led';
+        var ni = nodes.length + extra; extra++;
+        els.push({
+          k: 'd', comp: c, a: na, i: ni, b: nb, led: isLed,
+          Is: isLed ? p.ledIs : p.diodeIs,
+          N: isLed ? p.ledN : p.diodeN,
+          Rs: isLed ? p.ledRs : p.diodeRs,
+          vj: 0
+        });
+      } else if (c.type === 'cap') {
+        if (na === nb) return; // 兩腳同 net = 被短路，沒作用
+        els.push({
+          k: 'c', comp: c, a: na, b: nb,
+          C: (c.C || p.capC), Rleak: (c.leakR || p.capLeakR),
+          v: (self.capV[c.id] || 0)
+        });
+      } else if (c.type === 'source') {
+        if (na === nb) return;
+        src = { k: 's', comp: c, a: na, b: nb };
+        els.push(src);
+      }
+      // wire / 閉合 switch 已在 buildNets 併點；probe 不影響電路
+    });
+
+    this.nodes = nodes;
+    this.idx = idx;
+    this.els = els;
+    this.src = src;
+
+    // 接地參考：優先取發電模組的 B 端（第二腳）
+    var gnd = -1;
+    if (src) gnd = src.b;
+    else if (nodes.length) gnd = 0;
+    this.gnd = gnd;
+
+    var total = nodes.length + extra;
+    this.total = total;
+    // 矩陣列號：跳過接地點
+    this.row = new Int32Array(total);
+    var r = 0;
+    for (var i = 0; i < total; i++) this.row[i] = (i === gnd) ? -1 : r++;
+    this.n = r;
+
+    this.A = new Float64Array(this.n * this.n);
+    this.b = new Float64Array(this.n);
+    this.V = new Float64Array(total);   // 節點電壓（含接地=0）
+    // 還原電容電壓成初始猜測
+    els.forEach(function (e) {
+      if (e.k === 'c') { self.V[e.a] = e.v; self.V[e.b] = 0; }
+    });
+    this.lastIter = 0;
+    this.converged = true;
+  };
+
+  /** 目前發電模組的開路電壓 Voc(t) */
+  Sim.prototype.voc = function (t) {
+    var p = this.p;
+    if (this.mode === 'dc') return p.dcV;
+    if (this.mode !== 'ac') return 0;
+    var w = Math.max(0.002, p.pulseMs / 1000);
+    var v = 0;
+    if (this.autoTap) {
+      var T = Math.max(2.2 * w, 1 / Math.max(0.1, p.tapHz));
+      var ph = t - Math.floor(t / T) * T;
+      if (ph < w) v += p.vPeak * Math.sin(Math.PI * ph / w);               // 接觸
+      else if (ph >= T / 2 && ph < T / 2 + w) v -= p.vPeak * Math.sin(Math.PI * (ph - T / 2) / w); // 分離
+    }
+    for (var i = 0; i < this.taps.length; i++) {
+      var tp = this.taps[i];
+      var d = t - tp.down;
+      if (d >= 0 && d < w) v += p.vPeak * Math.sin(Math.PI * d / w);
+      if (tp.up != null) {
+        var d2 = t - tp.up;
+        if (d2 >= 0 && d2 < w) v -= p.vPeak * Math.sin(Math.PI * d2 / w);
+      }
+    }
+    return v;
+  };
+
+  Sim.prototype.tapDown = function () { this.taps.push({ down: this.t, up: null }); };
+  Sim.prototype.tapUp = function () {
+    for (var i = this.taps.length - 1; i >= 0; i--) {
+      if (this.taps[i].up == null) { this.taps[i].up = this.t; break; }
+    }
+  };
+
+  /** 走一個時間步 */
+  Sim.prototype.step = function (dt) {
+    var p = this.p, n = this.n;
+    if (!n) { this.t += dt; return; }
+    var A = this.A, b = this.b, row = this.row, V = this.V;
+    var els = this.els;
+    var vocNow = this.voc(this.t + dt);
+
+    function stampG(i, j, g) {
+      var ri = row[i], rj = row[j];
+      if (ri >= 0) A[ri * n + ri] += g;
+      if (rj >= 0) A[rj * n + rj] += g;
+      if (ri >= 0 && rj >= 0) { A[ri * n + rj] -= g; A[rj * n + ri] -= g; }
+    }
+    function stampI(i, j, cur) { // 電流由 j 流向 i（注入 i）
+      var ri = row[i], rj = row[j];
+      if (ri >= 0) b[ri] += cur;
+      if (rj >= 0) b[rj] -= cur;
+    }
+
+    var iter = 0, ok = false;
+    for (iter = 0; iter < 120; iter++) {
+      A.fill(0); b.fill(0);
+      for (var k = 0; k < n; k++) A[k * n + k] += p.gmin; // 每點對地微小電導：避免浮接奇異
+
+      for (var e = 0; e < els.length; e++) {
+        var el = els[e];
+        if (el.k === 'd') {
+          var vt = el.N * p.VT;
+          var vcrit = vt * Math.log(vt / (Math.SQRT2 * el.Is));
+          var vraw = V[el.a] - V[el.i];
+          var vj = pnjlim(vraw, el.vj, vt, vcrit);
+          el.vj = vj;
+          var ex = Math.exp(Math.min(vj / vt, 80));
+          var id = el.Is * (ex - 1) + vj * p.gmin;
+          var gd = el.Is / vt * ex + p.gmin;
+          stampG(el.a, el.i, gd);
+          stampI(el.i, el.a, id - gd * vj);   // 伴隨電流源
+          stampG(el.i, el.b, 1 / el.Rs);
+        } else if (el.k === 'c') {
+          var geq = el.C / dt;
+          stampG(el.a, el.b, geq + 1 / el.Rleak);
+          stampI(el.a, el.b, geq * el.v);
+        } else if (el.k === 's') {
+          var g = 1 / (this.mode === 'dc' ? p.dcR : p.srcR);
+          stampG(el.a, el.b, g);
+          stampI(el.a, el.b, vocNow * g);
+        }
+      }
+
+      var x = solveLinear(A, b, n);
+      var conv = true;
+      for (var i2 = 0; i2 < this.total; i2++) {
+        var ri = row[i2];
+        var nv = ri >= 0 ? x[ri] : 0;
+        // SPICE 式收斂判準：絕對容差 + 相對容差（節點可能是 60V 也可能是 µV）
+        if (Math.abs(nv - V[i2]) > 1e-6 + 1e-4 * Math.abs(nv)) conv = false;
+        V[i2] = nv;
+      }
+      if (conv && iter > 0) { ok = true; break; }
+    }
+    this.lastIter = iter;
+    this.converged = ok;
+
+    // 更新狀態
+    for (var e2 = 0; e2 < els.length; e2++) {
+      var el2 = els[e2];
+      if (el2.k === 'c') {
+        el2.v = V[el2.a] - V[el2.b];
+        this.capV[el2.comp.id] = el2.v;
+      }
+    }
+    this.t += dt;
+    // 清掉太舊的拍打紀錄
+    var w = Math.max(0.002, p.pulseMs / 1000);
+    var tnow = this.t;
+    this.taps = this.taps.filter(function (tp) {
+      return !(tp.up != null && tnow - tp.up > w + 0.05);
+    });
+  };
+
+  /** 讀數 */
+  Sim.prototype.readings = function () {
+    var V = this.V, out = {
+      t: this.t, vcap: 0, icap: 0, iled: 0, vled: 0, bright: 0,
+      vsrc: 0, isrc: 0, converged: this.converged, diodes: [], netV: {}
+    };
+    var self = this;
+    this.nodes.forEach(function (net, i) { out.netV[net] = V[i]; });
+    this.els.forEach(function (el) {
+      if (el.k === 'c') { out.vcap = el.v; out.icap = (el.C / 1) * 0; }
+      else if (el.k === 'd') {
+        var i = (V[el.i] - V[el.b]) / el.Rs;
+        var vtot = V[el.a] - V[el.b];
+        if (el.led) { out.iled = i; out.vled = vtot; out.bright = self.brightness(i); }
+        out.diodes.push({ id: el.comp.id, i: i, v: vtot });
+      } else if (el.k === 's') {
+        out.vsrc = V[el.a] - V[el.b];
+        var Rsrc = (self.mode === 'dc' ? self.p.dcR : self.p.srcR);
+        out.isrc = (self.voc(self.t) - out.vsrc) / Rsrc;
+      }
+    });
+    return out;
+  };
+
+  /** LED 亮度：暗房裡 5 µA 就看得到微光 → 5 mA 全亮（對數，貼近視覺感受） */
+  Sim.prototype.brightness = function (i) {
+    if (!(i > 5e-6)) return 0;
+    var b = Math.log10(i / 5e-6) / Math.log10(5e-3 / 5e-6);
+    return Math.max(0, Math.min(1, b));
+  };
+
+  // ---------------- 接線檢查（給小朋友的提示） ----------------
+  /**
+   * 回傳 { msgs:[{level,text}], facts:{...} }
+   * level: 'ok' | 'warn' | 'err' | 'info'
+   */
+  function analyze(comps) {
+    var nl = buildNets(comps);
+    var msgs = [], facts = {
+      hasSource: false, bridgeOK: false, capOK: false, capReversed: false,
+      ledOK: false, ledReversed: false, dcP: null, dcN: null,
+      diodeCount: 0, floating: [], shorted: []
+    };
+    function push(level, text) { msgs.push({ level: level, text: text }); }
+
+    var byType = {};
+    comps.forEach(function (c) { (byType[c.type] = byType[c.type] || []).push(c); });
+    var src = (byType.source || [])[0];
+    var diodes = byType.diode || [];
+    var cap = (byType.cap || [])[0];
+    var led = (byType.led || [])[0];
+    facts.diodeCount = diodes.length;
+
+    var NAME = {
+      diode: '二極體 1N4007', led: 'LED', cap: '10 µF 電容',
+      wire: '導線', source: '發電模組', switch: '按鍵開關', probe: '電表探棒'
+    };
+
+    // 1) 兩腳同一組孔 = 短路 / 沒作用
+    //    導線與開關本身就是「把兩點併起來」，要比對「未合併前」的原始 net，
+    //    否則每條導線都會被自己合併的結果誤判成短路。
+    comps.forEach(function (c) {
+      if (!c.pins || c.pins.length !== 2) return;
+      var short = isShorting(c);
+      var a = short ? holeNet(c.pins[0]) : nl.root(c.pins[0]);
+      var b = short ? holeNet(c.pins[1]) : nl.root(c.pins[1]);
+      if (a && b && a === b && c.type !== 'probe') {
+        facts.shorted.push(c.id);
+        push(short ? 'warn' : 'err', NAME[c.type] + '「' + (c.label || c.id) + '」兩腳插在同一組本來就相通的孔（' +
+          netLabel(a) + '）' + (short ? '，這條接了等於沒接。' : '，等於被短路、完全沒作用。'));
+      }
+    });
+
+    // 2) 懸空腳（那個 net 上只有它自己一支腳）
+    comps.forEach(function (c) {
+      if (c.type === 'probe' || !c.pins) return;
+      c.pins.forEach(function (pin, i) {
+        var r = nl.root(pin);
+        var pins = (nl.pinsOf[r] || []).filter(function (x) { return x.comp.type !== 'probe'; });
+        if (pins.length <= 1) {
+          facts.floating.push({ id: c.id, pin: i });
+          push('warn', NAME[c.type] + '「' + (c.label || c.id) + '」有一隻腳（' + netLabel(r) +
+            '）沒接到任何東西，電流走不過去。');
+        }
+      });
+    });
+
+    // 3) 電源
+    if (!src) push('err', '還沒放「發電模組」，電路沒有電源。');
+    else if (nl.root(src.pins[0]) === nl.root(src.pins[1])) push('err', '發電模組兩端被短路了。');
+    else facts.hasSource = true;
+
+    // 4) 橋式整流：找 P（直流+）與 N（直流−）
+    if (facts.hasSource && diodes.length >= 4) {
+      var s1 = nl.root(src.pins[0]), s2 = nl.root(src.pins[1]);
+      var ds = diodes.map(function (d) {
+        return { a: nl.root(d.pins[0]), c: nl.root(d.pins[1]), id: d.id };
+      });
+      var cands = {};
+      ds.forEach(function (d) { if (d.a) cands[d.a] = 1; if (d.c) cands[d.c] = 1; });
+      var keys = Object.keys(cands);
+      outer:
+      for (var i = 0; i < keys.length; i++) {
+        for (var j = 0; j < keys.length; j++) {
+          var P = keys[i], N = keys[j];
+          if (P === N || P === s1 || P === s2 || N === s1 || N === s2) continue;
+          var need = [[s1, P], [s2, P], [N, s1], [N, s2]];
+          var used = {}, all = true;
+          for (var q = 0; q < 4; q++) {
+            var found = -1;
+            for (var m = 0; m < ds.length; m++) {
+              if (used[m]) continue;
+              if (ds[m].a === need[q][0] && ds[m].c === need[q][1]) { found = m; break; }
+            }
+            if (found < 0) { all = false; break; }
+            used[found] = 1;
+          }
+          if (all) { facts.bridgeOK = true; facts.dcP = P; facts.dcN = N; break outer; }
+        }
+      }
+      if (facts.bridgeOK) push('ok', '橋式整流接對了！直流 + 在「' + netLabel(facts.dcP) +
+        '」、直流 − 在「' + netLabel(facts.dcN) + '」。');
+      else push('err', '4 顆 1N4007 還沒組成橋式整流。訣竅：兩顆的「白線那端（陰極）」一起指向直流 +，' +
+        '另外兩顆的「非白線端（陽極）」一起接直流 −，發電模組兩條線各接在菱形的左右兩角。');
+    } else if (facts.hasSource) {
+      push('warn', '目前只放了 ' + diodes.length + ' 顆二極體，橋式整流需要 4 顆。');
+    }
+
+    // 5) 電容極性
+    if (!cap) push('warn', '還沒放 10 µF 儲能電容，微弱的電荷沒地方累積。');
+    else if (facts.bridgeOK) {
+      var ca = nl.root(cap.pins[0]), cc = nl.root(cap.pins[1]);
+      if (ca === facts.dcP && cc === facts.dcN) { facts.capOK = true; push('ok', '電容跨在直流 + / − 之間，極性正確。'); }
+      else if (ca === facts.dcN && cc === facts.dcP) { facts.capReversed = true; push('err', '電容裝反了！有標「−」的那腳要接直流 −（電解電容反接會鼓包或爆開）。'); }
+      else push('warn', '電容還沒跨在整流輸出的 + / − 之間。');
+    }
+
+    // 6) LED 極性
+    if (!led) push('warn', '還沒放 LED。');
+    else if (facts.bridgeOK) {
+      var la = nl.root(led.pins[0]), lc = nl.root(led.pins[1]);
+      if (la === facts.dcP && lc === facts.dcN) { facts.ledOK = true; push('ok', 'LED 跨在直流 + / − 之間，長腳（陽極）朝 +，方向正確。'); }
+      else if (la === facts.dcN && lc === facts.dcP) { facts.ledReversed = true; push('err', 'LED 方向裝反了！長腳（陽極）要接直流 +，反接不會亮。'); }
+      else push('warn', 'LED 還沒跨在整流輸出的 + / − 之間。');
+    }
+
+    // 7) 開關
+    (byType.switch || []).forEach(function (sw) {
+      if (!sw.closed) push('info', '按鍵開關目前是「放開（斷路）」狀態，按下去才會導通。');
+    });
+
+    return { msgs: msgs, facts: facts, nets: nl };
+  }
+
+  /** 標準接線範例（一鍵載入用）：橋式整流 + 電容 + LED */
+  function referenceLayout() {
+    // 交流兩端＝第 10 / 14 欄；直流 + 走頂部 + 軌、直流 − 走頂部 − 軌
+    return [
+      { type: 'source', pins: ['E:10', 'E:14'], label: '蠟筆發電模組' },
+      { type: 'diode', pins: ['A:10', 'TP:10'], label: 'D1' },  // 交流1 -> 直流+
+      { type: 'diode', pins: ['A:14', 'TP:14'], label: 'D2' },  // 交流2 -> 直流+
+      { type: 'diode', pins: ['TN:12', 'C:10'], label: 'D3' },  // 直流- -> 交流1
+      { type: 'diode', pins: ['TN:16', 'C:14'], label: 'D4' },  // 直流- -> 交流2
+      { type: 'wire', pins: ['TP:22', 'A:22'], color: '#e5484d' },
+      { type: 'wire', pins: ['TN:26', 'A:26'], color: '#2b2b2b' },
+      { type: 'cap', pins: ['B:22', 'B:26'], label: '10µF' },
+      { type: 'led', pins: ['D:22', 'D:26'], label: 'LED' }
+    ];
+  }
+
+  var API = {
+    COLS: COLS, ROWS_UP: ROWS_UP, ROWS_LO: ROWS_LO, RAILS: RAILS,
+    isRail: isRail, parseHole: parseHole, holeNet: holeNet, netLabel: netLabel,
+    buildNets: buildNets, analyze: analyze, referenceLayout: referenceLayout,
+    Sim: Sim, DEFAULTS: DEFAULTS, solveLinear: solveLinear
+  };
+
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+  global.Circuit = API;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* ==== app.js ==== */
+/* =====================================================================
+   app.js — 麵包板模擬器的介面（SVG 麵包板 / 插件 / 儀表板 / 教學）
+   電路計算全部交給 circuit.js（純函式、可用 Node 離線驗證）
+   ===================================================================== */
+(function () {
+  'use strict';
+  var C = window.Circuit;
+
+  // ---------------- 幾何 ----------------
+  var PITCH = 24, X0 = 62, COLS = C.COLS;
+  var ROWY = {
+    TP: 36, TN: 60,
+    A: 116, B: 140, C: 164, D: 188, E: 212,
+    F: 256, G: 280, H: 304, I: 328, J: 352,
+    BP: 408, BN: 432
+  };
+  var ROW_ORDER = ['TP', 'TN', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'BP', 'BN'];
+  var VIEW_W = X0 + COLS * PITCH + 30, VIEW_H = 468;
+
+  function cx(col) { return X0 + (col - 1) * PITCH; }
+  function pos(hole) {
+    var h = C.parseHole(hole);
+    if (!h || ROWY[h.row] === undefined) return null;
+    return { x: cx(h.col), y: ROWY[h.row] };
+  }
+  var ALL_HOLES = [];
+  ROW_ORDER.forEach(function (r) { for (var c = 1; c <= COLS; c++) ALL_HOLES.push(r + ':' + c); });
+
+  function nearestHole(x, y, maxDist) {
+    var best = null, bd = Infinity;
+    for (var i = 0; i < ALL_HOLES.length; i++) {
+      var p = pos(ALL_HOLES[i]);
+      var d = (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y);
+      if (d < bd) { bd = d; best = ALL_HOLES[i]; }
+    }
+    if (maxDist != null && bd > maxDist * maxDist) return null;
+    return best;
+  }
+
+  // ---------------- 零件定義 ----------------
+  var PARTS = {
+    source: { name: '蠟筆發電模組', max: 1, hint: '兩條引線＝上下鋁箔電極。這是電從哪來的地方。', p1: 'A 端', p2: 'B 端' },
+    diode: { name: '1N4007 二極體', max: 4, hint: '電流只能從「陽極 → 陰極（白線那端）」通過。', p1: '陽極 +', p2: '陰極（白線）' },
+    cap: { name: '10 µF 電解電容', max: 1, hint: '把微小電荷積少成多。有極性，−腳一定要接負端！', p1: '＋ 長腳', p2: '− 短腳（有灰線）' },
+    led: { name: 'LED 發光二極體', max: 1, hint: '長腳（陽極）接 +，短腳接 −，反接不會亮。', p1: '長腳（陽極）', p2: '短腳（陰極）' },
+    wire: { name: '導線', max: 99, hint: '把兩個不同的節點接起來。', p1: '一端', p2: '另一端' },
+    'switch': { name: '按鍵開關（附加）', max: 1, hint: '先讓 LED 斷開充電，再按下去放電 → 會閃得更亮。', p1: '一端', p2: '另一端' },
+    probe: { name: '電表探棒', max: 1, hint: '紅棒與黑棒各插一孔，量兩點電位差（不影響電路）。', p1: '紅棒', p2: '黑棒' }
+  };
+  var WIRE_COLORS = ['#e5484d', '#2b2b2b', '#f5c518', '#2f9e44', '#1971c2', '#ffffff'];
+
+  // ---------------- 狀態 ----------------
+  var S = {
+    comps: [],
+    seq: 1,
+    tool: null,          // 正在放的零件 type，null = 選取模式
+    pending: null,       // 已點的第一個孔
+    selected: null,
+    wireColor: WIRE_COLORS[0],
+    speed: 1,
+    showVolt: true,
+    holding: false,      // 按住拍打
+    auto: false,
+    powerMode: 'teng',
+    scope: [],
+    lastScopeT: -1,
+    history: [],
+    drag: null,
+    peakV: 0, peakLedI: 0, flashes: 0, wasLit: false, visBright: 0, vMax: 50
+  };
+
+  var sim = new C.Sim([], {});
+  sim.mode = 'ac';
+
+  // ---------------- DOM 快捷 ----------------
+  function $(id) { return document.getElementById(id); }
+  function el(tag, attrs, kids) {
+    var e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    (kids || []).forEach(function (c) { e.appendChild(c); });
+    return e;
+  }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  // ---------------- 畫麵包板底板 ----------------
+  function buildBoard() {
+    var svg = $('board');
+    svg.setAttribute('viewBox', '0 0 ' + VIEW_W + ' ' + VIEW_H);
+    var g = [];
+
+    g.push('<rect x="6" y="6" width="' + (VIEW_W - 12) + '" height="' + (VIEW_H - 12) +
+      '" rx="10" fill="#efeadd" stroke="#cfc7b3"/>');
+
+    // 電源軌條紋
+    function rail(y1, y2, color) {
+      g.push('<rect x="18" y="' + y1 + '" width="' + (VIEW_W - 36) + '" height="' + (y2 - y1) + '" fill="#f7f3e8"/>');
+      g.push('<line x1="26" y1="' + y1 + '" x2="' + (VIEW_W - 26) + '" y2="' + y1 + '" stroke="' + color + '" stroke-width="1.6"/>');
+    }
+    rail(ROWY.TP - 16, ROWY.TN + 16, '#e5484d');
+    g.push('<line x1="26" y1="' + (ROWY.TN + 16) + '" x2="' + (VIEW_W - 26) + '" y2="' + (ROWY.TN + 16) + '" stroke="#1971c2" stroke-width="1.6"/>');
+    rail(ROWY.BP - 16, ROWY.BN + 16, '#e5484d');
+    g.push('<line x1="26" y1="' + (ROWY.BN + 16) + '" x2="' + (VIEW_W - 26) + '" y2="' + (ROWY.BN + 16) + '" stroke="#1971c2" stroke-width="1.6"/>');
+
+    // 中溝
+    g.push('<rect x="18" y="' + (ROWY.E + 12) + '" width="' + (VIEW_W - 36) + '" height="' +
+      (ROWY.F - ROWY.E - 24) + '" fill="#e2dccb"/>');
+    g.push('<text x="' + (VIEW_W / 2) + '" y="' + (ROWY.E + 28) + '" class="bmark" text-anchor="middle">中溝：上下兩區不相通</text>');
+
+    // 欄號
+    for (var c = 1; c <= COLS; c++) {
+      if (c === 1 || c % 5 === 0) {
+        g.push('<text x="' + cx(c) + '" y="' + (ROWY.A - 16) + '" class="bnum" text-anchor="middle">' + c + '</text>');
+        g.push('<text x="' + cx(c) + '" y="' + (ROWY.J + 26) + '" class="bnum" text-anchor="middle">' + c + '</text>');
+      }
+    }
+    // 列標
+    ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'].forEach(function (r) {
+      g.push('<text x="' + (X0 - 26) + '" y="' + (ROWY[r] + 4) + '" class="brow" text-anchor="middle">' + r + '</text>');
+      g.push('<text x="' + (cx(COLS) + 22) + '" y="' + (ROWY[r] + 4) + '" class="brow" text-anchor="middle">' + r + '</text>');
+    });
+    [['TP', '＋'], ['TN', '−'], ['BP', '＋'], ['BN', '−']].forEach(function (p) {
+      var col = p[0] === 'TP' || p[0] === 'BP' ? '#e5484d' : '#1971c2';
+      g.push('<text x="' + (X0 - 26) + '" y="' + (ROWY[p[0]] + 5) + '" class="brail" fill="' + col + '" text-anchor="middle">' + p[1] + '</text>');
+      g.push('<text x="' + (cx(COLS) + 22) + '" y="' + (ROWY[p[0]] + 5) + '" class="brail" fill="' + col + '" text-anchor="middle">' + p[1] + '</text>');
+    });
+
+    // 孔
+    ROW_ORDER.forEach(function (r) {
+      for (var c2 = 1; c2 <= COLS; c2++) {
+        var x = cx(c2), y = ROWY[r], id = r + ':' + c2;
+        g.push('<circle class="hole" data-hole="' + id + '" cx="' + x + '" cy="' + y + '" r="4.6" fill="#33333a"/>');
+      }
+    });
+    // 較大的透明點擊區（手指也點得到）
+    ROW_ORDER.forEach(function (r) {
+      for (var c3 = 1; c3 <= COLS; c3++) {
+        g.push('<circle class="hit" data-hole="' + r + ':' + c3 + '" cx="' + cx(c3) + '" cy="' + ROWY[r] +
+          '" r="11" fill="transparent"/>');
+      }
+    });
+
+    $('boardStatic').innerHTML = g.join('');
+    // 快取孔位元素（每幀要上電壓顏色，不要每次都 querySelector）
+    HOLE_EL = {};
+    Array.prototype.forEach.call($('boardStatic').querySelectorAll('.hole'), function (e) {
+      HOLE_EL[e.dataset.hole] = e;
+    });
+  }
+  var HOLE_EL = {};
+
+  // ---------------- 畫零件 ----------------
+  function compGeom(comp) {
+    var A = pos(comp.pins[0]), B = pos(comp.pins[1]);
+    if (!A || !B) return null;
+    var dx = B.x - A.x, dy = B.y - A.y;
+    var L = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+    return {
+      A: A, B: B, L: L, ang: Math.atan2(dy, dx) * 180 / Math.PI,
+      mx: (A.x + B.x) / 2, my: (A.y + B.y) / 2,
+      nx: -dy / L, ny: dx / L
+    };
+  }
+
+  function drawComp(comp, reading) {
+    var G = compGeom(comp);
+    if (!G) return '';
+    var sel = S.selected === comp.id;
+    var s = [];
+    var lead = '#a8a8b0';
+    s.push('<g class="comp' + (sel ? ' sel' : '') + '" data-comp="' + comp.id + '">');
+
+    if (comp.type === 'wire') {
+      var bow = Math.min(26, G.L * 0.14);
+      var qx = G.mx + G.nx * bow, qy = G.my + G.ny * bow;
+      var d = 'M' + G.A.x + ' ' + G.A.y + ' Q' + qx + ' ' + qy + ' ' + G.B.x + ' ' + G.B.y;
+      s.push('<path d="' + d + '" fill="none" stroke="' + (comp.color || '#e5484d') +
+        '" stroke-width="4" stroke-linecap="round"/>');
+      if (comp.color === '#ffffff') s.push('<path d="' + d + '" fill="none" stroke="#999" stroke-width="0.6"/>');
+      s.push('<path class="pick" d="' + d + '" fill="none" stroke="transparent" stroke-width="15"/>');
+      s.push('<circle cx="' + G.A.x + '" cy="' + G.A.y + '" r="3.4" fill="' + (comp.color || '#e5484d') + '"/>');
+      s.push('<circle cx="' + G.B.x + '" cy="' + G.B.y + '" r="3.4" fill="' + (comp.color || '#e5484d') + '"/>');
+      s.push('</g>');
+      return s.join('');
+    }
+
+    // 有本體的零件：把本體畫在旋轉後的座標系
+    var body = '<g transform="translate(' + G.mx + ',' + G.my + ') rotate(' + G.ang + ')">';
+    var half = G.L / 2, bw;
+
+    if (comp.type === 'diode') {
+      bw = Math.min(15, Math.max(8, G.L * 0.3));
+      body += '<line x1="' + (-half) + '" y1="0" x2="' + (-bw) + '" y2="0" stroke="' + lead + '" stroke-width="2.4"/>';
+      body += '<line x1="' + bw + '" y1="0" x2="' + half + '" y2="0" stroke="' + lead + '" stroke-width="2.4"/>';
+      body += '<rect x="' + (-bw) + '" y="-6.5" width="' + (bw * 2) + '" height="13" rx="2.5" fill="#1c1c22"/>';
+      body += '<rect x="' + (bw - 4.5) + '" y="-6.5" width="3.2" height="13" fill="#e9e9ee"/>';
+      body += '</g>';
+      s.push(body);
+      s.push('<line class="pick" x1="' + G.A.x + '" y1="' + G.A.y + '" x2="' + G.B.x + '" y2="' + G.B.y +
+        '" stroke="transparent" stroke-width="16"/>');
+      s.push(label(G, comp.label || '1N4007'));
+      if (reading && Math.abs(reading.i) > 5e-7) s.push(flowArrow(G, reading.i));
+    } else if (comp.type === 'led') {
+      var br = reading ? reading.bright : 0;
+      bw = 9;
+      body += '<line x1="' + (-half) + '" y1="0" x2="' + (-bw) + '" y2="0" stroke="' + lead + '" stroke-width="2.4"/>';
+      body += '<line x1="' + bw + '" y1="0" x2="' + half + '" y2="0" stroke="' + lead + '" stroke-width="2.4"/>';
+      if (br > 0.01) {
+        body += '<circle cx="0" cy="0" r="' + (12 + 16 * br) + '" fill="url(#glow)" opacity="' + (0.25 + 0.75 * br) + '"/>';
+      }
+      body += '<path d="M-9 -8 L2 -8 A8 8 0 0 1 2 8 L-9 8 Z" fill="#c92a2a" stroke="#8b1a1a" stroke-width="1"/>';
+      body += '<path d="M-9 -8 L-9 8" stroke="#ffe3e3" stroke-width="1.6"/>';
+      if (br > 0.01) body += '<circle cx="-2" cy="0" r="4.5" fill="#fff" opacity="' + (0.35 + 0.65 * br) + '"/>';
+      body += '</g>';
+      s.push(body);
+      s.push('<line class="pick" x1="' + G.A.x + '" y1="' + G.A.y + '" x2="' + G.B.x + '" y2="' + G.B.y +
+        '" stroke="transparent" stroke-width="16"/>');
+      s.push(label(G, 'LED' + (br > 0.01 ? ' ✨' : '')));
+    } else if (comp.type === 'cap') {
+      bw = 12;
+      body += '<line x1="' + (-half) + '" y1="0" x2="' + (-bw) + '" y2="0" stroke="' + lead + '" stroke-width="2.4"/>';
+      body += '<line x1="' + bw + '" y1="0" x2="' + half + '" y2="0" stroke="' + lead + '" stroke-width="2.4"/>';
+      body += '<rect x="' + (-bw) + '" y="-12" width="' + (bw * 2) + '" height="24" rx="4" fill="#1d4ed8"/>';
+      body += '<rect x="' + (bw - 8) + '" y="-12" width="8" height="24" fill="#dbe4ff"/>';
+      body += '<text x="' + (bw - 4) + '" y="4" font-size="11" fill="#1a1a1a" text-anchor="middle" font-weight="700">−</text>';
+      body += '<text x="' + (-bw + 6) + '" y="4" font-size="11" fill="#fff" text-anchor="middle" font-weight="700">+</text>';
+      body += '</g>';
+      s.push(body);
+      s.push('<line class="pick" x1="' + G.A.x + '" y1="' + G.A.y + '" x2="' + G.B.x + '" y2="' + G.B.y +
+        '" stroke="transparent" stroke-width="16"/>');
+      s.push(label(G, (sim.p.capC * 1e6).toFixed(0) + 'µF'));
+    } else if (comp.type === 'source') {
+      bw = 30;
+      body += '<line x1="' + (-half) + '" y1="0" x2="' + (-bw) + '" y2="0" stroke="#c9a227" stroke-width="2.6"/>';
+      body += '<line x1="' + bw + '" y1="0" x2="' + half + '" y2="0" stroke="#7b7b85" stroke-width="2.6"/>';
+      body += '<rect x="' + (-bw) + '" y="-15" width="' + (bw * 2) + '" height="30" rx="5" fill="#3f3320" stroke="#c9a227"/>';
+      body += '<g transform="rotate(' + (-G.ang) + ')"><text x="0" y="4" font-size="11" fill="#ffe8a3" text-anchor="middle">發電模組</text></g>';
+      body += '</g>';
+      s.push(body);
+      s.push('<line class="pick" x1="' + G.A.x + '" y1="' + G.A.y + '" x2="' + G.B.x + '" y2="' + G.B.y +
+        '" stroke="transparent" stroke-width="18"/>');
+    } else if (comp.type === 'switch') {
+      bw = 14;
+      body += '<line x1="' + (-half) + '" y1="0" x2="' + (-bw) + '" y2="0" stroke="' + lead + '" stroke-width="2.4"/>';
+      body += '<line x1="' + bw + '" y1="0" x2="' + half + '" y2="0" stroke="' + lead + '" stroke-width="2.4"/>';
+      body += '<circle cx="' + (-bw) + '" cy="0" r="3" fill="#ddd"/><circle cx="' + bw + '" cy="0" r="3" fill="#ddd"/>';
+      body += comp.closed
+        ? '<line x1="' + (-bw) + '" y1="0" x2="' + bw + '" y2="0" stroke="#40c057" stroke-width="4"/>'
+        : '<line x1="' + (-bw) + '" y1="0" x2="' + (bw - 4) + '" y2="-11" stroke="#f08c00" stroke-width="4"/>';
+      body += '</g>';
+      s.push(body);
+      s.push('<line class="pick" x1="' + G.A.x + '" y1="' + G.A.y + '" x2="' + G.B.x + '" y2="' + G.B.y +
+        '" stroke="transparent" stroke-width="16"/>');
+      s.push(label(G, comp.closed ? '開關：按下（通）' : '開關：放開（斷）'));
+    } else if (comp.type === 'probe') {
+      s.push('<line x1="' + G.A.x + '" y1="' + G.A.y + '" x2="' + (G.A.x + 26) + '" y2="' + (G.A.y - 34) +
+        '" stroke="#e5484d" stroke-width="3.4" stroke-linecap="round"/>');
+      s.push('<line x1="' + G.B.x + '" y1="' + G.B.y + '" x2="' + (G.B.x + 26) + '" y2="' + (G.B.y - 34) +
+        '" stroke="#111" stroke-width="3.4" stroke-linecap="round"/>');
+      s.push('<circle cx="' + G.A.x + '" cy="' + G.A.y + '" r="4" fill="#e5484d"/>');
+      s.push('<circle cx="' + G.B.x + '" cy="' + G.B.y + '" r="4" fill="#111"/>');
+      s.push('<line class="pick" x1="' + G.A.x + '" y1="' + G.A.y + '" x2="' + G.B.x + '" y2="' + G.B.y +
+        '" stroke="transparent" stroke-width="10"/>');
+    }
+    s.push('</g>');
+    return s.join('');
+  }
+
+  function label(G, text) {
+    var lx = G.mx + G.nx * 20, ly = G.my + G.ny * 20 + 4;
+    return '<text x="' + lx + '" y="' + ly + '" class="clabel" text-anchor="middle">' + esc(text) + '</text>';
+  }
+  function flowArrow(G, i) {
+    // 電流方向小箭頭（正值＝陽極→陰極）
+    var dir = i > 0 ? 1 : -1;
+    var t = 0.5;
+    var x = G.A.x + (G.B.x - G.A.x) * t + G.nx * 11, y = G.A.y + (G.B.y - G.A.y) * t + G.ny * 11;
+    var ang = G.ang + (dir > 0 ? 0 : 180);
+    return '<g transform="translate(' + x + ',' + y + ') rotate(' + ang + ')"><path d="M-5 -3.4 L4 0 L-5 3.4 Z" fill="#ffd43b"/></g>';
+  }
+
+  function renderParts() {
+    var r = sim.readings();
+    var byId = {};
+    r.diodes.forEach(function (d) { byId[d.id] = d; });
+    var out = [];
+    S.comps.forEach(function (c) {
+      var rd = byId[c.id] || null;
+      if (c.type === 'led') rd = { i: r.iled, bright: Math.max(r.bright, S.visBright || 0) };
+      out.push(drawComp(c, rd));
+    });
+    // 放置中的預覽線
+    if (S.pending) {
+      var p = pos(S.pending);
+      out.push('<circle cx="' + p.x + '" cy="' + p.y + '" r="9" fill="none" stroke="#ffd43b" stroke-width="2.5"/>');
+      if (S.mouse) out.push('<line x1="' + p.x + '" y1="' + p.y + '" x2="' + S.mouse.x + '" y2="' + S.mouse.y +
+        '" stroke="#ffd43b" stroke-width="2" stroke-dasharray="5 4"/>');
+    }
+    $('boardParts').innerHTML = out.join('');
+  }
+
+  // ---------------- 元件操作 ----------------
+  function snapshot() {
+    S.history.push(JSON.stringify(S.comps));
+    if (S.history.length > 60) S.history.shift();
+  }
+  function countOf(type) { return S.comps.filter(function (c) { return c.type === type; }).length; }
+
+  function place(type, h1, h2, opts) {
+    if (!pos(h1) || !pos(h2) || h1 === h2) return null;
+    if (countOf(type) >= PARTS[type].max) { toast(PARTS[type].name + '已經用完了（可以先刪掉一個）'); return null; }
+    snapshot();
+    var c = { id: 'c' + (S.seq++), type: type, pins: [h1, h2] };
+    if (type === 'wire') c.color = (opts && opts.color) || S.wireColor;
+    if (type === 'switch') c.closed = false;
+    if (type === 'diode') c.label = 'D' + (countOf('diode') + 1);
+    if (opts && opts.label) c.label = opts.label;
+    S.comps.push(c);
+    structureChanged();
+    return c;
+  }
+  function removeComp(id) {
+    snapshot();
+    S.comps = S.comps.filter(function (c) { return c.id !== id; });
+    if (S.selected === id) S.selected = null;
+    structureChanged();
+  }
+  function flipComp(id) {
+    var c = S.comps.filter(function (x) { return x.id === id; })[0];
+    if (!c) return;
+    snapshot();
+    c.pins = [c.pins[1], c.pins[0]];
+    structureChanged();
+  }
+  function undo() {
+    if (!S.history.length) return;
+    S.comps = JSON.parse(S.history.pop());
+    S.selected = null;
+    structureChanged(true);
+  }
+  function clearAll() {
+    snapshot();
+    S.comps = []; S.selected = null; S.pending = null;
+    sim.capV = {};
+    resetMeters();
+    structureChanged(true);
+  }
+  function loadReference() {
+    snapshot();
+    S.comps = C.referenceLayout().map(function (c) {
+      return Object.assign({ id: 'c' + (S.seq++) }, c);
+    });
+    sim.capV = {};
+    resetMeters();
+    structureChanged(true);
+  }
+  function resetMeters() {
+    sim.t = 0; S.scope = []; S.lastScopeT = -1;
+    S.peakV = 0; S.peakLedI = 0; S.flashes = 0; S.wasLit = false;
+    Object.keys(sim.capV).forEach(function (k) { sim.capV[k] = 0; });
+    sim.build(S.comps);
+  }
+
+  function structureChanged(noHist) {
+    sim.build(S.comps);
+    renderParts();
+    renderBin();
+    renderChecks();
+    renderSelected();
+    save();
+  }
+
+  // ---------------- 互動 ----------------
+  function svgPoint(evt) {
+    var svg = $('board');
+    var r = svg.getBoundingClientRect();
+    var sx = VIEW_W / r.width, sy = VIEW_H / r.height;
+    return { x: (evt.clientX - r.left) * sx, y: (evt.clientY - r.top) * sy };
+  }
+
+  function onBoardDown(evt) {
+    var t = evt.target;
+    var holeEl = t.closest ? t.closest('[data-hole]') : null;
+    var compEl = t.closest ? t.closest('[data-comp]') : null;
+
+    if (S.tool) {                       // 放置模式：只認孔
+      if (!holeEl) return;
+      var hole = holeEl.dataset.hole;
+      if (!S.pending) { S.pending = hole; renderParts(); return; }
+      if (S.pending === hole) { S.pending = null; renderParts(); return; }
+      var t2 = S.tool;
+      place(t2, S.pending, hole);
+      S.pending = null;
+      if (t2 !== 'wire' && countOf(t2) >= PARTS[t2].max) setTool(null);
+      renderParts();
+      return;
+    }
+
+    if (compEl) {                       // 選取模式：選 / 拖 / 切開關
+      var id = compEl.dataset.comp;
+      var c = S.comps.filter(function (x) { return x.id === id; })[0];
+      S.selected = id;
+      if (c && c.type === 'switch') { snapshot(); c.closed = !c.closed; structureChanged(); return; }
+      var p = svgPoint(evt);
+      S.drag = { id: id, start: p, pins: c.pins.slice(), moved: false };
+      renderParts(); renderSelected();
+      return;
+    }
+    S.selected = null; renderParts(); renderSelected();
+  }
+
+  function onBoardMove(evt) {
+    var p = svgPoint(evt);
+    S.mouse = p;
+    if (S.drag) {
+      var c = S.comps.filter(function (x) { return x.id === S.drag.id; })[0];
+      if (!c) return;
+      var dx = p.x - S.drag.start.x, dy = p.y - S.drag.start.y;
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      var a = pos(S.drag.pins[0]), b = pos(S.drag.pins[1]);
+      var na = nearestHole(a.x + dx, a.y + dy, 40), nb = nearestHole(b.x + dx, b.y + dy, 40);
+      if (na && nb && na !== nb) {
+        if (!S.drag.moved) { snapshot(); S.drag.moved = true; }
+        c.pins = [na, nb];
+        sim.build(S.comps);
+        renderParts(); renderChecks(); renderSelected();
+      }
+      return;
+    }
+    if (S.pending) renderParts();
+  }
+  function onBoardUp() {
+    if (S.drag && S.drag.moved) save();
+    S.drag = null;
+  }
+
+  function setTool(t) {
+    S.tool = t; S.pending = null;
+    document.querySelectorAll('.part').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.type === t);
+    });
+    $('toolHint').innerHTML = t
+      ? '<b>' + PARTS[t].name + '</b>：先點「' + PARTS[t].p1 + '」要插的孔，再點「' + PARTS[t].p2 + '」的孔。（Esc 取消）<br><span class="dim">' + PARTS[t].hint + '</span>'
+      : '<b>選取模式</b>：點零件可選取／拖曳移動，點開關可切換通斷。左邊挑一個零件開始插。';
+    renderParts();
+  }
+
+  // ---------------- 左側零件盒 ----------------
+  function renderBin() {
+    var out = [];
+    Object.keys(PARTS).forEach(function (type) {
+      var p = PARTS[type], used = countOf(type);
+      var left = p.max >= 99 ? '∞' : (p.max - used) + '/' + p.max;
+      var out_ = p.max < 99 && used >= p.max;
+      out.push('<button class="part' + (S.tool === type ? ' active' : '') + (out_ ? ' used' : '') +
+        '" data-type="' + type + '"><span class="pico">' + partIcon(type) + '</span>' +
+        '<span class="pname">' + p.name + '</span><span class="pcnt">' + left + '</span></button>');
+    });
+    $('bin').innerHTML = out.join('');
+    document.querySelectorAll('.part').forEach(function (b) {
+      b.onclick = function () { setTool(S.tool === b.dataset.type ? null : b.dataset.type); };
+    });
+    var wc = WIRE_COLORS.map(function (c) {
+      return '<button class="wc' + (S.wireColor === c ? ' on' : '') + '" data-c="' + c + '" style="background:' + c + '"></button>';
+    }).join('');
+    $('wireColors').innerHTML = wc;
+    document.querySelectorAll('.wc').forEach(function (b) {
+      b.onclick = function () { S.wireColor = b.dataset.c; renderBin(); if (S.tool !== 'wire') setTool('wire'); };
+    });
+  }
+  function partIcon(type) {
+    if (type === 'diode') return '<svg viewBox="0 0 40 18"><line x1="0" y1="9" x2="40" y2="9" stroke="#a8a8b0" stroke-width="2"/><rect x="11" y="2" width="18" height="14" rx="2" fill="#1c1c22"/><rect x="25" y="2" width="3" height="14" fill="#eee"/></svg>';
+    if (type === 'led') return '<svg viewBox="0 0 40 18"><line x1="0" y1="9" x2="40" y2="9" stroke="#a8a8b0" stroke-width="2"/><path d="M12 2 L22 2 A7 7 0 0 1 22 16 L12 16 Z" fill="#c92a2a"/></svg>';
+    if (type === 'cap') return '<svg viewBox="0 0 40 18"><line x1="0" y1="9" x2="40" y2="9" stroke="#a8a8b0" stroke-width="2"/><rect x="12" y="1" width="16" height="16" rx="3" fill="#1d4ed8"/><rect x="23" y="1" width="5" height="16" fill="#dbe4ff"/></svg>';
+    if (type === 'wire') return '<svg viewBox="0 0 40 18"><path d="M2 14 Q20 -2 38 14" fill="none" stroke="' + S.wireColor + '" stroke-width="3.4"/></svg>';
+    if (type === 'source') return '<svg viewBox="0 0 40 18"><line x1="0" y1="9" x2="40" y2="9" stroke="#c9a227" stroke-width="2"/><rect x="8" y="2" width="24" height="14" rx="3" fill="#3f3320" stroke="#c9a227"/></svg>';
+    if (type === 'switch') return '<svg viewBox="0 0 40 18"><line x1="0" y1="9" x2="12" y2="9" stroke="#a8a8b0" stroke-width="2"/><line x1="28" y1="9" x2="40" y2="9" stroke="#a8a8b0" stroke-width="2"/><line x1="12" y1="9" x2="27" y2="1" stroke="#f08c00" stroke-width="3"/></svg>';
+    return '<svg viewBox="0 0 40 18"><line x1="4" y1="16" x2="18" y2="2" stroke="#e5484d" stroke-width="3"/><line x1="20" y1="16" x2="34" y2="2" stroke="#111" stroke-width="3"/></svg>';
+  }
+
+  function renderSelected() {
+    var c = S.comps.filter(function (x) { return x.id === S.selected; })[0];
+    if (!c) { $('selBox').innerHTML = '<span class="dim">沒有選取任何零件</span>'; return; }
+    var p = PARTS[c.type];
+    var nl = C.buildNets(S.comps);
+    $('selBox').innerHTML = '<b>' + esc(c.label || p.name) + '</b>（' + esc(p.name) + '）<br>' +
+      '<span class="dim">' + p.p1 + '：' + c.pins[0] + '（' + C.netLabel(nl.root(c.pins[0])) + '）<br>' +
+      p.p2 + '：' + c.pins[1] + '（' + C.netLabel(nl.root(c.pins[1])) + '）</span>' +
+      '<div class="selbtns"><button id="btnFlip">↔ 反轉方向 (R)</button><button id="btnDel" class="danger">🗑 刪除 (Del)</button></div>';
+    $('btnFlip').onclick = function () { flipComp(c.id); };
+    $('btnDel').onclick = function () { removeComp(c.id); };
+  }
+
+  // ---------------- 檢查 / 教學 ----------------
+  var lastFacts = {};
+  function renderChecks() {
+    var a = C.analyze(S.comps);
+    lastFacts = a.facts;
+    var order = { err: 0, warn: 1, info: 2, ok: 3 };
+    var msgs = a.msgs.slice().sort(function (x, y) { return order[x.level] - order[y.level]; });
+    var ico = { err: '❌', warn: '⚠️', info: 'ℹ️', ok: '✅' };
+    $('checks').innerHTML = msgs.length
+      ? msgs.map(function (m) { return '<div class="msg ' + m.level + '">' + ico[m.level] + ' ' + esc(m.text) + '</div>'; }).join('')
+      : '<div class="msg info">ℹ️ 板子還是空的。左邊挑零件開始插，或按「一鍵標準接線」看正確答案。</div>';
+
+    var f = a.facts;
+    var steps = [
+      ['放上「蠟筆發電模組」（兩條引線各插一孔）', f.hasSource],
+      ['用 4 顆 1N4007 組成橋式整流', f.bridgeOK],
+      ['10 µF 電容跨在整流輸出的 + / −（注意 − 腳）', f.capOK],
+      ['LED 跨在同樣的 + / −（長腳朝 +）', f.ledOK],
+      ['按住「拍打發電」，看電容電壓爬上去', S.peakV > 0.5],
+      ['進階：LED 串一顆開關，先充電再按下 → 閃更亮', S.flashes > 0]
+    ];
+    $('steps').innerHTML = steps.map(function (s, i) {
+      return '<div class="step' + (s[1] ? ' done' : '') + '"><span class="sn">' + (s[1] ? '✓' : (i + 1)) + '</span>' + esc(s[0]) + '</div>';
+    }).join('');
+  }
+
+  function toast(msg) {
+    var t = $('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { t.classList.remove('show'); }, 2200);
+  }
+
+  // ---------------- 儀表板 ----------------
+  function fmtI(i) {
+    var a = Math.abs(i);
+    if (a < 1e-6) return (i * 1e9).toFixed(1) + ' nA';
+    if (a < 1e-3) return (i * 1e6).toFixed(1) + ' µA';
+    return (i * 1e3).toFixed(2) + ' mA';
+  }
+  function updateReadouts() {
+    var r = sim.readings();
+    if (Math.abs(r.vcap) > Math.abs(S.peakV)) S.peakV = r.vcap;
+    if (r.iled > S.peakLedI) S.peakLedI = r.iled;
+    var lit = r.bright > 0.12;
+    if (lit && !S.wasLit) S.flashes++;
+    S.wasLit = lit;
+    // 人眼有視覺殘留（~50ms），瞬間值在脈衝間隙會掉到 0；用「快升慢降」呈現才符合肉眼看到的樣子
+    S.visBright = Math.max(r.bright, (S.visBright || 0) * 0.85);
+    if (S.visBright < 0.005) S.visBright = 0;
+
+    $('roCap').textContent = r.vcap.toFixed(2) + ' V';
+    var pct = Math.max(0, Math.min(100, Math.abs(r.vcap) / 20 * 100));
+    $('roCapBar').style.width = pct + '%';
+    $('roCapBar').style.background = r.vcap < -0.2 ? '#e5484d' : (r.vcap > 16 ? '#f08c00' : 'linear-gradient(90deg,#40c057,#a9e34b)');
+    $('roLed').textContent = fmtI(r.iled);
+    var vb = S.visBright;
+    var txt = vb <= 0 ? '不亮' : (vb < 0.25 ? '微亮' : vb < 0.6 ? '亮' : '很亮');
+    if (vb > 0.05 && r.bright < 0.02) txt += '（閃爍中）';
+    $('roBright').textContent = txt;
+    $('roBright').className = 'vl ' + (vb > 0.05 ? 'lit' : '');
+    $('roSrc').textContent = (Math.abs(r.vsrc) < 0.05 ? '0.0' : r.vsrc.toFixed(1)) + ' V';
+    $('roTime').textContent = sim.t.toFixed(1) + ' s';
+    $('roPeak').textContent = S.peakV.toFixed(2) + ' V';
+    $('roFlash').textContent = S.flashes + ' 次';
+    $('ledBulb').style.opacity = (0.12 + 0.88 * vb);
+    $('ledBulb').style.filter = 'drop-shadow(0 0 ' + (4 + 26 * vb) + 'px rgba(255,90,90,' + (0.3 + 0.7 * vb) + '))';
+
+    var warn = [];
+    if (S.peakV > S.vMax) warn.push('電容電壓最高衝到 ' + S.peakV.toFixed(1) + ' V，超過你設定的 ' +
+      S.vMax + ' V 耐壓；真實電路要換耐壓更高的電容（電解電容超壓會鼓包漏液）。');
+    if (!r.converged) warn.push('這個接法數值上很極端（可能有短路），計算結果僅供參考。');
+    if (S.powerMode === 'dc' && r.iled > 0.03) warn.push('乾電池直接推 LED 電流 ' + fmtI(r.iled) + '，真實電路一定要串限流電阻（例如 220 Ω）。');
+    $('warnBox').innerHTML = warn.length ? warn.map(function (w) { return '<div class="msg warn">⚠️ ' + esc(w) + '</div>'; }).join('') : '';
+
+    // 探棒讀數
+    var probe = S.comps.filter(function (c) { return c.type === 'probe'; })[0];
+    if (probe) {
+      var nl = sim.netlist;
+      var va = r.netV[nl.root(probe.pins[0])] || 0, vb = r.netV[nl.root(probe.pins[1])] || 0;
+      $('probeBox').style.display = '';
+      $('probeVal').textContent = (va - vb).toFixed(2) + ' V';
+    } else $('probeBox').style.display = 'none';
+
+    if (S.showVolt) paintVoltages(r);
+  }
+
+  var painted = [];
+  function paintVoltages(r) {
+    painted.forEach(function (e) { e.setAttribute('fill', '#33333a'); });
+    painted = [];
+    if (!sim.nodes.length) return;
+    var maxV = 1;
+    sim.nodes.forEach(function (n) { maxV = Math.max(maxV, Math.abs(r.netV[n] || 0)); });
+    var nl = sim.netlist;
+    var used = {};
+    S.comps.forEach(function (c) { (c.pins || []).forEach(function (p) { used[nl.root(p)] = 1; }); });
+    Object.keys(used).forEach(function (root) {
+      var v = r.netV[root] || 0;
+      var f = Math.min(1, Math.abs(v) / maxV);
+      var col = v >= 0
+        ? 'rgb(' + Math.round(51 + 200 * f) + ',' + Math.round(51 - 20 * f) + ',' + Math.round(58 - 20 * f) + ')'
+        : 'rgb(' + Math.round(51 - 20 * f) + ',' + Math.round(51 + 90 * f) + ',' + Math.round(58 + 190 * f) + ')';
+      nl.members(root).forEach(function (net) {
+        holesOfNet(net).forEach(function (h) {
+          var e = HOLE_EL[h];
+          if (e) { e.setAttribute('fill', col); painted.push(e); }
+        });
+      });
+    });
+  }
+  function holesOfNet(net) {
+    var out = [];
+    if (C.isRail(net)) { for (var c = 1; c <= COLS; c++) out.push(net + ':' + c); return out; }
+    var col = net.slice(1);
+    var rows = net[0] === 'U' ? ['A', 'B', 'C', 'D', 'E'] : ['F', 'G', 'H', 'I', 'J'];
+    rows.forEach(function (r) { out.push(r + ':' + col); });
+    return out;
+  }
+
+  // ---------------- 波形 ----------------
+  function drawScope() {
+    var cv = $('scope'), ctx = cv.getContext('2d');
+    var W = cv.width, H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0d0f14'; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = '#1e2430'; ctx.lineWidth = 2;
+    for (var i = 1; i < 4; i++) {
+      ctx.beginPath(); ctx.moveTo(0, H * i / 4); ctx.lineTo(W, H * i / 4); ctx.stroke();
+    }
+    if (S.scope.length < 2) {
+      ctx.fillStyle = '#5b6472'; ctx.font = '22px sans-serif';
+      ctx.fillText('按住「拍打發電」就會出現充電曲線', 16, H / 2);
+      return;
+    }
+    var span = 30;
+    var t1 = S.scope[S.scope.length - 1].t, t0 = Math.max(0, t1 - span);
+    var pts = S.scope.filter(function (p) { return p.t >= t0; });
+    var maxV = 1;
+    pts.forEach(function (p) { maxV = Math.max(maxV, p.v); });
+    maxV = Math.ceil(maxV * 1.15);
+    function X(t) { return (t - t0) / Math.max(0.001, t1 - t0) * (W - 8) + 4; }
+    function Y(v) { return H - 30 - Math.max(0, v) / maxV * (H - 54); }
+    // 電容電壓
+    ctx.strokeStyle = '#40c057'; ctx.lineWidth = 3; ctx.beginPath();
+    pts.forEach(function (p, i) { i ? ctx.lineTo(X(p.t), Y(p.v)) : ctx.moveTo(X(p.t), Y(p.v)); });
+    ctx.stroke();
+    // LED 亮度
+    ctx.strokeStyle = 'rgba(255,120,120,.85)'; ctx.lineWidth = 2.4; ctx.beginPath();
+    pts.forEach(function (p, i) {
+      var y = H - 30 - p.b * (H - 54);
+      i ? ctx.lineTo(X(p.t), y) : ctx.moveTo(X(p.t), y);
+    });
+    ctx.stroke();
+    ctx.fillStyle = '#8b97a8'; ctx.font = '20px sans-serif';
+    ctx.fillText(maxV + ' V', 8, 22);
+    ctx.fillText('綠＝電容電壓　紅＝LED 亮度　（最近 ' + span + ' 秒）', 8, H - 8);
+  }
+
+  // ---------------- 主迴圈 ----------------
+  /** 依模擬時間取樣波形（frame 與 __BB.run 共用） */
+  function sampleScope() {
+    if (sim.t - S.lastScopeT < 0.02) return;
+    var r = sim.readings();
+    S.scope.push({ t: sim.t, v: r.vcap, b: r.bright });
+    if (S.scope.length > 4000) S.scope.shift();
+    S.lastScopeT = sim.t;
+  }
+
+  var lastFrame = 0;
+  function frame(ts) {
+    var wall = lastFrame ? Math.min(0.05, (ts - lastFrame) / 1000) : 0.016;
+    lastFrame = ts;
+    var dt = S.speed > 5 ? 2e-3 : 1e-3;
+    var steps = Math.min(1600, Math.round(wall * S.speed / dt));
+    for (var i = 0; i < steps; i++) { sim.step(dt); sampleScope(); }
+    if (steps) {
+      updateReadouts();
+      renderParts();
+      drawScope();
+      // 闖關步驟第 5、6 關要靠模擬結果才會打勾，每半秒刷新一次
+      if (ts - (frame._chk || 0) > 500) { frame._chk = ts; renderChecks(); }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ---------------- 存檔 ----------------
+  function save() {
+    try {
+      localStorage.setItem('bbsim', JSON.stringify({ comps: S.comps, seq: S.seq }));
+    } catch (e) { }
+  }
+  function load() {
+    try {
+      var j = JSON.parse(localStorage.getItem('bbsim') || 'null');
+      if (j && j.comps) { S.comps = j.comps; S.seq = j.seq || 1; }
+    } catch (e) { }
+  }
+
+  // ---------------- 參數 ----------------
+  function applyParams() {
+    S.powerMode = $('pMode').value;
+    sim.mode = S.powerMode === 'dc' ? 'dc' : 'ac';
+    sim.p.vPeak = +$('pPeak').value;
+    sim.p.tapHz = +$('pHz').value;
+    sim.p.srcR = +$('pR').value * 1e6;
+    sim.p.capC = +$('pCap').value * 1e-6;
+    sim.p.capLeakR = +$('pLeak').value;
+    S.vMax = +$('pVmax').value;
+    $('pPeakV').textContent = sim.p.vPeak + ' V';
+    $('pHzV').textContent = sim.p.tapHz + ' 下/秒';
+    $('pRV').textContent = (+$('pR').value) + ' MΩ';
+    $('tengOnly').style.display = S.powerMode === 'dc' ? 'none' : '';
+    sim.build(S.comps);
+    renderParts();
+  }
+
+  // ---------------- 綁定 ----------------
+  function bind() {
+    var svg = $('board');
+    svg.addEventListener('pointerdown', onBoardDown);
+    svg.addEventListener('pointermove', onBoardMove);
+    window.addEventListener('pointerup', onBoardUp);
+    svg.addEventListener('contextmenu', function (e) {
+      var c = e.target.closest && e.target.closest('[data-comp]');
+      if (c) { e.preventDefault(); removeComp(c.dataset.comp); }
+    });
+
+    var tapBtn = $('tapBtn');
+    function down(e) {
+      e.preventDefault();
+      if (S.holding) return;
+      S.holding = true; tapBtn.classList.add('on'); sim.tapDown();
+    }
+    function up() { if (!S.holding) return; S.holding = false; tapBtn.classList.remove('on'); sim.tapUp(); }
+    tapBtn.addEventListener('pointerdown', down);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+
+    $('autoBtn').onclick = function () {
+      S.auto = !S.auto; sim.autoTap = S.auto;
+      $('autoBtn').classList.toggle('on', S.auto);
+      $('autoBtn').textContent = S.auto ? '⏸ 停止自動拍打' : '🔁 自動拍打（節拍器）';
+    };
+    document.querySelectorAll('.spd').forEach(function (b) {
+      b.onclick = function () {
+        S.speed = +b.dataset.s;
+        document.querySelectorAll('.spd').forEach(function (x) { x.classList.toggle('on', x === b); });
+      };
+    });
+    $('btnRef').onclick = function () { loadReference(); toast('已載入標準接線：橋式整流 + 10 µF + LED'); };
+    $('btnClear').onclick = function () { if (S.comps.length && !confirm('清空整片麵包板？')) return; clearAll(); };
+    $('btnReset').onclick = function () { resetMeters(); toast('電容放電、儀表歸零'); };
+    $('btnUndo').onclick = undo;
+    $('btnVolt').onclick = function () {
+      S.showVolt = !S.showVolt;
+      $('btnVolt').classList.toggle('on', S.showVolt);
+      if (!S.showVolt) { painted.forEach(function (e) { e.setAttribute('fill', '#33333a'); }); painted = []; }
+    };
+    $('btnHelp').onclick = function () { $('helpDlg').showModal(); };
+    ['pMode', 'pPeak', 'pHz', 'pR', 'pCap', 'pLeak', 'pVmax'].forEach(function (id) {
+      $(id).addEventListener('input', applyParams);
+      $(id).addEventListener('change', applyParams);
+    });
+
+    window.addEventListener('keydown', function (e) {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      if (e.key === 'Escape') { setTool(null); S.pending = null; renderParts(); }
+      else if ((e.key === 'Delete' || e.key === 'Backspace') && S.selected) { e.preventDefault(); removeComp(S.selected); }
+      else if ((e.key === 'r' || e.key === 'R') && S.selected) flipComp(S.selected);
+      else if (e.key === 'z' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); undo(); }
+      else if (e.code === 'Space') {
+        e.preventDefault();
+        if (!S.holding) { S.holding = true; $('tapBtn').classList.add('on'); sim.tapDown(); }
+      }
+    });
+    window.addEventListener('keyup', function (e) {
+      if (e.code === 'Space' && S.holding) { S.holding = false; $('tapBtn').classList.remove('on'); sim.tapUp(); }
+    });
+  }
+
+  // ---------------- 啟動 ----------------
+  function init() {
+    buildBoard();
+    load();
+    bind();
+    applyParams();
+    setTool(null);
+    structureChanged(true);
+    requestAnimationFrame(frame);
+    document.body.dataset.ready = '1';
+  }
+
+  // 無頭驗證用掛勾
+  window.__BB = {
+    S: S, sim: sim, C: C,
+    place: place, clear: clearAll, loadReference: loadReference, setTool: setTool,
+    comps: function () { return S.comps; },
+    analyze: function () { return C.analyze(S.comps); },
+    facts: function () { return lastFacts; },
+    readings: function () { return sim.readings(); },
+    run: function (sec, opts) {
+      opts = opts || {};
+      if (opts.auto !== undefined) { S.auto = opts.auto; sim.autoTap = opts.auto; }
+      var dt = 1e-3, n = Math.round(sec / dt), peak = 0, peakB = 0;
+      for (var i = 0; i < n; i++) {
+        sim.step(dt);
+        sampleScope();
+        var r = sim.readings();
+        if (r.iled > peak) peak = r.iled;
+        if (r.bright > peakB) peakB = r.bright;
+        if (Math.abs(r.vcap) > Math.abs(S.peakV)) S.peakV = r.vcap;
+      }
+      updateReadouts(); renderParts(); drawScope(); renderChecks();
+      return { peakLed: peak, peakBright: peakB, readings: sim.readings() };
+    },
+    ui: function () {
+      return {
+        cap: $('roCap').textContent, led: $('roLed').textContent, bright: $('roBright').textContent,
+        checks: $('checks').textContent.trim().slice(0, 400),
+        steps: Array.prototype.map.call(document.querySelectorAll('.step'), function (s) {
+          return (s.classList.contains('done') ? '[v] ' : '[ ] ') + s.textContent.replace(/^[✓\d]/, '').trim();
+        }),
+        parts: $('boardParts').innerHTML.length,
+        warn: $('warnBox').textContent.trim()
+      };
+    }
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+
+</script>
+</body>
+</html>
