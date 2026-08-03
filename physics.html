@@ -1,0 +1,3684 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>物理綜合模擬器 — 光 · 聲 · 流體 · 力學 · 飛行</title>
+<style>
+:root{
+  --bg:#080d18; --bg2:#0f1730; --card:#121c36; --line:#243254;
+  --tx:#e9efff; --dim:#93a3c9; --acc:#5ee0c8; --acc2:#ffd166;
+  --ok:#3ddc84; --warn:#ffcc45; --bad:#ff5c5c; --danger:#ff2d55;
+  --vio:#b98cff;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--tx);
+  font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+  -webkit-text-size-adjust:100%;}
+body{padding-bottom:40px}
+header{
+  padding:14px 16px 10px;background:linear-gradient(180deg,#122343,#080d18);
+  border-bottom:1px solid var(--line);
+}
+h1{margin:0;font-size:19px;letter-spacing:.5px}
+h1 span{color:var(--acc)}
+.sub{color:var(--dim);font-size:12px;margin-top:3px;line-height:1.5}
+nav{display:flex;gap:6px;overflow-x:auto;padding:10px 12px 0;background:#080d18;
+  position:sticky;top:0;z-index:40;-webkit-overflow-scrolling:touch;border-bottom:1px solid var(--line)}
+nav button{
+  flex:0 0 auto;background:var(--card);color:var(--dim);border:1px solid var(--line);
+  border-radius:10px 10px 0 0;padding:9px 13px;font-size:14px;cursor:pointer;white-space:nowrap;
+  font-family:inherit;
+}
+nav button.on{background:var(--bg2);color:var(--tx);border-bottom-color:var(--bg2);box-shadow:inset 0 2px 0 var(--acc)}
+main{padding:0 12px;max-width:1500px;margin:0 auto}
+.page{display:none;animation:fade .18s ease}
+.page.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
+.card h2{margin:0 0 8px;font-size:16px;color:var(--acc)}
+.card h3{margin:14px 0 6px;font-size:14px;color:var(--acc2)}
+p,li{line-height:1.65;font-size:14px}
+.dim{color:var(--dim)}
+.grid{display:grid;gap:12px}
+@media(min-width:920px){.grid.two{grid-template-columns:1.35fr 1fr}}
+@media(min-width:920px){.grid.half{grid-template-columns:1fr 1fr}}
+canvas{width:100%;display:block;border-radius:10px;background:#04070f;touch-action:none}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+label.fld{display:block;margin:10px 0 2px;font-size:13px;color:var(--dim)}
+label.fld b{color:var(--tx);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--acc)}
+select,input[type=number]{background:#1a2444;color:var(--tx);border:1px solid var(--line);
+  border-radius:8px;padding:8px 10px;font-family:inherit;font-size:14px}
+button.btn{
+  background:linear-gradient(180deg,#5ee0c8,#22a08a);color:#04241d;border:0;border-radius:10px;
+  padding:11px 16px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;flex:1 1 auto;min-width:110px;
+}
+button.btn.sec{background:#1e2b4d;color:var(--tx);border:1px solid var(--line);font-weight:500}
+button.btn:active{transform:translateY(1px)}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{
+  background:#182342;border:1px solid var(--line);color:var(--dim);border-radius:9px;
+  padding:8px 11px;font-size:13px;cursor:pointer;font-family:inherit;flex:1 1 auto
+}
+.seg button.on{background:#26426e;color:#fff;border-color:#4d7fd6}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:13px;margin-top:8px}
+.kv div:nth-child(odd){color:var(--dim)}
+.kv div:nth-child(even){text-align:right;font-variant-numeric:tabular-nums}
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700}
+.b-ok{background:rgba(61,220,132,.15);color:var(--ok);border:1px solid rgba(61,220,132,.4)}
+.b-warn{background:rgba(255,204,69,.15);color:var(--warn);border:1px solid rgba(255,204,69,.4)}
+.b-bad{background:rgba(255,92,92,.15);color:var(--bad);border:1px solid rgba(255,92,92,.45)}
+.big{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.15}
+.big small{font-size:14px;font-weight:500;color:var(--dim)}
+.note{background:#0d1730;border-left:3px solid var(--acc);padding:9px 12px;border-radius:0 8px 8px 0;
+  font-size:13px;color:#c9d6f5;margin:10px 0;line-height:1.65}
+.warnbox{border-left-color:var(--danger);background:rgba(255,45,85,.09)}
+.okbox{border-left-color:var(--ok);background:rgba(61,220,132,.08)}
+ul{padding-left:20px;margin:6px 0}
+ul.tight li{margin:3px 0}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left}
+th{background:#182346;color:var(--acc2);font-weight:600}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.hi td{background:rgba(94,224,200,.10)}
+.cards3{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.mini{background:#101a36;border:1px solid var(--line);border-radius:10px;padding:12px}
+.mini h4{margin:0 0 6px;font-size:14px;color:var(--acc2)}
+.mini p{font-size:13px;margin:4px 0}
+.do{border-left:3px solid var(--ok)}
+.dont{border-left:3px solid var(--bad)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--dim);margin-top:6px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.chk{display:flex;align-items:center;gap:8px;background:#18223f;border:1px solid var(--line);
+  border-radius:9px;padding:9px 10px;font-size:13px;cursor:pointer}
+.chk input{width:17px;height:17px;accent-color:var(--acc)}
+footer{color:var(--dim);font-size:12px;text-align:center;padding:18px 14px;line-height:1.7}
+.pill{background:#18223f;border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--dim)}
+.pill b{color:var(--acc)}
+.fml{font-family:"Cascadia Mono",Consolas,monospace;background:#0b142c;
+  border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;color:#d8e4ff;
+  overflow-x:auto;white-space:nowrap;margin:6px 0}
+.q{background:#101a36;border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0}
+.q h4{margin:0 0 8px;font-size:14px}
+.q .opt{display:block;width:100%;text-align:left;background:#18223f;border:1px solid var(--line);
+  color:var(--tx);border-radius:8px;padding:9px 11px;margin:5px 0;font-size:13px;cursor:pointer;font-family:inherit}
+.q .opt:hover{border-color:#4d7fd6}
+.q .opt.right{background:rgba(61,220,132,.18);border-color:var(--ok)}
+.q .opt.wrong{background:rgba(255,92,92,.16);border-color:var(--bad)}
+.q .exp{display:none;margin-top:8px;font-size:13px;color:#c9d6f5;background:#0d1730;
+  border-left:3px solid var(--acc2);padding:8px 11px;border-radius:0 8px 8px 0;line-height:1.65}
+.q.done .exp{display:block}
+.gauge{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-top:8px}
+.gauge div{background:#0d1730;border:1px solid var(--line);border-radius:9px;padding:8px 10px}
+.gauge span{display:block;font-size:11px;color:var(--dim)}
+.gauge b{font-size:18px;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔬 物理綜合模擬器 <span>光 · 聲 · 流體 · 力學 · 飛行</span></h1>
+  <div class="sub">十個題目一次講完：光速、音速、散射、折射、密度、重心、浮力、大氣壓力、水壓、加速度，最後用「飛機怎麼起飛」把它們全部串起來。<br>
+  每一頁的數字都是<b>當場算出來的</b>，不是預錄動畫 —— 拉滑桿就會看到物理跟著變。</div>
+</header>
+
+<nav id="nav">
+  <button data-tab="light" class="on">① 光速 vs 音速</button>
+  <button data-tab="refract">② 折射</button>
+  <button data-tab="scatter">③ 散射</button>
+  <button data-tab="density">④ 密度</button>
+  <button data-tab="buoy">⑤ 浮力</button>
+  <button data-tab="press">⑥ 大氣壓 · 水壓</button>
+  <button data-tab="cg">⑦ 重心</button>
+  <button data-tab="accel">⑧ 加速度</button>
+  <button data-tab="flight">⑨ 飛機怎麼起飛</button>
+  <button data-tab="quiz">⑩ 隨堂測驗</button>
+</nav>
+
+<main>
+
+<!-- ==================== ① 光速 vs 音速 ==================== -->
+<section class="page on" id="tab-light">
+  <div class="grid two">
+    <div class="card">
+      <h2>閃電打在遠方，光先到還是聲先到？</h2>
+      <canvas id="cvLight" height="330"></canvas>
+      <div class="legend">
+        <span><i style="background:#ffe066"></i>光（電磁波）</span>
+        <span><i style="background:#4dd2ff"></i>聲音（空氣壓力波）</span>
+        <span><i style="background:#b98cff"></i>你的位置</span>
+      </div>
+      <div class="row">
+        <button class="btn" id="btnFlash">⚡ 打一次閃電</button>
+        <button class="btn sec" id="btnSlowmo">🐢 慢動作：×<span id="slowLbl">1</span></button>
+        <button class="btn sec" id="btnLightReset">↺ 重設</button>
+      </div>
+      <div class="gauge">
+        <div><span>經過時間</span><b id="gT">0.00 s</b></div>
+        <div><span>光走了</span><b id="gLight">0 km</b></div>
+        <div><span>聲音走了</span><b id="gSound">0 m</b></div>
+        <div><span>你聽到了嗎</span><b id="gHeard">還沒</b></div>
+      </div>
+      <div class="note" id="lightNote"></div>
+    </div>
+
+    <div class="card">
+      <h2>條件</h2>
+      <label class="fld">你和閃電的距離：<b id="vDist">1000</b> m</label>
+      <input type="range" id="inDist" min="50" max="5000" value="1000" step="10">
+      <label class="fld">氣溫：<b id="vTemp">20</b> °C</label>
+      <input type="range" id="inTemp" min="-40" max="50" value="20" step="1">
+
+      <h3>算出來的速度</h3>
+      <div class="big" id="soundBig">343.2 <small>m/s</small></div>
+      <div class="kv">
+        <div>音速（此溫度的空氣）</div><div id="kSound">—</div>
+        <div>光速（真空）</div><div id="kLight">299 792 458 m/s</div>
+        <div>光快幾倍</div><div id="kRatio">—</div>
+        <div>聲音抵達時間</div><div id="kTs">—</div>
+        <div>光抵達時間</div><div id="kTl">—</div>
+        <div>時間差</div><div id="kDt">—</div>
+      </div>
+      <div class="note">
+        <b>野外估距法</b>：看到閃光後開始數秒，<b>每 3 秒 ≈ 1 公里</b>（因為音速約 343 m/s）。
+        數到 3 秒就打雷 → 雷擊大約在 1 km 外，已經在危險範圍，該進室內了。
+      </div>
+
+      <h3>音速公式</h3>
+      <div class="fml">a = √(γRT/M) = 331.3 × √(1 + T/273.15)  m/s</div>
+      <p class="dim">音速由<b>介質的彈性與密度</b>決定，跟聲音大小完全無關。溫度越高分子動得越快，
+      傳遞擠壓的接力越快 → 音速越快（每升 1 °C 約 +0.6 m/s）。</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>聲音在不同東西裡跑多快？</h2>
+    <p class="dim">聲音是「分子推鄰居」的接力，所以<b>越硬（彈性模數大）、越輕</b>的介質傳得越快。固體通常最快，氣體最慢。</p>
+    <table id="mediaTable"><thead><tr><th>介質</th><th class="n">音速 (m/s)</th><th class="n">是空氣的幾倍</th><th class="n">聲音跑 1 km 要幾秒</th><th>備註</th></tr></thead><tbody></tbody></table>
+    <div class="note">
+      <b>為什麼吸了氦氣聲音會變高？</b> 氦氣很輕（密度只有空氣的 1/7），音速快到約 970 m/s。
+      聲帶振動頻率沒變，但聲道的<b>共振頻率 ∝ 音速</b>，共振被推高，聽起來就變成卡通聲。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>光速有多快？換成生活尺度看看</h2>
+    <table id="lightTable"><thead><tr><th>從這裡到…</th><th class="n">距離</th><th class="n">光要走</th><th class="n">聲音要走（若有空氣）</th></tr></thead><tbody></tbody></table>
+    <div class="cards3" style="margin-top:12px">
+      <div class="mini"><h4>🌌 光速是宇宙的速限</h4>
+        <p class="dim">c = 299 792 458 m/s 是<b>定義值</b>——1 公尺就是「光在 1/299792458 秒走的距離」。
+        任何帶質量的東西加速到 c 需要無限能量，所以 c 到不了、更超不過。</p></div>
+      <div class="mini"><h4>🕐 看遠方 = 看過去</h4>
+        <p class="dim">太陽光到地球要 8 分 20 秒，所以你看到的太陽是 8 分鐘前的樣子。
+        看 4.24 光年外的比鄰星，看到的是 4 年多前的它。</p></div>
+      <div class="mini"><h4>🐢 光在介質裡會變慢</h4>
+        <p class="dim">v = c/n。在水裡 (n=1.33) 剩 22.5 萬 km/s，鑽石 (n=2.42) 只剩 12.4 萬 km/s。
+        <b>「變慢」正是折射與散射的根源</b> → 見下一頁。</p></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>音速當尺標：馬赫數與音爆</h2>
+    <div class="grid half">
+      <div>
+        <label class="fld">飛行速度：<b id="vMachV">900</b> km/h</label>
+        <input type="range" id="inMachV" min="100" max="3600" value="900" step="10">
+        <label class="fld">飛行高度（影響氣溫→影響音速）：<b id="vMachH">11</b> km</label>
+        <input type="range" id="inMachH" min="0" max="20" value="11" step="0.5">
+        <div class="kv">
+          <div>該高度氣溫</div><div id="kMachT">—</div>
+          <div>該高度音速</div><div id="kMachA">—</div>
+          <div>馬赫數 M</div><div id="kMach">—</div>
+          <div>飛行區間</div><div id="kMachZone">—</div>
+          <div>音爆錐半角 μ = asin(1/M)</div><div id="kMachMu">—</div>
+        </div>
+      </div>
+      <div>
+        <div class="note">
+          <b>音障不是一道牆</b>：接近 M=1 時飛機自己發出的壓力波來不及跑開，堆疊成震波，阻力暴增、操縱面失效。
+          突破後震波拖在後面成圓錐，錐面掃過地面就是<b>音爆</b>（Sonic Boom）。
+        </div>
+        <div class="note">
+          高空又冷（-56 °C）音速只剩約 295 m/s，所以客機巡航 900 km/h（250 m/s）
+          就已經是 <b>M 0.85</b>，很接近音速了 —— 這也是為什麼客機的翼是後掠的。
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== ② 折射 ==================== -->
+<section class="page" id="tab-refract">
+  <div class="grid two">
+    <div class="card">
+      <h2>折射：光換介質就轉彎</h2>
+      <div class="seg" id="refrSeg">
+        <button data-m="flat" class="on">平界面（可拖角度）</button>
+        <button data-m="prism">稜鏡分光</button>
+        <button data-m="mirage">海市蜃樓</button>
+        <button data-m="fish">水裡的魚在哪</button>
+      </div>
+      <canvas id="cvRefr" height="380"></canvas>
+      <div class="dim" style="font-size:12px;margin-top:5px" id="refrHint">在畫面上<b>拖曳</b>可以改變入射角。</div>
+      <div class="row">
+        <button class="btn sec" id="btnSwap">⇅ 從水射向空氣</button>
+        <button class="btn sec" id="btnRefrReset">↺ 重設</button>
+      </div>
+      <div class="legend">
+        <span><i style="background:#ffe066"></i>入射光</span>
+        <span><i style="background:#ff9f5c"></i>反射光</span>
+        <span><i style="background:#5ee0c8"></i>折射光</span>
+        <span><i style="background:#93a3c9"></i>法線</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>司乃耳定律</h2>
+      <div class="fml">n₁ · sin θ₁ = n₂ · sin θ₂ ，  n = c / v</div>
+      <label class="fld">入射角 θ₁：<b id="vAng">40</b>°</label>
+      <input type="range" id="inAng" min="0" max="89" value="40" step="1">
+      <label class="fld">上方介質 n₁</label>
+      <select id="selN1"></select>
+      <label class="fld">下方介質 n₂</label>
+      <select id="selN2"></select>
+      <label class="fld">波長（顏色）：<b id="vLam">550</b> nm</label>
+      <input type="range" id="inLam" min="400" max="700" value="550" step="5">
+
+      <h3>結果</h3>
+      <div class="big" id="refrBig">θ₂ = 28.9°</div>
+      <div class="kv">
+        <div>n₁ / n₂（此波長）</div><div id="kN">—</div>
+        <div>光在上方介質速度</div><div id="kV1">—</div>
+        <div>光在下方介質速度</div><div id="kV2">—</div>
+        <div>折射角 θ₂</div><div id="kTh2">—</div>
+        <div>臨界角 θc（若 n₁&gt;n₂）</div><div id="kThc">—</div>
+        <div>反射率（菲涅耳，非偏振）</div><div id="kFres">—</div>
+        <div>穿透率</div><div id="kTrans">—</div>
+      </div>
+      <div class="note" id="refrNote"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>為什麼會轉彎？——「行軍過泥地」模型</h2>
+    <div class="cards3">
+      <div class="mini"><h4>🚶 一排人斜著走進泥地</h4>
+        <p class="dim">先踏進泥地的那一側先變慢，整排人的方向就被拉向<b>接近法線</b>的方向。
+        光的波前完全一樣：進入慢介質（n 大）就往法線偏，進入快介質就遠離法線。</p></div>
+      <div class="mini"><h4>⏱ 費馬原理</h4>
+        <p class="dim">光走的是<b>時間最短</b>的路徑，不是距離最短。在慢介質裡少走一點、在快介質裡多走一點，
+        總時間反而更短 —— 折射角就是這樣被決定的。</p></div>
+      <div class="mini"><h4>🔒 全反射</h4>
+        <p class="dim">從慢往快（如水→空氣），入射角大過 θc = asin(n₂/n₁) 時折射角算不出來，
+        光 100% 被反彈回去。水面下往上看會看到<b>史奈爾窗</b>；光纖、鑽石的火光都靠這招。</p></div>
+    </div>
+    <table>
+      <thead><tr><th>介質</th><th class="n">折射率 n</th><th class="n">光速 (km/s)</th><th class="n">從它射向空氣的臨界角</th><th>看得到什麼</th></tr></thead>
+      <tbody id="nTable"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>聲音也會折射</h2>
+    <p class="dim">折射不是光的專利，只要<b>波速在空間中變化</b>就會發生。音速隨溫度變化，所以：</p>
+    <ul class="tight">
+      <li><b>夜晚聲音傳得遠</b>：地表冷、上空暖（逆溫），上方音速快，聲線被<b>往下折</b>回地面，能量不容易散失到高空。白天相反，聲音往上折走，遠處就聽不清。</li>
+      <li><b>海洋 SOFAR 聲道</b>：約 1000 m 深處音速最低，聲線被上下兩側折回這一層來回反射，鯨魚叫聲可以傳幾千公里。</li>
+      <li><b>沙漠蜃景的聲學版</b>：熱地面上空音速梯度大，會出現「聽得到卻聽不清方向」的區域（聲影區）。</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ==================== ③ 散射 ==================== -->
+<section class="page" id="tab-scatter">
+  <div class="grid two">
+    <div class="card">
+      <h2>天空為什麼是藍的？夕陽為什麼是紅的？</h2>
+      <canvas id="cvSky" height="330"></canvas>
+      <div class="row">
+        <label class="fld" style="flex:1 1 100%;margin:6px 0 2px">太陽仰角：<b id="vSun">50</b>°（0° = 在地平線）</label>
+        <input type="range" id="inSun" min="-4" max="90" value="50" step="1">
+      </div>
+      <div class="row">
+        <label class="fld" style="flex:1 1 100%;margin:6px 0 2px">空氣的懸浮微粒／霾（濁度）：<b id="vTurb">0.10</b></label>
+        <input type="range" id="inTurb" min="0" max="1" value="0.10" step="0.01">
+      </div>
+      <div class="gauge">
+        <div><span>大氣路徑長（airmass）</span><b id="gAm">1.0</b></div>
+        <div><span>天空顏色</span><b id="gSkyRgb" style="font-size:13px">—</b></div>
+        <div><span>太陽本身顏色</span><b id="gSunRgb" style="font-size:13px">—</b></div>
+      </div>
+      <div class="note" id="scatNote"></div>
+    </div>
+
+    <div class="card">
+      <h2>瑞利散射：∝ 1/λ⁴</h2>
+      <canvas id="cvScat" height="200"></canvas>
+      <div class="fml">散射強度 I ∝ 1 / λ⁴  →  藍光(450nm) 被散射的機率是紅光(680nm) 的 (680/450)⁴ ≈ 5.2 倍</div>
+      <div class="kv">
+        <div>藍 450 nm 散射相對量</div><div id="kSb">—</div>
+        <div>綠 550 nm 散射相對量</div><div id="kSg">—</div>
+        <div>紅 680 nm 散射相對量</div><div id="kSr">—</div>
+        <div>此刻直射光剩下（藍/綠/紅）</div><div id="kTrio">—</div>
+      </div>
+      <div class="note">
+        空氣分子比光的波長小很多（約 0.3 nm vs 500 nm），屬於<b>瑞利散射</b>：越短的波長被彈開得越厲害。
+        <ul class="tight" style="margin-top:6px">
+          <li><b>白天天空藍</b>：陽光在頭頂上方被空氣分子四面八方彈散，彈得最多的藍光從各個方向進入你眼睛。（不是紫色，因為太陽的紫光本來就少、大氣高層吸收，加上人眼對紫不敏感。）</li>
+          <li><b>夕陽紅</b>：太陽貼近地平線時，陽光要斜穿約 38 倍厚的大氣，藍綠光沿路幾乎全被散射掉，只剩紅橙光直達你眼睛。</li>
+          <li><b>太空中的天空是黑的</b>：沒有空氣可以散射，看不到太陽以外的光。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>顆粒變大 → 換一種散射</h2>
+    <div class="cards3">
+      <div class="mini"><h4>🔵 瑞利散射（顆粒 ≪ λ）</h4>
+        <p class="dim">空氣分子。強烈偏好短波長（1/λ⁴）→ <b>天空藍、夕陽紅</b>。</p></div>
+      <div class="mini"><h4>⚪ 米氏散射（顆粒 ≈ λ 或更大）</h4>
+        <p class="dim">雲滴、霧、灰塵、牛奶。各波長散射量差不多 → <b>雲是白的、霧是白的、霾讓天空變灰白</b>。</p></div>
+      <div class="mini"><h4>🌊 吸收 ≠ 散射</h4>
+        <p class="dim">深海的藍主要不是散射，是水<b>吸收</b>紅光（水對紅外／紅光吸收強）。同一杯水很淺看不出顏色，
+        幾十公尺深才藍得明顯。</p></div>
+    </div>
+    <h3>丁達爾效應（看得見的光路）</h3>
+    <p class="dim">乾淨空氣裡看不見光束，因為沒有東西把光彈進你眼裡。灑點粉塵、起霧、或在水裡滴幾滴牛奶，
+    光束就現形了 —— 你看到的是<b>被散射到側向</b>的那部分光。舞台的光柱、森林裡的耶穌光都是這樣來的。</p>
+    <div class="note">
+      <b>小實驗</b>：一杯水滴 2 滴牛奶，手電筒從側面照。側面看是<b>淡藍</b>（短波長被散射到側面），
+      正對光源看透過去的光是<b>橙黃</b>（藍被散射走了，剩長波長穿過）—— 這就是一杯水裡的日出與日落。
+    </div>
+  </div>
+</section>
+
+<!-- ==================== ④ 密度 ==================== -->
+<section class="page" id="tab-density">
+  <div class="grid two">
+    <div class="card">
+      <h2>密度分層柱：丟東西下去會停在哪一層？</h2>
+      <canvas id="cvDens" height="400"></canvas>
+      <div class="row">
+        <button class="btn" id="btnDrop">⬇ 丟下去</button>
+        <button class="btn sec" id="btnDensReset">↺ 清空</button>
+      </div>
+      <div class="dim" style="font-size:12px">物體會一路下沉，直到遇到<b>比自己密的液體</b>就浮在那個界面上。<br>
+      這就是為什麼油浮在水上、水浮在蜂蜜上 —— 沉浮只看密度大小，跟重量無關。</div>
+      <div class="legend" id="densLegend"></div>
+    </div>
+
+    <div class="card">
+      <h2>密度 = 質量 ÷ 體積</h2>
+      <div class="fml">ρ = m / V   （水 = 1000 kg/m³ = 1 g/cm³）</div>
+      <label class="fld">要丟什麼下去</label>
+      <select id="selObj"></select>
+      <label class="fld">質量 m：<b id="vMass">100</b> g</label>
+      <input type="range" id="inMass" min="1" max="2000" value="100" step="1">
+      <label class="fld">體積 V：<b id="vVol">100</b> cm³</label>
+      <input type="range" id="inVol" min="1" max="2000" value="100" step="1">
+      <div class="big" id="densBig">1.00 <small>g/cm³</small></div>
+      <div class="kv">
+        <div>密度 ρ</div><div id="kRho">—</div>
+        <div>會停在</div><div id="kLayer">—</div>
+        <div>在純水中</div><div id="kInWater">—</div>
+        <div>在水中的視重（浮力後）</div><div id="kApparent">—</div>
+      </div>
+      <div class="note" id="densNote"></div>
+
+      <h3>同樣是鐵，為什麼船會浮？</h3>
+      <label class="fld">鋼板做成船殼，內部空氣佔比：<b id="vHollow">0</b> %</label>
+      <input type="range" id="inHollow" min="0" max="95" value="0" step="1">
+      <div class="kv">
+        <div>鋼的密度</div><div>7850 kg/m³</div>
+        <div>整艘船的<b>平均</b>密度</div><div id="kShipRho">—</div>
+        <div>結果</div><div id="kShipVerdict">—</div>
+      </div>
+      <div class="note">
+        沉浮比的是<b>整體平均密度</b>（含裡面的空氣），不是材料密度。
+        把 7850 的鋼攤薄圍出一大包空氣，平均密度就能壓到 1000 以下 —— 鋼鐵巨輪就是這樣浮起來的。
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>常見物質密度表</h2>
+    <table id="rhoTable"><thead><tr><th>物質</th><th class="n">密度 kg/m³</th><th class="n">是水的幾倍</th><th>在水中</th></tr></thead><tbody></tbody></table>
+    <div class="note">
+      <b>水的怪癖</b>：大部分物質固態比液態密，但水在 4 °C 時最密（1000 kg/m³），
+      結成冰反而膨脹變成 917 → <b>冰會浮</b>。湖泊因此從上面開始結冰，底層維持 4 °C 的液態水，魚才活得下去。
+    </div>
+  </div>
+</section>
+
+<!-- ==================== ⑤ 浮力 ==================== -->
+<section class="page" id="tab-buoy">
+  <div class="grid two">
+    <div class="card">
+      <h2>浮力：被你推開的水的重量</h2>
+      <canvas id="cvBuoy" height="380"></canvas>
+      <div class="row">
+        <button class="btn" id="btnBuoyDrop">⬇ 放到水面上</button>
+        <button class="btn sec" id="btnPush">👇 用力壓下去</button>
+        <button class="btn sec" id="btnWaveToggle">🌊 波浪：<span id="waveLbl">開</span></button>
+        <button class="btn sec" id="btnBuoyReset">↺ 重設</button>
+      </div>
+      <div class="legend">
+        <span><i style="background:#5ee0c8"></i>浮力 F<sub>b</sub></span>
+        <span><i style="background:#ff5c5c"></i>重力 mg</span>
+        <span><i style="background:#ffd166"></i>吃水線</span>
+      </div>
+      <div class="gauge">
+        <div><span>浮力</span><b id="gFb">0 N</b></div>
+        <div><span>重力</span><b id="gW">0 N</b></div>
+        <div><span>合力</span><b id="gNet">0 N</b></div>
+        <div><span>吃水深度</span><b id="gDraft">0 cm</b></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>阿基米德原理</h2>
+      <div class="fml">F<sub>b</sub> = ρ<sub>液</sub> · g · V<sub>排開</sub>   （浮力 = 排開液體的重量）</div>
+      <label class="fld">物體密度：<b id="vBrho">600</b> kg/m³</label>
+      <input type="range" id="inBrho" min="50" max="3000" value="600" step="10">
+      <label class="fld">物體邊長（正方體）：<b id="vBsize">40</b> cm</label>
+      <input type="range" id="inBsize" min="10" max="120" value="40" step="1">
+      <label class="fld">液體</label>
+      <div class="seg" id="fluidSeg">
+        <button data-r="1000" class="on">純水 1000</button>
+        <button data-r="1025">海水 1025</button>
+        <button data-r="1240">死海 1240</button>
+        <button data-r="820">酒精 820</button>
+      </div>
+      <label class="fld">加載重（貨物）：<b id="vLoad">0</b> kg</label>
+      <input type="range" id="inLoad" min="0" max="300" value="0" step="1">
+
+      <h3>算出來</h3>
+      <div class="big" id="buoyBig">浮著 · 吃水 24.0 cm</div>
+      <div class="kv">
+        <div>物體質量</div><div id="kBm">—</div>
+        <div>總重（含載重）</div><div id="kBw">—</div>
+        <div>完全浸沒時的浮力</div><div id="kBfull">—</div>
+        <div>平衡吃水深度</div><div id="kBdraft">—</div>
+        <div>浸沒比例（露出多少）</div><div id="kBfrac">—</div>
+        <div>還能再載多少才沉</div><div id="kBres">—</div>
+      </div>
+      <div class="note" id="buoyNote"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>浮力的三個經典題</h2>
+    <div class="cards3">
+      <div class="mini"><h4>🧊 冰山為什麼只露出一角</h4>
+        <p class="dim">冰 917 / 海水 1025 → 浸沒比例 = 917/1025 = <b>89.5%</b>，只有 <b>10.5%</b> 露出水面。
+        看到的一角下面藏著九倍體積，這是撞船的真正原因。</p></div>
+      <div class="mini"><h4>🎈 熱氣球也是浮力</h4>
+        <p class="dim">空氣也是流體。加熱讓球內空氣密度變小（ρ = PM/RT），排開的冷空氣重量大於整體重量就升空。
+        <b>浮力不分液體氣體</b>。</p>
+        <label class="fld" style="margin-top:6px">球內空氣溫度：<b id="vBalT">100</b> °C</label>
+        <input type="range" id="inBalT" min="20" max="180" value="100" step="1">
+        <div class="kv">
+          <div>球內空氣密度</div><div id="kBalRhoIn">—</div>
+          <div>外部空氣密度 (15°C)</div><div id="kBalRhoOut">—</div>
+          <div>2200 m³ 球的淨升力</div><div id="kBalLift">—</div>
+          <div>能吊起</div><div id="kBalPay">—</div>
+        </div>
+      </div>
+      <div class="mini"><h4>🐟 魚的魚鰾 / 潛艇的壓載艙</h4>
+        <p class="dim">體積幾乎不變，只微調<b>裡面氣體量</b>就能讓平均密度剛好等於水 → 停在任意深度（中性浮力）。
+        潛艇灌水下潛、排水上浮，用的是同一招。</p></div>
+    </div>
+    <div class="note">
+      <b>常見誤解</b>：「重的東西會沉」是錯的。一艘 20 萬噸的貨輪比一顆 10 克的石頭重兩千萬倍，卻是石頭沉。
+      決定沉浮的是 <b>ρ<sub>物體</sub> vs ρ<sub>液體</sub></b>，也就是「同體積誰比較重」。
+    </div>
+  </div>
+</section>
+
+<!-- ==================== ⑥ 大氣壓 · 水壓 ==================== -->
+<section class="page" id="tab-press">
+  <div class="grid two">
+    <div class="card">
+      <h2>大氣壓力：頭頂上那根空氣柱的重量</h2>
+      <canvas id="cvAtm" height="400"></canvas>
+      <div class="dim" style="font-size:12px">在圖上<b>拖曳</b>可以改變高度。</div>
+      <label class="fld">高度：<b id="vAlt">0</b> m</label>
+      <input type="range" id="inAlt" min="0" max="20000" value="0" step="50">
+      <div class="gauge">
+        <div><span>氣壓</span><b id="gP">1013 hPa</b></div>
+        <div><span>氣溫</span><b id="gTa">15.0 °C</b></div>
+        <div><span>空氣密度</span><b id="gRhoA">1.225</b></div>
+        <div><span>水的沸點</span><b id="gBoil">100 °C</b></div>
+      </div>
+      <div class="note" id="atmNote"></div>
+    </div>
+
+    <div class="card">
+      <h2>1 大氣壓有多大？</h2>
+      <div class="fml">1 atm = 101 325 Pa = 1013.25 hPa = 760 mmHg ≈ 10.33 m 水柱</div>
+      <div class="kv">
+        <div>你的手掌（10×15 cm）承受</div><div id="kHand">—</div>
+        <div>相當於幾公斤壓在手上</div><div id="kHandKg">—</div>
+        <div>一個人體表面積（1.7 m²）承受</div><div id="kBody">—</div>
+      </div>
+      <div class="note">
+        <b>那為什麼沒被壓扁？</b> 因為身體<b>裡面</b>也是 1 atm，內外抵銷。
+        真正會出事的是「兩邊壓力不一樣」的時候 —— 吸盤、馬德堡半球、機艙失壓、耳膜。
+      </div>
+
+      <h3>玩一下壓力差</h3>
+      <label class="fld">吸盤 / 半球直徑：<b id="vSuck">12</b> cm</label>
+      <input type="range" id="inSuck" min="2" max="60" value="12" step="1">
+      <label class="fld">裡面抽掉多少空氣（真空度）：<b id="vVac">90</b> %</label>
+      <input type="range" id="inVac" min="0" max="100" value="90" step="1">
+      <div class="kv">
+        <div>面積</div><div id="kSuckA">—</div>
+        <div>內外壓力差</div><div id="kSuckDp">—</div>
+        <div>要拉開需要的力</div><div id="kSuckF">—</div>
+        <div>相當於掛幾公斤</div><div id="kSuckKg">—</div>
+      </div>
+      <div class="note">
+        1654 年馬德堡市長把兩個半球抽真空，<b>兩邊各 8 匹馬</b>才拉開 —— 表演的就是這個數字。
+      </div>
+
+      <h3>用吸管喝水，其實不是「吸」</h3>
+      <p class="dim">你只是把嘴裡的壓力降低，是<b>外面的大氣壓把水推上來</b>。
+      所以理論極限只有 <b>10.33 m</b>：再長的吸管，大氣壓也推不上去（水柱重量剛好等於大氣壓）。
+      抽水機沒辦法從超過 10 m 深的井「吸」水，必須把泵放到井底去<b>推</b>。</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>水壓：每下去 10 公尺就多一個大氣壓</h2>
+    <div class="grid two">
+      <div>
+        <canvas id="cvHydro" height="400"></canvas>
+        <div class="dim" style="font-size:12px">在圖上<b>拖曳</b>可以改變潛水深度。</div>
+      </div>
+      <div>
+        <div class="fml">P = P₀ + ρ · g · h   （水每深 10.33 m ≈ +1 atm）</div>
+        <label class="fld">水深 h：<b id="vDepth">10</b> m</label>
+        <input type="range" id="inDepth" min="0" max="11000" value="10" step="1">
+        <label class="fld">水的種類</label>
+        <div class="seg" id="waterSeg">
+          <button data-r="1000" class="on">淡水 1000</button>
+          <button data-r="1025">海水 1025</button>
+        </div>
+        <div class="big" id="hydBig">2.0 <small>atm（絕對壓）</small></div>
+        <div class="kv">
+          <div>水造成的壓力（表壓）</div><div id="kHgauge">—</div>
+          <div>絕對壓力（含大氣）</div><div id="kHabs">—</div>
+          <div>換成幾個大氣壓</div><div id="kHatm">—</div>
+          <div>耳膜（0.6 cm²）受力</div><div id="kEar">—</div>
+          <div>肺部氣體體積剩（波以耳）</div><div id="kLung">—</div>
+          <div>這個深度是</div><div id="kDepthWhere">—</div>
+        </div>
+        <div class="note" id="hydNote"></div>
+      </div>
+    </div>
+    <div class="cards3" style="margin-top:12px">
+      <div class="mini"><h4>💡 水壓只看「深度」，跟水多不多無關</h4>
+        <p class="dim">一根細管裡 10 m 高的水，底部壓力跟 10 m 深的太平洋一樣。
+        壓力 = ρgh，形狀、總水量都不影響 —— 這叫<b>水靜力學悖論</b>。</p></div>
+      <div class="mini"><h4>🏗 水壩為什麼下面特別厚</h4>
+        <p class="dim">壓力隨深度線性增加，壩底承受最大。壩體斷面做成三角形，就是照著壓力分布長出來的形狀。</p></div>
+      <div class="mini"><h4>🔧 帕斯卡原理：小力變大力</h4>
+        <p class="dim">密閉液體中壓力處處相等 → F₂ = F₁ · (A₂/A₁)。千斤頂、油壓剎車、挖土機手臂都靠它。</p>
+        <label class="fld" style="margin-top:6px">小活塞直徑：<b id="vPa1">2</b> cm</label>
+        <input type="range" id="inPa1" min="1" max="10" value="2" step="0.5">
+        <label class="fld">大活塞直徑：<b id="vPa2">20</b> cm</label>
+        <input type="range" id="inPa2" min="5" max="60" value="20" step="1">
+        <label class="fld">你施的力：<b id="vPaF">100</b> N</label>
+        <input type="range" id="inPaF" min="10" max="500" value="100" step="10">
+        <div class="kv">
+          <div>放大倍率 A₂/A₁</div><div id="kPaR">—</div>
+          <div>大活塞輸出力</div><div id="kPaF2">—</div>
+          <div>能頂起</div><div id="kPaKg">—</div>
+          <div>但大活塞只升</div><div id="kPaS">—</div>
+        </div>
+        <p class="dim" style="font-size:12px">力放大了，但<b>行程等比縮小</b>，功不會變多（能量守恆）。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== ⑦ 重心 ==================== -->
+<section class="page" id="tab-cg">
+  <div class="grid two">
+    <div class="card">
+      <h2>重心：東西什麼時候會倒？</h2>
+      <div class="seg" id="cgSeg">
+        <button data-m="box" class="on">堆疊物體</button>
+        <button data-m="truck">貨車轉彎</button>
+        <button data-m="ship">船的穩定性</button>
+      </div>
+      <canvas id="cvCg" height="400"></canvas>
+      <div class="dim" style="font-size:12px" id="cgHint">拖曳<b>紅色配重</b>改變重心位置，或拖曳畫面左右來傾斜。</div>
+      <div class="row">
+        <button class="btn" id="btnTilt">↗ 慢慢傾斜看看</button>
+        <button class="btn sec" id="btnCgReset">↺ 重設</button>
+      </div>
+      <div class="gauge">
+        <div><span>重心高度 H<sub>cg</sub></span><b id="gHcg">—</b></div>
+        <div><span>重心水平位置</span><b id="gXcg">—</b></div>
+        <div><span>傾倒臨界角</span><b id="gTipAng">—</b></div>
+        <div><span>目前狀態</span><b id="gTipState" style="font-size:14px">穩定</b></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>重心怎麼算</h2>
+      <div class="fml">x<sub>cg</sub> = Σ(mᵢ·xᵢ) / Σmᵢ  ，  y<sub>cg</sub> = Σ(mᵢ·yᵢ) / Σmᵢ</div>
+      <p class="dim">重心是「整個物體的質量可以視為集中在這一點」。判斷會不會倒，只要看一件事：
+      <b>重心的鉛直投影有沒有落在支撐底面之內</b>。落在外面 → 重力產生的力矩把它推倒。</p>
+
+      <label class="fld">底座寬度 B：<b id="vCgB">80</b> cm</label>
+      <input type="range" id="inCgB" min="20" max="200" value="80" step="1">
+      <label class="fld">物體高度 H：<b id="vCgH">160</b> cm</label>
+      <input type="range" id="inCgH" min="40" max="260" value="160" step="1">
+      <label class="fld">上方配重（放高處的重物）：<b id="vCgTop">10</b> kg</label>
+      <input type="range" id="inCgTop" min="0" max="120" value="10" step="1">
+      <label class="fld">配重放的高度：<b id="vCgTopH">140</b> cm</label>
+      <input type="range" id="inCgTopH" min="10" max="260" value="140" step="5">
+      <label class="fld">本體質量：<b id="vCgBody">40</b> kg</label>
+      <input type="range" id="inCgBody" min="5" max="200" value="40" step="1">
+
+      <h3>結果</h3>
+      <div class="big" id="cgBig">臨界角 26.6°</div>
+      <div class="kv">
+        <div>總質量</div><div id="kCgM">—</div>
+        <div>重心高度 H<sub>cg</sub></div><div id="kCgH">—</div>
+        <div>傾倒臨界角 θ = atan((B/2)/H<sub>cg</sub>)</div><div id="kCgAng">—</div>
+        <div>推倒需要的側向加速度</div><div id="kCgAcc">—</div>
+        <div>相當於幾 g</div><div id="kCgG">—</div>
+        <div>穩定度評價</div><div id="kCgVerdict">—</div>
+      </div>
+      <div class="note" id="cgNote"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>三個地方都在用同一條規則</h2>
+    <div class="cards3">
+      <div class="mini"><h4>🚚 貨車 / SUV 為什麼會翻</h4>
+        <p class="dim">轉彎時離心加速度 a = v²/r 相當於一個橫向的「假重力」。當 a/g &gt; (B/2)/H<sub>cg</sub> 就翻車。
+        <b>高重心＋窄輪距＋高速小彎</b> 是最危險組合；貨物一定要放低、靠中間。</p>
+        <label class="fld" style="margin-top:6px">車速：<b id="vTv">60</b> km/h</label>
+        <input type="range" id="inTv" min="10" max="140" value="60" step="1">
+        <label class="fld">彎道半徑：<b id="vTr">50</b> m</label>
+        <input type="range" id="inTr" min="8" max="300" value="50" step="1">
+        <div class="kv">
+          <div>離心加速度</div><div id="kTa">—</div>
+          <div>翻覆門檻（此物體）</div><div id="kTthr">—</div>
+          <div>結果</div><div id="kTres">—</div>
+        </div>
+      </div>
+      <div class="mini"><h4>⛵ 船：重心 G 與浮心 B</h4>
+        <p class="dim">船傾斜時浮心 B 會移到傾斜的那一側，產生把船<b>扳回來</b>的力矩。
+        關鍵是<b>穩心 M</b>（metacentre）：<br>
+        GM = KB + BM − KG，BM = I/V。<br>
+        GM &gt; 0 → 會自己回正；GM &lt; 0 → 一傾就翻。復原力臂 GZ = GM·sinθ。</p>
+        <p class="dim">貨物往高處堆 → KG 上升 → GM 變小 → 側翻風險大增。<b>壓載水艙</b>就是刻意在船底加重、壓低 KG。</p></div>
+      <div class="mini"><h4>🏠 家具 / 書架</h4>
+        <p class="dim">同樣的公式：地震時地面加速度超過 g·(B/2)/H<sub>cg</sub> 就開始搖擺傾倒。
+        窄高的書架臨界值最低 → 一定要用 L 型鐵件鎖牆，並把重物放<b>下層</b>降低 H<sub>cg</sub>。</p></div>
+    </div>
+    <div class="note">
+      <b>為什麼不倒翁不會倒？</b> 重心極低而且底部是圓弧：一傾斜，重心反而<b>被抬高</b>，重力就把它推回最低點。
+      「穩定平衡」的定義就是：偏離之後位能上升。
+    </div>
+  </div>
+</section>
+
+<!-- ==================== ⑧ 加速度 ==================== -->
+<section class="page" id="tab-accel">
+  <div class="grid two">
+    <div class="card">
+      <h2>加速度：速度變化的速率</h2>
+      <canvas id="cvAcc" height="330"></canvas>
+      <div class="row">
+        <button class="btn" id="btnAccGo">▶ 起步加速</button>
+        <button class="btn" id="btnAccBrake">🛑 緊急煞車</button>
+        <button class="btn sec" id="btnAccReset">↺ 回起點</button>
+      </div>
+      <div class="gauge">
+        <div><span>時間</span><b id="gAt">0.0 s</b></div>
+        <div><span>速度</span><b id="gAv">0 km/h</b></div>
+        <div><span>已走距離</span><b id="gAs">0 m</b></div>
+        <div><span>加速度</span><b id="gAa">0 g</b></div>
+      </div>
+      <div class="note" id="accNote"></div>
+    </div>
+
+    <div class="card">
+      <h2>四條運動學公式</h2>
+      <div class="fml">a = Δv/Δt　v = v₀ + at　s = v₀t + ½at²　v² = v₀² + 2as</div>
+      <label class="fld">起步加速度：<b id="vAcc">3.0</b> m/s²</label>
+      <input type="range" id="inAcc" min="0.5" max="15" value="3" step="0.1">
+      <label class="fld">目標速度：<b id="vTgt">100</b> km/h</label>
+      <input type="range" id="inTgt" min="20" max="300" value="100" step="5">
+      <label class="fld">路面摩擦係數 μ（煞車能力）：<b id="vMu">0.8</b></label>
+      <input type="range" id="inMu" min="0.1" max="1.2" value="0.8" step="0.05">
+      <label class="fld">反應時間：<b id="vRt">1.0</b> s</label>
+      <input type="range" id="inRt" min="0" max="3" value="1" step="0.1">
+
+      <h3>算出來</h3>
+      <div class="big" id="accBig">0→100 需 9.3 s</div>
+      <div class="kv">
+        <div>加速到目標速度的時間</div><div id="kA0">—</div>
+        <div>加速用掉的距離</div><div id="kAs">—</div>
+        <div>加速度相當於</div><div id="kAg">—</div>
+        <div>煞車減速度 a = μg</div><div id="kAmu">—</div>
+        <div>反應距離（還沒踩下去）</div><div id="kArd">—</div>
+        <div>煞停距離（踩下後）</div><div id="kAbd">—</div>
+        <div><b>總停車距離</b></div><div id="kAtd">—</div>
+      </div>
+      <div class="note" id="brakeNote"></div>
+      <p class="dim">煞停距離 ∝ <b>速度的平方</b>：速度變兩倍，煞車距離變<b>四倍</b>。
+      這是超速最反直覺也最致命的地方。</p>
+    </div>
+  </div>
+
+  <div class="grid half">
+    <div class="card">
+      <h2>電梯裡的體重計：視重</h2>
+      <canvas id="cvElev" height="260"></canvas>
+      <div class="fml">N = m(g + a)　　a 向上為正</div>
+      <label class="fld">你的質量：<b id="vEm">60</b> kg</label>
+      <input type="range" id="inEm" min="20" max="150" value="60" step="1">
+      <label class="fld">電梯加速度：<b id="vEa">0.0</b> m/s²（正 = 向上加速）</label>
+      <input type="range" id="inEa" min="-12" max="12" value="0" step="0.1">
+      <div class="kv">
+        <div>體重計讀數</div><div id="kEn">—</div>
+        <div>感覺體重變化</div><div id="kEpct">—</div>
+        <div>你感受到的 g</div><div id="kEg">—</div>
+        <div>狀態</div><div id="kEstate">—</div>
+      </div>
+      <div class="note">
+        <b>失重不是沒有重力</b>：a = −9.8 m/s²（自由落下）時讀數為 0，但重力一直都在。
+        太空站裡的「無重力」其實是整個站在<b>持續自由落下</b>（繞著地球掉）。
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>各種加速度長什麼樣</h2>
+      <table id="gTable"><thead><tr><th>情境</th><th class="n">加速度</th><th class="n">幾個 g</th><th>感覺</th></tr></thead><tbody></tbody></table>
+      <div class="note">
+        <b>加速度才是你感覺得到的東西。</b>等速飛行的客機上你感覺不到 900 km/h，
+        因為 a = 0；一遇亂流上下 0.5 g，馬上就知道了。人的感官量的是<b>加速度</b>，不是速度。
+      </div>
+      <h3>圓周運動</h3>
+      <label class="fld">旋轉半徑：<b id="vCr">5</b> m</label>
+      <input type="range" id="inCr" min="0.5" max="60" value="5" step="0.5">
+      <label class="fld">切線速度：<b id="vCv">10</b> m/s</label>
+      <input type="range" id="inCv" min="1" max="60" value="10" step="0.5">
+      <div class="kv">
+        <div>向心加速度 a = v²/r</div><div id="kCa">—</div>
+        <div>幾個 g</div><div id="kCg">—</div>
+        <div>60 kg 的人需要的向心力</div><div id="kCf">—</div>
+        <div>轉一圈的時間</div><div id="kCt">—</div>
+      </div>
+      <p class="dim">「離心力」其實不存在，那是你在轉動座標系裡的錯覺。真實情況是：
+      有一個<b>指向圓心</b>的力（座椅、繩子、輪胎摩擦）一直把你拉彎，你的身體則因慣性想走直線。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== ⑨ 飛機怎麼起飛 ==================== -->
+<section class="page" id="tab-flight">
+  <div class="card">
+    <h2>把前面八個概念全部用上：一架飛機怎麼離地</h2>
+    <p class="dim">起飛不是魔法，是四個力的拔河：<b>推力 T</b>（往前）、<b>阻力 D</b>（往後）、<b>升力 L</b>（往上）、<b>重力 W</b>（往下）。
+    下面的動畫是真的在積分牛頓運動方程式，速度不夠升力就是不夠，飛機不會離地。</p>
+    <canvas id="cvPlane" height="330"></canvas>
+    <div class="row">
+      <button class="btn" id="btnTakeoff">🛫 推油門起飛</button>
+      <button class="btn sec" id="btnAbort">🛑 中止起飛</button>
+      <button class="btn sec" id="btnPlaneReset">↺ 回到跑道頭</button>
+    </div>
+    <div class="gauge">
+      <div><span>速度</span><b id="gPv">0 kt</b></div>
+      <div><span>升力 / 重量</span><b id="gPl">0 %</b></div>
+      <div><span>已滑行</span><b id="gPs">0 m</b></div>
+      <div><span>剩餘跑道</span><b id="gPr">3000 m</b></div>
+      <div><span>高度</span><b id="gPh">0 m</b></div>
+      <div><span>狀態</span><b id="gPstate" style="font-size:14px">待命</b></div>
+    </div>
+    <div class="note" id="planeNote"></div>
+  </div>
+
+  <div class="grid two">
+    <div class="card">
+      <h2>機翼怎麼產生升力</h2>
+      <canvas id="cvWing" height="320"></canvas>
+      <label class="fld">攻角 α（機翼與氣流的夾角）：<b id="vAoa">4</b>°</label>
+      <input type="range" id="inAoa" min="-4" max="22" value="4" step="0.5">
+      <label class="fld">空速：<b id="vWv">250</b> km/h</label>
+      <input type="range" id="inWv" min="50" max="1000" value="250" step="10">
+      <label class="fld">襟翼</label>
+      <div class="seg" id="flapSeg">
+        <button data-f="0" class="on">收起 0°</button>
+        <button data-f="1">起飛 15°</button>
+        <button data-f="2">降落 35°</button>
+      </div>
+      <div class="kv">
+        <div>升力係數 C<sub>L</sub></div><div id="kCl">—</div>
+        <div>阻力係數 C<sub>D</sub></div><div id="kCd">—</div>
+        <div>升阻比 L/D</div><div id="kLD">—</div>
+        <div>升力</div><div id="kLift">—</div>
+        <div>上表面流速 / 壓力</div><div id="kUpper">—</div>
+        <div>下表面流速 / 壓力</div><div id="kLower">—</div>
+        <div>失速警告</div><div id="kStall">—</div>
+      </div>
+      <div class="legend">
+        <span><i style="background:#4dd2ff"></i>流線</span>
+        <span><i style="background:#ff5c5c"></i>低壓（吸力）</span>
+        <span><i style="background:#5ee0c8"></i>高壓</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>起飛條件</h2>
+      <div class="fml">L = ½ · ρ · v² · S · C<sub>L</sub>　　離地條件：L ≥ W</div>
+      <label class="fld">飛機重量：<b id="vPw">70</b> 噸</label>
+      <input type="range" id="inPw" min="20" max="400" value="70" step="1">
+      <label class="fld">機翼面積 S：<b id="vPs">125</b> m²</label>
+      <input type="range" id="inPs" min="40" max="550" value="125" step="5">
+      <label class="fld">總推力：<b id="vPt">220</b> kN</label>
+      <input type="range" id="inPt" min="40" max="1200" value="220" step="10">
+      <label class="fld">機場海拔：<b id="vPalt">0</b> m</label>
+      <input type="range" id="inPalt" min="0" max="4000" value="0" step="50">
+      <label class="fld">氣溫：<b id="vPtemp">15</b> °C</label>
+      <input type="range" id="inPtemp" min="-20" max="50" value="15" step="1">
+      <label class="fld">跑道長度：<b id="vPrwy">3000</b> m</label>
+      <input type="range" id="inPrwy" min="800" max="5000" value="3000" step="50">
+
+      <h3>算出來</h3>
+      <div class="big" id="flightBig">V<sub>R</sub> 148 kt · 需 1620 m</div>
+      <div class="kv">
+        <div>空氣密度 ρ（此高度＋此溫度）</div><div id="kFrho">—</div>
+        <div>密度高度</div><div id="kFda">—</div>
+        <div>失速速度 V<sub>S</sub></div><div id="kFvs">—</div>
+        <div>抬前輪速度 V<sub>R</sub> (≈1.15 V<sub>S</sub>)</div><div id="kFvr">—</div>
+        <div>安全起飛速度 V₂ (≈1.2 V<sub>S</sub>)</div><div id="kFv2">—</div>
+        <div>推力重量比 T/W</div><div id="kFtw">—</div>
+        <div>需要的滑行距離</div><div id="kFroll">—</div>
+        <div>跑道夠不夠</div><div id="kFok">—</div>
+      </div>
+      <div class="note" id="flightNote"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>升力的真正原因（順便破除一個流傳很廣的錯誤說法）</h2>
+    <div class="cards3">
+      <div class="mini dont"><h4>❌ 常見錯誤：「等時通過」</h4>
+        <p class="dim">「上表面比較長，空氣要同時到後緣，所以走得快、壓力低。」<br>
+        <b>錯在哪</b>：沒有任何物理定律要求上下的空氣同時抵達後緣。實測上表面的空氣<b>比下表面早很多</b>到達。
+        而且平板機翼（上下一樣長）照樣有升力，倒飛的飛機也飛得起來。</p></div>
+      <div class="mini do"><h4>✅ 說法一：動量（牛頓第三定律）</h4>
+        <p class="dim">機翼把大量空氣<b>持續向下偏折</b>（下洗流）。空氣獲得向下的動量，反作用力就把機翼往上推。<br>
+        L = 每秒被推下去的空氣質量 × 向下速度。<b>攻角</b>就是控制偏折多少的旋鈕。</p></div>
+      <div class="mini do"><h4>✅ 說法二：壓力（伯努利＋流線彎曲）</h4>
+        <p class="dim">流線繞著上表面彎曲，維持彎曲需要向心力，於是<b>垂直流線方向出現壓力梯度</b>：靠近上表面壓力低。
+        搭配 p + ½ρv² = 常數，低壓處流速快。上下表面壓力差乘機翼面積就是升力。</p>
+        <p class="dim">兩種說法是<b>同一件事的兩種算法</b>，不是互相競爭的理論。</p></div>
+    </div>
+
+    <h3>每一頁的概念都在這裡出現</h3>
+    <table>
+      <thead><tr><th>前面學的</th><th>在起飛時怎麼用上</th></tr></thead>
+      <tbody>
+        <tr><td><b>密度</b> ρ</td><td>升力正比於 ρ。熱天、高原機場空氣稀薄 → 同樣速度升力較小，跑道要更長。這叫<b>密度高度</b>。</td></tr>
+        <tr><td><b>大氣壓力</b></td><td>ρ = P/(R·T)。氣壓低（高海拔、低氣壓天氣）→ ρ 小 → 性能下降；同時引擎吸進的空氣少，推力也跟著掉。</td></tr>
+        <tr><td><b>加速度</b></td><td>a = (T − D − μ(W−L))/m。滑行是活生生的 s = ½at²：a 只要小 10%，需要的跑道就長 11%。</td></tr>
+        <tr><td><b>浮力</b>（對照組）</td><td>飛機<b>不是</b>靠浮力（機身排開的空氣重量只有幾百公克，遠小於幾十噸）。升力是<b>動態</b>產生的，必須有速度；熱氣球才是純浮力。</td></tr>
+        <tr><td><b>重心</b></td><td>重心必須落在允許範圍內。太後 → 抬頭失控甚至失速；太前 → 抬不起前輪。裝載平衡表（W&amp;B）是起飛前的必算項目。</td></tr>
+        <tr><td><b>音速</b></td><td>巡航時 M ≈ 0.85；再快局部氣流就超音速產生震波。這決定了後掠翼與巡航速度上限。</td></tr>
+        <tr><td><b>水壓／流體壓力</b></td><td>皮托管量的是動壓 ½ρv²，飛機的空速表就是靠它。管子結冰堵住 → 空速表讀數錯誤，是多起空難的原因。</td></tr>
+        <tr><td><b>折射／散射</b></td><td>散射決定了跑道能見度（霧＝米氏散射）；跑道燈的顏色與可見距離、以及低角度陽光刺眼，都是這一頁的內容。</td></tr>
+        <tr><td><b>光速</b></td><td>雷達、GPS、雷射測距全靠光速已知且固定。GPS 靠 c 把時間差換成距離，誤差 1 微秒 = 300 公尺。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ==================== ⑩ 測驗 ==================== -->
+<section class="page" id="tab-quiz">
+  <div class="card">
+    <h2>隨堂測驗</h2>
+    <p class="dim">十題，一題一個主題。點選項就會馬上告訴你對不對、為什麼。</p>
+    <div class="row">
+      <span class="pill">答對 <b id="quizScore">0</b> / 10</span>
+      <button class="btn sec" id="btnQuizReset" style="flex:0 0 auto;min-width:100px">↺ 重新作答</button>
+    </div>
+    <div id="quizBox"></div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  🔬 物理綜合模擬器 · 純前端 HTML5，離線可用<br>
+  所有數字都是<b>當場用公式算的</b>（司乃耳定律、瑞利散射、阿基米德原理、標準大氣 ISA、水靜壓、剛體傾倒、運動學、薄翼理論）。<br>
+  這是<b>教學用簡化模型</b>，用來看懂物理趨勢；實際工程／航空／潛水請依專業規範與正式數據。
+</footer>
+
+<script>
+// 最早註冊：任何後續腳本錯誤都記到 body.dataset.jserr，方便無頭驗證抓到
+window.addEventListener('error', function(e){
+  document.body.dataset.jserr = (e.message||'') + ' @' + (e.lineno||'?');
+});
+</script>
+<script>
+"use strict";
+/* =======================================================================
+   共用工具
+   ======================================================================= */
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
+const lerp  = (a,b,t) => a + (b-a)*t;
+const D2R = Math.PI/180, R2D = 180/Math.PI;
+
+const G = 9.80665;                 // m/s^2
+const C_LIGHT = 299792458;         // m/s（定義值）
+const P0 = 101325;                 // Pa，海平面標準氣壓
+const R_AIR = 287.052874;          // J/(kg·K) 乾空氣氣體常數
+const R_UNI = 8.31446;             // J/(mol·K)
+const M_AIR = 0.0289644;           // kg/mol
+const GAMMA = 1.4;
+
+// 數字格式：自動選小數位，大數字加千分位
+function num(v, d){
+  if (!isFinite(v)) return '—';
+  if (d === undefined) d = Math.abs(v) >= 100 ? 0 : Math.abs(v) >= 10 ? 1 : Math.abs(v) >= 1 ? 2 : 3;
+  const s = v.toFixed(d);
+  const p = s.split('.');
+  p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return p.join('.');
+}
+function sci(v, d){
+  if (v === 0) return '0';
+  const e = Math.floor(Math.log10(Math.abs(v)));
+  return (v/Math.pow(10,e)).toFixed(d===undefined?2:d) + '×10' + supDigits(e);
+}
+function supDigits(n){
+  const map = {'-':'⁻','0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
+  return String(n).split('').map(c=>map[c]||c).join('');
+}
+// 秒 → 人看得懂的時間
+function humanTime(s){
+  if (s < 1e-9)  return num(s*1e12,1) + ' 皮秒';
+  if (s < 1e-6)  return num(s*1e9,1)  + ' 奈秒';
+  if (s < 1e-3)  return num(s*1e6,1)  + ' 微秒';
+  if (s < 1)     return num(s*1e3,1)  + ' 毫秒';
+  if (s < 90)    return num(s,2)      + ' 秒';
+  if (s < 5400)  return num(s/60,1)   + ' 分';
+  if (s < 172800)return num(s/3600,1) + ' 小時';
+  if (s < 3.156e7*2) return num(s/86400,1) + ' 天';
+  return num(s/3.15576e7,2) + ' 年';
+}
+function humanDist(m){
+  if (m < 0.01) return num(m*1000,1) + ' mm';
+  if (m < 1) return num(m*100,1) + ' cm';
+  if (m < 2000) return num(m,1) + ' m';
+  if (m < 1e10) return num(m/1000,0) + ' km';
+  return num(m/9.4607e15, 3) + ' 光年';
+}
+
+/* =======================================================================
+   純物理函式（全部掛到 window.__PH 供自動化驗證）
+   ======================================================================= */
+
+/* ---------- ① 光速 / 音速 ---------- */
+// 理想氣體音速 a = sqrt(γ R T)，T 為絕對溫度
+function soundSpeedAir(TC){ return Math.sqrt(GAMMA * R_AIR * (TC + 273.15)); }
+// 常用近似式（與上式在常溫幾乎相同，教學好記）
+function soundSpeedApprox(TC){ return 331.3 * Math.sqrt(1 + TC/273.15); }
+// 光在折射率 n 介質中的速度
+function lightSpeedIn(n){ return C_LIGHT / n; }
+const LIGHT_YEAR = C_LIGHT * 365.25 * 86400;      // 9.4607e15 m
+
+const SOUND_MEDIA = [
+  {n:'空氣 (0 °C)',      v:331.3, note:'冷空氣傳得慢'},
+  {n:'空氣 (20 °C)',     v:343.2, note:'教科書標準值'},
+  {n:'空氣 (40 °C)',     v:354.9, note:'熱空氣傳得快'},
+  {n:'二氧化碳',         v:267,   note:'比空氣重 → 更慢，聲音變低'},
+  {n:'氦氣',             v:972,   note:'很輕 → 很快，聲音變高（卡通聲）'},
+  {n:'軟木',             v:500,   note:'多孔隙，隔音材料'},
+  {n:'淡水 (25 °C)',     v:1497,  note:'約空氣的 4.4 倍'},
+  {n:'海水',             v:1531,  note:'鹽度與壓力讓它更快；聲納的舞台'},
+  {n:'人體軟組織',       v:1540,  note:'超音波影像就是用這個速度換算深度'},
+  {n:'冰',               v:3200,  note:'冰上敲擊聲傳很遠'},
+  {n:'木材（沿纖維）',   v:3800,  note:'古人趴在鐵軌／地上聽遠方動靜'},
+  {n:'磚 / 混凝土',      v:3600,  note:'樓上腳步聲穿牆的路徑'},
+  {n:'玻璃',             v:5640,  note:''},
+  {n:'鋼',               v:5960,  note:'鐵軌敲一下，遠端幾乎立刻聽到'},
+  {n:'鋁',               v:6420,  note:''},
+  {n:'鑽石',             v:12000, note:'最硬 → 已知最快的聲速之一'}
+];
+
+const LIGHT_TARGETS = [
+  {n:'台北 → 高雄',        d:350e3},
+  {n:'繞地球赤道一圈',      d:40075e3},
+  {n:'地球 → 月球',        d:384400e3},
+  {n:'地球 → 太陽',        d:1.496e11},
+  {n:'地球 → 火星（最近）', d:5.46e10},
+  {n:'太陽系 → 比鄰星',    d:4.2465*9.4607e15},
+  {n:'到銀河系中心',        d:26000*9.4607e15}
+];
+
+/* ---------- ② 折射 ---------- */
+// Cauchy 色散：n(λ) = A + B/λ²（λ 單位 nm）
+const OPTICAL = [
+  {n:'真空',        A:1.0,     B:0,      note:'定義 n = 1'},
+  {n:'空氣',        A:1.00027, B:0,      note:'幾乎等於真空'},
+  {n:'冰',          A:1.3040,  B:2700,   note:''},
+  {n:'水',          A:1.3240,  B:3460,   note:'魚看起來比實際淺'},
+  {n:'酒精',        A:1.3560,  B:3200,   note:''},
+  {n:'食用油',      A:1.4650,  B:4000,   note:'跟玻璃很接近 → 玻璃泡油會「消失」'},
+  {n:'壓克力',      A:1.4860,  B:4200,   note:''},
+  {n:'一般玻璃',    A:1.5046,  B:4200,   note:'BK7 光學玻璃'},
+  {n:'重火石玻璃',  A:1.6200,  B:11000,  note:'色散大 → 稜鏡分光效果好'},
+  {n:'藍寶石',      A:1.7590,  B:4500,   note:''},
+  {n:'鑽石',        A:2.4100,  B:5000,   note:'臨界角只有 24.4° → 光關不住地反射，超亮'}
+];
+function nOf(mat, lamNm){ return mat.A + mat.B/(lamNm*lamNm); }
+// 司乃耳定律：n1 sinθ1 = n2 sinθ2，全反射時回傳 null
+function snell(n1, n2, th1Deg){
+  const s = n1 * Math.sin(th1Deg*D2R) / n2;
+  if (Math.abs(s) > 1) return null;
+  return Math.asin(s) * R2D;
+}
+// 臨界角（只有 n1 > n2 才存在）
+function criticalAngle(n1, n2){
+  if (n1 <= n2) return null;
+  return Math.asin(n2/n1) * R2D;
+}
+// 菲涅耳反射率（非偏振＝s/p 平均）
+function fresnelR(n1, n2, th1Deg){
+  const th1 = th1Deg*D2R;
+  const s = n1*Math.sin(th1)/n2;
+  if (Math.abs(s) > 1) return 1;                 // 全反射
+  const th2 = Math.asin(s);
+  const c1 = Math.cos(th1), c2 = Math.cos(th2);
+  const rs = (n1*c1 - n2*c2)/(n1*c1 + n2*c2);
+  const rp = (n2*c1 - n1*c2)/(n2*c1 + n1*c2);
+  return (rs*rs + rp*rp)/2;
+}
+// 從空氣看水中物體的視深：apparent = real × n₂(觀察側) / n₁(物體側)
+function apparentDepth(realDepth, nObj, nView){ return realDepth * nView / nObj; }
+// 波長 → 近似 RGB（可見光譜著色用）
+function wavelengthRGB(l){
+  let r=0,g=0,b=0;
+  if (l>=380&&l<440){ r=-(l-440)/60; b=1; }
+  else if (l<490){ g=(l-440)/50; b=1; }
+  else if (l<510){ g=1; b=-(l-510)/20; }
+  else if (l<580){ r=(l-510)/70; g=1; }
+  else if (l<645){ r=1; g=-(l-645)/65; }
+  else if (l<=780){ r=1; }
+  let f=1;
+  if (l>700) f=0.3+0.7*(780-l)/80; else if (l<420) f=0.3+0.7*(l-380)/40;
+  const gm = v => Math.round(255*Math.pow(Math.max(0,v)*f, 0.8));
+  return [gm(r),gm(g),gm(b)];
+}
+
+/* ---------- ③ 散射 ---------- */
+// 瑞利散射光學厚度（海平面垂直方向），λ 單位 µm
+function rayleighTau(lamUm){
+  const l2 = lamUm*lamUm;
+  return 0.008569*Math.pow(lamUm,-4)*(1 + 0.0113/l2 + 0.00013/(l2*l2));
+}
+// 氣膠（米氏）光學厚度：Ångström 公式 τ = β λ^-α，α≈1.3 幾乎與波長無關 → 白
+function aerosolTau(lamUm, turbidity){ return turbidity * 0.12 * Math.pow(lamUm, -1.3); }
+// 大氣路徑長（Kasten-Young），elev 為仰角(度)；地平線附近約 38 倍
+function airmass(elevDeg){
+  const h = Math.max(-2, elevDeg);
+  return 1/(Math.sin(h*D2R) + 0.50572*Math.pow(h + 6.07995, -1.6364));
+}
+const LAM3 = [0.440, 0.550, 0.680];             // 藍 / 綠 / 紅（µm）
+// 太陽直射光穿透率（每個波長）
+function sunTransmit(sunElevDeg, turbidity){
+  const m = airmass(sunElevDeg);
+  return LAM3.map(l => Math.exp(-(rayleighTau(l) + aerosolTau(l,turbidity))*m));
+}
+// 某個視線仰角看到的天空亮度（相對值）：太陽光先被路徑削弱，再沿視線散射進眼睛
+function skyRadiance(sunElevDeg, viewElevDeg, turbidity){
+  const T = sunTransmit(sunElevDeg, turbidity);
+  const mv = airmass(Math.max(1.2, viewElevDeg));
+  return LAM3.map((l,i) => {
+    const tr = rayleighTau(l), ta = aerosolTau(l,turbidity);
+    const scattered = 1 - Math.exp(-(tr + ta)*mv);
+    return T[i] * scattered;
+  });
+}
+// 相對強度陣列 → 顯示用 CSS 顏色（曝光正規化 + gamma）
+function toRGB(v, gain){
+  const mx = Math.max(v[0],v[1],v[2], 1e-9);
+  const k = (gain===undefined?1:gain)/mx;
+  const g = x => Math.round(255*clamp(Math.pow(clamp(x*k,0,1), 1/2.2),0,1));
+  return 'rgb(' + g(v[2]) + ',' + g(v[1]) + ',' + g(v[0]) + ')';   // v 是 藍,綠,紅
+}
+function toRGBabs(v, exposure){
+  const g = x => Math.round(255*clamp(Math.pow(clamp(x*exposure,0,1), 1/2.2),0,1));
+  return 'rgb(' + g(v[2]) + ',' + g(v[1]) + ',' + g(v[0]) + ')';
+}
+
+/* ---------- ④ 密度 ---------- */
+const MATERIALS = [
+  {n:'發泡塑膠',   r:30,    inWater:'浮'},
+  {n:'軟木',       r:240,   inWater:'浮'},
+  {n:'乾木（松）', r:500,   inWater:'浮'},
+  {n:'冰',         r:917,   inWater:'浮（露出 10.5%）'},
+  {n:'食用油',     r:920,   inWater:'浮在水上'},
+  {n:'人體',       r:985,   inWater:'剛好接近中性（吸飽氣會浮）'},
+  {n:'純水 4 °C',  r:1000,  inWater:'—'},
+  {n:'海水',       r:1025,  inWater:'比淡水浮力大'},
+  {n:'橡膠',       r:1100,  inWater:'沉'},
+  {n:'骨頭',       r:1900,  inWater:'沉'},
+  {n:'混凝土',     r:2400,  inWater:'沉'},
+  {n:'鋁',         r:2700,  inWater:'沉'},
+  {n:'鋼 / 鐵',    r:7850,  inWater:'沉'},
+  {n:'銅',         r:8960,  inWater:'沉'},
+  {n:'鉛',         r:11340, inWater:'沉'},
+  {n:'水銀',       r:13546, inWater:'鐵球放上去會浮！'},
+  {n:'黃金',       r:19300, inWater:'沉（阿基米德就是靠密度抓假皇冠）'}
+];
+// 分層液體（上→下，密度遞增）
+const LAYERS = [
+  {n:'燈油',   r:800,   c:'#f0e6a8'},
+  {n:'食用油', r:920,   c:'#e8c33a'},
+  {n:'水',     r:1000,  c:'#3aa8e8'},
+  {n:'洗碗精', r:1060,  c:'#3ad2a8'},
+  {n:'蜂蜜',   r:1420,  c:'#c8781a'},
+  {n:'水銀',   r:13546, c:'#c8ccd4'}
+];
+// 物體會停在哪一層（回傳它上方那層的 index；沉到底回傳 LAYERS.length）
+function restLayer(rho){
+  for (let i=0;i<LAYERS.length;i++) if (rho < LAYERS[i].r) return i;
+  return LAYERS.length;
+}
+// 空心化後的平均密度
+function hollowDensity(rhoSolid, airFrac){ return rhoSolid * (1 - airFrac); }
+
+/* ---------- ⑤ 浮力 ---------- */
+// 完全浸沒的浮力
+function buoyancyFull(rhoF, volume){ return rhoF * G * volume; }
+// 正方體（或等截面柱體）平衡吃水深度
+function equilibriumDraft(totalMass, rhoF, area, height){
+  const d = totalMass / (rhoF * area);
+  return Math.min(d, height);                    // 超過高度 = 沉沒
+}
+function submergedFraction(rhoObj, rhoF){ return Math.min(1, rhoObj/rhoF); }
+// 理想氣體密度 ρ = P·M/(R·T)
+function airDensityPT(P, TK){ return P*M_AIR/(R_UNI*TK); }
+// 熱氣球淨升力（N）：外部空氣重 − 內部空氣重 − 結構重
+function balloonLift(volume, TinC, ToutC, P, structMass){
+  const rin  = airDensityPT(P, TinC+273.15);
+  const rout = airDensityPT(P, ToutC+273.15);
+  return (rout - rin)*volume*G - (structMass||0)*G;
+}
+
+/* ---------- ⑥ 大氣壓 / 水壓 ---------- */
+// 國際標準大氣 ISA
+function isaTemp(h){ return h < 11000 ? 288.15 - 0.0065*h : 216.65; }
+function isaPressure(h){
+  if (h < 11000) return P0 * Math.pow(1 - 2.25577e-5*h, 5.25588);
+  return 22632.06 * Math.exp(-(h-11000)/6341.62);
+}
+function isaDensity(h){ return isaPressure(h)/(R_AIR*isaTemp(h)); }
+// 密度高度：實際密度等於標準大氣哪個高度的密度
+function densityAltitude(elev, TC){
+  const rho = isaPressure(elev)/(R_AIR*(TC+273.15));
+  let lo = -2000, hi = 25000;
+  for (let i=0;i<60;i++){
+    const mid = (lo+hi)/2;
+    if (isaDensity(mid) > rho) lo = mid; else hi = mid;
+  }
+  return (lo+hi)/2;
+}
+// 沸點（Clausius–Clapeyron，水的莫耳蒸發熱 40 660 J/mol）
+function boilingPoint(P){
+  const inv = 1/373.15 - (R_UNI/40660)*Math.log(P/P0);
+  return 1/inv - 273.15;
+}
+// 液柱高度 ↔ 壓力
+function liquidColumnHeight(P, rho){ return P/(rho*G); }
+function hydrostatic(depth, rho){ return rho*G*depth; }               // 表壓
+function absolutePressure(depth, rho, Psurf){ return (Psurf===undefined?P0:Psurf) + hydrostatic(depth, rho); }
+// 波以耳定律：定溫下 P·V = 常數
+function boyleVolume(V0, P1, P2){ return V0*P1/P2; }
+// 壓力差造成的力
+function forceFromDp(dp, areaM2){ return dp*areaM2; }
+// 帕斯卡液壓機
+function pascalPress(F1, d1, d2){
+  const A1 = Math.PI*d1*d1/4, A2 = Math.PI*d2*d2/4;
+  return {A1, A2, ratio:A2/A1, F2:F1*A2/A1};
+}
+const DEPTH_MARKS = [
+  {d:0,     n:'海面'},
+  {d:3,     n:'泳池深處'},
+  {d:10,    n:'浮潛極限 · 已經 2 atm'},
+  {d:18,    n:'休閒潛水初級證照上限'},
+  {d:40,    n:'休閒潛水極限（5 atm）'},
+  {d:100,   n:'自由潛水世界級'},
+  {d:214,   n:'人類自由潛水最深紀錄'},
+  {d:330,   n:'水肺潛水最深紀錄'},
+  {d:490,   n:'抹香鯨常見獵食深度'},
+  {d:1000,  n:'海洋 SOFAR 聲道'},
+  {d:3800,  n:'鐵達尼號沉沒深度'},
+  {d:10935, n:'馬里亞納海溝最深處（約 1100 atm）'}
+];
+
+/* ---------- ⑦ 重心 ---------- */
+// 質心：Σmx/Σm
+function centroid(parts){
+  let m=0, sx=0, sy=0;
+  parts.forEach(p => { m += p.m; sx += p.m*p.x; sy += p.m*p.y; });
+  return m > 0 ? {m, x:sx/m, y:sy/m} : {m:0, x:0, y:0};
+}
+// 傾倒臨界角：重心鉛直線剛好通過底面邊緣
+function tipAngle(baseWidth, cgHeight, cgOffset){
+  const arm = baseWidth/2 - (cgOffset||0);
+  return Math.atan(arm/Math.max(0.001,cgHeight)) * R2D;
+}
+// 讓它翻倒需要的側向加速度
+function tipAccel(baseWidth, cgHeight, cgOffset){
+  return G * (baseWidth/2 - (cgOffset||0)) / Math.max(0.001,cgHeight);
+}
+// 方形駁船的穩心高 GM = KB + BM − KG，BM = B²/(12·吃水)
+function shipGM(beam, draft, kg){
+  const KB = draft/2;
+  const BM = beam*beam/(12*Math.max(0.01,draft));
+  return {KB, BM, GM: KB + BM - kg};
+}
+function righteningArm(GM, heelDeg){ return GM*Math.sin(heelDeg*D2R); }
+// 圓周運動向心加速度
+function centripetal(v, r){ return v*v/Math.max(0.001,r); }
+
+/* ---------- ⑧ 加速度 ---------- */
+function timeToSpeed(v0, v1, a){ return a === 0 ? Infinity : (v1-v0)/a; }
+function distTravelled(v0, a, t){ return v0*t + 0.5*a*t*t; }
+function speedAfterDist(v0, a, s){ const v2 = v0*v0 + 2*a*s; return v2 <= 0 ? 0 : Math.sqrt(v2); }
+function brakingDistance(v, mu){ return v*v/(2*mu*G); }
+function reactionDistance(v, tReact){ return v*tReact; }
+function apparentWeight(m, a){ return m*(G + a); }
+const KMH = v => v/3.6;                       // km/h → m/s
+const MS  = v => v*3.6;                       // m/s → km/h
+const KT  = v => v*1.94384;                   // m/s → 節
+const ACC_EXAMPLES = [
+  {n:'重力（自由落下）',        a:9.807,  f:'一切的參考值：1 g'},
+  {n:'電梯啟動',                a:1.2,    f:'肚子微微一沉'},
+  {n:'一般房車起步',            a:3.0,    f:'0→100 km/h 約 9 秒'},
+  {n:'高鐵起步',                a:0.6,    f:'很平順，站著也不會晃'},
+  {n:'跑車全力加速',            a:11.0,   f:'0→100 km/h 2.5 秒，背貼椅背'},
+  {n:'緊急煞車（乾柏油 μ=0.8）', a:7.8,   f:'安全帶用力拉住你'},
+  {n:'雲霄飛車最大 g',          a:39,     f:'約 4 g，臉部下垮'},
+  {n:'戰鬥機急轉',              a:88,     f:'約 9 g，需抗 g 服才不會昏'},
+  {n:'F1 賽車過彎',             a:59,     f:'約 6 g 側向'},
+  {n:'安全氣囊展開時的撞擊',    a:400,    f:'約 40 g，人體極限邊緣'}
+];
+
+/* ---------- ⑨ 飛機 ---------- */
+const FLAPS = [
+  {name:'收起 0°',   cl0:0.20, dcd:0.000, aStall:15.5},
+  {name:'起飛 15°',  cl0:0.68, dcd:0.022, aStall:13.0},
+  {name:'降落 35°',  cl0:1.12, dcd:0.085, aStall:11.0}
+];
+const CL_SLOPE = 0.095;     // 每度（含展弦比修正後的實際薄翼斜率）
+const CD0 = 0.022, AR = 9.0, OSW = 0.80;
+const K_IND = 1/(Math.PI*AR*OSW);
+// 升力係數（含失速後下滑）
+function clOf(alphaDeg, flapIdx){
+  const f = FLAPS[flapIdx||0];
+  const lin = f.cl0 + CL_SLOPE*alphaDeg;
+  const clMax = f.cl0 + CL_SLOPE*f.aStall;
+  if (alphaDeg <= f.aStall) return lin;
+  const drop = 1 - 0.055*(alphaDeg - f.aStall);
+  return clMax * Math.max(0.42, drop);
+}
+function clMaxOf(flapIdx){ const f = FLAPS[flapIdx||0]; return f.cl0 + CL_SLOPE*f.aStall; }
+function cdOf(cl, flapIdx){ return CD0 + FLAPS[flapIdx||0].dcd + K_IND*cl*cl; }
+function isStalled(alphaDeg, flapIdx){ return alphaDeg > FLAPS[flapIdx||0].aStall; }
+function liftForce(rho, v, S, cl){ return 0.5*rho*v*v*S*cl; }
+function dragForce(rho, v, S, cd){ return 0.5*rho*v*v*S*cd; }
+function dynamicPressure(rho, v){ return 0.5*rho*v*v; }
+// 失速速度：升力剛好等於重量時的最小速度
+function stallSpeed(weightN, rho, S, clMax){ return Math.sqrt(2*weightN/(rho*S*clMax)); }
+// 伯努利：由升力係數反推上下表面流速與壓力（假設吸力面承擔 2/3 的壓差）
+function surfaceFlow(v, cl, rho){
+  const upR = Math.sqrt(Math.max(0.01, 1 + (2/3)*cl));
+  const loR = Math.sqrt(Math.max(0.01, 1 - (1/3)*cl));
+  const q = dynamicPressure(rho, v);
+  return {
+    vUp: v*upR, vLo: v*loR,
+    dpUp: -q*(2/3)*cl,        // 相對大氣壓（負 = 吸）
+    dpLo:  q*(1/3)*cl
+  };
+}
+// 起飛滑行：真的積分 a = (T − D − μ(W−L))/m
+function takeoffRoll(o){
+  const m = o.massKg, W = m*G, S = o.S, rho = o.rho, T = o.thrustN;
+  const clMax = clMaxOf(o.flap===undefined?1:o.flap);
+  const vs = stallSpeed(W, rho, S, clMax);
+  const vr = 1.15*vs;
+  const clRoll = clOf(1.0, o.flap===undefined?1:o.flap);      // 地面姿態攻角約 1°
+  const mu = o.mu===undefined ? 0.02 : o.mu;
+  let v = 0, s = 0, t = 0;
+  const dt = 0.02;
+  while (v < vr && t < 300){
+    const L = liftForce(rho, v, S, clRoll);
+    const D = dragForce(rho, v, S, cdOf(clRoll, o.flap===undefined?1:o.flap));
+    const Fn = Math.max(0, W - L);
+    const a = (T - D - mu*Fn)/m;
+    if (a <= 0 && v < 1) return {vs, vr, ok:false, dist:Infinity, time:Infinity, a0:a};
+    v += a*dt; s += v*dt; t += dt;
+  }
+  const rotate = vr*3.0;               // 抬前輪到離地約 3 秒
+  return {vs, vr, ok:v>=vr, dist:s + rotate, roll:s, rotateDist:rotate, time:t+3.0,
+          a0:(T - mu*W)/m};
+}
+
+/* =======================================================================
+   分頁切換 / canvas 基礎
+   ======================================================================= */
+function setTab(id){
+  $$('.page').forEach(p => p.classList.toggle('on', p.id === 'tab-'+id));
+  $$('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === id));
+  setTimeout(resizeAll, 20);
+}
+$$('#nav button').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+
+function fit(cv){
+  const dpr = Math.min(2, window.devicePixelRatio||1);
+  const w = cv.clientWidth || 640;
+  if (!cv.dataset.cssH) cv.dataset.cssH = String(parseInt(cv.getAttribute('height'),10) || 330);
+  const h = +cv.dataset.cssH;
+  const bw = Math.round(w*dpr), bh = Math.round(h*dpr);
+  const ctx = cv.getContext('2d');
+  if (cv.width !== bw || cv.height !== bh){
+    cv.width = bw; cv.height = bh; cv.style.height = h+'px';
+  }
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return {ctx, w, h};
+}
+// 通用拖曳：回呼收到 canvas 座標
+function onDrag(cv, cb){
+  let on = false;
+  const pos = e => {
+    const r = cv.getBoundingClientRect();
+    const p = e.touches ? e.touches[0] : e;
+    return {x:p.clientX - r.left, y:p.clientY - r.top, w:r.width, h:r.height};
+  };
+  const down = e => { on = true; cb(pos(e), 'down'); e.preventDefault(); };
+  const move = e => { if (on) { cb(pos(e), 'move'); e.preventDefault(); } };
+  const up   = () => { on = false; };
+  cv.addEventListener('mousedown', down); cv.addEventListener('touchstart', down, {passive:false});
+  window.addEventListener('mousemove', move); cv.addEventListener('touchmove', move, {passive:false});
+  window.addEventListener('mouseup', up);    cv.addEventListener('touchend', up);
+}
+// 常用畫圖小工具
+function line(ctx,x1,y1,x2,y2,col,w,dash){
+  ctx.save(); ctx.strokeStyle=col; ctx.lineWidth=w||1.5;
+  if (dash) ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); ctx.restore();
+}
+function txt(ctx,s,x,y,col,size,align){
+  ctx.save(); ctx.fillStyle=col||'#e9efff';
+  ctx.font=(size||12)+'px "Noto Sans TC",system-ui,sans-serif';
+  ctx.textAlign=align||'left'; ctx.textBaseline='middle';
+  ctx.fillText(s,x,y); ctx.restore();
+}
+function arrow(ctx,x1,y1,x2,y2,col,w){
+  const a = Math.atan2(y2-y1, x2-x1), hl = 8 + (w||2);
+  line(ctx,x1,y1,x2,y2,col,w||2);
+  ctx.save(); ctx.fillStyle=col; ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-hl*Math.cos(a-0.38), y2-hl*Math.sin(a-0.38));
+  ctx.lineTo(x2-hl*Math.cos(a+0.38), y2-hl*Math.sin(a+0.38));
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+function resizeAll(){
+  try{ drawLight(); drawRefr(); drawSky(); drawScat(); drawDens(); drawBuoy();
+       drawAtm(); drawHydro(); drawCg(); drawAcc(); drawElev(); drawPlane(); drawWing(); }catch(e){}
+}
+window.addEventListener('resize', () => { clearTimeout(window.__rz); window.__rz = setTimeout(resizeAll, 120); });
+function tabOn(id){ return document.getElementById('tab-'+id).classList.contains('on'); }
+
+/* =======================================================================
+   ① 光速 vs 音速
+   ======================================================================= */
+const cvL = $('#cvLight');
+const SLOWS = [{k:1, lbl:'1（真實時間）'}, {k:1e-3, lbl:'1/1000'}, {k:1e-6, lbl:'1/100萬'}];
+const L = {t:0, running:false, slow:0, dist:1000, TC:20, flash:0};
+
+function lightCalc(){
+  L.dist = +$('#inDist').value; L.TC = +$('#inTemp').value;
+  $('#vDist').textContent = num(L.dist,0);
+  $('#vTemp').textContent = L.TC;
+  const a = soundSpeedAir(L.TC);
+  const ts = L.dist/a, tl = L.dist/C_LIGHT;
+  $('#soundBig').innerHTML = num(a,1) + ' <small>m/s　(= ' + num(a*3.6,0) + ' km/h)</small>';
+  $('#kSound').textContent = num(a,1) + ' m/s';
+  $('#kRatio').textContent = num(C_LIGHT/a,0) + ' 倍';
+  $('#kTs').textContent = humanTime(ts);
+  $('#kTl').textContent = humanTime(tl);
+  $('#kDt').textContent = humanTime(ts - tl) + '（幾乎等於聲音的時間）';
+  $('#lightNote').innerHTML = '距離 ' + num(L.dist,0) + ' m：光在 <b>' + humanTime(tl) +
+    '</b> 抵達（你會覺得是「同時」），聲音要 <b>' + humanTime(ts) + '</b>。' +
+    '所以看到閃光後數到 <b>' + num(ts,1) + '</b> 秒才聽到雷聲。' +
+    '<br>反過來用：<b>聽到雷聲前數的秒數 × ' + num(a,0) + ' m</b> 就是雷擊距離。';
+  drawLight();
+}
+function flash(){ L.t = 0; L.running = true; L.flash = 1; }
+function drawLight(){
+  if (!cvL || !cvL.clientWidth) return;
+  const {ctx,w,h} = fit(cvL);
+  const gy = h - 78;                       // 地面
+  ctx.clearRect(0,0,w,h);
+  // 夜空
+  let sky = ctx.createLinearGradient(0,0,0,gy);
+  sky.addColorStop(0,'#050914'); sky.addColorStop(1,'#101c38');
+  ctx.fillStyle = sky; ctx.fillRect(0,0,w,gy);
+  ctx.fillStyle = '#0d1424'; ctx.fillRect(0,gy,w,h-gy);
+  line(ctx,0,gy,w,gy,'#2a3a5e',1.5);
+
+  const x0 = 46, x1 = w-46, span = x1-x0;
+  const a = soundSpeedAir(L.TC);
+  const rs = a*L.t, rl = C_LIGHT*L.t;                // 已傳播的實際距離 (m)
+  const px = m => x0 + span*clamp(m/L.dist,0,1.08);
+
+  // 閃電的雲
+  ctx.fillStyle='#232f4e';
+  ctx.beginPath(); ctx.ellipse(x0,gy-140,44,17,0,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x0-16,gy-132,26,13,0,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x0+20,gy-133,24,12,0,0,7); ctx.fill();
+  // 閃電本體
+  if (L.flash > 0.02){
+    ctx.save(); ctx.globalAlpha = clamp(L.flash,0,1);
+    ctx.strokeStyle='#ffe066'; ctx.lineWidth=3; ctx.shadowColor='#ffe066'; ctx.shadowBlur=14;
+    ctx.beginPath(); ctx.moveTo(x0,gy-124);
+    ctx.lineTo(x0+9,gy-92); ctx.lineTo(x0-6,gy-84); ctx.lineTo(x0+4,gy-30); ctx.lineTo(x0-3,gy);
+    ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.globalAlpha = 0.10*L.flash; ctx.fillStyle='#ffe9a8'; ctx.fillRect(0,0,w,gy); ctx.restore();
+  }
+  // 聲波（同心弧）
+  ctx.save(); ctx.strokeStyle='#4dd2ff'; ctx.lineWidth=2;
+  for (let k=0;k<5;k++){
+    const rr = rs - k*L.dist*0.055;
+    if (rr <= 0) continue;
+    const rpx = span*rr/L.dist;
+    ctx.globalAlpha = 0.75*(1 - k*0.16)*clamp(1.3 - rr/L.dist*0.4,0,1);
+    ctx.beginPath(); ctx.arc(x0, gy-8, rpx, -Math.PI*0.72, Math.PI*0.05); ctx.stroke();
+  }
+  ctx.restore();
+  // 光的波前
+  if (rl > 0 && rl < L.dist*1.4){
+    const rpx = span*rl/L.dist;
+    ctx.save(); ctx.strokeStyle='#ffe066'; ctx.lineWidth=3; ctx.shadowColor='#ffe066'; ctx.shadowBlur=12;
+    ctx.beginPath(); ctx.arc(x0, gy-8, rpx, -Math.PI*0.72, Math.PI*0.05); ctx.stroke(); ctx.restore();
+  }
+  // 觀察者
+  const stick = (x,base,col)=>{
+    ctx.save(); ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(x,base-42,7,0,7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x,base-35); ctx.lineTo(x,base-16);
+    ctx.moveTo(x-9,base-28); ctx.lineTo(x+9,base-28);
+    ctx.moveTo(x,base-16); ctx.lineTo(x-8,base); ctx.moveTo(x,base-16); ctx.lineTo(x+8,base);
+    ctx.stroke(); ctx.restore();
+  };
+  stick(x1, gy, '#b98cff');
+  const heardSound = rs >= L.dist, seenLight = rl >= L.dist;
+  if (seenLight){ ctx.save(); ctx.globalAlpha=.9; txt(ctx,'👁 看到了', x1, gy-70, '#ffe066', 12, 'center'); ctx.restore(); }
+  if (heardSound){ ctx.save(); ctx.globalAlpha=.9; txt(ctx,'👂 聽到了', x1, gy-88, '#4dd2ff', 12, 'center'); ctx.restore(); }
+
+  // 距離尺
+  line(ctx,x0,gy+22,x1,gy+22,'#3d4f78',1.5);
+  for (let i=0;i<=5;i++){
+    const xx = x0 + span*i/5;
+    line(ctx,xx,gy+18,xx,gy+26,'#3d4f78',1.5);
+    txt(ctx, num(L.dist*i/5,0)+(i===5?' m':''), xx, gy+36, '#7f90b8', 10, 'center');
+  }
+  // 兩條進度條
+  const by = 18, bh2 = 9;
+  const bar = (y,frac,col,label)=>{
+    roundRect(ctx,x0,y,span,bh2,4); ctx.fillStyle='#16203c'; ctx.fill();
+    ctx.save(); roundRect(ctx,x0,y,Math.max(2,span*clamp(frac,0,1)),bh2,4); ctx.fillStyle=col; ctx.fill(); ctx.restore();
+    txt(ctx,label,x0,y-9,col,11);
+  };
+  bar(by, rl/L.dist, '#ffe066', '光 ' + (seenLight?'已抵達':num(100*rl/L.dist,1)+'%'));
+  bar(by+30, rs/L.dist, '#4dd2ff', '聲音 ' + (heardSound?'已抵達':num(100*rs/L.dist,1)+'%'));
+
+  // 儀表文字
+  $('#gT').textContent = num(L.t,3) + ' s';
+  $('#gLight').textContent = rl > 1000 ? num(rl/1000,1)+' km' : num(rl,1)+' m';
+  $('#gSound').textContent = num(rs,1) + ' m';
+  $('#gHeard').textContent = heardSound ? '聽到了' : (seenLight ? '只看到閃光' : '還沒');
+  if (SLOWS[L.slow].k !== 1){
+    txt(ctx, '慢動作 ×' + SLOWS[L.slow].lbl + '（真實時間的 1/' + num(1/SLOWS[L.slow].k,0) + '）', w-8, 12, '#ffd166', 11, 'right');
+  }
+}
+function stepLight(dt){
+  if (!L.running) return;
+  L.t += dt*SLOWS[L.slow].k;
+  L.flash = Math.max(0, L.flash - dt*2.2);
+  const done = soundSpeedAir(L.TC)*L.t > L.dist*1.15 && C_LIGHT*L.t > L.dist*1.15;
+  if (done) L.running = false;
+}
+$('#inDist').oninput = lightCalc;
+$('#inTemp').oninput = lightCalc;
+$('#btnFlash').onclick = flash;
+$('#btnLightReset').onclick = () => { L.t=0; L.running=false; L.flash=0; drawLight(); };
+$('#btnSlowmo').onclick = () => {
+  L.slow = (L.slow+1) % SLOWS.length;
+  $('#slowLbl').textContent = SLOWS[L.slow].lbl;
+  L.t = 0; L.flash = 1; L.running = true;
+};
+// 音速介質表
+(function(){
+  const tb = $('#mediaTable tbody');
+  SOUND_MEDIA.forEach(m => {
+    const tr = document.createElement('tr');
+    if (/20 °C/.test(m.n)) tr.className = 'hi';
+    tr.innerHTML = '<td>'+m.n+'</td><td class="n">'+num(m.v,0)+'</td><td class="n">'+
+      num(m.v/343.2,2)+'×</td><td class="n">'+num(1000/m.v,2)+' s</td><td class="dim">'+m.note+'</td>';
+    tb.appendChild(tr);
+  });
+})();
+// 光速距離表
+(function(){
+  const tb = $('#lightTable tbody');
+  LIGHT_TARGETS.forEach(t => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>'+t.n+'</td><td class="n">'+humanDist(t.d)+'</td><td class="n">'+
+      humanTime(t.d/C_LIGHT)+'</td><td class="n dim">'+humanTime(t.d/343.2)+'</td>';
+    tb.appendChild(tr);
+  });
+})();
+// 馬赫數
+function machCalc(){
+  const v = +$('#inMachV').value, hkm = +$('#inMachH').value;
+  $('#vMachV').textContent = num(v,0); $('#vMachH').textContent = hkm;
+  const TK = isaTemp(hkm*1000), a = Math.sqrt(GAMMA*R_AIR*TK), M = KMH(v)/a;
+  $('#kMachT').textContent = num(TK-273.15,1) + ' °C';
+  $('#kMachA').textContent = num(a,1) + ' m/s（' + num(a*3.6,0) + ' km/h）';
+  $('#kMach').textContent = 'M ' + num(M,3);
+  const zone = M < 0.8 ? '次音速 Subsonic' : M < 1.0 ? '穿音速 Transonic（震波開始出現）'
+             : M < 1.2 ? '剛突破音障' : M < 5 ? '超音速 Supersonic' : '極超音速 Hypersonic';
+  $('#kMachZone').textContent = zone;
+  $('#kMachMu').textContent = M > 1 ? num(Math.asin(1/M)*R2D,1) + '°' : '尚未形成（M ≤ 1）';
+}
+$('#inMachV').oninput = machCalc; $('#inMachH').oninput = machCalc;
+
+/* =======================================================================
+   ② 折射
+   ======================================================================= */
+const cvR = $('#cvRefr');
+const RF = {mode:'flat', th1:40, i1:1, i2:3, lam:550, swap:false, t:0};
+
+function fillOpticalSelects(){
+  ['#selN1','#selN2'].forEach((sel,k) => {
+    const el = $(sel);
+    OPTICAL.forEach((m,i) => {
+      const o = document.createElement('option');
+      o.value = i; o.textContent = m.n + '（n≈' + nOf(m,589).toFixed(3) + '）';
+      el.appendChild(o);
+    });
+    el.value = k === 0 ? 1 : 3;                       // 空氣 → 水
+    el.onchange = refrCalc;
+  });
+}
+function refrN(){
+  const m1 = OPTICAL[RF.i1], m2 = OPTICAL[RF.i2];
+  let n1 = nOf(m1, RF.lam), n2 = nOf(m2, RF.lam);
+  if (RF.swap){ const t=n1; n1=n2; n2=t; }
+  return {n1, n2, m1:RF.swap?m2:m1, m2:RF.swap?m1:m2};
+}
+function refrCalc(){
+  RF.i1 = +$('#selN1').value; RF.i2 = +$('#selN2').value;
+  RF.th1 = +$('#inAng').value; RF.lam = +$('#inLam').value;
+  $('#vAng').textContent = RF.th1; $('#vLam').textContent = RF.lam;
+  const {n1,n2,m1,m2} = refrN();
+  const th2 = snell(n1,n2,RF.th1);
+  const thc = criticalAngle(n1,n2);
+  const Rr = fresnelR(n1,n2,RF.th1);
+  $('#kN').textContent = num(n1,4) + ' → ' + num(n2,4);
+  $('#kV1').textContent = num(lightSpeedIn(n1)/1000,0) + ' km/s';
+  $('#kV2').textContent = num(lightSpeedIn(n2)/1000,0) + ' km/s';
+  $('#kTh2').textContent = th2 === null ? '不存在（全反射）' : num(th2,2) + '°';
+  $('#kThc').textContent = thc === null ? '不存在（n₁ ≤ n₂，不會全反射）' : num(thc,2) + '°';
+  $('#kFres').textContent = num(Rr*100,1) + ' %';
+  $('#kTrans').textContent = num((1-Rr)*100,1) + ' %';
+  $('#refrBig').innerHTML = th2 === null
+    ? '⛔ 全反射（光出不去）'
+    : 'θ₂ = ' + num(th2,1) + '°　<small>' + (th2 < RF.th1 ? '往法線靠近（進入慢介質）' : '遠離法線（進入快介質）') + '</small>';
+  let note;
+  if (th2 === null){
+    note = '入射角 ' + RF.th1 + '° 已超過臨界角 ' + num(thc,1) + '°，光 <b>100% 被反射回去</b>，一點也透不出去 —— 這就是<b>全反射</b>。' +
+           '光纖靠這招把光鎖在纖芯裡跑幾十公里都不漏。';
+  } else if (n2 > n1){
+    note = '從快介質進入慢介質（n 變大），光速從 ' + num(lightSpeedIn(n1)/1000,0) + ' 掉到 ' +
+           num(lightSpeedIn(n2)/1000,0) + ' km/s，方向<b>往法線偏</b>。此角度下有 ' + num(Rr*100,1) + '% 的光被反射掉。';
+  } else {
+    note = '從慢介質進入快介質（n 變小），光速加快，方向<b>遠離法線</b>。' +
+           (thc !== null ? '入射角一旦超過 <b>' + num(thc,1) + '°</b> 就完全出不去（全反射）。' : '');
+  }
+  $('#refrNote').innerHTML = note;
+  drawRefr();
+}
+function drawRefr(){
+  if (!cvR || !cvR.clientWidth) return;
+  const {ctx,w,h} = fit(cvR);
+  ctx.clearRect(0,0,w,h);
+  if (RF.mode === 'flat')       drawRefrFlat(ctx,w,h);
+  else if (RF.mode === 'prism') drawRefrPrism(ctx,w,h);
+  else if (RF.mode === 'mirage')drawRefrMirage(ctx,w,h);
+  else                          drawRefrFish(ctx,w,h);
+}
+function drawRefrFlat(ctx,w,h){
+  const {n1,n2,m1,m2} = refrN();
+  const iy = h*0.5, ox = w*0.5;
+  // 兩個介質
+  const col1 = n1 > 1.2 ? 'rgba(58,168,232,.22)' : '#0a1020';
+  const col2 = n2 > 1.2 ? 'rgba(58,168,232,.22)' : '#0a1020';
+  ctx.fillStyle = col1 === '#0a1020' ? '#0a1020' : '#123049'; ctx.fillRect(0,0,w,iy);
+  ctx.fillStyle = col2 === '#0a1020' ? '#0a1020' : '#123049'; ctx.fillRect(0,iy,w,h-iy);
+  line(ctx,0,iy,w,iy,'#5ee0c8',2);
+  txt(ctx, m1.n + '  n₁ = ' + num(n1,3) + '　光速 ' + num(lightSpeedIn(n1)/1000,0) + ' km/s', 10, 16, '#93a3c9', 12);
+  txt(ctx, m2.n + '  n₂ = ' + num(n2,3) + '　光速 ' + num(lightSpeedIn(n2)/1000,0) + ' km/s', 10, h-14, '#93a3c9', 12);
+  // 法線
+  line(ctx,ox,10,ox,h-10,'#93a3c9',1.2,[5,5]);
+  txt(ctx,'法線',ox+6,16,'#93a3c9',11);
+
+  const rgb = wavelengthRGB(RF.lam), colRay = 'rgb('+rgb.join(',')+')';
+  const th1 = RF.th1*D2R, len = Math.min(w,h)*0.46;
+  // 入射（從左上往交點）
+  const sx = ox - len*Math.sin(th1), sy = iy - len*Math.cos(th1);
+  arrow(ctx,sx,sy,ox,iy,colRay,3);
+  // 角度弧
+  const arc = (a0,a1,r,col,label,mid)=>{
+    ctx.save(); ctx.strokeStyle=col; ctx.lineWidth=1.4; ctx.beginPath();
+    ctx.arc(ox,iy,r,a0,a1); ctx.stroke(); ctx.restore();
+    txt(ctx,label, ox + (r+16)*Math.cos(mid), iy + (r+16)*Math.sin(mid), col, 11, 'center');
+  };
+  arc(-Math.PI/2 - th1, -Math.PI/2, 48, colRay, 'θ₁ '+num(RF.th1,0)+'°', -Math.PI/2 - th1/2);
+  // 反射
+  const Rr = fresnelR(n1,n2,RF.th1);
+  const rx = ox + len*0.8*Math.sin(th1), ry = iy - len*0.8*Math.cos(th1);
+  ctx.save(); ctx.globalAlpha = clamp(0.25 + Rr*0.75, 0.2, 1);
+  arrow(ctx,ox,iy,rx,ry,'#ff9f5c', 1.5 + 3.5*Rr); ctx.restore();
+  txt(ctx,'反射 '+num(Rr*100,0)+'%', rx+4, ry-8, '#ff9f5c', 11);
+  // 折射
+  const th2 = snell(n1,n2,RF.th1);
+  if (th2 !== null){
+    const t2 = th2*D2R;
+    const tx = ox + len*Math.sin(t2), ty = iy + len*Math.cos(t2);
+    ctx.save(); ctx.globalAlpha = clamp(0.3 + (1-Rr)*0.7, 0.25, 1);
+    arrow(ctx,ox,iy,tx,ty,'#5ee0c8', 1.5 + 3.5*(1-Rr)); ctx.restore();
+    arc(Math.PI/2 - t2, Math.PI/2, 68, '#5ee0c8', 'θ₂ '+num(th2,1)+'°', Math.PI/2 - t2/2);
+    txt(ctx,'折射 '+num((1-Rr)*100,0)+'%', tx+4, ty+10, '#5ee0c8', 11);
+  } else {
+    txt(ctx,'⛔ 全反射：一點光都出不去', ox+10, iy+30, '#ff5c5c', 13);
+    const thc = criticalAngle(n1,n2);
+    if (thc !== null){
+      const tc = thc*D2R;
+      line(ctx, ox, iy, ox - len*0.95*Math.sin(tc), iy - len*0.95*Math.cos(tc), '#ff5c5c', 1.2, [4,4]);
+      txt(ctx,'臨界角 '+num(thc,1)+'°', ox - len*0.95*Math.sin(tc) - 4, iy - len*0.95*Math.cos(tc) - 10, '#ff5c5c', 11, 'right');
+    }
+  }
+  // 波前（示意光在下方介質波長變短）
+  ctx.save(); ctx.globalAlpha = .55;
+  const wl1 = 26, wl2 = 26*n1/n2;
+  for (let k=1;k<10;k++){
+    const d = k*wl1;
+    if (d > len) break;
+    const px = ox - d*Math.sin(th1), py = iy - d*Math.cos(th1);
+    line(ctx, px - 10*Math.cos(th1), py + 10*Math.sin(th1), px + 10*Math.cos(th1), py - 10*Math.sin(th1), colRay, 2);
+  }
+  if (th2 !== null){
+    const t2 = th2*D2R;
+    for (let k=1;k<10;k++){
+      const d = k*wl2;
+      if (d > len) break;
+      const px = ox + d*Math.sin(t2), py = iy + d*Math.cos(t2);
+      // 波前要垂直於光線：光線方向 (sinθ, cosθ) 的垂直向量是 (cosθ, −sinθ)
+      line(ctx, px - 10*Math.cos(t2), py + 10*Math.sin(t2), px + 10*Math.cos(t2), py - 10*Math.sin(t2), '#5ee0c8', 2);
+    }
+    txt(ctx,'波長變 '+ (n2>n1?'短':'長') +'（頻率不變，速度變了）', w-8, iy + (n2>n1? 26 : -26), '#7f90b8', 11, 'right');
+  }
+  ctx.restore();
+}
+function drawRefrPrism(ctx,w,h){
+  ctx.fillStyle='#060a14'; ctx.fillRect(0,0,w,h);
+  const mat = OPTICAL[Math.max(RF.i2,7)];              // 至少用玻璃
+  // 等邊三角稜鏡
+  const cx = w*0.46, cy = h*0.54, s = Math.min(w*0.30, h*0.62);
+  const A = {x:cx, y:cy - s*0.577}, B = {x:cx - s/2, y:cy + s*0.289}, C = {x:cx + s/2, y:cy + s*0.289};
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.lineTo(C.x,C.y); ctx.closePath();
+  const gp = ctx.createLinearGradient(B.x,A.y,C.x,C.y);
+  gp.addColorStop(0,'rgba(160,200,255,.16)'); gp.addColorStop(1,'rgba(200,225,255,.28)');
+  ctx.fillStyle = gp; ctx.fill(); ctx.strokeStyle='#9fc4ff'; ctx.lineWidth=1.6; ctx.stroke(); ctx.restore();
+  txt(ctx, mat.n + '（60° 稜鏡）', cx, cy + s*0.289 + 18, '#93a3c9', 12, 'center');
+
+  // 入射白光：打在左面 AB，法線朝左上
+  const inAng = 42;                                   // 入射角（對左面法線）
+  const hitT = 0.5;
+  const P = {x: lerp(A.x,B.x,hitT), y: lerp(A.y,B.y,hitT)};
+  // 左面法線（指向稜鏡外）
+  const nL = {x:-Math.cos(30*D2R), y:-Math.sin(30*D2R)};
+  const inDirBase = rot(nL, Math.PI - inAng*D2R);      // 入射方向（往稜鏡內）
+  const start = {x:P.x - inDirBase.x*w*0.42, y:P.y - inDirBase.y*w*0.42};
+  ctx.save(); ctx.strokeStyle='#ffffff'; ctx.lineWidth=3; ctx.shadowColor='#fff'; ctx.shadowBlur=8;
+  ctx.beginPath(); ctx.moveTo(start.x,start.y); ctx.lineTo(P.x,P.y); ctx.stroke(); ctx.restore();
+  txt(ctx,'白光（所有波長混在一起）', Math.max(8, start.x+6), Math.max(14, start.y-12), '#e9efff', 12);
+
+  // 每個波長各走一次
+  for (let lam=400; lam<=690; lam+=5){
+    const n = nOf(mat, lam);
+    const th2 = snell(1.0, n, inAng);
+    if (th2 === null) continue;
+    // 折射方向：法線內側 + θ2，保持與入射同側
+    const nIn = {x:-nL.x, y:-nL.y};                  // 指向稜鏡內的法線
+    const dirIn = rot(nIn, th2*D2R * sideOf(nIn, inDirBase));
+    // 走到右面 AC
+    const hit = raySegHit(P, dirIn, A, C) || raySegHit(P, dirIn, B, C);
+    if (!hit) continue;
+    const face = hit.seg;
+    const nOut = faceNormal(face.p, face.q, {x:cx,y:cy});
+    const cosI = -(dirIn.x*nOut.x + dirIn.y*nOut.y);
+    const thIn = Math.acos(clamp(Math.abs(cosI),0,1))*R2D;
+    const thOut = snell(n, 1.0, thIn);
+    const rgb = wavelengthRGB(lam);
+    ctx.save(); ctx.globalAlpha = .85; ctx.strokeStyle = 'rgb('+rgb.join(',')+')'; ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.moveTo(P.x,P.y); ctx.lineTo(hit.p.x, hit.p.y); ctx.stroke();
+    if (thOut !== null){
+      const dOut = rot(nOut, thOut*D2R * sideOf(nOut, dirIn));
+      ctx.beginPath(); ctx.moveTo(hit.p.x,hit.p.y);
+      ctx.lineTo(hit.p.x + dOut.x*w*0.45, hit.p.y + dOut.y*w*0.45); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  txt(ctx,'紅光 n 最小 → 偏折最少', w-8, h*0.34, '#ff6b6b', 11, 'right');
+  txt(ctx,'紫光 n 最大 → 偏折最多', w-8, h*0.34+18, '#b98cff', 11, 'right');
+  const nB = nOf(mat,400), nR = nOf(mat,690);
+  txt(ctx,'此材質 n(400nm)=' + num(nB,4) + '　n(690nm)=' + num(nR,4) + '　色散差 ' + num(nB-nR,4),
+      10, h-14, '#7f90b8', 11);
+  $('#refrHint').innerHTML = '稜鏡把白光拆開，是因為<b>折射率隨波長改變</b>（色散）：紫光在玻璃裡走得比紅光慢，' +
+    '所以被偏折得更多。彩虹是同一件事，只是稜鏡換成了空中的水滴。';
+}
+// 小幾何工具
+function rot(v, a){ return {x: v.x*Math.cos(a) - v.y*Math.sin(a), y: v.x*Math.sin(a) + v.y*Math.cos(a)}; }
+// 從法線 n 轉到方向 d 是哪一邊（叉積 n×d 的正負）；入射與折射必須同側
+function sideOf(n, d){ return (n.x*d.y - n.y*d.x) >= 0 ? 1 : -1; }
+function raySegHit(o, d, p, q){
+  const ex = q.x-p.x, ey = q.y-p.y;
+  const den = d.x*ey - d.y*ex;
+  if (Math.abs(den) < 1e-9) return null;
+  const t = ((p.x-o.x)*ey - (p.y-o.y)*ex)/den;
+  const u = ((p.x-o.x)*d.y - (p.y-o.y)*d.x)/den;
+  if (t < 0.5 || u < 0 || u > 1) return null;
+  return {p:{x:o.x+d.x*t, y:o.y+d.y*t}, t, seg:{p,q}};
+}
+function faceNormal(p, q, inside){
+  const ex = q.x-p.x, ey = q.y-p.y, len = Math.hypot(ex,ey);
+  let n = {x: ey/len, y: -ex/len};
+  const mx = (p.x+q.x)/2, my = (p.y+q.y)/2;
+  if ((mx-inside.x)*n.x + (my-inside.y)*n.y < 0){ n = {x:-n.x, y:-n.y}; }
+  return n;                                       // 指向稜鏡外
+}
+function drawRefrMirage(ctx,w,h){
+  // 沙漠／柏油路：地面很熱 → 貼地空氣熱而稀薄 → n 較小 → 光速較快 → 光線被折回上方
+  const gy = h*0.62;
+  let sky = ctx.createLinearGradient(0,0,0,gy);
+  sky.addColorStop(0,'#2a5c9c'); sky.addColorStop(.72,'#9fc4e8'); sky.addColorStop(1,'#e8d6a8');
+  ctx.fillStyle=sky; ctx.fillRect(0,0,w,gy);
+  ctx.fillStyle='#3a3630'; ctx.fillRect(0,gy,w,h-gy);
+  // 貼地熱空氣層（越靠地面越熱、n 越小）
+  for (let i=0;i<12;i++){
+    ctx.save(); ctx.globalAlpha = 0.055*(12-i)/12; ctx.fillStyle='#ffca6b';
+    ctx.fillRect(0, gy - (i+1)*6, w, 6); ctx.restore();
+  }
+
+  // ---- 折射率隨高度變化：n(y) = n0 − Δn·e^(−高度/H)（Δn 為了看得見刻意放大）----
+  const H = 28, dn = 0.06, n0 = 1.0;
+  const nAt = y => n0 - dn*Math.exp(-(gy - y)/H);
+  // 沿路徑積分：n(y)·cosθ = 常數（θ 由水平量）。到轉折點時上下方向要翻過來。
+  function trace(x0, y0, ang0){
+    const pts = [{x:x0, y:y0}];
+    let x = x0, y = y0, th = ang0, dir = ang0 >= 0 ? 1 : -1;
+    const inv = nAt(y0)*Math.cos(ang0);
+    for (let i=0;i<1400 && x < w+4; i++){
+      const n = nAt(y);
+      let c = inv/n;
+      if (c >= 1){ c = 1; dir = -1; }        // 已折回，改往上走
+      const s = Math.sqrt(Math.max(0, 1-c*c));
+      th = Math.atan2(dir*s, c);
+      x += 1.6*Math.cos(th); y += 1.6*Math.sin(th);
+      if (y > gy - 1){ y = gy - 1; dir = -1; }
+      pts.push({x, y});
+    }
+    return {pts, th};
+  }
+  // 真實的樹
+  const tx = 40, treeTop = gy - 104;
+  ctx.fillStyle='#2f5c3a'; ctx.beginPath(); ctx.ellipse(tx, treeTop+22, 14, 24, 0, 0, 7); ctx.fill();
+  ctx.fillStyle='#5a4530'; ctx.fillRect(tx-2.5, treeTop+42, 5, 62);
+  txt(ctx,'真實的樹', tx, treeTop - 14, '#0d2036', 12, 'center');
+
+  // ---- 光路 A：直線過來（你看到「樹在上面」）----
+  const eyeX = w - 52;
+  const r = trace(tx+14, gy - 62, 0.20);        // 往下射出的那條光（會被折回）
+  const arrive = r.pts[r.pts.length-1];
+  const eye = {x: Math.min(eyeX, arrive.x), y: arrive.y};
+  line(ctx, tx+14, treeTop+16, eye.x, eye.y - 12, '#ffe066', 2.4);
+  txt(ctx,'① 直線來的光 → 看到樹本身', tx+42, treeTop+4, '#8a6b16', 11);
+
+  // ---- 光路 B：往下射出 → 被貼地熱空氣折回上來 → 也進到眼睛 ----
+  ctx.save(); ctx.strokeStyle='#ff7a3c'; ctx.lineWidth=2.4;
+  ctx.beginPath(); r.pts.forEach((p,i)=> i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke(); ctx.restore();
+  // 折回的最低點
+  let low = r.pts[0];
+  r.pts.forEach(p => { if (p.y > low.y) low = p; });
+  txt(ctx,'② 這條光本來要射到地面…', tx+24, gy - 46, '#a8481a', 11);
+  txt(ctx,'…卻被連續折彎、折回上方（不是反射）',
+      clamp(low.x, 130, w-130), low.y + 18, '#a8481a', 11, 'center');
+
+  // ---- 眼睛，以及大腦把光延長成直線 → 倒立的假像 ----
+  ctx.save(); ctx.fillStyle='#7a3cff'; ctx.beginPath(); ctx.arc(eye.x, eye.y, 9, 0, 7); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(eye.x-2.5, eye.y-2.5, 3.5, 0, 7); ctx.fill(); ctx.restore();
+  txt(ctx,'你的眼睛', eye.x, eye.y - 20, '#3a1a7a', 11, 'center');
+  // 沿抵達方向往後延伸成直線（大腦的假設）→ 虛像落在這條線上
+  const back = {x: Math.cos(r.th), y: Math.sin(r.th)};
+  const ix = tx + 12;
+  const ext = (eye.x - ix)/Math.max(0.2, back.x);
+  const iy = eye.y - back.y*ext;
+  line(ctx, eye.x, eye.y, ix, iy, '#ff2d55', 1.6, [6,5]);
+  // 「積水」：折回點的高度就是看起來的「水面」
+  ctx.save(); ctx.globalAlpha=.40; ctx.fillStyle='#9fc4e8';
+  ctx.fillRect(tx+4, low.y - 2, w - tx - 60, 5); ctx.restore();
+  txt(ctx,'看起來的「水面」（折回點高度）', w-56, low.y - 10, '#3d6b96', 10, 'right');
+  // 虛像：倒立的樹，鏡射在那條線下方
+  ctx.save(); ctx.globalAlpha=.5;
+  ctx.translate(ix, iy); ctx.scale(0.85,-0.85);
+  ctx.fillStyle='#2f5c3a'; ctx.beginPath(); ctx.ellipse(0, 26, 14, 24, 0, 0, 7); ctx.fill();
+  ctx.fillStyle='#5a4530'; ctx.fillRect(-2.5, 46, 5, 46);
+  ctx.restore();
+  txt(ctx,'③ 大腦假設光走直線 → 樹被畫成上下顛倒的虛像', ix + 30, iy + 62, '#ff5c5c', 11);
+
+  txt(ctx,'上方空氣 30 °C：n 較大、光速較慢', 10, 18, '#0d2036', 12);
+  txt(ctx,'地面 55 °C：貼地空氣熱、密度低、n 小 → 光速較快', w-10, gy + 22, '#ffd166', 12, 'right');
+  txt(ctx,'路面上的「積水」其實是被折回的天空光', w-10, gy + 40, '#9fc4e8', 12, 'right');
+  $('#refrHint').innerHTML = '海市蜃樓不需要「界面」，只要 n 在空間中<b>連續變化</b>，光就連續彎曲。' +
+    '柏油路上的「水漥」其實是被貼地熱空氣折上來的<b>天空</b>；沙漠綠洲幻象與海上的懸浮船同理。' +
+    '（圖中的 Δn 為了看得見已刻意放大，真實梯度小到需要幾百公尺才顯現。）';
+}
+function drawRefrFish(ctx,w,h){
+  const wy = h*0.42;
+  let sky = ctx.createLinearGradient(0,0,0,wy);
+  sky.addColorStop(0,'#0d1a34'); sky.addColorStop(1,'#1d3a5c'); ctx.fillStyle=sky; ctx.fillRect(0,0,w,wy);
+  let wa = ctx.createLinearGradient(0,wy,0,h);
+  wa.addColorStop(0,'#1a6a9c'); wa.addColorStop(1,'#0a3352'); ctx.fillStyle=wa; ctx.fillRect(0,wy,w,h-wy);
+  line(ctx,0,wy,w,wy,'#7fd8ff',2);
+  txt(ctx,'空氣 n = 1.00', 10, 16, '#93a3c9', 12);
+  txt(ctx,'水 n = 1.333', 10, h-14, '#cfe8ff', 12);
+
+  const nW = nOf(OPTICAL[3], RF.lam);
+  const eye = {x: w*0.22, y: wy - h*0.28};
+  const fish = {x: w*0.72, y: wy + h*0.36};
+  // 從魚出發、折射後進入眼睛：先用幾何解出界面交點（用二分法找滿足司乃耳的點）
+  let lo = eye.x, hi = fish.x, sx = 0;
+  for (let i=0;i<50;i++){
+    sx = (lo+hi)/2;
+    const thW = Math.atan2(sx - fish.x, fish.y - wy)*R2D;         // 水中角（對法線）
+    const thA = Math.atan2(sx - eye.x, wy - eye.y)*R2D;           // 空氣角（對法線）
+    const need = nW*Math.sin(Math.abs(thW)*D2R) - 1.0*Math.sin(Math.abs(thA)*D2R);
+    // need 隨 sx 遞減：>0 代表水中角還太大，交點要往魚那側（sx 變大）移
+    if (need > 0) lo = sx; else hi = sx;
+  }
+  const hit = {x:sx, y:wy};
+  // 實際光路
+  arrow(ctx, fish.x, fish.y, hit.x, hit.y, '#5ee0c8', 2.5);
+  arrow(ctx, hit.x, hit.y, eye.x, eye.y, '#ffe066', 2.5);
+  line(ctx, hit.x, wy-70, hit.x, wy+70, '#93a3c9', 1.1, [5,5]);
+  // 視覺延長線 → 看起來的位置
+  const dx = hit.x - eye.x, dy = wy - eye.y;
+  const apparentY = wy + (fish.y - wy)/nW;           // 視深 = 實深 / n
+  // 大腦假設光走直線 → 把魚畫在這條延長線上
+  line(ctx, hit.x, wy, hit.x + dx*(fish.y-wy)/dy, fish.y, '#ff5c5c', 1.6, [6,5]);
+  // 視深位置（沿視線方向、深度 = 實深/n）
+  const ax = hit.x + dx*(apparentY-wy)/dy;
+  ctx.save(); ctx.globalAlpha=.55; ctx.fillStyle='#ff5c5c';
+  ctx.beginPath(); ctx.ellipse(ax, apparentY, 15, 8, 0, 0, 7); ctx.fill(); ctx.restore();
+  txt(ctx,'👀 你以為魚在這（較淺）', ax, apparentY - 18, '#ff5c5c', 12, 'center');
+  // 魚
+  ctx.save(); ctx.fillStyle='#ffd166';
+  ctx.beginPath(); ctx.ellipse(fish.x, fish.y, 17, 9, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(fish.x+16,fish.y); ctx.lineTo(fish.x+28,fish.y-8); ctx.lineTo(fish.x+28,fish.y+8);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#333'; ctx.beginPath(); ctx.arc(fish.x-8,fish.y-2,2,0,7); ctx.fill(); ctx.restore();
+  txt(ctx,'🐟 魚真正的位置', fish.x, fish.y + 22, '#ffd166', 12, 'center');
+  // 眼睛
+  ctx.save(); ctx.fillStyle='#b98cff'; ctx.beginPath(); ctx.arc(eye.x,eye.y,9,0,7); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(eye.x-2,eye.y-2,3.5,0,7); ctx.fill(); ctx.restore();
+
+  txt(ctx,'視深 = 實深 ÷ n = 實深 ÷ ' + num(nW,3) + ' = 實深的 ' + num(100/nW,0) + '%', w-8, h-16, '#cfe8ff', 12, 'right');
+  $('#refrHint').innerHTML = '光從水裡出來時遠離法線偏折，你的大腦卻假設光是<b>直線</b>過來的，' +
+    '於是把魚「畫」在延長線上 —— 看起來比實際<b>淺</b>（只有 ' + num(100/nW,0) + '%）也比較偏。' +
+    '射魚要往<b>更深、更靠近自己</b>的地方射。同理，水看起來比實際深度淺，這是溺水的隱藏風險。';
+}
+$$('#refrSeg button').forEach(b => b.onclick = () => {
+  $$('#refrSeg button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  RF.mode = b.dataset.m;
+  $('#refrHint').innerHTML = RF.mode === 'flat' ? '在畫面上<b>拖曳</b>可以改變入射角。' : '';
+  drawRefr();
+});
+$('#inAng').oninput = refrCalc; $('#inLam').oninput = refrCalc;
+$('#btnSwap').onclick = () => {
+  RF.swap = !RF.swap;
+  $('#btnSwap').textContent = RF.swap ? '⇅ 改回從上方介質射入' : '⇅ 從水射向空氣';
+  refrCalc();
+};
+$('#btnRefrReset').onclick = () => {
+  RF.swap = false; $('#btnSwap').textContent = '⇅ 從水射向空氣';
+  $('#inAng').value = 40; $('#inLam').value = 550; $('#selN1').value = 1; $('#selN2').value = 3;
+  refrCalc();
+};
+onDrag(cvR, p => {
+  if (RF.mode !== 'flat') return;
+  const ox = p.w*0.5;
+  const dx = p.x - ox, dy = (p.h*0.5) - p.y;
+  let a = Math.atan2(Math.abs(dx), Math.max(1,Math.abs(dy)))*R2D;
+  $('#inAng').value = Math.round(clamp(a,0,89));
+  refrCalc();
+});
+// 折射率表
+(function(){
+  const tb = $('#nTable');
+  OPTICAL.forEach(m => {
+    const n = nOf(m,589), tc = criticalAngle(n,1.0);
+    const tr = document.createElement('tr');
+    if (m.n==='水') tr.className='hi';
+    tr.innerHTML = '<td>'+m.n+'</td><td class="n">'+num(n,4)+'</td><td class="n">'+
+      num(lightSpeedIn(n)/1000,0)+'</td><td class="n">'+(tc===null?'—':num(tc,1)+'°')+
+      '</td><td class="dim">'+m.note+'</td>';
+    tb.appendChild(tr);
+  });
+})();
+
+/* =======================================================================
+   ③ 散射
+   ======================================================================= */
+const cvS = $('#cvSky'), cvSc = $('#cvScat');
+const SC = {sun:50, turb:0.10};
+
+function scatCalc(){
+  SC.sun = +$('#inSun').value; SC.turb = +$('#inTurb').value;
+  $('#vSun').textContent = SC.sun; $('#vTurb').textContent = num(SC.turb,2);
+  const m = airmass(SC.sun);
+  $('#gAm').textContent = num(m,2) + ' 倍';
+  const skyV = skyRadiance(SC.sun, 45, SC.turb);
+  const sunV = sunTransmit(SC.sun, SC.turb);
+  const skyCol = toRGB(skyV, 1), sunCol = toRGB(sunV, 1);
+  $('#gSkyRgb').innerHTML = '<span style="display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;background:'+skyCol+'"></span> ' + skyCol;
+  $('#gSunRgb').innerHTML = '<span style="display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;background:'+sunCol+'"></span> ' + sunCol;
+  const tb = rayleighTau(0.450), tg = rayleighTau(0.550), tr = rayleighTau(0.680);
+  $('#kSb').textContent = num(tb/tr,2) + ' 倍紅光';
+  $('#kSg').textContent = num(tg/tr,2) + ' 倍紅光';
+  $('#kSr').textContent = '1.00（基準）';
+  $('#kTrio').textContent = num(sunV[0]*100,1)+'% / '+num(sunV[1]*100,1)+'% / '+num(sunV[2]*100,1)+'%';
+  let note;
+  if (SC.sun > 30){
+    note = '太陽很高，陽光只穿過 <b>' + num(m,2) + ' 倍</b>大氣厚度。藍光被散射到整個天空 → <b>天空是藍的</b>，' +
+           '太陽本身看起來接近白色（只損失了 ' + num((1-sunV[0])*100,0) + '% 的藍光）。';
+  } else if (SC.sun > 6){
+    note = '太陽偏低，路徑變成 <b>' + num(m,2) + ' 倍</b>。藍光已經被削掉 ' + num((1-sunV[0])*100,0) +
+           '%，太陽開始轉黃橙，天空靠地平線那側也變暖色。';
+  } else if (SC.sun >= 0){
+    note = '日出／日落！陽光斜穿 <b>' + num(m,1) + ' 倍</b>大氣，藍光只剩 <b>' + num(sunV[0]*100,2) +
+           '%</b>、紅光還有 ' + num(sunV[2]*100,0) + '% → 太陽變成紅橙色，整片天空被染紅。';
+  } else {
+    note = '太陽已在地平線下（暮光）。直射光被地球遮住，你看到的是高空大氣散射下來的殘餘光，' +
+           '所以天空是深藍到紫的漸層。';
+  }
+  if (SC.turb > 0.4) note += '<br>空氣中懸浮微粒很多（濁度 ' + num(SC.turb,2) +
+    '）→ <b>米氏散射</b>接管：各波長散射量差不多，天空被洗成灰白，能見度下降。這就是霾。';
+  $('#scatNote').innerHTML = note;
+  drawSky(); drawScat();
+}
+function drawSky(){
+  if (!cvS || !cvS.clientWidth) return;
+  const {ctx,w,h} = fit(cvS);
+  const hz = h*0.80;                                 // 地平線
+  // 逐列算天空顏色
+  const rows = 64;
+  let mx = 1e-9;
+  const vals = [];
+  for (let i=0;i<rows;i++){
+    const ve = 90*(1 - i/(rows-1));
+    const v = skyRadiance(SC.sun, ve, SC.turb);
+    vals.push(v); mx = Math.max(mx, v[0], v[1], v[2]);
+  }
+  // 部分眼睛適應：亮度不會完全被正規化掉，暮光還是暗的
+  const dim = clamp(0.30 + 0.70*(SC.sun + 4)/22, 0.30, 1);
+  // mx 是地平線那一列（散射飽和）→ 只用它會把整片天空壓暗；日高時額外補亮
+  const gain = 1 + 2.6*clamp(SC.sun/50, 0, 1);
+  const expo = dim * gain * 0.80/Math.pow(mx, 0.92);
+  for (let i=0;i<rows;i++){
+    ctx.fillStyle = toRGBabs(vals[i], expo);
+    ctx.fillRect(0, hz*i/rows - 1, w, hz/rows + 2);
+  }
+  // 太陽
+  const sy = hz - (hz-14)*clamp(SC.sun,0,90)/90, sx = w*0.70;
+  if (SC.sun >= -1){
+    const sunV = sunTransmit(SC.sun, SC.turb);
+    const sunCol = toRGB(sunV, 1);
+    const rad = 16 + 10*clamp(1 - SC.sun/40,0,1);
+    const gl = ctx.createRadialGradient(sx,sy,2,sx,sy,rad*4.5);
+    gl.addColorStop(0, sunCol); gl.addColorStop(.18, sunCol);
+    gl.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.save(); ctx.globalAlpha = .85; ctx.fillStyle = gl;
+    ctx.beginPath(); ctx.arc(sx,sy,rad*4.5,0,7); ctx.fill(); ctx.restore();
+    ctx.fillStyle = sunCol; ctx.beginPath(); ctx.arc(sx,sy,rad,0,7); ctx.fill();
+  }
+  // 地面與剪影
+  ctx.fillStyle = '#0a1220'; ctx.fillRect(0,hz,w,h-hz);
+  ctx.fillStyle = '#0d1526';
+  ctx.beginPath(); ctx.moveTo(0,hz);
+  ctx.lineTo(w*0.12,hz-24); ctx.lineTo(w*0.22,hz-6); ctx.lineTo(w*0.34,hz-38);
+  ctx.lineTo(w*0.46,hz-4); ctx.lineTo(w,hz); ctx.closePath(); ctx.fill();
+  // 房子剪影
+  ctx.fillStyle='#080f1c';
+  ctx.fillRect(w*0.60, hz-26, 34, 26);
+  ctx.beginPath(); ctx.moveTo(w*0.60-4,hz-26); ctx.lineTo(w*0.60+17,hz-40); ctx.lineTo(w*0.60+38,hz-26); ctx.closePath(); ctx.fill();
+  // 標註
+  const tag = (str,x,y,align) => {
+    ctx.save(); ctx.font='11px "Noto Sans TC",system-ui,sans-serif';
+    const tw = ctx.measureText(str).width;
+    ctx.fillStyle='rgba(4,8,16,.45)';
+    roundRect(ctx, (align==='right'? x-tw-6 : x-4), y-9, tw+10, 18, 5); ctx.fill(); ctx.restore();
+    txt(ctx, str, x, y, 'rgba(255,255,255,.88)', 11, align);
+  };
+  tag('往上看（天頂）', 10, 16);
+  tag('往地平線看：視線穿過更厚的空氣 → 更白／更暖', 10, hz-14);
+  tag('太陽仰角 ' + SC.sun + '°　路徑 ' + num(airmass(SC.sun),1) + ' 倍大氣', w-8, 16, 'right');
+}
+function drawScat(){
+  if (!cvSc || !cvSc.clientWidth) return;
+  const {ctx,w,h} = fit(cvSc);
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#060a14'; ctx.fillRect(0,0,w,h);
+  const pl = 42, pr = 12, pt = 14, pb = 26;
+  const gw = w-pl-pr, gh = h-pt-pb;
+  // 散射強度（相對紅光）
+  const tR = rayleighTau(0.680);
+  const maxV = rayleighTau(0.400)/tR;
+  const X = l => pl + gw*(l-400)/300;
+  const Y = v => pt + gh*(1 - v/maxV);
+  // 色條
+  for (let l=400;l<=700;l+=2){
+    const rgb = wavelengthRGB(l);
+    ctx.fillStyle = 'rgb('+rgb.join(',')+')';
+    ctx.fillRect(X(l), h-pb+3, gw/150+1.2, 8);
+  }
+  // 網格
+  for (let i=0;i<=5;i++){
+    const yy = pt + gh*i/5;
+    line(ctx,pl,yy,w-pr,yy,'#1a2440',1);
+    txt(ctx, num(maxV*(1-i/5),1)+'×', pl-6, yy, '#5f7099', 10, 'right');
+  }
+  // 曲線 1/λ⁴
+  ctx.save(); ctx.lineWidth=2.5; ctx.strokeStyle='#5ee0c8'; ctx.beginPath();
+  for (let l=400;l<=700;l+=2){
+    const v = rayleighTau(l/1000)/tR;
+    if (l===400) ctx.moveTo(X(l),Y(v)); else ctx.lineTo(X(l),Y(v));
+  }
+  ctx.stroke(); ctx.restore();
+  // 直射光殘餘（此刻的穿透率）
+  const m = airmass(SC.sun);
+  ctx.save(); ctx.lineWidth=2; ctx.strokeStyle='#ffd166'; ctx.setLineDash([5,4]); ctx.beginPath();
+  for (let l=400;l<=700;l+=2){
+    const lu = l/1000;
+    const T = Math.exp(-(rayleighTau(lu)+aerosolTau(lu,SC.turb))*m);
+    const y = pt + gh*(1-T);
+    if (l===400) ctx.moveTo(X(l),y); else ctx.lineTo(X(l),y);
+  }
+  ctx.stroke(); ctx.restore();
+  // 三個標記波長
+  [[450,'藍'],[550,'綠'],[680,'紅']].forEach(([l,nm]) => {
+    const v = rayleighTau(l/1000)/tR, rgb = wavelengthRGB(l);
+    ctx.fillStyle='rgb('+rgb.join(',')+')';
+    ctx.beginPath(); ctx.arc(X(l),Y(v),4.5,0,7); ctx.fill();
+    txt(ctx, nm+' '+num(v,1)+'×', X(l)+7, Y(v)-2, 'rgb('+rgb.join(',')+')', 11);
+  });
+  txt(ctx,'散射量（相對紅光）', pl, pt-4, '#5ee0c8', 11);
+  txt(ctx,'- - 此刻直射光穿透率（0→1）', w-pr, pt-4, '#ffd166', 11, 'right');
+  txt(ctx,'400 nm 紫←', pl, h-6, '#7f90b8', 10);
+  txt(ctx,'→ 700 nm 紅', w-pr, h-6, '#7f90b8', 10, 'right');
+}
+$('#inSun').oninput = scatCalc; $('#inTurb').oninput = scatCalc;
+
+/* =======================================================================
+   ④ 密度
+   ======================================================================= */
+const cvD = $('#cvDens');
+const DN = {drops:[], mass:100, vol:100};
+const DROP_OBJS = [
+  {n:'自訂（用下面的滑桿）', r:null},
+  {n:'保麗龍球 30',    r:30},
+  {n:'軟木塞 240',     r:240},
+  {n:'木塊 500',       r:500},
+  {n:'冰塊 917',       r:917},
+  {n:'葡萄 1050',      r:1050},
+  {n:'橡皮 1100',      r:1100},
+  {n:'塑膠積木 1200',  r:1200},
+  {n:'小石頭 2600',    r:2600},
+  {n:'鋁片 2700',      r:2700},
+  {n:'鋼珠 7850',      r:7850},
+  {n:'鉛彈 11340',     r:11340}
+];
+function densCalc(){
+  DN.mass = +$('#inMass').value; DN.vol = +$('#inVol').value;
+  $('#vMass').textContent = num(DN.mass,0); $('#vVol').textContent = num(DN.vol,0);
+  const rho = DN.mass/DN.vol*1000;                       // g/cm³ → kg/m³
+  $('#densBig').innerHTML = num(rho/1000,3) + ' <small>g/cm³　= ' + num(rho,0) + ' kg/m³</small>';
+  $('#kRho').textContent = num(rho,0) + ' kg/m³';
+  const li = restLayer(rho);
+  $('#kLayer').textContent = li === 0 ? '浮在最上面（比燈油還輕）'
+    : li >= LAYERS.length ? '沉到最底（比水銀還重）' : '浮在「' + LAYERS[li-1].n + ' / ' + LAYERS[li].n + '」的界面上';
+  $('#kInWater').textContent = rho < 1000 ? '浮，露出 ' + num((1-rho/1000)*100,1) + '%'
+    : rho === 1000 ? '剛好懸浮（中性浮力）' : '沉';
+  const Vm = DN.vol/1e6;
+  const app = (rho - 1000)*Vm*G;
+  $('#kApparent').textContent = rho > 1000 ? num(app,2) + ' N（' + num(app/G*1000,0) + ' g 重）' : '0（浮起來了）';
+  $('#densNote').innerHTML = rho < 1000
+    ? '密度小於水 → <b>浮</b>。浮力只要用到 ' + num(rho/10,1) + '% 的體積浸在水裡就夠了。'
+    : '密度大於水 → <b>沉</b>。但在水中會「變輕」：少掉的重量剛好等於它排開的水重（' +
+      num(1000*Vm*G,2) + ' N），這就是阿基米德在浴缸裡想到的事。';
+  hollowCalc(); drawDens();
+}
+function hollowCalc(){
+  const f = +$('#inHollow').value/100;
+  $('#vHollow').textContent = num(f*100,0);
+  const rho = hollowDensity(7850, f);
+  $('#kShipRho').textContent = num(rho,0) + ' kg/m³';
+  $('#kShipVerdict').innerHTML = rho < 1000
+    ? '<span class="badge b-ok">浮起來了</span>　平均密度已低於水（浸沒 ' + num(rho/10,1) + '%）'
+    : '<span class="badge b-bad">還是會沉</span>　需要空氣佔比 > ' + num((1-1000/7850)*100,1) + '%';
+}
+function dropObj(){
+  const sel = +$('#selObj').value;
+  const preset = DROP_OBJS[sel].r;
+  const rho = preset === null ? DN.mass/DN.vol*1000 : preset;
+  DN.drops.push({rho, y:-20, v:0, name:DROP_OBJS[sel].r===null?'自訂':DROP_OBJS[sel].n.replace(/ \d+$/,''),
+                 x:0.16 + Math.min(0.7, DN.drops.length*0.11), settled:false});
+  if (DN.drops.length > 7) DN.drops.shift();
+}
+function drawDens(){
+  if (!cvD || !cvD.clientWidth) return;
+  const {ctx,w,h} = fit(cvD);
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#060a14'; ctx.fillRect(0,0,w,h);
+  const top = 44, bot = h-26, colW = w*0.62, cx = w*0.06;
+  const lh = (bot-top)/LAYERS.length;
+  // 分層液體
+  LAYERS.forEach((L2,i) => {
+    const y = top + i*lh;
+    const g = ctx.createLinearGradient(cx,y,cx+colW,y);
+    g.addColorStop(0, L2.c); g.addColorStop(1, shade(L2.c,-18));
+    ctx.save(); ctx.globalAlpha=.85; ctx.fillStyle=g; ctx.fillRect(cx,y,colW,lh); ctx.restore();
+    line(ctx,cx,y,cx+colW,y,'rgba(255,255,255,.25)',1);
+    txt(ctx, L2.n + '  ' + num(L2.r,0) + ' kg/m³', cx+colW+8, y+lh/2, '#c9d6f5', 11);
+  });
+  // 玻璃杯外框
+  ctx.save(); ctx.strokeStyle='#7f90b8'; ctx.lineWidth=2;
+  ctx.strokeRect(cx,top,colW,bot-top); ctx.restore();
+  txt(ctx,'密度小 → 浮在液面上', cx, top-28, '#93a3c9', 11);
+  txt(ctx,'密度大 → 沉到下面', cx, bot+14, '#93a3c9', 11);
+  // 掉落物
+  DN.drops.forEach(d => {
+    const li = restLayer(d.rho);
+    const rest = top + li*lh;                            // 浮在該界面上（跨在界面上）
+    const y = Math.min(d.y, rest);
+    const px = cx + colW*d.x;
+    ctx.save();
+    ctx.fillStyle = d.rho < 1000 ? '#ffd166' : d.rho < 3000 ? '#ff9f5c' : '#e0e6f2';
+    ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.arc(px, y, 9, 0, 7); ctx.fill(); ctx.stroke(); ctx.restore();
+    txt(ctx, num(d.rho,0), px, y - 15, '#e9efff', 10, 'center');
+    if (y >= rest - 0.5) txt(ctx, d.name, px, y + 18, '#c9d6f5', 10, 'center');
+  });
+}
+function shade(hex, d){
+  const n = parseInt(hex.slice(1),16);
+  const r = clamp(((n>>16)&255)+d,0,255), g = clamp(((n>>8)&255)+d,0,255), b = clamp((n&255)+d,0,255);
+  return 'rgb('+r+','+g+','+b+')';
+}
+function stepDens(dt){
+  const h = +cvD.dataset.cssH || 400;
+  const top = 44, bot = h-26, lh = (bot-top)/LAYERS.length;
+  DN.drops.forEach(d => {
+    const rest = top + restLayer(d.rho)*lh;
+    if (d.y < rest){
+      // 在液體中下沉：黏滯阻力讓它接近等速（越密的沉越快）
+      const term = 30 + 130*clamp(Math.log10(Math.max(1.02,d.rho/800))/1.2, 0, 1);
+      d.v += (term - d.v)*Math.min(1, dt*4);
+      d.y = Math.min(rest, d.y + d.v*dt);
+    }
+  });
+}
+$('#inMass').oninput = densCalc; $('#inVol').oninput = densCalc; $('#inHollow').oninput = hollowCalc;
+$('#btnDrop').onclick = dropObj;
+$('#btnDensReset').onclick = () => { DN.drops = []; drawDens(); };
+(function(){
+  const sel = $('#selObj');
+  DROP_OBJS.forEach((o,i) => {
+    const op = document.createElement('option'); op.value = i;
+    op.textContent = o.r === null ? o.n : o.n.replace(/(\d+)$/,'（$1 kg/m³）');
+    sel.appendChild(op);
+  });
+  sel.value = 4;
+  const tb = $('#rhoTable tbody');
+  MATERIALS.forEach(m => {
+    const tr = document.createElement('tr');
+    if (m.n === '純水 4 °C') tr.className = 'hi';
+    tr.innerHTML = '<td>'+m.n+'</td><td class="n">'+num(m.r,0)+'</td><td class="n">'+
+      num(m.r/1000,2)+'×</td><td class="dim">'+m.inWater+'</td>';
+    tb.appendChild(tr);
+  });
+  const lg = $('#densLegend');
+  LAYERS.forEach(L2 => {
+    const s = document.createElement('span');
+    s.innerHTML = '<i style="background:'+L2.c+'"></i>'+L2.n+' '+num(L2.r,0);
+    lg.appendChild(s);
+  });
+})();
+
+/* =======================================================================
+   ⑤ 浮力（水面用 Gerstner 波，物體真的在積分牛頓方程式）
+   ======================================================================= */
+const cvB = $('#cvBuoy');
+// 2D 側視剖面的 Gerstner 波列（移植自 Wave-Racer 的 gerstner 波場）
+const BWAVES = [
+  {len:6.4, amp:0.085, Q:0.85, ph:0.0},
+  {len:3.7, amp:0.048, Q:0.80, ph:1.7},
+  {len:2.1, amp:0.026, Q:0.70, ph:3.1},
+  {len:1.15,amp:0.012, Q:0.60, ph:5.0}
+];
+const BY = {rho:600, size:0.40, rhoF:1000, load:0, y:0, v:0, t:0, waves:true, pushing:0, dropped:false};
+
+// 波面高度（公尺，相對平均海面）＋水平位移（讓波峰變尖）
+function waveSurface(x, t){
+  let y = 0, dx = 0;
+  for (const wv of BWAVES){
+    const k = 2*Math.PI/wv.len, om = Math.sqrt(G*k);
+    const th = k*x - om*t + wv.ph;
+    y  += wv.amp*Math.sin(th);
+    dx += wv.Q*wv.amp*Math.cos(th);
+  }
+  return {y, dx};
+}
+function waveHeightAt(x, t){ return BY.waves ? waveSurface(x,t).y : 0; }
+
+function buoyCalc(){
+  BY.rho = +$('#inBrho').value; BY.size = +$('#inBsize').value/100; BY.load = +$('#inLoad').value;
+  $('#vBrho').textContent = num(BY.rho,0); $('#vBsize').textContent = num(BY.size*100,0);
+  $('#vLoad').textContent = num(BY.load,0);
+  const V = BY.size*BY.size*BY.size, A = BY.size*BY.size;
+  const m = BY.rho*V + BY.load, W = m*G;
+  const Ffull = buoyancyFull(BY.rhoF, V);
+  const draft = equilibriumDraft(m, BY.rhoF, A, BY.size);
+  const sinks = m > BY.rhoF*V;
+  $('#kBm').textContent = num(BY.rho*V,1) + ' kg（體積 ' + num(V*1000,1) + ' L）';
+  $('#kBw').textContent = num(m,1) + ' kg = ' + num(W,0) + ' N';
+  $('#kBfull').textContent = num(Ffull,0) + ' N（' + num(Ffull/G,1) + ' kg 重的水）';
+  $('#kBdraft').textContent = sinks ? '沉沒（浮力不夠）' : num(draft*100,1) + ' cm / ' + num(BY.size*100,0) + ' cm';
+  $('#kBfrac').textContent = sinks ? '100% 浸沒' :
+    num(draft/BY.size*100,1) + '% 浸沒，露出 ' + num((1-draft/BY.size)*100,1) + '%';
+  const reserve = (BY.rhoF*V - m);
+  $('#kBres').textContent = reserve > 0 ? '還能再載 ' + num(reserve,1) + ' kg' : '已經超載 ' + num(-reserve,1) + ' kg';
+  $('#buoyBig').innerHTML = sinks
+    ? '⬇ 會沉 <small>（物體平均密度 ' + num(m/V,0) + ' > 液體 ' + BY.rhoF + '）</small>'
+    : '⬆ 浮著 · 吃水 ' + num(draft*100,1) + ' cm <small>（浸沒 ' + num(draft/BY.size*100,0) + '%）</small>';
+  $('#buoyNote').innerHTML = sinks
+    ? '總平均密度 <b>' + num(m/V,0) + ' kg/m³</b> 已超過液體 ' + BY.rhoF + ' kg/m³，即使整個浸沒，浮力 ' +
+      num(Ffull,0) + ' N 也小於重量 ' + num(W,0) + ' N → 沉。'
+    : '平衡條件是 <b>浮力 = 重力</b>：ρ<sub>液</sub>·g·(A·吃水) = m·g，解出吃水 = m/(ρ<sub>液</sub>·A) = <b>' +
+      num(draft*100,1) + ' cm</b>。<br>換到' + (BY.rhoF>1000?'更密的':'較稀的') + '液體，同一個物體吃水會' +
+      (BY.rhoF>1000?'變淺':'變深') + ' —— 這就是輪船在海水與淡水中吃水線不同（載重線標記）的原因。';
+  drawBuoy();
+}
+function stepBuoy(dt){
+  BY.t += dt;
+  if (!BY.dropped) return;
+  const V = BY.size*BY.size*BY.size, A = BY.size*BY.size;
+  const m = BY.rho*V + BY.load;
+  const surf = waveHeightAt(0, BY.t);
+  const bottom = BY.y - BY.size/2;                        // 物體底面（公尺，y 向上）
+  const sub = clamp(surf - bottom, 0, BY.size);           // 浸沒深度
+  const Fb = BY.rhoF*G*A*sub;
+  const Fw = m*G;
+  const Fd = -0.5*BY.rhoF*A*BY.v*Math.abs(BY.v)*1.1 - 6*m*BY.v*0.06;   // 形狀阻力 + 黏滯
+  const Fp = BY.pushing;
+  const a = (Fb - Fw + Fd + Fp)/m;
+  BY.v += a*dt;
+  BY.y += BY.v*dt;
+  if (BY.y < -3){ BY.y = -3; BY.v = 0; }                  // 沉到底
+  BY.pushing = Math.max(0, BY.pushing - dt*400);
+  const net = Fb - Fw;
+  $('#gFb').textContent = num(Fb,0) + ' N';
+  $('#gW').textContent  = num(Fw,0) + ' N';
+  $('#gNet').textContent = (net>=0?'+':'') + num(net,0) + ' N';
+  $('#gDraft').textContent = num(sub*100,1) + ' cm';
+}
+function drawBuoy(){
+  if (!cvB || !cvB.clientWidth) return;
+  const {ctx,w,h} = fit(cvB);
+  ctx.clearRect(0,0,w,h);
+  const wl = h*0.42;                                     // 平均水面的螢幕 y
+  const PPM = Math.min(h*0.30, 150);                     // 每公尺幾像素
+  const X = xm => w/2 + xm*PPM;
+  const Y = ym => wl - ym*PPM;
+  // 天空
+  let sky = ctx.createLinearGradient(0,0,0,wl);
+  sky.addColorStop(0,'#0a1428'); sky.addColorStop(1,'#1b3358'); ctx.fillStyle=sky; ctx.fillRect(0,0,w,wl+2);
+  // 水面 polyline（Gerstner）
+  const pts = [];
+  for (let px=-8; px<=w+8; px+=3){
+    const xm = (px - w/2)/PPM;
+    const s = BY.waves ? waveSurface(xm, BY.t) : {y:0,dx:0};
+    pts.push({x: X(xm + s.dx*0.5), y: Y(s.y)});
+  }
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+  pts.forEach(p => ctx.lineTo(p.x,p.y));
+  ctx.lineTo(w+10,h); ctx.lineTo(-10,h); ctx.closePath();
+  const wg = ctx.createLinearGradient(0,wl-30,0,h);
+  wg.addColorStop(0, BY.rhoF>1100?'#2a7f6a':BY.rhoF<900?'#4a6fa8':'#1f6f9c');
+  wg.addColorStop(1,'#06223a');
+  ctx.fillStyle=wg; ctx.fill();
+  ctx.strokeStyle='#7fd8ff'; ctx.lineWidth=2; ctx.beginPath();
+  ctx.moveTo(pts[0].x,pts[0].y); pts.forEach(p=>ctx.lineTo(p.x,p.y)); ctx.stroke();
+  ctx.restore();
+  // 平均水面基準線
+  line(ctx,0,wl,w,wl,'rgba(255,255,255,.18)',1,[6,6]);
+
+  // 物體
+  const s = BY.size, sp = s*PPM;
+  const cyM = BY.dropped ? BY.y : (waveHeightAt(0,BY.t) + s*0.6);
+  const bx = X(0) - sp/2, by = Y(cyM + s/2);
+  ctx.save();
+  const objCol = BY.rho < BY.rhoF ? '#c8a06a' : '#8a94a8';
+  ctx.fillStyle = objCol; ctx.strokeStyle='#2a2f3a'; ctx.lineWidth=2;
+  roundRect(ctx,bx,by,sp,sp,4); ctx.fill(); ctx.stroke();
+  // 木紋 / 金屬紋
+  ctx.globalAlpha=.25; ctx.strokeStyle='#000';
+  for (let i=1;i<4;i++){ line(ctx,bx,by+sp*i/4,bx+sp,by+sp*i/4,'#000',1); }
+  ctx.restore();
+  if (BY.load > 0){
+    const lh2 = Math.min(sp*0.5, 6 + BY.load*0.12);
+    ctx.fillStyle='#ff5c5c'; roundRect(ctx,bx+sp*0.15,by-lh2,sp*0.7,lh2,3); ctx.fill();
+    txt(ctx, num(BY.load,0)+' kg', bx+sp/2, by-lh2/2, '#fff', 11, 'center');
+  }
+  // 吃水線
+  const surfY = Y(waveHeightAt(0,BY.t));
+  if (BY.dropped && surfY > by && surfY < by+sp){
+    line(ctx, bx-14, surfY, bx+sp+14, surfY, '#ffd166', 2, [5,4]);
+    txt(ctx,'吃水線', bx+sp+18, surfY, '#ffd166', 11);
+  }
+  // 力箭頭
+  const V = s*s*s, A2 = s*s, m = BY.rho*V + BY.load;
+  const sub = clamp(waveHeightAt(0,BY.t) - (cyM - s/2), 0, s);
+  const Fb = BY.rhoF*G*A2*sub, Fw = m*G;
+  const scale = Math.min(90, 2200/Math.max(1,Fw))*0.6;
+  const cxp = X(0), cyp = Y(cyM);
+  arrow(ctx, cxp-16, cyp, cxp-16, cyp - Math.min(110, Fb*scale/10), '#5ee0c8', 3);
+  txt(ctx,'F_b '+num(Fb,0)+'N', cxp-22, cyp - Math.min(110, Fb*scale/10) - 10, '#5ee0c8', 11, 'right');
+  arrow(ctx, cxp+16, cyp, cxp+16, cyp + Math.min(110, Fw*scale/10), '#ff5c5c', 3);
+  txt(ctx,'mg '+num(Fw,0)+'N', cxp+22, cyp + Math.min(110, Fw*scale/10) + 10, '#ff5c5c', 11);
+  // 排開的水（示意）
+  txt(ctx,'排開的水 ' + num(BY.rhoF*A2*sub,1) + ' kg → 浮力就等於它的重量', 10, h-14, '#cfe8ff', 12);
+  txt(ctx, (BY.waves?'🌊 Gerstner 波場（波峰尖、波谷寬；長浪跑得比短浪快）':'平靜水面'), 10, 16, '#7fd8ff', 12);
+  txt(ctx, '液體 ρ = ' + BY.rhoF + ' kg/m³', w-8, 16, '#cfe8ff', 12, 'right');
+}
+$('#inBrho').oninput = buoyCalc; $('#inBsize').oninput = buoyCalc; $('#inLoad').oninput = buoyCalc;
+$$('#fluidSeg button').forEach(b => b.onclick = () => {
+  $$('#fluidSeg button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  BY.rhoF = +b.dataset.r; buoyCalc();
+});
+$('#btnBuoyDrop').onclick = () => { BY.dropped = true; BY.y = waveHeightAt(0,BY.t) + BY.size*0.75; BY.v = 0; };
+$('#btnPush').onclick = () => { BY.dropped = true; BY.pushing = (BY.rho*Math.pow(BY.size,3)+BY.load)*G*2.2; };
+$('#btnWaveToggle').onclick = () => { BY.waves = !BY.waves; $('#waveLbl').textContent = BY.waves?'開':'關'; };
+$('#btnBuoyReset').onclick = () => { BY.dropped=false; BY.y=0; BY.v=0; BY.pushing=0; buoyCalc(); };
+function balloonCalc(){
+  const Tin = +$('#inBalT').value;
+  $('#vBalT').textContent = num(Tin,0);
+  const rin = airDensityPT(P0, Tin+273.15), rout = airDensityPT(P0, 288.15);
+  const V = 2200, struct = 250;
+  const lift = balloonLift(V, Tin, 15, P0, struct);
+  $('#kBalRhoIn').textContent = num(rin,3) + ' kg/m³';
+  $('#kBalRhoOut').textContent = num(rout,3) + ' kg/m³';
+  $('#kBalLift').textContent = num(lift,0) + ' N';
+  $('#kBalPay').innerHTML = lift > 0
+    ? '<b>' + num(lift/G,0) + ' kg</b>（約 ' + Math.floor(lift/G/75) + ' 個人）'
+    : '<span class="badge b-bad">升不起來</span>';
+}
+$('#inBalT').oninput = balloonCalc;
+
+/* =======================================================================
+   ⑥ 大氣壓 / 水壓
+   ======================================================================= */
+const cvA = $('#cvAtm'), cvH = $('#cvHydro');
+const PR = {alt:0, depth:10, rhoW:1000};
+const ALT_MARKS = [
+  {h:0,     n:'海平面 1013 hPa'},
+  {h:508,   n:'台北 101 頂樓'},
+  {h:2400,  n:'合歡山公路'},
+  {h:3952,  n:'玉山主峰（氣壓 62%）'},
+  {h:5300,  n:'聖母峰基地營'},
+  {h:8848,  n:'聖母峰頂（氣壓 31%，必須帶氧）'},
+  {h:11000, n:'客機巡航高度（氣壓 22%）'},
+  {h:16000, n:'高空氣象氣球'},
+  {h:20000, n:'U-2 偵察機 · 需要壓力服'}
+];
+function atmCalc(){
+  PR.alt = +$('#inAlt').value;
+  $('#vAlt').textContent = num(PR.alt,0);
+  const P = isaPressure(PR.alt), TK = isaTemp(PR.alt), rho = P/(R_AIR*TK);
+  $('#gP').textContent = num(P/100,0) + ' hPa';
+  $('#gTa').textContent = num(TK-273.15,1) + ' °C';
+  $('#gRhoA').textContent = num(rho,3) + ' kg/m³';
+  $('#gBoil').textContent = num(boilingPoint(P),1) + ' °C';
+  // 1 atm 有多大
+  const handA = 0.10*0.15, bodyA = 1.7;
+  $('#kHand').textContent = num(forceFromDp(P0,handA),0) + ' N';
+  $('#kHandKg').textContent = num(forceFromDp(P0,handA)/G,0) + ' kg';
+  $('#kBody').textContent = num(forceFromDp(P0,bodyA)/1000,1) + ' kN（≈ ' + num(forceFromDp(P0,bodyA)/G/1000,1) + ' 噸）';
+  let note = '海拔 ' + num(PR.alt,0) + ' m：氣壓 <b>' + num(P/100,0) + ' hPa</b>（海平面的 ' +
+    num(P/P0*100,0) + '%），空氣密度 <b>' + num(rho,3) + '</b> kg/m³（' + num(rho/1.225*100,0) + '%）。';
+  if (PR.alt > 2500) note += '<br>密度低 → 每一口氣吸到的氧只有平地的 ' + num(rho/1.225*100,0) +
+    '% → 高山症；水的沸點只有 <b>' + num(boilingPoint(P),0) + ' °C</b>，泡麵泡不熟、煮飯要用壓力鍋。';
+  if (PR.alt >= 10000) note += '<br>這個高度<b>直接暴露會失去意識</b>，客機因此要加壓（艙壓維持在約 2400 m 的等效高度）。';
+  if (PR.alt < 600) note += '<br>這裡是我們習慣的 1 atm 環境：每平方公尺被 <b>10.1 噸</b>的空氣壓著。';
+  $('#atmNote').innerHTML = note;
+  suckCalc(); drawAtm();
+}
+function suckCalc(){
+  const d = +$('#inSuck').value/100, vac = +$('#inVac').value/100;
+  $('#vSuck').textContent = num(d*100,0); $('#vVac').textContent = num(vac*100,0);
+  const A = Math.PI*d*d/4, dp = P0*vac, F = forceFromDp(dp, A);
+  $('#kSuckA').textContent = num(A*1e4,1) + ' cm²';
+  $('#kSuckDp').textContent = num(dp/1000,1) + ' kPa';
+  $('#kSuckF').textContent = num(F,0) + ' N';
+  $('#kSuckKg').textContent = num(F/G,1) + ' kg';
+}
+function drawAtm(){
+  if (!cvA || !cvA.clientWidth) return;
+  const {ctx,w,h} = fit(cvA);
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#04070f'; ctx.fillRect(0,0,w,h);
+  const top = 14, bot = h-30, HMAX = 20000;
+  const Y = hh => bot - (bot-top)*hh/HMAX;
+  // 大氣柱（顏色隨密度變淡）
+  for (let i=0;i<80;i++){
+    const hh = HMAX*i/80, P = isaPressure(hh);
+    ctx.fillStyle = 'rgba(90,150,230,' + (0.07 + 0.55*P/P0) + ')';
+    ctx.fillRect(0, Y(hh + HMAX/80), w, (bot-top)/80 + 1.5);
+  }
+  // 太空
+  ctx.fillStyle='#03060e'; ctx.fillRect(0,0,w,top);
+  // 地面
+  ctx.fillStyle='#14213a'; ctx.fillRect(0,bot,w,h-bot);
+  line(ctx,0,bot,w,bot,'#3d5480',1.5);
+  // 壓力曲線
+  const px = P => w*0.30 + (w*0.42)*(1 - P/P0);
+  ctx.save(); ctx.strokeStyle='#ffd166'; ctx.lineWidth=2.5; ctx.beginPath();
+  for (let i=0;i<=100;i++){
+    const hh = HMAX*i/100, xx = px(isaPressure(hh)), yy = Y(hh);
+    if (i===0) ctx.moveTo(xx,yy); else ctx.lineTo(xx,yy);
+  }
+  ctx.stroke(); ctx.restore();
+  txt(ctx,'氣壓曲線', px(P0)-6, bot-24, '#ffd166', 11, 'right');
+  txt(ctx,'← 越高越稀薄（指數衰減，每上升 5.5 km 減半）', w*0.30+6, top+14, '#ffd166', 11);
+  // 高度標記（太靠近就跳過，免得字疊在一起）
+  let lastMarkY = 1e9;
+  ALT_MARKS.slice().reverse().forEach(m => {
+    if (m.h > HMAX) return;
+    const yy = Y(m.h);
+    if (Math.abs(yy - lastMarkY) < 15) return;
+    lastMarkY = yy;
+    line(ctx, 0, yy, 26, yy, '#5f7099', 1);
+    txt(ctx, m.n, 30, yy, '#8fa2cc', 10);
+  });
+  // 目前高度
+  const yy = Y(PR.alt);
+  line(ctx, 0, yy, w, yy, '#5ee0c8', 2);
+  ctx.fillStyle='#5ee0c8'; ctx.beginPath(); ctx.arc(w-16, yy, 6, 0, 7); ctx.fill();
+  const P = isaPressure(PR.alt);
+  roundRect(ctx, w-172, yy-32, 158, 26, 6); ctx.fillStyle='rgba(8,13,24,.86)'; ctx.fill();
+  txt(ctx, num(PR.alt,0)+' m　'+num(P/100,0)+' hPa　'+num(isaTemp(PR.alt)-273.15,0)+'°C', w-166, yy-19, '#5ee0c8', 12);
+}
+onDrag(cvA, p => {
+  const h = +cvA.dataset.cssH || 400, top = 14, bot = h-30;
+  const frac = clamp((bot - p.y*(h/p.h))/(bot-top), 0, 1);
+  $('#inAlt').value = Math.round(frac*20000/50)*50;
+  atmCalc();
+});
+$('#inAlt').oninput = atmCalc; $('#inSuck').oninput = suckCalc; $('#inVac').oninput = suckCalc;
+
+function hydroCalc(){
+  PR.depth = +$('#inDepth').value;
+  $('#vDepth').textContent = num(PR.depth,0);
+  const gauge = hydrostatic(PR.depth, PR.rhoW), abs = P0 + gauge;
+  $('#hydBig').innerHTML = num(abs/P0,2) + ' <small>atm（絕對壓）</small>';
+  $('#kHgauge').textContent = num(gauge/1000,1) + ' kPa';
+  $('#kHabs').textContent = num(abs/1000,1) + ' kPa';
+  $('#kHatm').textContent = num(abs/P0,2) + ' atm';
+  $('#kEar').textContent = num(forceFromDp(gauge, 0.6e-4),1) + ' N（' + num(forceFromDp(gauge,0.6e-4)/G*1000,0) + ' g 重）';
+  $('#kLung').textContent = num(boyleVolume(6, P0, abs),2) + ' L（水面 6 L 的肺）';
+  let where = '—';
+  for (let i=DEPTH_MARKS.length-1;i>=0;i--) if (PR.depth >= DEPTH_MARKS[i].d){ where = DEPTH_MARKS[i].n; break; }
+  $('#kDepthWhere').textContent = where;
+  let note = '每下潛 <b>' + num(liquidColumnHeight(P0, PR.rhoW),2) + ' m</b> 就多 1 個大氣壓（' +
+    (PR.rhoW===1025?'海水':'淡水') + ' ρ=' + PR.rhoW + '）。';
+  if (PR.depth >= 2 && PR.depth < 40) note += '<br>壓力變化最劇烈的是<b>最前面 10 m</b>：體積被壓掉一半。' +
+    '所以剛下水就要開始「平衡耳壓」（捏鼻鼓氣），慢了就會痛。';
+  if (PR.depth >= 40) note += '<br>這個深度用普通空氣會有<b>氮醉</b>與氧毒性風險，要改用混合氣體。';
+  if (PR.depth >= 1000) note += '<br>載人潛具必須是厚耐壓殼，壓力已達 <b>' + num(abs/P0,0) + ' atm</b>' +
+    '（每平方公分 ' + num(abs/98066.5,0) + ' 公斤）。';
+  note += '<br>肺裡的氣體被壓成水面時的 <b>' + num(P0/abs*100,0) + '%</b>（波以耳定律 P·V = 常數）—— ' +
+    '上升時它會膨脹回來，<b>憋氣快速上升會撐破肺</b>，這是潛水第一鐵律「上升時不要憋氣」的原因。';
+  $('#hydNote').innerHTML = note;
+  drawHydro();
+}
+function drawHydro(){
+  if (!cvH || !cvH.clientWidth) return;
+  const {ctx,w,h} = fit(cvH);
+  ctx.clearRect(0,0,w,h);
+  const top = 26, bot = h-22;
+  // 深度用對數尺，才能同時看到 10 m 與 11 000 m
+  const DMAX = 11000;
+  const Y = d => top + (bot-top)*Math.log10(1 + d)/Math.log10(1 + DMAX);
+  const dAt = y => Math.pow(10, (y-top)/(bot-top)*Math.log10(1+DMAX)) - 1;
+  // 海水漸層
+  for (let i=0;i<70;i++){
+    const y0 = top + (bot-top)*i/70;
+    const f = i/70;
+    ctx.fillStyle = 'rgb(' + Math.round(26*(1-f)+2) + ',' + Math.round(120*(1-f)+8) + ',' + Math.round(170*(1-f)+26) + ')';
+    ctx.fillRect(0,y0,w,(bot-top)/70+1.5);
+  }
+  ctx.fillStyle='#0a1428'; ctx.fillRect(0,0,w,top);
+  line(ctx,0,top,w,top,'#7fd8ff',2);
+  ctx.fillStyle='#2a2418'; ctx.fillRect(0,bot,w,h-bot);
+  txt(ctx,'海面（1 atm）', 8, top-12, '#7fd8ff', 11);
+  // 深度標記
+  DEPTH_MARKS.forEach(m => {
+    const yy = Y(m.d);
+    if (yy < top+2 || yy > bot) return;
+    line(ctx, 0, yy, 18, yy, 'rgba(255,255,255,.3)', 1);
+    txt(ctx, (m.d>=1000?num(m.d/1000,1)+' km':num(m.d,0)+' m') + ' · ' + m.n, 22, yy, 'rgba(230,240,255,.75)', 10);
+  });
+  // 壓力條（右側）：線性於深度
+  const bw = 22, bx = w-bw-8;
+  ctx.fillStyle='rgba(0,0,0,.35)'; ctx.fillRect(bx,top,bw,bot-top);
+  const pf = clamp(PR.depth/DMAX,0,1);
+  const g2 = ctx.createLinearGradient(0,top,0,bot);
+  g2.addColorStop(0,'#5ee0c8'); g2.addColorStop(.5,'#ffd166'); g2.addColorStop(1,'#ff2d55');
+  ctx.save(); ctx.fillStyle=g2; ctx.fillRect(bx, top, bw, (bot-top)*pf); ctx.restore();
+  txt(ctx,'壓力', bx+bw/2, top-12, '#ffd166', 10, 'center');
+  // 潛水人
+  const dy = Y(PR.depth);
+  ctx.save(); ctx.strokeStyle='#ffd166'; ctx.fillStyle='#ffd166'; ctx.lineWidth=2.5;
+  const dx2 = w*0.42;
+  ctx.beginPath(); ctx.arc(dx2, dy, 6, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(dx2,dy+6); ctx.lineTo(dx2,dy+22);
+  ctx.moveTo(dx2,dy+11); ctx.lineTo(dx2-11,dy+16); ctx.moveTo(dx2,dy+11); ctx.lineTo(dx2+11,dy+16);
+  ctx.moveTo(dx2,dy+22); ctx.lineTo(dx2-8,dy+34); ctx.moveTo(dx2,dy+22); ctx.lineTo(dx2+8,dy+34);
+  ctx.stroke(); ctx.restore();
+  line(ctx, 0, dy, w-bw-12, dy, '#ffd166', 1.5, [5,4]);
+  const abs = P0 + hydrostatic(PR.depth, PR.rhoW);
+  const iy2 = clamp(dy, top+16, bot-40);
+  roundRect(ctx, dx2+18, iy2-14, 132, 24, 6); ctx.fillStyle='rgba(3,8,16,.85)'; ctx.fill();
+  txt(ctx, num(PR.depth,0)+' m　'+num(abs/P0,1)+' atm', dx2+24, iy2-2, '#ffd166', 12);
+  // 被壓縮的氣球（波以耳）
+  const Vr = P0/abs;
+  const r0 = 22, r = r0*Math.pow(Vr,1/3);
+  const by2 = clamp(dy, top+40, bot-48);
+  ctx.save(); ctx.globalAlpha=.9; ctx.fillStyle='#ff5c5c';
+  ctx.beginPath(); ctx.ellipse(w*0.16, by2, r, r*1.1, 0, 0, 7); ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.ellipse(w*0.16, by2, r0, r0*1.1, 0, 0, 7); ctx.setLineDash([4,3]); ctx.stroke();
+  ctx.restore();
+  txt(ctx,'氣球體積剩 '+num(Vr*100,0)+'%', w*0.16, by2 + r0*1.1 + 14, '#ff9f9f', 10, 'center');
+}
+onDrag(cvH, p => {
+  const h = +cvH.dataset.cssH || 400, top = 26, bot = h-22, DMAX = 11000;
+  const yy = clamp(p.y*(h/p.h), top, bot);
+  const d = Math.pow(10, (yy-top)/(bot-top)*Math.log10(1+DMAX)) - 1;
+  $('#inDepth').value = Math.round(clamp(d,0,DMAX));
+  hydroCalc();
+});
+$('#inDepth').oninput = hydroCalc;
+$$('#waterSeg button').forEach(b => b.onclick = () => {
+  $$('#waterSeg button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  PR.rhoW = +b.dataset.r; hydroCalc();
+});
+function pascalCalc(){
+  const d1 = +$('#inPa1').value/100, d2 = +$('#inPa2').value/100, F1 = +$('#inPaF').value;
+  $('#vPa1').textContent = num(d1*100,1); $('#vPa2').textContent = num(d2*100,0); $('#vPaF').textContent = num(F1,0);
+  const r = pascalPress(F1, d1, d2);
+  $('#kPaR').textContent = num(r.ratio,1) + ' 倍';
+  $('#kPaF2').textContent = num(r.F2,0) + ' N';
+  $('#kPaKg').textContent = num(r.F2/G,0) + ' kg';
+  $('#kPaS').textContent = '小活塞壓 10 cm → 大活塞升 ' + num(10/r.ratio*10,1) + ' mm';
+}
+$('#inPa1').oninput = pascalCalc; $('#inPa2').oninput = pascalCalc; $('#inPaF').oninput = pascalCalc;
+
+/* =======================================================================
+   ⑦ 重心
+   ======================================================================= */
+const cvC = $('#cvCg');
+const CG = {mode:'box', B:0.80, H:1.60, mTop:10, hTop:1.40, mBody:40,
+            heel:0, tilting:false, fallen:false, topX:0};
+
+function cgParts(){
+  // 本體視為均勻長方體（重心在 H/2），上方配重是點質量
+  return [
+    {m:CG.mBody, x:0,        y:CG.H/2},
+    {m:CG.mTop,  x:CG.topX,  y:CG.hTop}
+  ];
+}
+function cgCalc(){
+  CG.B = +$('#inCgB').value/100; CG.H = +$('#inCgH').value/100;
+  CG.mTop = +$('#inCgTop').value; CG.hTop = Math.min(+$('#inCgTopH').value/100, CG.H);
+  CG.mBody = +$('#inCgBody').value;
+  $('#vCgB').textContent = num(CG.B*100,0); $('#vCgH').textContent = num(CG.H*100,0);
+  $('#vCgTop').textContent = num(CG.mTop,0); $('#vCgTopH').textContent = num(CG.hTop*100,0);
+  $('#vCgBody').textContent = num(CG.mBody,0);
+  const c = centroid(cgParts());
+  const ang = tipAngle(CG.B, c.y, Math.abs(c.x));
+  const acc = tipAccel(CG.B, c.y, Math.abs(c.x));
+  $('#kCgM').textContent = num(c.m,1) + ' kg';
+  $('#kCgH').textContent = num(c.y*100,1) + ' cm（高度的 ' + num(c.y/CG.H*100,0) + '%）';
+  $('#kCgAng').textContent = num(ang,1) + '°';
+  $('#kCgAcc').textContent = num(acc,2) + ' m/s²';
+  $('#kCgG').textContent = num(acc/G,2) + ' g';
+  const v = ang > 35 ? ['很穩','b-ok'] : ang > 22 ? ['一般','b-warn'] : ['危險，很容易倒','b-bad'];
+  $('#kCgVerdict').innerHTML = '<span class="badge '+v[1]+'">'+v[0]+'</span>';
+  $('#cgBig').innerHTML = '臨界角 ' + num(ang,1) + '° <small>／ 需要 ' + num(acc/G,2) + ' g 側推</small>';
+  $('#cgNote').innerHTML = '重心在 <b>' + num(c.y*100,0) + ' cm</b> 高。傾斜超過 <b>' + num(ang,1) +
+    '°</b>，重心的鉛直線就會跑出底面之外，重力從「壓回去」變成「推倒它」。<br>' +
+    '想更穩只有三招：<b>底座加寬</b>（B↑）、<b>重心壓低</b>（重物放下層）、<b>鎖在牆上</b>（外加抵抗力矩）。' +
+    (CG.mTop > CG.mBody*0.5 ? '<br>⚠ 現在上方配重佔了總重的 ' + num(CG.mTop/c.m*100,0) + '%，重心被拉得很高。' : '');
+  truckCalc(); drawCg();
+}
+function truckCalc(){
+  const v = KMH(+$('#inTv').value), r = +$('#inTr').value;
+  $('#vTv').textContent = num(+$('#inTv').value,0); $('#vTr').textContent = num(r,0);
+  const a = centripetal(v, r);
+  const c = centroid(cgParts());
+  const thr = tipAccel(CG.B, c.y, 0);
+  $('#kTa').textContent = num(a,2) + ' m/s² = ' + num(a/G,2) + ' g';
+  $('#kTthr').textContent = num(thr,2) + ' m/s² = ' + num(thr/G,2) + ' g';
+  $('#kTres').innerHTML = a >= thr
+    ? '<span class="badge b-bad">會翻車</span>'
+    : '<span class="badge b-ok">不會翻</span> 安全餘裕 ' + num((thr/a-1)*100,0) + '%';
+  const vCrit = Math.sqrt(thr*r);
+  $('#kTres').innerHTML += '<br><span class="dim" style="font-size:12px">此彎道的翻覆臨界車速 ' + num(MS(vCrit),0) + ' km/h</span>';
+}
+function drawCg(){
+  if (!cvC || !cvC.clientWidth) return;
+  const {ctx,w,h} = fit(cvC);
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#060a14'; ctx.fillRect(0,0,w,h);
+  if (CG.mode === 'ship') return drawShip(ctx,w,h);
+  const gy = h - 54, PPM = Math.min((h-110)/Math.max(1.2,CG.H), w*0.34/Math.max(0.4,CG.B));
+  // 地面
+  ctx.fillStyle='#141d33'; ctx.fillRect(0,gy,w,h-gy);
+  line(ctx,0,gy,w,gy,'#3d5480',2);
+  const cx = w*0.44;
+  const c = centroid(cgParts());
+  const th = CG.heel*D2R;
+  const pivot = {x: cx + CG.B/2*PPM, y: gy};          // 繞右下角翻
+  ctx.save();
+  ctx.translate(pivot.x, pivot.y); ctx.rotate(th); ctx.translate(-pivot.x, -pivot.y);
+  const bx = cx - CG.B/2*PPM, by = gy - CG.H*PPM, bw = CG.B*PPM, bh = CG.H*PPM;
+  if (CG.mode === 'truck'){
+    // 貨車正視圖：車廂 + 兩個輪
+    ctx.fillStyle='#2b4a7a'; roundRect(ctx,bx,by,bw,bh*0.82,5); ctx.fill();
+    ctx.strokeStyle='#5b82c4'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='#1b2740'; ctx.fillRect(bx+bw*0.08, by+bh*0.82, bw*0.84, bh*0.10);
+    ctx.fillStyle='#0d1220';
+    ctx.beginPath(); ctx.ellipse(bx+bw*0.16, gy-bh*0.045, bw*0.11, bh*0.05, 0,0,7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(bx+bw*0.84, gy-bh*0.045, bw*0.11, bh*0.05, 0,0,7); ctx.fill();
+  } else {
+    ctx.fillStyle='#3a4a6a'; roundRect(ctx,bx,by,bw,bh,4); ctx.fill();
+    ctx.strokeStyle='#7f90b8'; ctx.lineWidth=2; ctx.stroke();
+    ctx.save(); ctx.globalAlpha=.3; ctx.strokeStyle='#0a0f1c';
+    for (let i=1;i<4;i++) line(ctx,bx,by+bh*i/4,bx+bw,by+bh*i/4,'#0a0f1c',1);
+    ctx.restore();
+  }
+  // 上方配重
+  if (CG.mTop > 0){
+    const rr = 8 + Math.sqrt(CG.mTop)*2.4;
+    const wx = cx + CG.topX*PPM, wy = gy - CG.hTop*PPM;
+    ctx.fillStyle='#ff5c5c'; ctx.beginPath(); ctx.arc(wx,wy,rr,0,7); ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+    txt(ctx, num(CG.mTop,0)+'kg', wx, wy, '#fff', 11, 'center');
+  }
+  // 重心
+  const gx = cx + c.x*PPM, gyy = gy - c.y*PPM;
+  ctx.save();
+  ctx.fillStyle='#ffd166'; ctx.beginPath(); ctx.arc(gx,gyy,7,0,7); ctx.fill();
+  ctx.fillStyle='#08111f';
+  ctx.beginPath(); ctx.moveTo(gx,gyy-7); ctx.arc(gx,gyy,7,-Math.PI/2,0); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(gx,gyy+7); ctx.arc(gx,gyy,7,Math.PI/2,Math.PI); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle='#ffd166'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(gx,gyy,7,0,7); ctx.stroke();
+  ctx.restore();
+  txt(ctx,'重心 G', gx+12, gyy-2, '#ffd166', 11);
+  ctx.restore();
+
+  // 鉛直線（不隨物體旋轉）
+  const rotp = (x,y) => {
+    const dx = x-pivot.x, dy = y-pivot.y;
+    return {x: pivot.x + dx*Math.cos(th) - dy*Math.sin(th), y: pivot.y + dx*Math.sin(th) + dy*Math.cos(th)};
+  };
+  const gw = rotp(gx, gyy);
+  line(ctx, gw.x, gw.y, gw.x, gy+26, '#ffd166', 1.6, [5,4]);
+  arrow(ctx, gw.x, gw.y, gw.x, gw.y + Math.min(70, c.m*1.1), '#ff5c5c', 2.5);
+  txt(ctx,'mg', gw.x+8, gw.y + Math.min(70, c.m*1.1), '#ff5c5c', 11);
+  // 支撐底面
+  const p1 = rotp(cx - CG.B/2*PPM, gy), p2 = pivot;
+  line(ctx, Math.min(p1.x,p2.x), gy+4, Math.max(p1.x,p2.x), gy+4, '#5ee0c8', 4);
+  txt(ctx,'支撐底面 B = '+num(CG.B*100,0)+' cm', (p1.x+p2.x)/2, gy+18, '#5ee0c8', 11, 'center');
+  // 判定
+  const ang = tipAngle(CG.B, c.y, Math.abs(c.x));
+  const out = gw.x > pivot.x + 0.5;
+  const st = CG.fallen ? '已經倒了' : out ? '正在翻倒！' : '穩定';
+  $('#gHcg').textContent = num(c.y*100,0) + ' cm';
+  $('#gXcg').textContent = (c.x>=0?'+':'') + num(c.x*100,1) + ' cm';
+  $('#gTipAng').textContent = num(ang,1) + '°';
+  $('#gTipState').innerHTML = CG.fallen || out
+    ? '<span style="color:#ff5c5c">'+st+'</span>' : '<span style="color:#3ddc84">穩定（傾 '+num(CG.heel,0)+'°）</span>';
+  if (out || CG.fallen) txt(ctx,'⚠ 重心鉛直線已跑出底面 → 重力把它推倒', 10, 20, '#ff5c5c', 13);
+  else txt(ctx,'重心鉛直線落在底面內 → 重力把它壓回去', 10, 20, '#3ddc84', 13);
+  if (CG.mode === 'truck'){
+    const a = centripetal(KMH(+$('#inTv').value), +$('#inTr').value);
+    const thr = tipAccel(CG.B, c.y, 0);
+    txt(ctx,'轉彎側向 '+num(a/G,2)+' g　翻覆門檻 '+num(thr/G,2)+' g',10,40, a>=thr?'#ff5c5c':'#ffd166',12);
+    // 合成重力方向
+    const ax = w*0.82, ay = h*0.30, len = 44;
+    const phi = Math.atan2(a, G);
+    line(ctx,ax,ay,ax,ay+len,'#7f90b8',1.5,[4,3]);
+    arrow(ctx,ax,ay,ax + len*Math.sin(phi), ay + len*Math.cos(phi), '#ff9f5c', 2.5);
+    txt(ctx,'合成「假重力」偏 '+num(phi*R2D,0)+'°', ax, ay+len+16, '#ff9f5c', 11, 'center');
+  }
+}
+function drawShip(ctx,w,h){
+  // 把滑桿映射到一艘方形駁船：船寬 B、船深 D、吃水 d
+  const c = centroid(cgParts());
+  const B = CG.B*10;                        // 船寬 2 ~ 20 m
+  const D = B*0.75;                         // 船深（龍骨到甲板）
+  const d = D*0.55;                         // 吃水（載重後）
+  const KG = (c.y/CG.H)*D*0.90;             // 重心高（配重放越高 → KG 越高）
+  const s = shipGM(B, d, KG);
+  const heel = CG.heel, a = heel*D2R;
+  const PPM = Math.min(h*0.40/D, w*0.40/B);
+  const wl = h*0.56, cx = w*0.44;
+  const my = hgt => -(hgt - d)*PPM;         // 龍骨上 hgt 公尺 → 船體座標 y
+  const rv = (x,y) => ({x: cx + x*Math.cos(a) - y*Math.sin(a),
+                        y: wl + x*Math.sin(a) + y*Math.cos(a)});
+  // 天空
+  let sky = ctx.createLinearGradient(0,0,0,wl);
+  sky.addColorStop(0,'#0a1428'); sky.addColorStop(1,'#1b3358');
+  ctx.fillStyle=sky; ctx.fillRect(0,0,w,h);
+
+  // ---- 船體（旋轉座標系）----
+  const bw = B*PPM, dp = d*PPM, dep = D*PPM;
+  ctx.save(); ctx.translate(cx, wl); ctx.rotate(a);
+  ctx.fillStyle='#43536f'; ctx.strokeStyle='#9fb4d8'; ctx.lineWidth=2;
+  roundRect(ctx, -bw/2, -(dep-dp), bw, dep, Math.min(9, bw*0.09)); ctx.fill(); ctx.stroke();
+  // 甲板室
+  const shH = Math.min(24, dep*0.28);
+  ctx.fillStyle='#2b4a7a'; roundRect(ctx,-bw*0.20,-(dep-dp)-shH,bw*0.40,shH,3); ctx.fill();
+  // 貨物（就是那顆配重）
+  if (CG.mTop > 0){
+    const cs = clamp(Math.sqrt(CG.mTop)*3.2, 10, bw*0.5);
+    ctx.fillStyle='#ff5c5c';
+    roundRect(ctx, -cs/2, my((c.y===0?0:CG.hTop/CG.H*D)) - cs, cs, cs, 3); ctx.fill();
+  }
+  ctx.restore();
+
+  // ---- 海水覆蓋（畫在船體之後，吃水線以下自然被水蓋住）----
+  ctx.save(); ctx.globalAlpha = 0.62;
+  let sea = ctx.createLinearGradient(0,wl,0,h);
+  sea.addColorStop(0,'#1f6f9c'); sea.addColorStop(1,'#06223a');
+  ctx.fillStyle=sea; ctx.fillRect(0,wl,w,h-wl); ctx.restore();
+  line(ctx,0,wl,w,wl,'#7fd8ff',2);
+
+  // ---- K / B / G / M 標記 ----
+  const bShift = s.BM*Math.sin(a);                 // 傾斜後浮心往浸沒側移動 ≈ BM·sinθ
+  const pts = [
+    {p:rv(0, my(0)),          lab:'K 龍骨',  col:'#93a3c9'},
+    {p:rv(bShift, my(s.KB)),  lab:"B' 浮心", col:'#5ee0c8'},
+    {p:rv(0, my(KG)),         lab:'G 重心',  col:'#ffd166'},
+    {p:rv(0, my(s.KB+s.BM)),  lab:'M 穩心',  col:'#b98cff'}
+  ];
+  pts.forEach(o => {
+    ctx.fillStyle=o.col; ctx.beginPath(); ctx.arc(o.p.x,o.p.y,5,0,7); ctx.fill();
+    txt(ctx, o.lab, o.p.x + 9, o.p.y, o.col, 11);
+  });
+  // 重力（過 G 往下）與浮力（過 B' 往上）的作用線
+  const Gp = pts[2].p, Bp = pts[1].p;
+  line(ctx, Gp.x, Gp.y - dep*0.2, Gp.x, Gp.y + dep*0.9, '#ffd166', 1.3, [5,4]);
+  line(ctx, Bp.x, Bp.y - dep*0.9, Bp.x, Bp.y + dep*0.2, '#5ee0c8', 1.3, [5,4]);
+  arrow(ctx, Gp.x, Gp.y, Gp.x, Gp.y + 42, '#ff5c5c', 2.5);
+  arrow(ctx, Bp.x, Bp.y, Bp.x, Bp.y - 42, '#5ee0c8', 2.5);
+  // 復原力臂 GZ（兩條作用線的水平距離）
+  const GZ = righteningArm(s.GM, heel);
+  const zy = wl + dep*0.55;
+  if (Math.abs(heel) > 0.5){
+    line(ctx, Gp.x, zy, Bp.x, zy, GZ>=0?'#3ddc84':'#ff5c5c', 3);
+    txt(ctx, (GZ>=0?'GZ 復原力臂 = ':'⚠ 傾覆力臂 = ') + num(Math.abs(GZ),3) + ' m',
+        (Gp.x+Bp.x)/2, zy + 14, GZ>=0?'#3ddc84':'#ff5c5c', 12, 'center');
+  }
+  // ---- 數據 ----
+  txt(ctx,'船寬 B = '+num(B,1)+' m　船深 '+num(D,1)+' m　吃水 d = '+num(d,2)+' m　傾角 '+num(heel,0)+'°',
+      10, 18, '#cfe8ff', 12);
+  txt(ctx,'KB = d/2 = '+num(s.KB,2)+'　BM = B²/(12d) = '+num(s.BM,2)+'　KG = '+num(KG,2), 10, 36, '#cfe8ff', 12);
+  txt(ctx,'GM = KB + BM − KG = ' + num(s.GM,2) + ' m　' + (s.GM>0?'✅ 會自己回正':'❌ 一傾就翻'),
+      10, 54, s.GM>0?'#3ddc84':'#ff5c5c', 13);
+  txt(ctx,'GZ = GM·sinθ = '+num(GZ,3)+' m　復原力矩 = 排水量 × GZ', 10, 72, '#93a3c9', 11);
+  txt(ctx,'把貨物往上堆 → KG 上升 → GM 變小；船變寬 → BM 變大 → GM 變大（壓載水艙就是刻意壓低 KG）',
+      10, h-12, '#93a3c9', 11);
+  $('#gHcg').textContent = 'KG ' + num(KG,2) + ' m';
+  $('#gXcg').textContent = 'GM ' + num(s.GM,2) + ' m';
+  $('#gTipAng').textContent = s.GM > 0 ? '進水角前皆可回正' : '0°（不穩定）';
+  $('#gTipState').innerHTML = s.GM > 0
+    ? '<span style="color:#3ddc84">穩定 GM &gt; 0</span>' : '<span style="color:#ff5c5c">不穩定 GM &lt; 0</span>';
+}
+function stepCg(dt){
+  if (CG.tilting){
+    CG.heel += dt*9;
+    const c = centroid(cgParts());
+    const lim = CG.mode === 'ship' ? 55 : tipAngle(CG.B, c.y, Math.abs(c.x));
+    if (CG.heel > lim && CG.mode !== 'ship'){
+      CG.fallen = true;
+      if (CG.heel > 88){ CG.heel = 88; CG.tilting = false; }
+    }
+    if (CG.heel > (CG.mode==='ship'?50:88)){ CG.tilting = false; }
+  }
+}
+$$('#cgSeg button').forEach(b => b.onclick = () => {
+  $$('#cgSeg button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  CG.mode = b.dataset.m; CG.heel = 0; CG.fallen = false; CG.tilting = false;
+  $('#cgHint').innerHTML = CG.mode === 'ship'
+    ? '船身傾斜時<b>浮心 B</b> 會往傾斜側移動，產生把船扳回來的力矩。看 <b>GM</b> 是正還是負。'
+    : '拖曳畫面<b>左右</b>可以傾斜物體；拖曳<b>上下</b>可以移動紅色配重的高度。';
+  drawCg();
+});
+$('#btnTilt').onclick = () => { CG.tilting = true; CG.fallen = false; };
+$('#btnCgReset').onclick = () => { CG.heel = 0; CG.fallen = false; CG.tilting = false; CG.topX = 0; drawCg(); };
+['#inCgB','#inCgH','#inCgTop','#inCgTopH','#inCgBody'].forEach(s => $(s).oninput = cgCalc);
+$('#inTv').oninput = truckCalc; $('#inTr').oninput = truckCalc;
+onDrag(cvC, p => {
+  if (CG.mode === 'ship'){ CG.heel = clamp((p.x/p.w - 0.46)*120, -50, 50); drawCg(); return; }
+  CG.tilting = false; CG.fallen = false;
+  CG.heel = clamp((p.x/p.w - 0.44)*110, 0, 88);
+  const h = +cvC.dataset.cssH || 400;
+  const frac = clamp(1 - (p.y*(h/p.h))/(h-54), 0, 1);
+  $('#inCgTopH').value = Math.round(clamp(frac*CG.H*100, 10, CG.H*100)/5)*5;
+  cgCalc();
+});
+
+/* =======================================================================
+   ⑧ 加速度
+   ======================================================================= */
+const cvAc = $('#cvAcc'), cvE = $('#cvElev');
+const AC = {v:0, s:0, t:0, a:0, mode:'idle', trace:[], reactLeft:0};
+
+function accCalc(){
+  const a = +$('#inAcc').value, tgt = +$('#inTgt').value, mu = +$('#inMu').value, rt = +$('#inRt').value;
+  $('#vAcc').textContent = num(a,1); $('#vTgt').textContent = num(tgt,0);
+  $('#vMu').textContent = num(mu,2); $('#vRt').textContent = num(rt,1);
+  const v = KMH(tgt);
+  const t0 = timeToSpeed(0, v, a), s0 = distTravelled(0, a, t0);
+  const dec = mu*G, bd = brakingDistance(v, mu), rd = reactionDistance(v, rt);
+  $('#kA0').textContent = num(t0,2) + ' s';
+  $('#kAs').textContent = num(s0,0) + ' m';
+  $('#kAg').textContent = num(a/G,3) + ' g';
+  $('#kAmu').textContent = num(dec,2) + ' m/s² = ' + num(dec/G,2) + ' g';
+  $('#kArd').textContent = num(rd,1) + ' m';
+  $('#kAbd').textContent = num(bd,1) + ' m';
+  $('#kAtd').innerHTML = '<b>' + num(rd+bd,1) + ' m</b>';
+  $('#accBig').innerHTML = '0→' + num(tgt,0) + ' km/h 需 ' + num(t0,1) + ' s <small>（' + num(s0,0) + ' m）</small>';
+  $('#brakeNote').innerHTML = '從 ' + num(tgt,0) + ' km/h 全力煞車：反應期先滑掉 <b>' + num(rd,1) +
+    ' m</b>，輪胎再磨掉 <b>' + num(bd,1) + ' m</b>，總共 <b>' + num(rd+bd,0) + ' m</b>。' +
+    '<br>同樣的車速，如果路面濕滑（μ 從 0.8 掉到 0.35），煞停距離會從 ' + num(brakingDistance(v,0.8),0) +
+    ' m 變成 <b>' + num(brakingDistance(v,0.35),0) + ' m</b>。' +
+    '<br>把速度加倍到 ' + num(tgt*2,0) + ' km/h：煞停距離變成 <b>' + num(brakingDistance(KMH(tgt*2),mu),0) + ' m</b>（4 倍）。';
+  drawAcc();
+}
+function stepAcc(dt){
+  if (AC.mode === 'idle') return;
+  const tgt = KMH(+$('#inTgt').value), mu = +$('#inMu').value;
+  if (AC.mode === 'accel'){
+    AC.a = +$('#inAcc').value;
+    if (AC.v >= tgt){ AC.a = 0; AC.v = tgt; }
+  } else if (AC.mode === 'react'){
+    AC.a = 0; AC.reactLeft -= dt;
+    if (AC.reactLeft <= 0) AC.mode = 'brake';
+  } else if (AC.mode === 'brake'){
+    AC.a = -mu*G;
+    if (AC.v <= 0){ AC.v = 0; AC.a = 0; AC.mode = 'idle'; }
+  }
+  AC.v = Math.max(0, AC.v + AC.a*dt);
+  AC.s += AC.v*dt;
+  AC.t += dt;
+  AC.trace.push({t:AC.t, v:AC.v, s:AC.s, a:AC.a});
+  if (AC.trace.length > 1400) AC.trace.shift();
+  $('#gAt').textContent = num(AC.t,1) + ' s';
+  $('#gAv').textContent = num(MS(AC.v),0) + ' km/h';
+  $('#gAs').textContent = num(AC.s,1) + ' m';
+  $('#gAa').textContent = (AC.a>=0?'+':'') + num(AC.a/G,2) + ' g';
+}
+function drawAcc(){
+  if (!cvAc || !cvAc.clientWidth) return;
+  const {ctx,w,h} = fit(cvAc);
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#060a14'; ctx.fillRect(0,0,w,h);
+  const gy = h*0.68, chartH = h*0.40;
+  // v-t 圖
+  const pl = 40, pr = 10, pt = 12;
+  const maxV = Math.max(KMH(+$('#inTgt').value)*1.1, 5);
+  const maxT = Math.max(12, AC.t*1.05);
+  const X = t => pl + (w-pl-pr)*t/maxT;
+  const Y = v => pt + (chartH-pt-8)*(1 - v/maxV);
+  for (let i=0;i<=4;i++){
+    const yy = pt + (chartH-pt-8)*i/4;
+    line(ctx,pl,yy,w-pr,yy,'#1a2440',1);
+    txt(ctx, num(MS(maxV*(1-i/4)),0), pl-5, yy, '#5f7099', 10, 'right');
+  }
+  txt(ctx,'速度 km/h', pl, pt-4, '#5ee0c8', 11);
+  txt(ctx,'時間 →', w-pr, chartH+2, '#5f7099', 10, 'right');
+  if (AC.trace.length > 1){
+    ctx.save(); ctx.strokeStyle='#5ee0c8'; ctx.lineWidth=2.2; ctx.beginPath();
+    AC.trace.forEach((p,i) => { const xx=X(p.t), yy=Y(p.v); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy); });
+    ctx.stroke(); ctx.restore();
+    // 斜率 = 加速度
+    const last = AC.trace[AC.trace.length-1];
+    ctx.fillStyle='#ffd166'; ctx.beginPath(); ctx.arc(X(last.t),Y(last.v),4,0,7); ctx.fill();
+    const slopeLbl = '斜率 = 加速度 ' + num(last.a,2) + ' m/s²';
+    const flip = X(last.t) > w*0.62;
+    txt(ctx, slopeLbl, X(last.t) + (flip?-8:8), Y(last.v)-10,
+        last.a<0?'#ff9f5c':'#ffd166', 11, flip?'right':'left');
+  }
+  // 道路
+  ctx.fillStyle='#1b2338'; ctx.fillRect(0,gy,w,h-gy);
+  line(ctx,0,gy,w,gy,'#3d5480',1.5);
+  const scale = 3.0;                                   // px / m（畫面捲動）
+  const camS = Math.max(0, AC.s - (w*0.35)/scale);
+  for (let m=Math.floor(camS/10)*10; m < camS + w/scale; m+=10){
+    const xx = (m - camS)*scale;
+    const major = m % 50 === 0;
+    line(ctx, xx, gy+6, xx, gy+(major?20:12), major?'#7f90b8':'#3d5480', major?1.5:1);
+    if (major) txt(ctx, num(m,0)+' m', xx, gy+30, '#7f90b8', 10, 'center');
+  }
+  // 車
+  const carX = (AC.s - camS)*scale;
+  drawCar(ctx, carX, gy, AC.mode === 'brake');
+  // 反應期提示
+  if (AC.mode === 'react'){
+    txt(ctx,'⏱ 反應中（還沒踩下煞車，車速沒變）', 10, gy-58, '#ffcc45', 13);
+  }
+  // 煞車距離預測
+  if (AC.v > 0.5){
+    const mu = +$('#inMu').value;
+    const bd = brakingDistance(AC.v, mu);
+    const bx = carX + bd*scale;
+    line(ctx, bx, gy-40, bx, gy+22, '#ff5c5c', 1.6, [5,4]);
+    txt(ctx,'現在踩死煞車會停在這（'+num(bd,0)+' m 後）', bx-6, gy-50, '#ff5c5c', 11, 'right');
+  }
+  $('#accNote').innerHTML = AC.mode === 'idle' && AC.t > 0
+    ? '整段：用了 ' + num(AC.t,1) + ' 秒、走了 ' + num(AC.s,0) + ' m。<b>v-t 圖的斜率就是加速度，曲線下的面積就是距離。</b>'
+    : '按「起步加速」看 v-t 圖變成一條斜直線（等加速度）；到速度後按「緊急煞車」，' +
+      '注意<b>反應時間內速度完全沒降</b>，那段距離是白白送掉的。';
+}
+function drawCar(ctx, x, gy, braking){
+  ctx.save();
+  ctx.fillStyle='#5ee0c8'; roundRect(ctx, x-26, gy-26, 52, 16, 4); ctx.fill();
+  ctx.fillStyle='#3aa8a0'; roundRect(ctx, x-14, gy-36, 26, 11, 3); ctx.fill();
+  ctx.fillStyle='#0d1220';
+  ctx.beginPath(); ctx.arc(x-15, gy-8, 7, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+15, gy-8, 7, 0, 7); ctx.fill();
+  if (braking){
+    ctx.fillStyle='#ff2d55'; ctx.fillRect(x-30, gy-24, 4, 8);
+    ctx.save(); ctx.globalAlpha=.5; ctx.fillStyle='#ff2d55';
+    for (let i=0;i<3;i++) ctx.fillRect(x-36-i*7, gy-22+i, 4, 4);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+$('#btnAccGo').onclick = () => { AC.mode='accel'; };
+$('#btnAccBrake').onclick = () => {
+  const rt = +$('#inRt').value;
+  if (rt > 0){ AC.mode='react'; AC.reactLeft = rt; } else AC.mode='brake';
+};
+$('#btnAccReset').onclick = () => { AC.v=0; AC.s=0; AC.t=0; AC.a=0; AC.mode='idle'; AC.trace=[]; drawAcc(); };
+['#inAcc','#inTgt','#inMu','#inRt'].forEach(s => $(s).oninput = accCalc);
+
+function elevCalc(){
+  const m = +$('#inEm').value, a = +$('#inEa').value;
+  $('#vEm').textContent = num(m,0); $('#vEa').textContent = num(a,1);
+  const N = apparentWeight(m, a);
+  $('#kEn').textContent = num(N,0) + ' N = ' + num(N/G,1) + ' kgw';
+  $('#kEpct').textContent = (a>=0?'+':'') + num((N/(m*G)-1)*100,1) + ' %';
+  $('#kEg').textContent = num(N/(m*G),2) + ' g';
+  $('#kEstate').innerHTML = a > 0.3 ? '<span class="badge b-warn">變重（上升加速／下降減速）</span>'
+    : a < -9.5 ? '<span class="badge b-bad">失重（自由落下）</span>'
+    : a < -0.3 ? '<span class="badge b-warn">變輕（上升減速／下降加速）</span>'
+    : '<span class="badge b-ok">等速或靜止：讀數 = 真實體重</span>';
+  drawElev();
+}
+function drawElev(){
+  if (!cvE || !cvE.clientWidth) return;
+  const {ctx,w,h} = fit(cvE);
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#060a14'; ctx.fillRect(0,0,w,h);
+  const a = +$('#inEa').value, m = +$('#inEm').value, N = apparentWeight(m,a);
+  const cx = w*0.34, cw = Math.min(w*0.42, 150), cy = 22, ch = h-52;
+  // 井道
+  ctx.strokeStyle='#3d5480'; ctx.lineWidth=2; ctx.strokeRect(cx-cw/2, cy, cw, ch);
+  ctx.fillStyle='#101a2e'; ctx.fillRect(cx-cw/2, cy, cw, ch);
+  // 纜繩
+  line(ctx, cx, 0, cx, cy+10, '#7f90b8', 2);
+  // 人
+  const py = cy + ch - 46;
+  ctx.save(); ctx.strokeStyle='#b98cff'; ctx.fillStyle='#b98cff'; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.arc(cx, py-34, 8, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(cx,py-26); ctx.lineTo(cx,py-8);
+  ctx.moveTo(cx-10,py-20); ctx.lineTo(cx+10,py-20);
+  ctx.moveTo(cx,py-8); ctx.lineTo(cx-7,py); ctx.moveTo(cx,py-8); ctx.lineTo(cx+7,py);
+  ctx.stroke(); ctx.restore();
+  // 體重計
+  ctx.fillStyle='#243055'; roundRect(ctx, cx-30, py, 60, 16, 4); ctx.fill();
+  ctx.strokeStyle='#7f90b8'; ctx.lineWidth=1.5; ctx.stroke();
+  txt(ctx, num(N/G,1)+' kg', cx, py+8, N/(m*G)>1.05?'#ff9f5c':N/(m*G)<0.95?'#5ee0c8':'#e9efff', 12, 'center');
+  // 加速度箭頭
+  if (Math.abs(a) > 0.05){
+    const L2 = clamp(Math.abs(a)*7, 12, 74);
+    arrow(ctx, cx+cw/2+26, h*0.5, cx+cw/2+26, h*0.5 - Math.sign(a)*L2, '#ffd166', 3);
+    txt(ctx,'a = '+num(a,1)+' m/s²', cx+cw/2+36, h*0.5, '#ffd166', 12);
+  } else txt(ctx,'a = 0', cx+cw/2+30, h*0.5, '#93a3c9', 12);
+  // 力圖
+  const bx = w-70;
+  arrow(ctx, bx, h*0.72, bx, h*0.72 - Math.min(80, N/8), '#5ee0c8', 3);
+  txt(ctx,'N '+num(N,0)+'N', bx+6, h*0.72 - Math.min(80,N/8) - 8, '#5ee0c8', 11);
+  arrow(ctx, bx, h*0.72, bx, h*0.72 + Math.min(70, m*G/12), '#ff5c5c', 3);
+  txt(ctx,'mg '+num(m*G,0)+'N', bx+6, h*0.72 + Math.min(70,m*G/12) + 8, '#ff5c5c', 11);
+  txt(ctx,'體重計量的是「地板推你的力 N」，不是重力', 8, h-12, '#93a3c9', 11);
+}
+$('#inEm').oninput = elevCalc; $('#inEa').oninput = elevCalc;
+function circCalc(){
+  const r = +$('#inCr').value, v = +$('#inCv').value;
+  $('#vCr').textContent = num(r,1); $('#vCv').textContent = num(v,1);
+  const a = centripetal(v,r);
+  $('#kCa').textContent = num(a,2) + ' m/s²';
+  $('#kCg').textContent = num(a/G,2) + ' g';
+  $('#kCf').textContent = num(60*a,0) + ' N';
+  $('#kCt').textContent = num(2*Math.PI*r/v,2) + ' s';
+}
+$('#inCr').oninput = circCalc; $('#inCv').oninput = circCalc;
+(function(){
+  const tb = $('#gTable tbody');
+  ACC_EXAMPLES.forEach(e => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>'+e.n+'</td><td class="n">'+num(e.a,1)+' m/s²</td><td class="n">'+
+      num(e.a/G,2)+' g</td><td class="dim">'+e.f+'</td>';
+    tb.appendChild(tr);
+  });
+})();
+
+/* =======================================================================
+   ⑨ 飛機怎麼起飛
+   ======================================================================= */
+const cvP = $('#cvPlane'), cvW = $('#cvWing');
+const FL = {Wt:70, S:125, T:220, alt:0, temp:15, rwy:3000, flap:1, aoa:4, wv:250};
+const PLN = {v:0, s:0, h:0, t:0, state:'idle', pitch:0, gamma:0, msg:'', t2:0};
+
+function flRho(){ return isaPressure(FL.alt)/(R_AIR*(FL.temp+273.15)); }
+function flMass(){ return FL.Wt*1000; }
+// takeoffRoll 內含積分迴圈，每幀重算太浪費 → 參數沒變就用快取
+let _rollCache = null, _rollKey = '';
+function flRoll(){
+  const key = [FL.Wt,FL.S,FL.T,FL.alt,FL.temp].join('|');
+  if (key !== _rollKey){ _rollKey = key; _rollCache = takeoffRoll({massKg:flMass(), S:FL.S, rho:flRho(), thrustN:FL.T*1000, flap:1}); }
+  return _rollCache;
+}
+
+function flightCalc(){
+  FL.Wt = +$('#inPw').value; FL.S = +$('#inPs').value; FL.T = +$('#inPt').value;
+  FL.alt = +$('#inPalt').value; FL.temp = +$('#inPtemp').value; FL.rwy = +$('#inPrwy').value;
+  $('#vPw').textContent = num(FL.Wt,0); $('#vPs').textContent = num(FL.S,0);
+  $('#vPt').textContent = num(FL.T,0); $('#vPalt').textContent = num(FL.alt,0);
+  $('#vPtemp').textContent = num(FL.temp,0); $('#vPrwy').textContent = num(FL.rwy,0);
+
+  const rho = flRho(), m = flMass(), W = m*G;
+  const r = flRoll();
+  const da = densityAltitude(FL.alt, FL.temp);
+  $('#kFrho').textContent = num(rho,4) + ' kg/m³（海平面標準的 ' + num(rho/1.225*100,0) + '%）';
+  $('#kFda').textContent = num(da,0) + ' m' + (da > FL.alt + 300 ? '（比實際海拔高 ' + num(da-FL.alt,0) + ' m！）' : '');
+  $('#kFvs').textContent = num(KT(r.vs),0) + ' kt（' + num(MS(r.vs),0) + ' km/h）';
+  $('#kFvr').textContent = num(KT(r.vr),0) + ' kt（' + num(MS(r.vr),0) + ' km/h）';
+  $('#kFv2').textContent = num(KT(1.2*r.vs),0) + ' kt';
+  $('#kFtw').textContent = num(FL.T*1000/W,3);
+  $('#kFroll').textContent = isFinite(r.dist) ? num(r.dist,0) + ' m（滑行 ' + num(r.roll,0) + ' + 抬頭 ' + num(r.rotateDist,0) + '）' : '推力不足，動不了';
+  const ok = isFinite(r.dist) && r.dist < FL.rwy*0.85;
+  $('#kFok').innerHTML = !isFinite(r.dist) ? '<span class="badge b-bad">推力不足</span>'
+    : r.dist < FL.rwy*0.85 ? '<span class="badge b-ok">夠（用掉 ' + num(r.dist/FL.rwy*100,0) + '%）</span>'
+    : r.dist < FL.rwy ? '<span class="badge b-warn">很勉強（用掉 ' + num(r.dist/FL.rwy*100,0) + '%，沒有中止餘裕）</span>'
+    : '<span class="badge b-bad">不夠！會衝出跑道</span>';
+  $('#flightBig').innerHTML = 'V<sub>R</sub> ' + num(KT(r.vr),0) + ' kt · 需 ' +
+    (isFinite(r.dist)?num(r.dist,0):'∞') + ' m <small>／ 跑道 ' + num(FL.rwy,0) + ' m</small>';
+
+  // 對照：標準海平面 15°C
+  const r0 = takeoffRoll({massKg:m, S:FL.S, rho:1.225, thrustN:FL.T*1000, flap:1});
+  let note = '空氣密度 <b>' + num(rho,3) + '</b> kg/m³ 時需要 <b>' + (isFinite(r.dist)?num(r.dist,0):'∞') +
+    ' m</b>；如果是海平面 15 °C 的標準空氣（1.225）只需要 <b>' + num(r0.dist,0) + ' m</b>。';
+  if (rho < 1.20) note += '差了 <b>' + num((r.dist/r0.dist-1)*100,0) + '%</b> —— 這就是<b>密度高度</b>的威力：' +
+    '空氣稀薄 → 同樣速度升力較小（要飛更快才夠）、引擎推力也下降，兩件事一起變糟。';
+  note += '<br>升力 L = ½ρv²S·C<sub>L</sub>，正比於 <b>v²</b>：速度差 10% 升力就差 21%，所以「速度不到就是不到」，沒有折衷空間。';
+  note += '<br>重量加倍 → 需要的升力加倍 → V<sub>R</sub> 只要 ×√2（1.41 倍），但滑行距離大約變成 <b>' +
+    num(takeoffRoll({massKg:m*2, S:FL.S, rho, thrustN:FL.T*1000, flap:1}).dist/Math.max(1,r.dist),1) + ' 倍</b>。';
+  $('#flightNote').innerHTML = note;
+  drawPlane();
+}
+function stepPlane(dt){
+  PLN.t2 += dt;
+  if (PLN.state === 'idle' || PLN.state === 'done' || PLN.state === 'overrun') return;
+  const rho = flRho(), m = flMass(), W = m*G, S = FL.S, T = FL.T*1000;
+  const r = flRoll();
+  PLN.t += dt;
+  if (PLN.state === 'abort'){
+    const a = -0.35*G;
+    PLN.v = Math.max(0, PLN.v + a*dt); PLN.s += PLN.v*dt;
+    if (PLN.v <= 0.05){ PLN.state = 'done'; PLN.msg = '中止起飛：從 ' + num(KT(r.vr),0) + ' kt 煞停共用了 ' + num(PLN.s,0) + ' m。'; }
+  } else if (PLN.state === 'roll'){
+    const cl = clOf(1.0, 1), cd = cdOf(cl, 1);
+    const Lf = liftForce(rho, PLN.v, S, cl), Df = dragForce(rho, PLN.v, S, cd);
+    const a = (T - Df - 0.02*Math.max(0, W - Lf))/m;
+    PLN.v += a*dt; PLN.s += PLN.v*dt;
+    if (PLN.v >= r.vr){ PLN.state = 'rotate'; }
+  } else if (PLN.state === 'rotate'){
+    PLN.pitch = Math.min(10, PLN.pitch + dt*4.5);
+    const cl = clOf(PLN.pitch + 1, 1), cd = cdOf(cl, 1);
+    const Lf = liftForce(rho, PLN.v, S, cl), Df = dragForce(rho, PLN.v, S, cd);
+    const onGround = Lf < W;
+    const a = (T - Df - (onGround ? 0.02*Math.max(0,W-Lf) : 0))/m;
+    PLN.v += a*dt; PLN.s += PLN.v*dt;
+    if (Lf >= W && PLN.pitch > 6){ PLN.state = 'climb'; PLN.msg = '離地！升力終於超過重量。'; }
+  } else if (PLN.state === 'climb'){
+    const cl = clOf(PLN.pitch + 1, 1), cd = cdOf(cl, 1);
+    const Df = dragForce(rho, PLN.v, S, cd);
+    PLN.gamma = Math.asin(clamp((T - Df)/W, 0, 0.35));         // 爬升角
+    const a = (T - Df - W*Math.sin(PLN.gamma))/m;
+    PLN.v += a*dt;
+    PLN.s += PLN.v*Math.cos(PLN.gamma)*dt;
+    PLN.h += PLN.v*Math.sin(PLN.gamma)*dt;
+  }
+  if (PLN.h < 1 && PLN.s > FL.rwy && PLN.state !== 'done'){
+    PLN.state = 'overrun';
+    PLN.msg = '⚠ 衝出跑道！跑道只有 ' + num(FL.rwy,0) + ' m，這個條件需要 ' +
+      (isFinite(r.dist)?num(r.dist,0):'∞') + ' m。';
+  }
+  // 儀表
+  const cl = clOf((PLN.state==='roll'?1:PLN.pitch+1), 1);
+  const Lf = liftForce(rho, PLN.v, S, cl);
+  $('#gPv').textContent = num(KT(PLN.v),0) + ' kt';
+  $('#gPl').textContent = num(Lf/W*100,0) + ' %';
+  $('#gPs').textContent = num(PLN.s,0) + ' m';
+  $('#gPr').textContent = num(Math.max(0, FL.rwy - PLN.s),0) + ' m';
+  $('#gPh').textContent = num(PLN.h,0) + ' m';
+  const stName = {idle:'待命', roll:'加速滑行', rotate:'抬前輪 Rotate', climb:'爬升', abort:'中止煞停', done:'停止', overrun:'衝出跑道'};
+  $('#gPstate').innerHTML = PLN.state === 'overrun' ? '<span style="color:#ff5c5c">衝出跑道</span>'
+    : PLN.state === 'climb' ? '<span style="color:#3ddc84">爬升中</span>' : stName[PLN.state];
+}
+function drawPlane(){
+  if (!cvP || !cvP.clientWidth) return;
+  const {ctx,w,h} = fit(cvP);
+  ctx.clearRect(0,0,w,h);
+  const gy = h*0.74;
+  let sky = ctx.createLinearGradient(0,0,0,gy);
+  sky.addColorStop(0,'#0a1730'); sky.addColorStop(1,'#2a5c8c'); ctx.fillStyle=sky; ctx.fillRect(0,0,w,gy);
+  // 地面 / 跑道
+  ctx.fillStyle='#1b3320'; ctx.fillRect(0,gy,w,h-gy);
+  const scale = clamp(w/Math.max(900, FL.rwy*0.42), 0.12, 0.9);   // px / m
+  const camS = Math.max(0, PLN.s - w*0.34/scale);
+  const rx0 = -camS*scale, rx1 = (FL.rwy - camS)*scale;
+  ctx.fillStyle='#2a2f38'; ctx.fillRect(rx0, gy, rx1-rx0, 24);
+  ctx.fillStyle='#0f2015'; ctx.fillRect(rx1, gy, w-rx1+10, 24);
+  // 中線
+  ctx.save(); ctx.strokeStyle='#e8e8e8'; ctx.lineWidth=2; ctx.setLineDash([16,14]);
+  ctx.beginPath(); ctx.moveTo(Math.max(rx0,0), gy+12); ctx.lineTo(Math.min(rx1,w), gy+12); ctx.stroke(); ctx.restore();
+  // 距離標記（每 500 m）
+  for (let m2=0; m2<=FL.rwy; m2+=250){
+    const xx = (m2-camS)*scale;
+    if (xx < -30 || xx > w+30) continue;
+    const major = m2 % 1000 === 0;
+    line(ctx, xx, gy+24, xx, gy+(major?42:32), major?'#cfe8ff':'#6b7a95', major?1.6:1);
+    if (major) txt(ctx, num(m2,0)+' m', xx, gy+52, '#cfe8ff', 10, 'center');
+  }
+  // 跑道尾端
+  if (rx1 < w+20){
+    ctx.fillStyle='#ff2d55'; ctx.fillRect(rx1-4, gy-6, 5, 30);
+    txt(ctx,'跑道盡頭', rx1+6, gy-14, '#ff5c5c', 11);
+  }
+  // V 速度標記
+  const rho = flRho(), m = flMass();
+  const r = flRoll();
+  if (isFinite(r.roll)){
+    const vx = (r.roll - camS)*scale;
+    if (vx > -20 && vx < w+20){
+      line(ctx, vx, gy-70, vx, gy+24, '#ffd166', 1.5, [5,4]);
+      txt(ctx,'V_R '+num(KT(r.vr),0)+'kt', vx+4, gy-78, '#ffd166', 11);
+    }
+    const dx = (r.dist - camS)*scale;
+    if (dx > -20 && dx < w+20){
+      line(ctx, dx, gy-46, dx, gy+24, '#5ee0c8', 1.5, [5,4]);
+      txt(ctx,'預計離地點', dx+4, gy-54, '#5ee0c8', 11);
+    }
+  }
+  // 飛機
+  const px = (PLN.s - camS)*scale;
+  const py = gy - PLN.h*scale*2.2 - 12;
+  const pitch = -(PLN.state==='climb' ? PLN.pitch*0.6 + PLN.gamma*R2D*0.6 : PLN.pitch)*D2R;
+  drawAircraft(ctx, px, Math.max(24, py), pitch, PLN.state);
+  // 四力
+  if (PLN.state !== 'idle'){
+    const W2 = m*G, cl = clOf((PLN.state==='roll'?1:PLN.pitch+1),1);
+    const Lf = liftForce(rho, PLN.v, FL.S, cl);
+    const Df = dragForce(rho, PLN.v, FL.S, cdOf(cl,1));
+    const fx = w*0.80, fy = h*0.26, k = 52/Math.max(1,W2);
+    arrow(ctx, fx, fy, fx, fy - clamp(Lf*k,2,64), '#5ee0c8', 3);   txt(ctx,'升力 L',fx+6,fy-clamp(Lf*k,2,64),'#5ee0c8',11);
+    arrow(ctx, fx, fy, fx, fy + clamp(W2*k,2,64), '#ff5c5c', 3);   txt(ctx,'重量 W',fx+6,fy+clamp(W2*k,2,64),'#ff5c5c',11);
+    arrow(ctx, fx, fy, fx + clamp(FL.T*1000*k,2,58), fy, '#ffd166', 3); txt(ctx,'推力 T',fx+clamp(FL.T*1000*k,2,58)+4,fy-12,'#ffd166',11);
+    arrow(ctx, fx, fy, fx - clamp(Df*k,2,58), fy, '#ff9f5c', 3);   txt(ctx,'阻力 D',fx-clamp(Df*k,2,58)-4,fy-12,'#ff9f5c',11,'right');
+  }
+  // 訊息
+  if (PLN.msg) txt(ctx, PLN.msg, 10, 20, PLN.state==='overrun'?'#ff5c5c':'#3ddc84', 13);
+  else txt(ctx,'按「推油門起飛」：看速度、升力、剩餘跑道一起變化', 10, 20, '#cfe8ff', 12);
+  txt(ctx,'ρ = '+num(rho,3)+' kg/m³　跑道 '+num(FL.rwy,0)+' m　重量 '+num(FL.Wt,0)+' 噸', 10, h-10, '#93a3c9', 11);
+}
+function drawAircraft(ctx, x, y, rot, state){
+  ctx.save(); ctx.translate(x,y); ctx.rotate(rot);
+  // 機身
+  ctx.fillStyle='#e8eeff';
+  ctx.beginPath(); ctx.moveTo(-30,0); ctx.lineTo(18,-5); ctx.lineTo(30,-2);
+  ctx.lineTo(30,3); ctx.lineTo(18,6); ctx.lineTo(-30,4); ctx.closePath(); ctx.fill();
+  // 垂直尾翼
+  ctx.beginPath(); ctx.moveTo(-30,0); ctx.lineTo(-34,-16); ctx.lineTo(-22,-2); ctx.closePath(); ctx.fill();
+  // 主翼
+  ctx.fillStyle='#b9c6e0';
+  ctx.beginPath(); ctx.moveTo(2,2); ctx.lineTo(-12,10); ctx.lineTo(-2,10); ctx.lineTo(8,3); ctx.closePath(); ctx.fill();
+  // 引擎
+  ctx.fillStyle='#7f90b8'; roundRect(ctx,-2,5,11,5,2); ctx.fill();
+  // 起落架
+  if (state === 'roll' || state === 'idle' || state === 'abort' || state === 'overrun' || state === 'rotate'){
+    ctx.strokeStyle='#556'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(16,5); ctx.lineTo(16,12); ctx.moveTo(-6,6); ctx.lineTo(-6,12); ctx.stroke();
+    ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(16,13,2.6,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(-6,13,2.8,0,7); ctx.fill();
+  }
+  // 引擎排氣
+  if (state === 'roll' || state === 'rotate' || state === 'climb'){
+    ctx.save(); ctx.globalAlpha=.55; ctx.fillStyle='#ffd166';
+    for (let i=0;i<4;i++){ ctx.beginPath(); ctx.arc(-6-i*7, 8, 3.6-i*0.6, 0, 7); ctx.fill(); }
+    ctx.restore();
+  }
+  ctx.restore();
+}
+$('#btnTakeoff').onclick = () => {
+  PLN.v=0; PLN.s=0; PLN.h=0; PLN.t=0; PLN.pitch=0; PLN.gamma=0; PLN.msg=''; PLN.state='roll';
+};
+$('#btnAbort').onclick = () => { if (PLN.state==='roll'||PLN.state==='rotate') PLN.state='abort'; };
+$('#btnPlaneReset').onclick = () => {
+  PLN.v=0; PLN.s=0; PLN.h=0; PLN.t=0; PLN.pitch=0; PLN.gamma=0; PLN.msg=''; PLN.state='idle'; drawPlane();
+};
+['#inPw','#inPs','#inPt','#inPalt','#inPtemp','#inPrwy'].forEach(s => $(s).oninput = flightCalc);
+
+/* ---------- 機翼 ---------- */
+const WG = {t:0};
+// NACA 4 位數翼型（2412 風格）
+function nacaY(xc, t, mCam, p){
+  const yt = 5*t*(0.2969*Math.sqrt(xc) - 0.1260*xc - 0.3516*xc*xc + 0.2843*xc*xc*xc - 0.1015*xc*xc*xc*xc);
+  const yc = xc < p ? mCam/(p*p)*(2*p*xc - xc*xc)
+                    : mCam/Math.pow(1-p,2)*((1-2*p) + 2*p*xc - xc*xc);
+  return {yU: yc + yt, yL: yc - yt, yc};
+}
+function wingCalc(){
+  FL.aoa = +$('#inAoa').value; FL.wv = +$('#inWv').value;
+  $('#vAoa').textContent = num(FL.aoa,1); $('#vWv').textContent = num(FL.wv,0);
+  const rho = flRho(), v = KMH(FL.wv);
+  const cl = clOf(FL.aoa, FL.flap), cd = cdOf(cl, FL.flap);
+  const Lf = liftForce(rho, v, FL.S, cl);
+  const f = surfaceFlow(v, cl, rho);
+  $('#kCl').textContent = num(cl,3);
+  $('#kCd').textContent = num(cd,4);
+  $('#kLD').textContent = num(cl/cd,1);
+  $('#kLift').textContent = num(Lf/1000,1) + ' kN（可抬起 ' + num(Lf/G/1000,1) + ' 噸）';
+  $('#kUpper').textContent = num(f.vUp*3.6,0) + ' km/h　／　' + num(f.dpUp/1000,2) + ' kPa（吸）';
+  $('#kLower').textContent = num(f.vLo*3.6,0) + ' km/h　／　+' + num(f.dpLo/1000,2) + ' kPa（推）';
+  $('#kStall').innerHTML = isStalled(FL.aoa, FL.flap)
+    ? '<span class="badge b-bad">失速！氣流從上表面剝離，升力掉下來</span>'
+    : FL.aoa > FLAPS[FL.flap].aStall - 3
+      ? '<span class="badge b-warn">接近失速（' + num(FLAPS[FL.flap].aStall,0) + '° 就失速）</span>'
+      : '<span class="badge b-ok">正常</span>';
+  drawWing();
+}
+function drawWing(){
+  if (!cvW || !cvW.clientWidth) return;
+  const {ctx,w,h} = fit(cvW);
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#050912'; ctx.fillRect(0,0,w,h);
+  const ch = Math.min(w*0.46, 260);                  // 弦長 px
+  const cxm = w*0.44, cym = h*0.52;
+  const al = FL.aoa*D2R;
+  const cl = clOf(FL.aoa, FL.flap);
+  const stalled = isStalled(FL.aoa, FL.flap);
+  // 翼型表面點（旋轉後的螢幕座標）
+  const N = 90, up = [], lo = [];
+  const camber = 0.02 + FL.flap*0.028;               // 襟翼 → 等效彎度變大
+  for (let i=0;i<=N;i++){
+    const xc = i/N;
+    const s = nacaY(xc, 0.12, camber, 0.40);
+    const rotP = (xx,yy) => {
+      const dx = (xx-0.28)*ch, dy = -yy*ch;
+      return {x: cxm + dx*Math.cos(al) + dy*Math.sin(al), y: cym - dx*Math.sin(al) + dy*Math.cos(al)};
+    };
+    up.push(rotP(xc, s.yU)); lo.push(rotP(xc, s.yL));
+  }
+  const LE = up[0], TE = up[N];
+  const midAt = px => {
+    const t = clamp((px - LE.x)/(TE.x - LE.x), 0, 1);
+    return LE.y + (TE.y - LE.y)*t;
+  };
+  const surfAt = (px, upper) => {
+    const arr = upper ? up : lo;
+    for (let i=1;i<arr.length;i++){
+      if ((arr[i-1].x - px)*(arr[i].x - px) <= 0){
+        const t = (px - arr[i-1].x)/((arr[i].x - arr[i-1].x) || 1e-6);
+        return arr[i-1].y + (arr[i].y - arr[i-1].y)*t;
+      }
+    }
+    return null;
+  };
+  // ---- 流線 ----
+  const H = ch*0.58, dwMag = cl*ch*0.115;
+  const stream = (y0, upper) => {
+    const pts = [];
+    for (let px=-4; px<=w+4; px+=4){
+      const infl = Math.exp(-Math.abs(y0 - cym)/H);
+      let y = y0;
+      const inRange = px > LE.x && px < TE.x;
+      if (inRange){
+        const sy = surfAt(px, upper), my = midAt(px);
+        if (sy !== null) y += (sy - my)*infl;
+      } else if (px >= TE.x){
+        const fade = Math.exp(-(px - TE.x)/(ch*0.8));
+        const sy = surfAt(TE.x-0.5, upper), my = midAt(TE.x-0.5);
+        if (sy !== null) y += (sy - my)*infl*fade;
+      } else {
+        const fade = Math.exp(-(LE.x - px)/(ch*0.35));
+        y += (upper ? -3 : 3)*infl*fade;
+      }
+      // 下洗（整體向下偏折）
+      const s2 = (px - (LE.x+TE.x)/2)/(ch*0.5);
+      const ramp = 0.5*(1 + Math.tanh(s2*1.5));
+      y += dwMag*ramp*infl*(stalled?0.5:1);
+      pts.push({x:px, y});
+    }
+    return pts;
+  };
+  const lines = [];
+  for (let k=1;k<=7;k++){
+    const off = k*(h*0.062);
+    lines.push({pts:stream(cym - off, true),  upper:true,  k});
+    lines.push({pts:stream(cym + off, false), upper:false, k});
+  }
+  lines.forEach(L2 => {
+    ctx.save();
+    ctx.globalAlpha = clamp(0.75 - L2.k*0.06, 0.2, 0.8);
+    ctx.strokeStyle = '#4dd2ff'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); L2.pts.forEach((p,i)=> i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke();
+    ctx.restore();
+  });
+  // ---- 同時出發的空氣微團（上面的先到後緣）----
+  const f = surfaceFlow(KMH(FL.wv), cl, flRho());
+  const vRef = KMH(FL.wv);
+  const rateU = f.vUp/vRef, rateL = f.vLo/vRef;
+  const startX = LE.x - ch*0.35;
+  line(ctx, startX, cym - h*0.34, startX, cym + h*0.34, 'rgba(255,255,255,.22)', 1.2, [4,4]);
+  txt(ctx,'同時出發', startX, cym - h*0.37, 'rgba(255,255,255,.55)', 10, 'center');
+  for (let k=0;k<3;k++){
+    const ph = (WG.t*0.42 + k/3) % 1;
+    const drawDot = (rate, upper, col) => {
+      const t = (ph*rate) % 1;
+      const px = LE.x - ch*0.35 + (ch*1.7)*t;
+      const arr = upper ? lines[0].pts : lines[1].pts;
+      let py = null;
+      for (let i=1;i<arr.length;i++) if (arr[i].x >= px){ py = arr[i].y; break; }
+      if (py === null) return;
+      ctx.save(); ctx.fillStyle=col; ctx.beginPath(); ctx.arc(px,py,3.6,0,7); ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=1; ctx.stroke(); ctx.restore();
+    };
+    drawDot(rateU, true, '#ff5c5c');
+    drawDot(rateL, false, '#5ee0c8');
+  }
+  // ---- 翼型 ----
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(up[0].x, up[0].y);
+  up.forEach(p=>ctx.lineTo(p.x,p.y));
+  for (let i=lo.length-1;i>=0;i--) ctx.lineTo(lo[i].x, lo[i].y);
+  ctx.closePath();
+  const wgr = ctx.createLinearGradient(LE.x,LE.y-30,TE.x,TE.y+20);
+  wgr.addColorStop(0,'#e8eeff'); wgr.addColorStop(1,'#9fb0cc');
+  ctx.fillStyle=wgr; ctx.fill(); ctx.strokeStyle='#fff'; ctx.lineWidth=1.4; ctx.stroke(); ctx.restore();
+  // 弦線與攻角
+  line(ctx, LE.x, LE.y, TE.x, TE.y, '#ffd166', 1.2, [5,4]);
+  line(ctx, LE.x - ch*0.4, LE.y + (TE.y-LE.y)*(-0.4/1), LE.x, LE.y, '#93a3c9', 1.2, [4,4]);
+  line(ctx, LE.x - ch*0.4, LE.y, LE.x + ch*0.15, LE.y, '#93a3c9', 1.2, [4,4]);
+  txt(ctx,'α = '+num(FL.aoa,1)+'°', LE.x - 20, LE.y - 16, '#ffd166', 12, 'right');
+  txt(ctx,'←— 氣流 '+num(FL.wv,0)+' km/h', 8, cym - h*0.44, '#4dd2ff', 12);
+  // ---- 壓力分佈箭頭 ----
+  for (let i=4;i<N-3;i+=7){
+    const xc = i/N;
+    const sh = Math.pow(1-xc, 0.7)/Math.pow(xc+0.06, 0.33);
+    const cpU = -cl*0.62*sh, cpL = cl*0.30*sh;
+    const nrm = (a,b) => { const dx=b.x-a.x, dy=b.y-a.y, l=Math.hypot(dx,dy)||1; return {x:-dy/l, y:dx/l}; };
+    // 上表面（吸力，箭頭朝外）
+    let p = up[i], nq = nrm(up[i-1], up[i+1]);
+    let L2 = clamp(Math.abs(cpU)*44, 3, 44);
+    if (nq.y > 0){ nq = {x:-nq.x, y:-nq.y}; }
+    arrow(ctx, p.x, p.y, p.x + nq.x*L2, p.y + nq.y*L2, 'rgba(255,92,92,.9)', 2);
+    // 下表面（正壓，箭頭朝內）
+    p = lo[i]; nq = nrm(lo[i-1], lo[i+1]);
+    if (nq.y < 0){ nq = {x:-nq.x, y:-nq.y}; }
+    L2 = clamp(Math.abs(cpL)*44, 3, 34);
+    arrow(ctx, p.x + nq.x*L2, p.y + nq.y*L2, p.x, p.y, 'rgba(94,224,200,.9)', 2);
+  }
+  // 失速：亂流
+  if (stalled){
+    ctx.save(); ctx.strokeStyle='#ff5c5c'; ctx.lineWidth=1.6; ctx.globalAlpha=.85;
+    for (let k=0;k<7;k++){
+      const bx = LE.x + ch*(0.35 + k*0.11), by = surfAt(LE.x + ch*(0.35+k*0.11), true);
+      if (by === null) continue;
+      ctx.beginPath();
+      for (let a=0;a<7;a+=0.4){
+        const rr = 4 + a*1.6 + Math.sin(WG.t*3+k)*1.5;
+        const xx = bx + Math.cos(a + WG.t*2 + k)*rr, yy = by - 8 - Math.sin(a + WG.t*2 + k)*rr*0.6;
+        a===0?ctx.moveTo(xx,yy):ctx.lineTo(xx,yy);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+    txt(ctx,'⚠ 失速：氣流剝離，升力驟降', w-8, 18, '#ff5c5c', 13, 'right');
+  }
+  // 說明
+  txt(ctx,'🔴 上表面：流速 '+num(f.vUp*3.6,0)+' km/h → 壓力低（吸上去，約佔升力 2/3）', 8, h-30, '#ff9f9f', 11);
+  txt(ctx,'🟢 下表面：流速 '+num(f.vLo*3.6,0)+' km/h → 壓力高（推上去，約佔 1/3）', 8, h-14, '#8fe8d8', 11);
+  txt(ctx,'🔴🟢 同時從左邊出發：紅點（走上表面）先到後緣 → 「等時通過」的說法是錯的',
+      w-8, 36, '#cfe8ff', 11, 'right');
+}
+$('#inAoa').oninput = wingCalc; $('#inWv').oninput = wingCalc;
+$$('#flapSeg button').forEach(b => b.onclick = () => {
+  $$('#flapSeg button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  FL.flap = +b.dataset.f; wingCalc();
+});
+
+/* =======================================================================
+   ⑩ 隨堂測驗
+   ======================================================================= */
+const QUIZ = [
+  {t:'光速', q:'雷聲和閃電是同時發生的，為什麼總是先看到閃電？',
+   o:['光速約是音速的 87 萬倍，光幾乎瞬間到達','光比較亮所以先被注意到','聲音被雲層擋住延遲了','閃電發生得比雷聲早'], a:0,
+   e:'光速 3×10⁸ m/s，音速約 343 m/s，相差約 874 000 倍。1 km 外：光要 3.3 微秒，聲音要 2.9 秒。'},
+  {t:'音速', q:'下面哪一種情況會讓音速變快？',
+   o:['把音量開大','氣溫升高','聲音頻率變高','在夜晚'], a:1,
+   e:'音速只由介質的彈性與密度決定：a = √(γRT)。溫度每升 1 °C 約快 0.6 m/s。音量（振幅）與頻率都不影響音速。'},
+  {t:'散射', q:'天空是藍色的，主要原因是？',
+   o:['海洋把藍色反射到天上','大氣層本身是藍色的','空氣分子對短波長（藍光）散射強得多（∝1/λ⁴）','臭氧層吸收了紅光'], a:2,
+   e:'瑞利散射強度 ∝ 1/λ⁴，藍光(450nm)被散射的機率約是紅光(680nm)的 5 倍，從四面八方散進你眼裡。夕陽紅則是因為斜穿 38 倍厚的大氣，藍光沿路全被散射掉了。'},
+  {t:'折射', q:'從岸上看水裡的魚，實際位置比看起來…',
+   o:['更深、也更偏離你','更淺','完全一樣，只是變模糊','左右相反'], a:0,
+   e:'視深 = 實深 ÷ n ≈ 實深的 75%。光出水面時遠離法線偏折，大腦卻假設光走直線，於是把魚畫在較淺的位置。射魚要瞄更深處。'},
+  {t:'密度', q:'20 萬噸的鋼鐵貨輪會浮，10 公克的小石頭會沉，因為…',
+   o:['貨輪太大所以浮力大','沉浮取決於「平均密度」與水比較，跟總重量無關','石頭形狀不對','貨輪有引擎推著'], a:1,
+   e:'鋼 7850 kg/m³ 攤成船殼圍出大量空氣，整體平均密度可以低於 1000 → 浮。小石頭 2600 kg/m³ 不管多小都比水密 → 沉。'},
+  {t:'浮力', q:'一塊冰浮在海水上，露出水面的比例約是？',
+   o:['50%','約 10%','約 30%','幾乎完全沉沒'], a:1,
+   e:'浸沒比例 = ρ冰/ρ海水 = 917/1025 = 89.5% → 只露出 10.5%。所以看到的冰山一角，下面藏著九倍體積。'},
+  {t:'大氣壓力', q:'用再長的吸管也吸不到超過約 10.3 m 深的水，因為…',
+   o:['吸管會被壓扁','肺的力量不夠大','水在管中會結冰','是「大氣壓把水推上來」，1 atm 最多只能推 10.3 m 高的水柱'], a:3,
+   e:'P = ρgh → 101325/(1000×9.81) = 10.33 m。你不是在「吸」，是把嘴裡壓力降低讓大氣壓去推。這也是深井抽水機必須放在井底「推」而不是在地面「吸」的原因。'},
+  {t:'水壓', q:'潛水下降到 10 公尺深時，肺裡的氣體體積會變成水面時的…',
+   o:['一半（約 50%）','不變','約 90%','約 10%'], a:0,
+   e:'10 m 水深 = +1 atm，絕對壓力變成 2 atm。波以耳定律 P·V = 常數 → 體積剩一半。壓力變化最劇烈的就是最前面 10 m，所以剛下水就要開始平衡耳壓，上升時絕對不能憋氣。'},
+  {t:'重心', q:'書架容易倒的最主要原因是？',
+   o:['書架太重','木頭太滑','底座窄而重心高 → 只要小小的傾角，重心就跑出底面','書排得太整齊'], a:2,
+   e:'臨界角 = atan((B/2)/H_cg)。窄高的東西臨界角很小。對策：底座加寬、重物放下層降低重心、L 型鐵件鎖牆。'},
+  {t:'加速度 · 飛行', q:'同一架飛機，在炎熱的高原機場起飛需要更長的跑道，最主要因為…',
+   o:['跑道比較滑','空氣密度低 → 升力 ½ρv²SC_L 變小，要更快才飛得起來，引擎推力也下降','高原重力比較大','飛機在高原比較重'], a:1,
+   e:'這叫「密度高度」。ρ 小 → 同樣速度升力小（V_R 變大）＋引擎吸入空氣少（推力小），兩件事一起讓加速變慢、需要的速度變高 → 跑道需求大幅增加。'}
+];
+function buildQuiz(){
+  const box = $('#quizBox'); box.innerHTML = '';
+  QUIZ.forEach((q,i) => {
+    const d = document.createElement('div'); d.className='q';
+    let html = '<h4><span class="pill" style="margin-right:6px"><b>'+q.t+'</b></span>Q'+(i+1)+'. '+q.q+'</h4>';
+    q.o.forEach((o,j) => { html += '<button class="opt" data-i="'+i+'" data-j="'+j+'">'+String.fromCharCode(65+j)+'. '+o+'</button>'; });
+    html += '<div class="exp"><b>✔ 正解：'+String.fromCharCode(65+q.a)+'</b>　'+q.e+'</div>';
+    d.innerHTML = html; box.appendChild(d);
+  });
+  box.querySelectorAll('.opt').forEach(b => b.onclick = () => {
+    const i = +b.dataset.i, j = +b.dataset.j, card = b.closest('.q');
+    if (card.classList.contains('done')) return;
+    card.classList.add('done');
+    card.querySelectorAll('.opt').forEach(x => {
+      if (+x.dataset.j === QUIZ[i].a) x.classList.add('right');
+      else if (x === b) x.classList.add('wrong');
+    });
+    if (j === QUIZ[i].a) QZ.score++;
+    QZ.done++;
+    $('#quizScore').textContent = QZ.score;
+  });
+}
+const QZ = {score:0, done:0};
+$('#btnQuizReset').onclick = () => { QZ.score=0; QZ.done=0; $('#quizScore').textContent='0'; buildQuiz(); };
+
+/* =======================================================================
+   主迴圈
+   ======================================================================= */
+let last = performance.now();
+function loop(now){
+  const dt = Math.min(0.05, (now - last)/1000);
+  last = now;
+  if (tabOn('light')){ stepLight(dt); drawLight(); }
+  if (tabOn('refract')){ RF.t += dt; if (RF.mode==='prism') drawRefr(); }
+  if (tabOn('density')){ stepDens(dt); drawDens(); }
+  if (tabOn('buoy')){ stepBuoy(dt); drawBuoy(); }
+  if (tabOn('cg')){ stepCg(dt); drawCg(); }
+  if (tabOn('accel')){ stepAcc(dt); drawAcc(); }
+  if (tabOn('flight')){ stepPlane(dt); drawPlane(); WG.t += dt; drawWing(); }
+  requestAnimationFrame(loop);
+}
+
+/* =======================================================================
+   初始化
+   ======================================================================= */
+fillOpticalSelects();
+lightCalc(); machCalc(); refrCalc(); scatCalc();
+densCalc(); buoyCalc(); balloonCalc();
+atmCalc(); hydroCalc(); pascalCalc();
+cgCalc(); accCalc(); elevCalc(); circCalc();
+flightCalc(); wingCalc();
+buildQuiz();
+setTimeout(resizeAll, 40);
+requestAnimationFrame(loop);
+
+/* 測試掛勾：所有純函式 + 狀態 + 無頭跑模擬 */
+window.__PH = {
+  // 狀態
+  L, RF, SC, DN, BY, PR, CG, AC, FL, PLN, WG, QUIZ, QZ,
+  setTab, tabOn,
+  // 光 / 聲
+  soundSpeedAir, soundSpeedApprox, lightSpeedIn, C_LIGHT, LIGHT_YEAR, SOUND_MEDIA,
+  // 折射
+  nOf, snell, criticalAngle, fresnelR, apparentDepth, OPTICAL, wavelengthRGB,
+  // 散射
+  rayleighTau, aerosolTau, airmass, sunTransmit, skyRadiance, LAM3,
+  // 密度 / 浮力
+  restLayer, hollowDensity, buoyancyFull, equilibriumDraft, submergedFraction,
+  airDensityPT, balloonLift, waveSurface, LAYERS, MATERIALS,
+  // 壓力
+  isaTemp, isaPressure, isaDensity, densityAltitude, boilingPoint,
+  liquidColumnHeight, hydrostatic, absolutePressure, boyleVolume, forceFromDp, pascalPress,
+  // 重心
+  centroid, tipAngle, tipAccel, shipGM, righteningArm, centripetal,
+  // 加速度
+  timeToSpeed, distTravelled, speedAfterDist, brakingDistance, reactionDistance, apparentWeight,
+  // 飛行
+  clOf, clMaxOf, cdOf, isStalled, liftForce, dragForce, dynamicPressure,
+  stallSpeed, surfaceFlow, takeoffRoll, FLAPS,
+  // 無頭跑一次完整起飛，回傳結果（不畫圖）
+  runTakeoffHeadless(opt){
+    Object.assign(FL, opt||{});
+    const rho = flRho(), m = flMass();
+    PLN.v=0; PLN.s=0; PLN.h=0; PLN.t=0; PLN.pitch=0; PLN.gamma=0; PLN.state='roll'; PLN.msg='';
+    let guard = 0;
+    while ((PLN.state==='roll'||PLN.state==='rotate'||PLN.state==='climb') && PLN.h < 80 && guard++ < 40000){
+      stepPlane(0.02);
+    }
+    return {state:PLN.state, liftoffDist:PLN.s, v:PLN.v, vKt:KT(PLN.v), h:PLN.h, t:PLN.t,
+            rho, vr:flRoll().vr, msg:PLN.msg};
+  },
+  // 無頭跑浮體到平衡，回傳最終吃水
+  runBuoyHeadless(rho, sizeM, rhoF, load){
+    BY.rho = rho; BY.size = sizeM; BY.rhoF = rhoF; BY.load = load||0;
+    BY.waves = false; BY.dropped = true; BY.y = sizeM*0.6; BY.v = 0; BY.t = 0; BY.pushing = 0;
+    for (let i=0;i<4000;i++) stepBuoy(0.005);
+    const sub = clamp(0 - (BY.y - BY.size/2), 0, BY.size);
+    return {draft:sub, fracSub:sub/BY.size, y:BY.y, v:BY.v};
+  }
+};
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>
