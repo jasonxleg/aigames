@@ -151,7 +151,8 @@
 <script>
 (() => {
 'use strict';
-const BASE = 'https://jasonxleg.github.io/aigames/';
+const ROOT = 'https://jasonxleg.github.io/';
+const BASE = ROOT + 'aigames/';        // 預設目錄；個別遊戲可用 dir:'funny' 指到別的
 
 /* ====== 全域投票後端（Google 表單）======
    填好下面三個值即啟用「跨所有訪客」的點擊投票統計；留空則只用本機 localStorage。
@@ -160,7 +161,10 @@ const BASE = 'https://jasonxleg.github.io/aigames/';
    3) resultsCsv: 回應試算表「發布到網路 → CSV」的連結（要顯示全球票數才需要）        */
 const VOTE = { action: 'https://docs.google.com/forms/d/e/1FAIpQLSdy-E5VDRUoe74EMplpO6xz6iv9JZTe-qCSrLGB-5z51hhssQ/formResponse', entry: 'entry.1203998677', resultsCsv: '' };  // B方案：訪客只看本機統計；全站數據在你連結的 Google 試算表後台查看
 
-/* ====== 內建遊戲清單（順序保留；要永久新增就在這裡加一筆）====== */
+/* ====== 內建遊戲清單（順序保留；要永久新增就在這裡加一筆）======
+   file 只寫檔名 → 會接在 aigames/ 後面。
+   要放在別的目錄就加 dir，例如 dir:'funny' → https://jasonxleg.github.io/funny/檔名
+   file 直接寫完整 https:// 網址也可以（會原樣使用）。                      */
 const GAMES = [
     { name:'White & Black', file:'whiteblack.html',      icon:'⚫', go:'START' },
     { name:'AI Go',         file:'aigo.html',            icon:'⭕', go:'START' },
@@ -189,7 +193,8 @@ const GAMES = [
     { name:'詐騙檢測',       file:'scam-detector.html',   icon:'🛡️', go:'CHECK' },
     { name:'數獨樂園',       file:'sudoku.html',          icon:'🔢', go:'PLAY' },
     { name:'地震',       file:'earthquake.html',          icon:'😑', go:'PLAY' },
-    { name:'百萬字音字型', file:'millionaire.html', icon:'💰', go:'PLAY', new:true },
+    { name:'百萬字音字型', file:'millionaire.html', icon:'💰', go:'PLAY' },
+    { name:'墨潮賽艇',   file:'boatrace.html',    dir:'funny', icon:'🚤', go:'RACE', new:true },
 ];
 
 /* ---------- localStorage 工具 ---------- */
@@ -217,8 +222,14 @@ let clicks = load(CKEY, {});                 // { key: count }（本機）
 let custom = load(CGKEY, []);                // [{name,url,icon,go}]
 let globalCounts = null;                     // { 遊戲名稱: count }（全球，來自表單回應）
 let globalStats = null;                      // { todayVisits,totalDays,streak,totalVisits }（全球造訪）
-const keyOf = g => g.custom ? g.url : g.file;
-const hrefOf = g => g.custom ? g.url : BASE + g.file;
+// 統計用的 key：沒指定 dir 的沿用純檔名，舊的點擊紀錄才不會歸零；
+// 有 dir 的加上目錄前綴，避免兩個目錄放同名檔案時撞在一起。
+const keyOf = g => g.custom ? g.url : (g.dir ? g.dir + '/' + g.file : g.file);
+const hrefOf = g => {
+    if (g.custom) return g.url;
+    if (/^https?:\/\//i.test(g.file)) return g.file;          // 已經是完整網址
+    return (g.dir ? ROOT + g.dir.replace(/^\/+|\/+$/g, '') + '/' : BASE) + g.file;
+};
 function buildAll(){ return GAMES.concat(custom.map(c => ({...c, file:c.url, custom:true}))); }
 let ALL = buildAll();
 
