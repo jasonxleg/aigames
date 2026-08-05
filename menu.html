@@ -151,8 +151,13 @@
 <script>
 (() => {
 'use strict';
-const ROOT = 'https://jasonxleg.github.io/';
-const BASE = ROOT + 'aigames/';        // 預設目錄；個別遊戲可用 dir:'funny' 指到別的
+/* ====== 網址組成（GitHub Pages）======
+   預設 → https://{USER}.github.io/{REPO}/{file}
+   個別遊戲可以覆寫：user（換 GitHub 帳號）、repo（換 Pages 專案）、dir（repo 底下的子資料夾）。*/
+const USER = 'jasonxleg';              // 預設 GitHub 帳號
+const REPO = 'aigames';                // 預設 repo（Pages 專案）
+const ROOT = 'https://' + USER + '.github.io/';
+const BASE = ROOT + REPO + '/';
 
 /* ====== 全域投票後端（Google 表單）======
    填好下面三個值即啟用「跨所有訪客」的點擊投票統計；留空則只用本機 localStorage。
@@ -162,9 +167,12 @@ const BASE = ROOT + 'aigames/';        // 預設目錄；個別遊戲可用 dir:
 const VOTE = { action: 'https://docs.google.com/forms/d/e/1FAIpQLSdy-E5VDRUoe74EMplpO6xz6iv9JZTe-qCSrLGB-5z51hhssQ/formResponse', entry: 'entry.1203998677', resultsCsv: '' };  // B方案：訪客只看本機統計；全站數據在你連結的 Google 試算表後台查看
 
 /* ====== 內建遊戲清單（順序保留；要永久新增就在這裡加一筆）======
-   file 只寫檔名 → 會接在 aigames/ 後面。
-   要放在別的目錄就加 dir，例如 dir:'funny' → https://jasonxleg.github.io/funny/檔名
-   file 直接寫完整 https:// 網址也可以（會原樣使用）。                      */
+   file  只寫檔名 → https://jasonxleg.github.io/aigames/檔名
+   repo  換 Pages 專案 → repo:'ieyi'            → …github.io/ieyi/檔名
+   user  換 GitHub 帳號 → user:'hinata-josh'     → https://hinata-josh.github.io/…
+   dir   repo 底下的子資料夾 → repo:'ieyi', dir:'docs' → …/ieyi/docs/檔名
+         （只寫 dir 不寫 repo＝舊寫法，dir 直接當 repo 用：dir:'funny' → …github.io/funny/檔名）
+   file  直接寫完整 https:// 網址也可以（會原樣使用）。                      */
 const GAMES = [
     { name:'White & Black', file:'whiteblack.html',      icon:'⚫', go:'START' },
     { name:'AI Go',         file:'aigo.html',            icon:'⭕', go:'START' },
@@ -194,6 +202,7 @@ const GAMES = [
     { name:'數獨樂園',       file:'sudoku.html',          icon:'🔢', go:'PLAY' },
     { name:'地震',       file:'earthquake.html',          icon:'😑', go:'PLAY' },
     { name:'百萬字音字型', file:'millionaire.html', icon:'💰', go:'PLAY' },
+    { name:'墨潮賽艇',   file:'boatrace.html',    dir:'funny', icon:'🚤', go:'RACE', new:true },
     { name:'物理實驗室', file:'physics.html',     icon:'🔬', go:'LEARN', new:true },
 ];
 
@@ -222,13 +231,18 @@ let clicks = load(CKEY, {});                 // { key: count }（本機）
 let custom = load(CGKEY, []);                // [{name,url,icon,go}]
 let globalCounts = null;                     // { 遊戲名稱: count }（全球，來自表單回應）
 let globalStats = null;                      // { todayVisits,totalDays,streak,totalVisits }（全球造訪）
-// 統計用的 key：沒指定 dir 的沿用純檔名，舊的點擊紀錄才不會歸零；
-// 有 dir 的加上目錄前綴，避免兩個目錄放同名檔案時撞在一起。
-const keyOf = g => g.custom ? g.url : (g.dir ? g.dir + '/' + g.file : g.file);
+// 統計用的 key：預設帳號＋預設 repo 的沿用純檔名，舊的點擊紀錄才不會歸零；
+// 有 user／repo／dir 的加上前綴，避免不同位置放同名檔案時撞在一起。
+const trim = s => String(s).replace(/^\/+|\/+$/g, '');
+const keyOf = g => g.custom ? g.url
+    : [ (g.user && g.user !== USER) ? g.user : '', g.repo || '', g.dir || '', g.file ]
+        .filter(Boolean).map(trim).join('/');
 const hrefOf = g => {
     if (g.custom) return g.url;
     if (/^https?:\/\//i.test(g.file)) return g.file;          // 已經是完整網址
-    return (g.dir ? ROOT + g.dir.replace(/^\/+|\/+$/g, '') + '/' : BASE) + g.file;
+    // 路徑段：repo（沒寫 repo 但寫了 dir → dir 當 repo 用，維持舊寫法）＋ dir
+    const seg = [ g.repo || (g.dir ? '' : REPO), g.dir ].filter(Boolean).map(trim);
+    return 'https://' + (g.user || USER) + '.github.io/' + (seg.length ? seg.join('/') + '/' : '') + g.file;
 };
 function buildAll(){ return GAMES.concat(custom.map(c => ({...c, file:c.url, custom:true}))); }
 let ALL = buildAll();
