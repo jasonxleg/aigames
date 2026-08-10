@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tarot for Kids — 兒童塔羅中文說明 + 抽牌模擬器</title>
+<style>
+  :root{
+    --bg:#160f2e; --bg2:#241a45; --panel:#2c2054; --panel2:#372a66;
+    --line:#4a3b82; --txt:#f3efff; --dim:#b6a9e0; --gold:#ffd166;
+    --pink:#ff8fd1; --ok:#7ee787; --blue:#7fd4ff;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:0 0 60px;
+    font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,-apple-system,sans-serif;
+    color:var(--txt);
+    background:
+      radial-gradient(1000px 600px at 15% -10%, #3b2a7a 0%, transparent 60%),
+      radial-gradient(900px 500px at 90% 0%, #5b2d6e 0%, transparent 55%),
+      linear-gradient(180deg,var(--bg) 0%, var(--bg2) 100%);
+    background-attachment:fixed; min-height:100vh;
+  }
+  header{padding:20px 16px 6px; text-align:center}
+  h1{margin:0; font-size:clamp(21px,5vw,31px); letter-spacing:1px}
+  .sub{color:var(--dim); font-size:13.5px; margin-top:6px; line-height:1.6}
+  .wrap{max-width:1080px; margin:0 auto; padding:0 14px}
+
+  /* 分頁 */
+  .tabs{display:flex; gap:8px; justify-content:center; margin:14px 0 4px; flex-wrap:wrap}
+  .tab{background:var(--panel); border:2px solid var(--line); color:var(--txt); font-family:inherit;
+    border-radius:14px; padding:10px 20px; font-size:15.5px; cursor:pointer; font-weight:700; transition:.15s}
+  .tab:hover{background:var(--panel2)}
+  .tab.on{background:linear-gradient(135deg,#ffd166,#ff9f6b); color:#2b1d00; border-color:#ffd166}
+  .page{display:none} .page.on{display:block}
+
+  /* 搜尋列 */
+  .searchbar{position:sticky; top:0; z-index:30; padding:10px 0 8px;
+    background:linear-gradient(180deg, rgba(22,15,46,.96) 70%, rgba(22,15,46,0));}
+  .sbox{display:flex; gap:8px; align-items:center; background:var(--panel);
+    border:2px solid var(--line); border-radius:16px; padding:6px 10px; box-shadow:0 6px 24px #0006}
+  .sbox:focus-within{border-color:var(--gold); box-shadow:0 0 0 3px #ffd16633,0 6px 24px #0006}
+  #q{flex:1; background:transparent; border:0; outline:0; color:var(--txt);
+    font-size:18px; padding:10px 4px; font-family:inherit}
+  #q::placeholder{color:#8d7fbb}
+  .sicon{font-size:20px}
+  .clear{background:#0003;border:0;color:var(--dim);font-size:18px;cursor:pointer;
+    border-radius:50%; width:30px; height:30px; line-height:1}
+  .clear:hover{color:#fff;background:#0006}
+
+  .chips{display:flex; flex-wrap:wrap; gap:7px; margin-top:9px}
+  .chip{background:var(--panel); border:1px solid var(--line); color:var(--txt);
+    border-radius:999px; padding:6px 12px; font-size:13.5px; cursor:pointer; font-family:inherit; transition:.15s}
+  .chip:hover{background:var(--panel2); transform:translateY(-1px)}
+  .chip.on{background:var(--gold); color:#2b1d00; border-color:var(--gold); font-weight:700}
+
+  .count{color:var(--dim); font-size:13px; margin:12px 2px 8px}
+  .count b{color:var(--gold)}
+
+  .grid{display:grid; gap:12px; grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+  .card{background:linear-gradient(160deg,var(--panel) 0%,var(--panel2) 100%);
+    border:1px solid var(--line); border-radius:16px; padding:13px 14px; cursor:pointer;
+    text-align:left; color:inherit; font-family:inherit; transition:.15s; position:relative; overflow:hidden}
+  .card:hover{transform:translateY(-3px); border-color:var(--gold); box-shadow:0 10px 24px #0007}
+  .card .top{display:flex; align-items:center; gap:10px}
+  .card .ico{font-size:30px; line-height:1}
+  .card .nm{font-size:17px; font-weight:700}
+  .card .en{font-size:12px; color:var(--dim); letter-spacing:.4px}
+  .card .ex{font-size:13.5px; color:#ddd4ff; line-height:1.65; margin-top:9px;
+    display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden}
+  .tagline{position:absolute; top:0; left:0; width:5px; height:100%}
+  .empty{text-align:center; color:var(--dim); padding:40px 10px; line-height:2}
+  mark{background:#ffd16655; color:#fff3c4; border-radius:4px; padding:0 2px}
+
+  /* 詳細視窗 */
+  .mask{position:fixed; inset:0; background:#0b0718cc; backdrop-filter:blur(3px);
+    display:none; z-index:50; padding:16px; overflow:auto}
+  .mask.on{display:block}
+  .modal{max-width:640px; margin:24px auto; background:linear-gradient(170deg,#2e2159,#1d1440);
+    border:2px solid var(--line); border-radius:22px; padding:20px 20px 24px; box-shadow:0 20px 60px #000a}
+  .mhead{display:flex; align-items:center; gap:14px}
+  .mhead .ico{font-size:46px}
+  .mhead .nm{font-size:24px; font-weight:800}
+  .mhead .en{color:var(--dim); font-size:13px}
+  .badge{display:inline-block; font-size:11.5px; padding:3px 9px; border-radius:999px;
+    background:#0004; border:1px solid var(--line); color:var(--dim); margin-top:5px}
+  .x{margin-left:auto; background:#0004; border:1px solid var(--line); color:var(--txt);
+    width:36px; height:36px; border-radius:50%; font-size:19px; cursor:pointer; flex:none}
+  .sec{margin-top:16px; background:#00000026; border-radius:14px; padding:12px 14px; border-left:4px solid var(--line)}
+  .sec h3{margin:0 0 6px; font-size:14.5px; letter-spacing:.5px}
+  .sec p{margin:0; font-size:15px; line-height:1.85; color:#ece6ff}
+  .sec.up{border-left-color:var(--ok)}    .sec.up h3{color:var(--ok)}
+  .sec.rev{border-left-color:var(--pink)} .sec.rev h3{color:var(--pink)}
+  .sec.story{border-left-color:var(--blue)} .sec.story h3{color:var(--blue)}
+  .sec.tip{border-left-color:var(--gold)} .sec.tip h3{color:var(--gold)}
+  .kwbox{margin-top:14px; display:flex; flex-wrap:wrap; gap:6px}
+  .kw{background:#ffffff12; border:1px solid var(--line); border-radius:8px;
+    padding:4px 9px; font-size:12.5px; color:var(--dim); cursor:pointer}
+  .kw:hover{color:var(--gold); border-color:var(--gold)}
+  .kwt{width:100%; font-size:12px; color:#8d7fbb; margin-bottom:2px}
+  .nav{display:flex; gap:8px; margin-top:18px}
+  .nav button{flex:1; background:var(--panel); border:1px solid var(--line); color:var(--txt);
+    border-radius:12px; padding:11px; font-size:14px; cursor:pointer; font-family:inherit}
+  .nav button:hover{background:var(--panel2); border-color:var(--gold)}
+
+  /* ===== 模擬器 ===== */
+  .simbox{background:#ffffff08; border:2px solid var(--line); border-radius:20px; padding:16px; margin-top:14px}
+  .step{font-size:13px; color:var(--gold); letter-spacing:1.5px; margin-bottom:8px}
+  .spreads{display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+  .spread{background:var(--panel); border:2px solid var(--line); border-radius:14px; padding:12px;
+    cursor:pointer; text-align:left; color:inherit; font-family:inherit; transition:.15s}
+  .spread:hover{border-color:var(--gold); transform:translateY(-2px)}
+  .spread.on{border-color:var(--gold); background:linear-gradient(150deg,#4a3a1f,#372a66)}
+  .spread .t{font-size:15.5px; font-weight:700}
+  .spread .d{font-size:12.5px; color:var(--dim); margin-top:4px; line-height:1.6}
+  .qwrap{margin-top:12px}
+  .qwrap label{font-size:13px; color:var(--dim)}
+  #question{width:100%; margin-top:6px; background:var(--panel); border:2px solid var(--line);
+    border-radius:12px; color:var(--txt); font-size:15px; padding:10px 12px; font-family:inherit; outline:0}
+  #question:focus{border-color:var(--gold)}
+  .bigbtn{width:100%; margin-top:12px; background:linear-gradient(135deg,#a06bff,#ff8fd1);
+    border:0; color:#fff; font-weight:800; font-size:17px; padding:14px; border-radius:14px;
+    cursor:pointer; font-family:inherit; letter-spacing:1px; box-shadow:0 8px 20px #0006}
+  .bigbtn:hover{filter:brightness(1.1)}
+  .bigbtn.ghost{background:var(--panel); border:1px solid var(--line); color:var(--txt); font-size:15px; box-shadow:none}
+
+  .deck{display:flex; flex-wrap:wrap; gap:7px; justify-content:center; margin-top:14px}
+  .back{width:52px; height:78px; border-radius:8px; cursor:pointer; border:1px solid #6a55b8;
+    background:repeating-linear-gradient(45deg,#3b2a7a 0 6px,#503aa0 6px 12px);
+    box-shadow:0 3px 8px #0006; transition:.15s; position:relative}
+  .back:hover{transform:translateY(-6px); border-color:var(--gold)}
+  .back::after{content:'✦'; position:absolute; inset:0; display:flex; align-items:center;
+    justify-content:center; color:#ffd16688; font-size:17px}
+  .back.picked{transform:translateY(-10px); border-color:var(--gold); box-shadow:0 0 14px #ffd16688}
+  .back.dim{opacity:.35; pointer-events:none}
+  .shuffling .back{animation:sh .5s ease-in-out infinite}
+  @keyframes sh{0%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(-7px) rotate(-4deg)}75%{transform:translateY(4px) rotate(4deg)}}
+
+  .picknote{text-align:center; color:var(--dim); font-size:14px; margin-top:12px; line-height:1.8}
+  .picknote b{color:var(--gold); font-size:17px}
+
+  .reading{margin-top:14px}
+  .rcard{background:linear-gradient(160deg,var(--panel),var(--panel2)); border:1px solid var(--line);
+    border-radius:16px; padding:14px 15px; margin-bottom:12px; position:relative; overflow:hidden;
+    animation:flip .45s ease both}
+  @keyframes flip{from{opacity:0; transform:rotateY(70deg) translateY(10px)}to{opacity:1; transform:none}}
+  .rcard .pos{font-size:12px; color:var(--gold); letter-spacing:1px}
+  .rcard .head{display:flex; align-items:center; gap:12px; margin-top:6px}
+  .rcard .ico{font-size:38px}
+  .rcard .nm{font-size:19px; font-weight:800}
+  .rcard .en{font-size:12px; color:var(--dim)}
+  .rcard .dir{display:inline-block; font-size:11.5px; padding:2px 8px; border-radius:999px; margin-top:4px}
+  .dir.u{background:#7ee78722; color:var(--ok); border:1px solid #7ee78755}
+  .dir.r{background:#ff8fd122; color:var(--pink); border:1px solid #ff8fd155}
+  .rcard .body{font-size:14.5px; line-height:1.85; color:#ece6ff; margin-top:10px}
+  .rcard .tip{font-size:13.5px; color:var(--gold); margin-top:8px; line-height:1.75}
+  .rcard .more{margin-top:9px; background:#0003; border:1px solid var(--line); color:var(--dim);
+    border-radius:9px; padding:5px 10px; font-size:12.5px; cursor:pointer; font-family:inherit}
+  .rcard .more:hover{color:var(--gold); border-color:var(--gold)}
+  .summary{background:#00000030; border:2px dashed var(--gold); border-radius:16px; padding:14px 16px; margin-top:6px}
+  .summary h3{margin:0 0 8px; font-size:16px; color:var(--gold)}
+  .summary p{margin:0 0 8px; font-size:14.5px; line-height:1.9; color:#ece6ff}
+  .btnrow{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap}
+  .btnrow button{flex:1; min-width:130px}
+  /* ===== 牌組結構頁 ===== */
+  .arcana{display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+  .arc{background:linear-gradient(160deg,var(--panel),var(--panel2)); border:1px solid var(--line);
+    border-radius:16px; padding:15px 16px; position:relative; overflow:hidden}
+  .arc .ico{font-size:34px}
+  .arc .t{font-size:18px; font-weight:800; margin-top:4px}
+  .arc .c{font-size:12.5px; color:var(--gold); letter-spacing:1px; margin-top:2px}
+  .arc .line{font-size:14px; line-height:1.85; color:#ece6ff; margin-top:9px}
+  .arc .ex{font-size:13px; color:var(--dim); margin-top:7px}
+  .arc .kid{font-size:13.5px; line-height:1.8; color:#fff3c4; background:#ffd16614;
+    border-left:3px solid var(--gold); border-radius:0 10px 10px 0; padding:8px 11px; margin-top:11px}
+  .arc .go{margin-top:11px; background:#0003; border:1px solid var(--line); color:var(--dim);
+    border-radius:9px; padding:6px 11px; font-size:12.5px; cursor:pointer; font-family:inherit}
+  .arc .go:hover{color:var(--gold); border-color:var(--gold)}
+  .howto{margin:14px 0 0; font-size:14.5px; line-height:1.9; color:#ece6ff;
+    background:#00000030; border:2px dashed var(--line); border-radius:14px; padding:12px 14px}
+  .elhint{font-size:13.5px; color:var(--dim); line-height:1.8; margin:0 0 12px}
+  .eltable{display:grid; gap:11px}
+  .elrow{display:grid; gap:10px; grid-template-columns:150px 1fr; align-items:start;
+    background:linear-gradient(160deg,var(--panel),var(--panel2)); border:1px solid var(--line);
+    border-radius:14px; padding:13px 14px; cursor:pointer; text-align:left; color:inherit;
+    font-family:inherit; transition:.15s; position:relative; overflow:hidden}
+  .elrow:hover{border-color:var(--gold); transform:translateY(-2px)}
+  .elrow .nmwrap .n{font-size:16px; font-weight:800}
+  .elrow .nmwrap .e{font-size:13px; color:var(--gold); margin-top:3px}
+  .elrow .sc{font-size:14px; color:#ece6ff; line-height:1.8}
+  .elrow .kid{font-size:13px; color:var(--dim); line-height:1.75; margin-top:6px}
+  @media(max-width:560px){ .elrow{grid-template-columns:1fr} }
+  footer{text-align:center; color:#7c6cae; font-size:12px; margin-top:34px; line-height:1.9}
+  @media(max-width:520px){ .grid{grid-template-columns:1fr} .modal{margin:8px auto; padding:16px}
+    .back{width:42px; height:63px} }
+</style>
+</head>
+<body>
+<header>
+  <h1>🔮 Tarot for Kids</h1>
+  <div class="sub">兒童塔羅 78 張牌 · 中文說明查詢 + 抽牌模擬器</div>
+  <div class="tabs">
+    <button class="tab on" id="tabSearch">📖 關鍵字查說明</button>
+    <button class="tab" id="tabSim">🎴 抽牌模擬器</button>
+    <button class="tab" id="tabGuide">📘 牌組結構</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ============ 頁面一：查詢 ============ -->
+  <div class="page on" id="pageSearch">
+    <div class="searchbar">
+      <div class="sbox">
+        <span class="sicon">🔍</span>
+        <input id="q" type="search" autocomplete="off"
+               placeholder="輸入關鍵字：勇氣、朋友、考試、courage、money、The Fool">
+        <button class="clear" id="clr" title="清除">✕</button>
+      </div>
+      <div class="chips" id="topics"></div>
+      <div class="chips" id="suits"></div>
+    </div>
+    <div class="count" id="count"></div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <!-- ============ 頁面二：模擬器 ============ -->
+  <div class="page" id="pageSim">
+    <div class="simbox" id="simSetup">
+      <div class="step">STEP 1 · 選一種抽牌方式</div>
+      <div class="spreads" id="spreads"></div>
+      <div class="qwrap">
+        <label for="question">STEP 2 · 你想問什麼？（可以不填，自己心裡想也行）</label>
+        <input id="question" type="text" placeholder="例如：我要怎麼跟好朋友和好？">
+      </div>
+      <button class="bigbtn" id="shuffleBtn">🔀 洗牌，開始抽牌</button>
+    </div>
+
+    <div class="simbox" id="simPick" style="display:none">
+      <div class="step" id="pickStep">STEP 3 · 洗牌中…</div>
+      <div class="picknote" id="pickNote">心裡想著你的問題，慢慢深呼吸 🌬️</div>
+      <div class="deck" id="deck"></div>
+      <div class="btnrow"><button class="bigbtn ghost" id="cancelPick">← 重新選牌陣</button></div>
+    </div>
+
+    <div class="simbox" id="simResult" style="display:none">
+      <div class="step" id="resultStep">你的牌</div>
+      <div class="summary" id="summary"></div>
+      <div class="reading" id="reading"></div>
+      <div class="btnrow">
+        <button class="bigbtn" id="again">🔄 再抽一次</button>
+        <button class="bigbtn ghost" id="copy">📋 複製這次的結果</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 頁面三：牌組結構 ============ -->
+  <div class="page" id="pageGuide">
+    <div class="simbox">
+      <div class="step">78 張牌是怎麼分的？</div>
+      <div class="arcana" id="arcana"></div>
+      <p class="howto" id="howto"></p>
+    </div>
+    <div class="simbox">
+      <div class="step">小牌的四大元素架構</div>
+      <p class="elhint">小阿爾克那 56 張分成四個花色，各自對應一種自然元素，剛好對應到生活的四個層面。點一張可以直接看那個花色的 14 張牌。</p>
+      <div class="eltable" id="eltable"></div>
+    </div>
+  </div>
+
+  <footer>
+    共 78 張牌 · 大牌 22 + 火焰棒 / 心情杯 / 想法劍 / 金幣 各 14<br>
+    塔羅在這裡是「聊心情的圖卡」，不是預言，也不會決定你的未來。答案永遠在你自己手上 ✨
+  </footer>
+</div>
+
+<div class="mask" id="mask"><div class="modal" id="modal"></div></div>
+
+<script>
+/* ==== cards.js（由 build-single.js 內嵌）==== */
+/* Tarot for Kids — 78 張塔羅牌的兒童版中文說明資料
+ * 欄位：id 編號 / name 中文 / en 英文 / suit 牌組 / emoji 圖示
+ *       kw 關鍵字(搜尋用) / up 正位 / rev 逆位 / story 生活小故事 / tip 給你的小提醒
+ * 說明都用國小中年級看得懂的話寫，沒有算命恐嚇，只講「這張牌想提醒你什麼」。
+ */
+const SUITS = {
+  major: { name: '大牌（人生大事牌）', color: '#a06bff', el:'—', elEmoji:'🌌',
+           scope:'人生重大轉折、靈魂課題、強大的精神力量',
+           desc: '22 張，講的是比較大的心情和轉變，像是「開始」「改變」「完成」。' },
+  wands: { name: '火焰棒（權杖）', color: '#ff7a45', el:'火元素', elEmoji:'🔥',
+           scope:'行動力、工作、熱情、挑戰與旅行',
+           desc: '14 張，講的是熱情、點子、想做的事。像心裡有一團火。' },
+  cups:  { name: '心情杯（聖杯）', color: '#3fa9f5', el:'水元素', elEmoji:'💧',
+           scope:'情感、人際關係、直覺與心理狀態',
+           desc: '14 張，講的是感情、朋友、開心和難過。像一杯水裝著心情。' },
+  swords:{ name: '想法劍（寶劍）', color: '#8fa3b8', el:'風元素', elEmoji:'🌬️',
+           scope:'思考、邏輯、衝突、傷害與決策',
+           desc: '14 張，講的是想法、說話、煩惱和誠實。像腦袋裡的聲音。' },
+  coins: { name: '金幣（錢幣）', color: '#2ec27e', el:'土元素', elEmoji:'⛰️',
+           scope:'金錢、物質、健康、穩定與現實結果',
+           desc: '14 張，講的是身體、金錢、東西和努力。像看得到摸得到的東西。' }
+};
+
+/* ===== 牌組結構：大牌 vs 小牌的核心差異 + 小牌的四大元素架構 =====
+ * 每一段都給兩種說法：sym/use 是正式的牌義結構；kid 是講給小朋友聽的白話版。
+ */
+const STRUCTURE = {
+  major: {
+    title: '大阿爾克那 Major Arcana',
+    count: '共 22 張',
+    emoji: '🌌',
+    sym : '象徵：人生重大轉折、靈魂課題、不可抗拒的命運或強大的精神力量。',
+    use : '作用：指出事件的「核心本質」與長遠影響。',
+    ex  : '例如：命運之輪、死神、愚者。',
+    kid : '白話版：這是「大事牌」。它不管今天午餐吃什麼，它講的是你正在長大的那一段——像轉學、畢業、和好朋友分開、第一次自己做決定。'
+  },
+  minor: {
+    title: '小阿爾克那 Minor Arcana',
+    count: '共 56 張',
+    emoji: '🎴',
+    sym : '象徵：日常生活的具體事件、情緒起伏、具體行動與人際關係。',
+    use : '作用：補充事件的細節、時間點與人物特質。',
+    ex  : '四個花色 × 14 張（一到十 + 小學徒、騎士、皇后、國王）。',
+    kid : '白話版：這是「日常牌」。它會告訴你細節：是誰、什麼時候、你可以做什麼。大牌說「你在改變」，小牌說「那今天先做這件事」。'
+  },
+  howto: '一起看的方法：先看大牌 → 知道這件事的本質和分量；再看小牌 → 知道細節、時間點和身邊的人是什麼樣子。兩個合起來，才是完整的故事。',
+  elements: [
+    { suit:'wands',  n:'權杖（火焰棒）', el:'火元素 🔥', scope:'行動力、工作、熱情、挑戰與旅行',
+      kid:'你「想做什麼、有沒有真的去做」。想學新東西、想比賽、想出去玩，都是火。' },
+    { suit:'cups',   n:'聖杯（心情杯）', el:'水元素 💧', scope:'情感、人際關係、直覺與心理狀態',
+      kid:'你「心裡的感覺」。喜歡誰、跟誰吵架、開心或難過，都是水。' },
+    { suit:'swords', n:'寶劍（想法劍）', el:'風元素 🌬️', scope:'思考、邏輯、衝突、傷害與決策',
+      kid:'你「腦袋裡在想什麼」。煩惱、選擇、被講到受傷、要說實話，都是風。' },
+    { suit:'coins',  n:'錢幣（金幣）',   el:'土元素 ⛰️', scope:'金錢、物質、健康、穩定與現實結果',
+      kid:'「看得到摸得到」的事。零用錢、身體、每天的練習和成果，都是土。' }
+  ]
+};
+
+const CARDS = [
+/* ===== 大牌 22 張 ===== */
+{id:'0', name:'愚者', en:'The Fool', suit:'major', emoji:'🎒',
+ kw:'新開始 冒險 出發 勇敢 好奇 天真 第一次 新學期 轉學 不怕 自由 旅行 相信',
+ up:'一個背著小背包、準備出發的孩子。代表「全新的開始」：你要去一個沒去過的地方、做一件沒做過的事，雖然不知道會發生什麼，但心裡是興奮的。',
+ rev:'太衝動了，還沒看路就往前跑，可能會跌倒。或者相反——你其實很想試，卻一直不敢踏出第一步。',
+ story:'開學第一天走進新教室，你誰都不認識，但你還是決定跟旁邊的同學說「你好」。',
+ tip:'不用什麼都準備好才能開始。但出門前，記得看一下路。'},
+
+{id:'I', name:'魔術師', en:'The Magician', suit:'major', emoji:'🎩',
+ kw:'辦法 創造 動手 做 技能 專心 有能力 表演 開始行動 自信 才華',
+ up:'桌上有你需要的所有工具，你也知道怎麼用。代表「你其實做得到」，只要願意動手，點子就會變成真的東西。',
+ rev:'只有嘴巴說、沒有真的動手；或是把聰明用在騙人、走捷徑上。',
+ story:'你想做一張生日卡，剪刀、色紙、膠水都在，剩下的只是坐下來開始做。',
+ tip:'把「我想要」變成「我來做第一步」，魔法就開始了。'},
+
+{id:'II', name:'女祭司', en:'The High Priestess', suit:'major', emoji:'🌙',
+ kw:'直覺 安靜 祕密 感覺 觀察 傾聽 內心 不說話 耐心 神祕 學問',
+ up:'安靜坐著的守門人。代表「先不要急著說，先聽聽自己心裡的聲音」。有些答案不是問來的，是靜下來才會出現的。',
+ rev:'忽略了心裡那個小小的聲音，或是把祕密憋得太久，讓自己很不舒服。',
+ story:'大家都說那樣做才對，但你心裡覺得怪怪的——那個「怪怪的」是值得聽的。',
+ tip:'安靜三分鐘，再決定。你心裡其實已經知道了。'},
+
+{id:'III', name:'皇后', en:'The Empress', suit:'major', emoji:'🌸',
+ kw:'照顧 溫柔 媽媽 豐富 長大 自然 疼愛 舒服 分享 創作 收穫',
+ up:'花園裡什麼都長得很好。代表被愛、被照顧，也代表你有能力照顧別人和小生命。',
+ rev:'太寵、太黏，或是忘了照顧自己，一直付出到自己空空的。',
+ story:'你養的小盆栽長出新葉子了，因為你每天都記得澆水。',
+ tip:'照顧別人之前，先問問自己：我今天好嗎？'},
+
+{id:'IV', name:'皇帝', en:'The Emperor', suit:'major', emoji:'🏰',
+ kw:'規矩 秩序 保護 爸爸 負責 紀律 計畫 說到做到 穩定 領導',
+ up:'城堡裡的國王。代表規則、界線和保護。有規矩不是要限制你，是讓大家都安全。',
+ rev:'太兇、太愛控制，或是完全沒規矩，事情變得亂七八糟。',
+ story:'你替自己訂了「先寫功課再打電動」的規則，而且真的做到了。',
+ tip:'自己管好自己的人，最不需要別人管。'},
+
+{id:'V', name:'教皇', en:'The Hierophant', suit:'major', emoji:'📚',
+ kw:'老師 學習 傳統 請教 學校 規範 團體 信仰 前輩 課本 拜拜',
+ up:'一位願意教你的長輩。代表學習、請教、照著方法一步一步來。也代表家裡或學校的傳統。',
+ rev:'只會照抄別人說的，不敢問「為什麼」；或是故意跟所有規定唱反調。',
+ story:'不會的數學題，你舉手問老師，而不是空在那裡。',
+ tip:'問問題不丟臉，不懂裝懂才會卡住。'},
+
+{id:'VI', name:'戀人', en:'The Lovers', suit:'major', emoji:'💞',
+ kw:'選擇 喜歡 朋友 合作 二選一 好朋友 心動 決定 搭檔 誠實面對',
+ up:'兩個人站在一起。代表「喜歡」和「選擇」：喜歡一個人、喜歡一件事，或是必須在兩條路裡選一條。',
+ rev:'三心二意選不出來，或是為了討好別人而選了自己不喜歡的。',
+ story:'社團只能選一個，你在美術和足球之間想了很久。',
+ tip:'選你真心想要的那個，不是選別人希望你選的那個。'},
+
+{id:'VII', name:'戰車', en:'The Chariot', suit:'major', emoji:'🏎️',
+ kw:'前進 決心 比賽 加油 控制 努力 贏 出發 專注 不放棄 掌握方向',
+ up:'一輛往前衝的車，而你手上有韁繩。代表用意志力往目標前進，而且你控制得住。',
+ rev:'方向亂掉了，用力過猛卻原地打轉，或是想放棄。',
+ story:'運動會前你每天練跑，就算腳痠也沒有停。',
+ tip:'先確定方向，再踩油門。跑很快但跑錯路，會很可惜。'},
+
+{id:'VIII', name:'力量', en:'Strength', suit:'major', emoji:'🦁',
+ kw:'勇氣 溫柔 忍耐 生氣 冷靜 控制脾氣 面對害怕 堅強 安撫 耐心',
+ up:'一個女孩溫柔地摸著獅子的頭。真正的力量不是大吼大叫，是能安撫自己心裡那頭「生氣的獅子」。',
+ rev:'被脾氣牽著走，或是覺得自己好弱、什麼都不敢。',
+ story:'有人取笑你，你很想罵回去，但你深呼吸，選擇不跟他吵。',
+ tip:'能控制自己的人，比力氣大的人更強。'},
+
+{id:'IX', name:'隱者', en:'The Hermit', suit:'major', emoji:'🔦',
+ kw:'獨處 思考 一個人 安靜 找答案 慢下來 反省 休息 專心 不想講話',
+ up:'提著小燈在夜裡慢慢走的人。代表需要一個人靜一靜，好好想清楚。這不是孤單，是充電。',
+ rev:'把自己關太久了，該找人說說話了。',
+ story:'心情很亂的時候，你回房間，關上門，安靜地待了一下下。',
+ tip:'一個人的時間很珍貴，但別忘了燈是為了照亮回來的路。'},
+
+{id:'X', name:'命運之輪', en:'Wheel of Fortune', suit:'major', emoji:'🎡',
+ kw:'變化 運氣 轉變 輪流 意外 機會 起起伏伏 換位置 時機 幸運',
+ up:'轉動的大輪子。代表事情正在改變，運氣來了、機會來了，抓住它。',
+ rev:'剛好卡在低點，事情不順。但輪子會繼續轉，低點不會是永遠。',
+ story:'原本沒被選上，結果有人請假，機會突然輪到你。',
+ tip:'好的不會永遠，壞的也不會永遠。輪子一直在轉。'},
+
+{id:'XI', name:'正義', en:'Justice', suit:'major', emoji:'⚖️',
+ kw:'公平 誠實 對錯 負責 道歉 後果 說實話 規則 分配 判斷',
+ up:'一把天平。代表公平和誠實：做對的事，也承擔自己做過的事的結果。',
+ rev:'有人偏心、有人賴皮，或是你在替自己找藉口。',
+ story:'分組報告裡，你主動說「這段是我沒做好」，而不是推給別人。',
+ tip:'誠實一開始比較難，但之後會輕鬆很多。'},
+
+{id:'XII', name:'吊人', en:'The Hanged Man', suit:'major', emoji:'🙃',
+ kw:'換角度 等待 暫停 卡住 犧牲 忍一下 想不通 倒過來看 停下來',
+ up:'一個人倒吊著，卻很平靜。代表「先暫停，換個角度看」。現在動不了，不代表你在浪費時間。',
+ rev:'白白等太久了，或是不甘願地犧牲，越等越委屈。',
+ story:'拼圖怎麼拼都不對，你把圖轉了一圈，馬上就看出來了。',
+ tip:'卡住的時候，不要硬推，先換個方向看看。'},
+
+{id:'XIII', name:'死神', en:'Death', suit:'major', emoji:'🦋',
+ kw:'結束 改變 畢業 告別 重來 放下 轉變 搬家 分開 新的開始',
+ up:'不是可怕的牌！像毛毛蟲變蝴蝶。代表某件事結束了，因為新的東西要開始了。',
+ rev:'明明結束了卻還抓著不放，捨不得，所以卡在原地。',
+ story:'畢業典禮那天你哭了，但下學期你交到了新朋友。',
+ tip:'放手不是失去，是騰出手來拿新的東西。'},
+
+{id:'XIV', name:'節制', en:'Temperance', suit:'major', emoji:'🥤',
+ kw:'平衡 剛剛好 耐心 調整 慢慢來 混合 和好 不要太多 節制 中間',
+ up:'把兩杯水慢慢倒在一起的天使。代表「剛剛好」：不要太多也不要太少，慢慢調整就會對。',
+ rev:'太極端了——玩太久、吃太多、或是完全不休息。',
+ story:'週末你安排了一小時電動、一小時看書，兩邊都有。',
+ tip:'不用完美，只要平衡。慢慢來比較快。'},
+
+{id:'XV', name:'惡魔', en:'The Devil', suit:'major', emoji:'😈',
+ kw:'誘惑 停不下來 壞習慣 手機 上癮 被綁住 藉口 貪心 說不出口 被牽著走',
+ up:'兩個人脖子上掛著鬆鬆的鎖鏈——其實隨時可以拿下來。代表停不下來的習慣：手機、零食、拖延。',
+ rev:'你開始發現不對勁，正在把鎖鏈拿下來。恭喜，這很難但你做到了。',
+ story:'說好玩十分鐘，結果一個小時過去了，功課還沒寫。',
+ tip:'綁住你的東西，通常是你自己答應它的。你也可以取消。'},
+
+{id:'XVI', name:'高塔', en:'The Tower', suit:'major', emoji:'⚡',
+ kw:'意外 突然 崩塌 嚇一跳 真相 打破 失敗 重建 壞消息 醒過來',
+ up:'一道閃電打在塔上。代表突然發生的事，讓原本的計畫垮掉。很嚇人，但通常是因為那座塔本來就蓋歪了。',
+ rev:'危機勉強擋住了，或是你一直不敢面對那個快要垮的地方。',
+ story:'比賽前一天弦斷了，你只好用備用的——結果發現新的更順手。',
+ tip:'倒下來的東西，可以蓋得比原來更穩。'},
+
+{id:'XVII', name:'星星', en:'The Star', suit:'major', emoji:'⭐',
+ kw:'希望 願望 療癒 放心 相信 夢想 平靜 好轉 光 溫柔 未來',
+ up:'暴風雨之後的夜空，星星亮起來了。代表希望、療癒，事情正在慢慢變好。',
+ rev:'有點失去信心，覺得「反正也不會成功」。',
+ story:'被罵完的隔天早上，你發現天還是亮的，事情沒有想像中糟。',
+ tip:'許願之後，也要往那顆星星的方向走一步。'},
+
+{id:'XVIII', name:'月亮', en:'The Moon', suit:'major', emoji:'🌕',
+ kw:'害怕 不確定 想太多 夢 誤會 看不清楚 焦慮 想像 祕密 晚上',
+ up:'月光下什麼都看不清楚，樹影像怪物。代表不安、猜疑和想太多——很多害怕其實是想像出來的。',
+ rev:'霧散了，你發現原來沒那麼可怕，誤會也解開了。',
+ story:'你以為朋友在生你的氣，結果他只是那天肚子痛。',
+ tip:'天亮再看一次。也可以直接開口問，答案通常比想像簡單。'},
+
+{id:'XIX', name:'太陽', en:'The Sun', suit:'major', emoji:'☀️',
+ kw:'快樂 成功 自信 順利 玩 開心 被稱讚 明亮 健康 好事 放假',
+ up:'最開心的一張牌。代表順利、被看見、有自信，可以放心去玩、去發光。',
+ rev:'開心被烏雲擋住一下下，或是太得意忘形。',
+ story:'你上台表演，燈打在身上，你發現自己一點都不怕。',
+ tip:'開心的時候，記得跟旁邊的人分享，光會變成兩倍。'},
+
+{id:'XX', name:'審判', en:'Judgement', suit:'major', emoji:'📯',
+ kw:'重來 原諒 覺醒 想通 回顧 第二次機會 呼喚 檢討 和好 決定',
+ up:'號角響起，大家醒過來。代表想通了一件事、原諒了誰，或是得到重來一次的機會。',
+ rev:'一直責備自己過去做錯的事，或是不肯原諒別人。',
+ story:'你翻到去年的作業，發現自己真的進步了好多。',
+ tip:'過去不能改，但你可以決定接下來怎麼走。'},
+
+{id:'XXI', name:'世界', en:'The World', suit:'major', emoji:'🌍',
+ kw:'完成 圓滿 畢業 成功 結束 慶祝 全世界 達成 一圈 通關',
+ up:'一圈花環，中間的人在跳舞。代表一件事完整地完成了，可以慶祝，然後準備下一段旅程。',
+ rev:'差最後一步還沒收尾，或是完成了卻沒有好好休息一下。',
+ story:'一整本習作終於寫完，你翻到最後一頁，蓋上封面。',
+ tip:'完成的時候要說一句「我做到了」，這很重要。'},
+
+/* ===== 火焰棒（權杖）14 張 ===== */
+{id:'W1', name:'火焰棒 一', en:'Ace of Wands', suit:'wands', emoji:'🔥',
+ kw:'點子 靈感 開始 想做 熱血 動力 新計畫 興奮 火花 衝動',
+ up:'突然冒出一個超棒的點子，整個人熱起來了。代表新的熱情剛剛點燃。',
+ rev:'一開始很興奮，過兩天就懶了；或是想做卻沒開始。',
+ story:'你突然好想學畫畫，馬上翻出以前的畫本。',
+ tip:'趁火還旺的時候動手，火花很容易熄。'},
+
+{id:'W2', name:'火焰棒 二', en:'Two of Wands', suit:'wands', emoji:'🗺️',
+ kw:'計畫 選擇 展望 想去哪 規劃 猶豫 眼光 準備 兩條路',
+ up:'站在高處看地圖，想著要去哪。代表在做計畫、看得比較遠了。',
+ rev:'想太久不敢出發，或是計畫做一半就丟著。',
+ story:'暑假還沒到，你已經在想要學游泳還是學直排輪。',
+ tip:'計畫很好，但地圖不會自己帶你走路。'},
+
+{id:'W3', name:'火焰棒 三', en:'Three of Wands', suit:'wands', emoji:'⛵',
+ kw:'等待 期待 出發了 成長 看遠方 進行中 有進展 耐心等',
+ up:'船已經開出去了，你在岸邊等結果。代表努力已經投出去，正在慢慢有回應。',
+ rev:'等到不耐煩，或是計畫遇到延遲。',
+ story:'比賽作品寄出去了，接下來只能等公布。',
+ tip:'等的時候可以做別的事，不要一直盯著看。'},
+
+{id:'W4', name:'火焰棒 四', en:'Four of Wands', suit:'wands', emoji:'🎉',
+ kw:'慶祝 家 派對 安心 團聚 完成一小段 快樂 回家 節日',
+ up:'掛滿花的小門，大家在慶祝。代表一個安全開心的地方，或是值得慶祝的小成果。',
+ rev:'氣氛怪怪的，家裡或團體裡有點不舒服。',
+ story:'期末考完，全家一起出去吃飯。',
+ tip:'小小的成功也要慶祝，這樣才有力氣繼續。'},
+
+{id:'W5', name:'火焰棒 五', en:'Five of Wands', suit:'wands', emoji:'⚔️',
+ kw:'吵架 競爭 搶 比賽 意見不合 亂 練習 拌嘴 較勁',
+ up:'五個人拿棒子亂揮，其實比較像在打鬧。代表競爭、意見不合、有點吵，但不是真的傷害。',
+ rev:'吵架結束了，或是大家忍著不說，氣氛悶悶的。',
+ story:'分組時每個人都想當組長，講了半天都沒結論。',
+ tip:'先聽完別人說完一句話，再說你的。'},
+
+{id:'W6', name:'火焰棒 六', en:'Six of Wands', suit:'wands', emoji:'🏆',
+ kw:'得獎 被稱讚 成功 榮耀 領先 被看見 有面子 好消息 第一名',
+ up:'騎馬回來的人被大家歡呼。代表努力被看見了，得到肯定。',
+ rev:'沒被看見有點失落，或是太驕傲讓別人不舒服。',
+ story:'作文被老師唸出來當範例，你耳朵紅紅的但很開心。',
+ tip:'被稱讚時說聲謝謝，也記得謝謝幫過你的人。'},
+
+{id:'W7', name:'火焰棒 七', en:'Seven of Wands', suit:'wands', emoji:'🛡️',
+ kw:'堅持 守住 被挑戰 保護立場 不退讓 撐住 反對 站穩',
+ up:'站在高處擋住底下的人。代表你在守住自己相信的事，就算大家不同意。',
+ rev:'撐得好累，快守不住了，或是開始懷疑自己。',
+ story:'全班都說那樣做比較快，但你覺得那樣不公平，你說出來了。',
+ tip:'守住立場可以，但也聽聽對方是不是有道理。'},
+
+{id:'W8', name:'火焰棒 八', en:'Eight of Wands', suit:'wands', emoji:'🏹',
+ kw:'快 消息 突然 進展快 訊息 趕 順利 飛快 馬上 通知',
+ up:'八根棒子在空中飛。代表事情突然變得很快，消息一個接一個來。',
+ rev:'塞車了、延遲了，訊息傳錯或沒回。',
+ story:'早上才報名，中午就通知你錄取了。',
+ tip:'快的時候更要看清楚，別按錯送出鍵。'},
+
+{id:'W9', name:'火焰棒 九', en:'Nine of Wands', suit:'wands', emoji:'🩹',
+ kw:'累了 快到了 警戒 撐最後 疲倦 受過傷 小心 再一下下 毅力',
+ up:'受了點傷但還站著的人。代表你已經很累了，但目標就在前面，再撐一下。',
+ rev:'太累了該休息，或是防備心太重連好人都推開。',
+ story:'剩最後一題數學，眼睛好酸，但你還是寫完了。',
+ tip:'累的時候先休息五分鐘，不是放棄，是換氣。'},
+
+{id:'W10', name:'火焰棒 十', en:'Ten of Wands', suit:'wands', emoji:'🎒',
+ kw:'太重 負擔 太多事 扛 累 責任 分擔 壓力 做不完',
+ up:'抱著十根棒子走路的人，看不到前面。代表事情接太多了，快扛不動。',
+ rev:'終於放下一些，或是硬撐到最後垮掉。',
+ story:'你答應了三個人幫忙，結果自己的功課都沒寫。',
+ tip:'學會說「這個我幫不了」，也是一種厲害。'},
+
+{id:'W11', name:'火焰棒 小學徒', en:'Page of Wands', suit:'wands', emoji:'🧒',
+ kw:'好奇 想試試 新玩意 活潑 探索 學新東西 熱情 小孩 躍躍欲試',
+ up:'什麼都想試試看的孩子。代表對新事物充滿好奇，先玩玩看再說。',
+ rev:'三分鐘熱度，東西買了就丟在一邊。',
+ story:'看到別人玩魔術方塊，你也想借來轉轉看。',
+ tip:'想試就去試，玩過才知道喜不喜歡。'},
+
+{id:'W12', name:'火焰棒 騎士', en:'Knight of Wands', suit:'wands', emoji:'🐎',
+ kw:'衝 行動 熱血 冒險 速度 說走就走 急性子 有活力 勇往直前',
+ up:'騎馬狂奔的騎士。代表馬上行動、活力滿滿，說做就做。',
+ rev:'衝過頭、沒耐心、做到一半就跑去做別的。',
+ story:'老師話還沒說完，你手已經舉起來了。',
+ tip:'衝勁很棒，記得留一點力氣把事情做完。'},
+
+{id:'W13', name:'火焰棒 皇后', en:'Queen of Wands', suit:'wands', emoji:'🌻',
+ kw:'自信 溫暖 受歡迎 有魅力 帶動氣氛 大方 有主見 開朗',
+ up:'笑得很有自信的人，走到哪裡都很亮。代表做自己、也讓旁邊的人變開心。',
+ rev:'愛面子、比較心強，或是突然沒自信了。',
+ story:'班上氣氛冷冷的，你先笑出來，大家就跟著鬧起來了。',
+ tip:'你不用變成別人，做自己的時候最好看。'},
+
+{id:'W14', name:'火焰棒 國王', en:'King of Wands', suit:'wands', emoji:'👑',
+ kw:'領導 帶頭 有遠見 負責 說到做到 大人物 鼓勵人 決定',
+ up:'帶大家往前走的領袖。代表有想法、也有能力帶著別人一起完成。',
+ rev:'太霸道、只聽自己的，或是不敢承擔。',
+ story:'你當隊長，把工作分好，還記得幫最慢的那個人。',
+ tip:'真正的隊長，是讓隊友也發光的人。'},
+
+/* ===== 心情杯（聖杯）14 張 ===== */
+{id:'C1', name:'心情杯 一', en:'Ace of Cups', suit:'cups', emoji:'💧',
+ kw:'心動 新感情 被愛 感動 開心 友情開始 溫暖 滿滿的 想哭',
+ up:'一個滿出來的杯子。代表新的感情、新的友誼，或是心裡突然被填滿的感動。',
+ rev:'心情關起來了，不想說、也不想被靠近。',
+ story:'新同學給你一顆糖，你突然覺得學校沒那麼可怕了。',
+ tip:'心裡滿滿的時候，記得跟對方說謝謝。'},
+
+{id:'C2', name:'心情杯 二', en:'Two of Cups', suit:'cups', emoji:'🤝',
+ kw:'好朋友 和好 兩個人 喜歡 互相 搭檔 一對 交換 談心',
+ up:'兩個人交換杯子。代表互相喜歡、互相幫忙的關係，友情或喜歡都算。',
+ rev:'誤會、冷戰，或是只有一方在付出。',
+ story:'你們吵架後，他主動來找你一起吃午餐。',
+ tip:'好的關係是兩邊都有伸手，不是只有一個人在撐。'},
+
+{id:'C3', name:'心情杯 三', en:'Three of Cups', suit:'cups', emoji:'🥳',
+ kw:'朋友 一起玩 慶祝 團體 開心 聚會 姐妹 同伴 分享 熱鬧',
+ up:'三個人舉杯歡呼。代表跟朋友一起開心的時光。',
+ rev:'小圈圈、被排擠，或是玩過頭忘了正事。',
+ story:'下課十分鐘，你們三個笑到肚子痛。',
+ tip:'開心的時候，看看有沒有人站在圈圈外面。'},
+
+{id:'C4', name:'心情杯 四', en:'Four of Cups', suit:'cups', emoji:'😑',
+ kw:'無聊 提不起勁 不滿足 發呆 懶懶的 沒興趣 忽略 心不在焉',
+ up:'手邊已經有三杯，卻對第四杯沒感覺。代表覺得無聊、什麼都不想要。',
+ rev:'突然又有興趣了，願意抬頭看看新的東西。',
+ story:'玩具很多，你卻趴在桌上說「好無聊喔」。',
+ tip:'無聊的時候抬個頭，旁邊可能有你沒注意到的好東西。'},
+
+{id:'C5', name:'心情杯 五', en:'Five of Cups', suit:'cups', emoji:'😢',
+ kw:'難過 失望 打翻 遺憾 哭 失去 後悔 只看壞的 沮喪',
+ up:'三個杯子倒了，但後面還有兩個站著。代表難過、失望——不過還沒失去全部。',
+ rev:'開始走出來了，願意回頭撿起還在的東西。',
+ story:'冰淇淋掉在地上你好難過，忘了手上還有一杯果汁。',
+ tip:'難過可以，哭完記得回頭看看還剩下什麼。'},
+
+{id:'C6', name:'心情杯 六', en:'Six of Cups', suit:'cups', emoji:'🧸',
+ kw:'回憶 童年 懷念 老朋友 純真 送禮 以前 想家 溫馨',
+ up:'兩個孩子交換花。代表美好的回憶、老朋友，還有單純的善意。',
+ rev:'一直活在過去，不想長大。',
+ story:'翻到幼稚園的照片，你想起那時候最好的朋友。',
+ tip:'回憶很暖，但你現在也正在創造以後的回憶。'},
+
+{id:'C7', name:'心情杯 七', en:'Seven of Cups', suit:'cups', emoji:'💭',
+ kw:'幻想 太多選擇 做白日夢 想像 挑花眼 不實際 迷惑 想很多',
+ up:'雲裡浮著七個杯子，每個都很誘人。代表想像力很豐富，但也可能只是在做白日夢。',
+ rev:'終於看清楚了，知道哪個才是真的。',
+ story:'你想當太空人、也想當廚師、還想開寵物店，結果今天的功課還沒寫。',
+ tip:'夢想可以很多個，但今天只能先做一件。'},
+
+{id:'C8', name:'心情杯 八', en:'Eight of Cups', suit:'cups', emoji:'🚶',
+ kw:'離開 放下 轉身 不玩了 尋找 換一個 失望離開 出發 告別',
+ up:'留下杯子，一個人往山上走。代表決定離開一段不適合的關係或習慣，去找更重要的東西。',
+ rev:'想走又捨不得，一直在原地徘徊。',
+ story:'那個社團你不開心很久了，這學期你決定換一個。',
+ tip:'離開不代表你失敗，代表你知道自己要什麼。'},
+
+{id:'C9', name:'心情杯 九', en:'Nine of Cups', suit:'cups', emoji:'😊',
+ kw:'滿足 願望成真 開心 幸福 犒賞 心滿意足 如願 好日子',
+ up:'被稱為「願望牌」。代表你想要的事情實現了，心裡很滿足。',
+ rev:'得到了卻覺得不夠，或是只顧自己開心。',
+ story:'期待很久的那本書，今天終於拿到了。',
+ tip:'滿足的時候記一下這個感覺，以後難過時可以拿出來用。'},
+
+{id:'C10', name:'心情杯 十', en:'Ten of Cups', suit:'cups', emoji:'🌈',
+ kw:'家人 幸福 圓滿 和樂 團圓 被愛 溫暖的家 大家都好',
+ up:'彩虹下的一家人。代表最溫暖的畫面：大家在一起、心裡都是暖的。',
+ rev:'家裡氣氛不太好，或是覺得自己被冷落。',
+ story:'週末晚上大家窩在沙發看電影，誰都沒滑手機。',
+ tip:'幸福不是沒有吵架，是吵完還願意坐在一起。'},
+
+{id:'C11', name:'心情杯 小學徒', en:'Page of Cups', suit:'cups', emoji:'🐟',
+ kw:'敏感 想像 撒嬌 溫柔 小驚喜 藝術 心軟 天真 感受',
+ up:'杯子裡跳出一條魚，讓人嚇一跳又想笑。代表心軟、有想像力，容易被小事感動。',
+ rev:'太玻璃心，或是把心事都藏起來。',
+ story:'你偷偷畫了一張卡片放進媽媽的包包裡。',
+ tip:'感覺很多不是缺點，那是你的天分。'},
+
+{id:'C12', name:'心情杯 騎士', en:'Knight of Cups', suit:'cups', emoji:'🌹',
+ kw:'浪漫 表白 邀請 溫柔 追求 送禮 有禮貌 感性 提議',
+ up:'捧著杯子慢慢走來的騎士。代表帶著心意來找你的人，或是你決定把心意說出口。',
+ rev:'只說不做，或是感情用事忘了現實。',
+ story:'你鼓起勇氣問：「下課要不要一起打球？」',
+ tip:'心意說出口才有用，放在心裡對方不會知道。'},
+
+{id:'C13', name:'心情杯 皇后', en:'Queen of Cups', suit:'cups', emoji:'🫖',
+ kw:'體貼 同理心 安慰 傾聽 溫柔 照顧心情 懂你 包容 直覺',
+ up:'最會安慰人的那位。代表懂別人的心情，也能好好照顧自己的情緒。',
+ rev:'把別人的情緒全扛在身上，自己累壞了。',
+ story:'同學哭的時候，你什麼都沒問，只遞了張衛生紙陪他坐著。',
+ tip:'照顧別人的心情之前，先確認自己的杯子還有水。'},
+
+{id:'C14', name:'心情杯 國王', en:'King of Cups', suit:'cups', emoji:'🌊',
+ kw:'冷靜 成熟 穩定情緒 不生氣 可靠 講理 沉住氣 安全感',
+ up:'坐在波浪上卻很穩的人。代表就算心裡有情緒，也能穩穩地處理事情。',
+ rev:'把情緒壓下去假裝沒事，或是突然爆炸。',
+ story:'弟弟弄壞你的模型，你很氣，但先深呼吸才開口。',
+ tip:'情緒可以有，只是先呼吸再說話。'},
+
+/* ===== 想法劍（寶劍）14 張 ===== */
+{id:'S1', name:'想法劍 一', en:'Ace of Swords', suit:'swords', emoji:'💡',
+ kw:'想通 真相 清楚 說實話 新想法 突破 明白 直說 頭腦 分析',
+ up:'一把插進雲裡的劍。代表突然想通了，看清楚了真相，可以清楚地講出來。',
+ rev:'想不清楚、講話太衝，或是被錯的資訊搞混。',
+ story:'困擾很久的問題，老師一句話你就懂了。',
+ tip:'話說清楚很有力量，但劍很利，講之前想一下。'},
+
+{id:'S2', name:'想法劍 二', en:'Two of Swords', suit:'swords', emoji:'🙈',
+ kw:'猶豫 不想選 逃避 蒙眼 兩難 卡住 假裝沒看到 需要決定',
+ up:'蒙著眼、抱著兩把劍的人。代表不敢做決定，乾脆不看不聽。',
+ rev:'終於把布拿下來，願意面對了。',
+ story:'兩個好朋友吵架，都要你選邊站，你只想躲起來。',
+ tip:'把眼睛打開，事情通常沒有想像中那麼難選。'},
+
+{id:'S3', name:'想法劍 三', en:'Three of Swords', suit:'swords', emoji:'💔',
+ kw:'受傷 傷心 被罵 難聽的話 心痛 誤會 被拒絕 失望 眼淚',
+ up:'一顆被刺穿的心。代表被話語傷到了，很痛。這是誠實的痛，不是永遠的痛。',
+ rev:'傷口在癒合，你慢慢好起來了。',
+ story:'你聽到同學在背後說你，回家躲在棉被裡哭。',
+ tip:'痛的時候找人說，說出來會比悶著快好。'},
+
+{id:'S4', name:'想法劍 四', en:'Four of Swords', suit:'swords', emoji:'😴',
+ kw:'休息 睡覺 暫停 放空 恢復 安靜 生病 充電 別想了',
+ up:'躺著休息的人。代表現在最該做的事就是休息，讓腦袋停下來。',
+ rev:'該休息卻硬撐，或是躺太久不想動了。',
+ story:'考完試那天下午，你什麼都沒做，睡了一個大覺。',
+ tip:'休息不是偷懶，是為了走更遠。'},
+
+{id:'S5', name:'想法劍 五', en:'Five of Swords', suit:'swords', emoji:'😤',
+ kw:'吵贏了 爭辯 得理不饒人 衝突 輸贏 傷感情 逞強 道歉',
+ up:'贏了吵架，卻沒人開心。代表為了贏而傷了感情，這種贏不太值得。',
+ rev:'願意和好、願意先低頭。',
+ story:'你把同學講到說不出話，但那天之後他不太理你了。',
+ tip:'吵架沒有贏家。有時候不吵，才是真的贏。'},
+
+{id:'S6', name:'想法劍 六', en:'Six of Swords', suit:'swords', emoji:'🛶',
+ kw:'離開 過渡 搬家 轉學 平靜下來 前往 慢慢好轉 旅程 放下',
+ up:'一艘船載著人駛向對岸。代表離開難過的地方，往比較平靜的地方去。',
+ rev:'還沒準備好離開，或是走了心還留在原地。',
+ story:'轉學第一週很不習慣，但第三週你開始有伴一起走路了。',
+ tip:'不用走很快，只要方向對，就會到。'},
+
+{id:'S7', name:'想法劍 七', en:'Seven of Swords', suit:'swords', emoji:'🦝',
+ kw:'偷偷 說謊 小聰明 作弊 隱瞞 自己來 策略 心虛 抄',
+ up:'抱著劍偷偷走掉的人。代表有人在隱瞞，或是想用小聰明省事。',
+ rev:'被發現了，或是決定坦白。',
+ story:'功課忘了寫，你想「借」同學的來抄。',
+ tip:'省下來的小聰明，通常之後要用更大的力氣還。'},
+
+{id:'S8', name:'想法劍 八', en:'Eight of Swords', suit:'swords', emoji:'🕸️',
+ kw:'被困住 沒辦法 害怕 動不了 綁住 想太多 求救 沒自信',
+ up:'被繩子綁著的人，其實旁邊有路可以走出去。代表「我做不到」多半是自己想出來的。',
+ rev:'看到出口了，開始鬆綁。',
+ story:'你覺得自己一定不會被選上，所以連報名都沒報。',
+ tip:'先試一次再說做不到。你可能比自己以為的自由。'},
+
+{id:'S9', name:'想法劍 九', en:'Nine of Swords', suit:'swords', emoji:'😰',
+ kw:'焦慮 失眠 惡夢 擔心 睡不著 想很多 壓力 害怕明天 煩',
+ up:'半夜坐起來捂著臉的人。代表擔心到睡不著，腦袋一直轉。',
+ rev:'天亮了，或是你終於跟人說出來，鬆了一口氣。',
+ story:'明天要上台，你躺在床上一直想「忘詞怎麼辦」。',
+ tip:'半夜想的事都會變大隻。先睡，明天再想。'},
+
+{id:'S10', name:'想法劍 十', en:'Ten of Swords', suit:'swords', emoji:'🌅',
+ kw:'谷底 結束 最慘 放棄 認了 天亮 重來 結局 最低點',
+ up:'趴在地上、背上插滿劍的人——但遠方天正在亮。代表最糟的部分已經過去了。',
+ rev:'慢慢爬起來，開始復原。',
+ story:'考試考爆了，你想「反正不會更差了」，然後開始訂正。',
+ tip:'到了谷底，接下來每一步都是往上。'},
+
+{id:'S11', name:'想法劍 小學徒', en:'Page of Swords', suit:'swords', emoji:'🔍',
+ kw:'好奇 問問題 觀察 打聽 學習 機靈 愛講話 求知 注意',
+ up:'東張西望、什麼都想問的孩子。代表好奇心強、學東西快。',
+ rev:'亂傳話、講太快沒查證。',
+ story:'你一直追問「為什麼會這樣？」直到弄懂為止。',
+ tip:'問問題很好，傳話之前先確認是不是真的。'},
+
+{id:'S12', name:'想法劍 騎士', en:'Knight of Swords', suit:'swords', emoji:'💨',
+ kw:'直接 急 講話快 衝動發言 果斷 沒耐心 據理力爭 一頭熱',
+ up:'舉劍衝出去的騎士。代表想到就說、想到就做，非常直接。',
+ rev:'太衝太兇，話說出口才後悔。',
+ story:'你當場就說「這樣不公平！」——說得對，但語氣有點兇。',
+ tip:'對的話，用好的語氣講，別人才聽得進去。'},
+
+{id:'S13', name:'想法劍 皇后', en:'Queen of Swords', suit:'swords', emoji:'🦉',
+ kw:'理智 看得清 誠實 獨立 界線 就事論事 聰明 不被騙 中肯',
+ up:'看得很清楚、講話很中肯的人。代表理智、公平，不被情緒帶著走。',
+ rev:'講話太冷、太傷人，或是太挑剔。',
+ story:'朋友抱怨時，你老實告訴他「這件事你也有錯」。',
+ tip:'誠實要配上溫柔，話才不會變成刀。'},
+
+{id:'S14', name:'想法劍 國王', en:'King of Swords', suit:'swords', emoji:'📏',
+ kw:'公正 判斷 講道理 規則 冷靜分析 專業 做決定 明辨是非',
+ up:'拿著劍坐得很直的國王。代表用道理判斷事情，公平地做決定。',
+ rev:'只講道理不管別人感受，或是死板不通融。',
+ story:'兩邊都說自己有理，你把事情從頭問清楚才下判斷。',
+ tip:'講道理的人很可靠，記得對方也是人，不只是題目。'},
+
+/* ===== 金幣（錢幣）14 張 ===== */
+{id:'P1', name:'金幣 一', en:'Ace of Pentacles', suit:'coins', emoji:'🪙',
+ kw:'機會 新東西 零用錢 開始存 實際 身體 禮物 種子 起步',
+ up:'手上出現一枚金幣。代表實實在在的新機會：新的錢、新的東西、新的身體目標。',
+ rev:'機會溜走了，或是計畫不實際。',
+ story:'你開始有零用錢了，決定買一個小豬撲滿。',
+ tip:'再小的種子，只要種下去就會長。'},
+
+{id:'P2', name:'金幣 二', en:'Two of Pentacles', suit:'coins', emoji:'🤹',
+ kw:'兼顧 忙 時間管理 兩件事 平衡 安排 調配 手忙腳亂',
+ up:'一邊拋著兩枚金幣一邊跳舞。代表同時處理兩件事，還算應付得來。',
+ rev:'兩邊都想顧，結果兩邊都掉了。',
+ story:'補習跟球隊都在同一天，你排了一個表把它們塞進去。',
+ tip:'能同時做兩件事很厲害，但別再拿第三個球。'},
+
+{id:'P3', name:'金幣 三', en:'Three of Pentacles', suit:'coins', emoji:'🧱',
+ kw:'合作 分工 團隊 學技術 一起做 被肯定 練習 建造',
+ up:'三個人一起蓋房子。代表分工合作，每個人做自己擅長的部分。',
+ rev:'有人偷懶、有人扛太多，配合不起來。',
+ story:'做壁報時你負責畫、他負責寫、另一個負責剪。',
+ tip:'一個人走比較快，一群人走比較遠。'},
+
+{id:'P4', name:'金幣 四', en:'Four of Pentacles', suit:'coins', emoji:'🔒',
+ kw:'存錢 捨不得 抓緊 小氣 保守 不分享 安全感 收好',
+ up:'緊緊抱著金幣的人。代表想把東西守好，不想放手。',
+ rev:'開始願意分享，或是花錢花得太隨便。',
+ story:'新的色鉛筆你連自己都捨不得用。',
+ tip:'東西是拿來用的。存太久的東西會忘記為什麼要存。'},
+
+{id:'P5', name:'金幣 五', en:'Five of Pentacles', suit:'coins', emoji:'🥶',
+ kw:'缺乏 沒錢 被冷落 孤單 生病 辛苦 求助 在門外 需要幫忙',
+ up:'兩個人在雪地走，旁邊其實有一扇亮著燈的窗。代表辛苦、缺少什麼——但幫助就在旁邊，只是還沒開口。',
+ rev:'情況好轉，或是終於願意求助了。',
+ story:'東西掉了不敢跟大人講，一個人擔心了一整天。',
+ tip:'開口求助不是丟臉，是聰明。'},
+
+{id:'P6', name:'金幣 六', en:'Six of Pentacles', suit:'coins', emoji:'🤲',
+ kw:'分享 幫忙 給予 收到禮物 公平分 慷慨 接受幫助 捐',
+ up:'一個人把錢分給需要的人。代表分享，也代表大方接受別人的好意。',
+ rev:'給得不甘願，或是幫忙變成有條件的交換。',
+ story:'同學忘了帶餐具，你把備用的那副借他。',
+ tip:'給的時候不求回報，收的時候好好說謝謝。'},
+
+{id:'P7', name:'金幣 七', en:'Seven of Pentacles', suit:'coins', emoji:'🌱',
+ kw:'等待成果 耐心 慢慢長 檢查 評估 還沒好 累積 值不值得',
+ up:'農夫看著還沒熟的果子。代表努力已經種下去，但還要等。',
+ rev:'等不及就放棄，或是發現方向要調整。',
+ story:'練琴一個月還是彈不順，你有點想放棄。',
+ tip:'果子不會因為你一直看就變快。繼續澆水就對了。'},
+
+{id:'P8', name:'金幣 八', en:'Eight of Pentacles', suit:'coins', emoji:'🔨',
+ kw:'練習 專心 認真 重複 進步 學手藝 磨技術 用功 一步一步',
+ up:'低頭一個一個敲金幣的工匠。代表認真練習，重複到變厲害。',
+ rev:'心不在焉地做，或是求快隨便交差。',
+ story:'同一個運球動作你練了兩百次，第兩百零一次終於順了。',
+ tip:'厲害的人不是天生的，是重複很多次的人。'},
+
+{id:'P9', name:'金幣 九', en:'Nine of Pentacles', suit:'coins', emoji:'🍇',
+ kw:'獨立 靠自己 成果 享受 自在 有能力 自給自足 舒服',
+ up:'一個人在自己的花園裡很自在。代表靠自己努力得到的成果，可以好好享受。',
+ rev:'想靠自己卻還不太行，或是太孤單。',
+ story:'你用自己存的錢買了想要的東西，感覺特別好。',
+ tip:'自己賺來的，用起來最有底氣。'},
+
+{id:'P10', name:'金幣 十', en:'Ten of Pentacles', suit:'coins', emoji:'🏡',
+ kw:'家庭 傳承 穩定 長輩 富足 一家人 遺產 安全 長久',
+ up:'三代同堂的畫面。代表家庭給的安全感、長輩傳下來的東西。',
+ rev:'家裡為錢或東西起爭執，或是壓力來自家人期待。',
+ story:'阿公把他用了很久的舊相機送給你。',
+ tip:'家人給的不只是東西，還有「你不是一個人」。'},
+
+{id:'P11', name:'金幣 小學徒', en:'Page of Pentacles', suit:'coins', emoji:'📖',
+ kw:'學習 認真 新技能 存錢 踏實 用功 起步 慢慢學 專注',
+ up:'捧著金幣仔細研究的孩子。代表願意從頭學、慢慢來的態度。',
+ rev:'三分鐘熱度，或是拖著不開始。',
+ story:'你把每天存的十塊錢記在小本子上。',
+ tip:'慢沒關係，每天做一點才最強。'},
+
+{id:'P12', name:'金幣 騎士', en:'Knight of Pentacles', suit:'coins', emoji:'🐢',
+ kw:'穩 慢 可靠 有耐心 按部就班 負責 不放棄 老實 重複',
+ up:'騎著慢馬穩穩前進的騎士。代表不快但很可靠，答應的事一定做完。',
+ rev:'太慢、太固執，或是變得無聊沒彈性。',
+ story:'你每天寫兩頁，一個月後整本寫完了。',
+ tip:'烏龜贏兔子，靠的就是沒有停下來。'},
+
+{id:'P13', name:'金幣 皇后', en:'Queen of Pentacles', suit:'coins', emoji:'🧺',
+ kw:'照顧 實際 會安排 溫暖 顧家 會存錢 可靠 務實 餵飽大家',
+ up:'把生活打理得妥妥當當的人。代表既溫暖又實際，會照顧人也會照顧錢。',
+ rev:'什麼都自己扛，忘了照顧自己。',
+ story:'出門前你檢查了水壺、雨傘、悠遊卡，全家都靠你提醒。',
+ tip:'把自己照顧好，也算完成一件重要的事。'},
+
+{id:'P14', name:'金幣 國王', en:'King of Pentacles', suit:'coins', emoji:'🏆',
+ kw:'成就 富足 可靠 有經驗 管理 穩定 大方 說到做到 長期',
+ up:'努力很久終於有成果的人。代表穩定、可靠、有能力照顧一群人。',
+ rev:'太看重錢和成績，忘了其他更重要的事。',
+ story:'你當班長一整年，班上的事你都記得清清楚楚。',
+ tip:'真正的富有，是別人有需要時想得到你。'}
+];
+
+/* ===== 英文關鍵字（讓使用者也能用英文搜尋，例如 courage / friends / money）=====
+ * key = 牌的 id，value = 該牌的英文關鍵字（含常見的英文牌義用語）
+ */
+const EN_KW = {
+  '0'    : 'fool new start beginning adventure courage curious innocent journey leap faith first day fresh free spontaneous',
+  'I'    : 'magician skill create make tools action ability focus manifest talent resourceful confident begin',
+  'II'   : 'high priestess intuition quiet secret inner voice listen mystery patience wisdom hidden knowledge',
+  'III'  : 'empress care nurture mother growth nature abundance gentle kindness creativity harvest comfort',
+  'IV'   : 'emperor rules order structure father protect responsibility discipline plan stable leader boundaries',
+  'V'    : 'hierophant teacher learning tradition guidance school study mentor ask advice belief group values',
+  'VI'   : 'lovers choice love like friendship partner decision two paths harmony honest connection',
+  'VII'  : 'chariot move forward drive determination win race control focus willpower momentum direction',
+  'VIII' : 'strength courage gentle patience calm anger self control brave soothe inner power kindness',
+  'IX'   : 'hermit alone solitude think reflect search answer slow down quiet rest inner light',
+  'X'    : 'wheel fortune change luck cycle turning point chance ups downs timing destiny',
+  'XI'   : 'justice fair honest right wrong truth consequence responsibility balance rules apologize',
+  'XII'  : 'hanged man pause wait new perspective stuck upside down sacrifice let go different view',
+  'XIII' : 'death ending change transform butterfly goodbye new beginning graduation let go move on',
+  'XIV'  : 'temperance balance moderation patience blend mix just right adjust slow steady harmony',
+  'XV'   : 'devil temptation bad habit addiction stuck phone screen time excuses chains greed trapped',
+  'XVI'  : 'tower sudden shock collapse accident truth breakdown surprise rebuild wake up disaster',
+  'XVII' : 'star hope wish healing calm faith dream light peace better future inspiration',
+  'XVIII': 'moon fear confusion illusion uncertain dream imagination anxiety night unclear misunderstanding',
+  'XIX'  : 'sun happy joy success confidence bright fun shine warmth good news play healthy',
+  'XX'   : 'judgement wake up realize forgive second chance review call decision rebirth reflect',
+  'XXI'  : 'world complete finish whole success graduation celebrate journey end achievement full circle',
+
+  'W1' : 'ace wands idea spark inspiration new project passion energy start excited creative fire',
+  'W2' : 'two wands plan future map decide look ahead options prepare vision hesitate',
+  'W3' : 'three wands wait progress expand looking ahead ships coming results growth patience',
+  'W4' : 'four wands celebrate home party safe reunion milestone joy family festival',
+  'W5' : 'five wands conflict competition argue clash disagree rivalry practice fight messy',
+  'W6' : 'six wands victory win praise recognition success proud award applause first place',
+  'W7' : 'seven wands defend stand ground challenge persist protect belief resist tired holding on',
+  'W8' : 'eight wands fast news message speed quick progress rush arrive suddenly',
+  'W9' : 'nine wands almost there tired persist guard resilience one more push wounded strong',
+  'W10': 'ten wands burden too much heavy overload responsibility stress carry exhausted',
+  'W11': 'page wands curious try explore new hobby enthusiastic playful discover eager',
+  'W12': 'knight wands rush action adventure bold energetic impatient go for it daring',
+  'W13': 'queen wands confident warm popular charisma bold cheerful self assured leader',
+  'W14': 'king wands leader vision responsible inspire bold decision big picture mentor',
+
+  'C1' : 'ace cups new feeling love friendship overflow emotion touched warm heart begin',
+  'C2' : 'two cups friendship partnership mutual like bond make up connection share talk',
+  'C3' : 'three cups friends celebrate group party fun together laugh community share',
+  'C4' : 'four cups bored unmotivated apathy discontent ignore daydream meh not interested',
+  'C5' : 'five cups sad loss disappointment regret grief cry spilled focus on bad',
+  'C6' : 'six cups memory childhood nostalgia old friend innocence gift past kindness home',
+  'C7' : 'seven cups fantasy too many choices daydream illusion imagine confused unrealistic',
+  'C8' : 'eight cups leave walk away let go search move on quit disappointed journey',
+  'C9' : 'nine cups wish come true satisfied happy content treat yourself pleased',
+  'C10': 'ten cups family happiness harmony love rainbow togetherness fulfillment home',
+  'C11': 'page cups sensitive imagination sweet surprise gentle artistic dreamy feelings',
+  'C12': 'knight cups romantic invitation offer gentle polite express feelings proposal',
+  'C13': 'queen cups empathy comfort listen kind caring emotional support intuition understanding',
+  'C14': 'king cups calm mature emotional control steady reliable wise not angry composed',
+
+  'S1' : 'ace swords clarity truth idea breakthrough understand speak up clear mind sharp',
+  'S2' : 'two swords indecision blindfold avoid stuck dilemma cannot choose stalemate',
+  'S3' : 'three swords heartbreak hurt sad words pain rejection misunderstanding tears',
+  'S4' : 'four swords rest sleep pause recover quiet break recharge stop thinking sick',
+  'S5' : 'five swords win argument conflict hollow victory pride hurt feelings clash sorry',
+  'S6' : 'six swords transition move away calmer waters journey leaving healing new place',
+  'S7' : 'seven swords sneaky lie cheat hide trick strategy shortcut guilty copy',
+  'S8' : 'eight swords trapped stuck fear powerless self doubt bound cannot move help',
+  'S9' : 'nine swords anxiety worry nightmare sleepless overthinking stress fear afraid',
+  'S10': 'ten swords rock bottom ending worst over defeat dawn restart lowest point',
+  'S11': 'page swords curious questions observe learn alert clever talkative watch news',
+  'S12': 'knight swords direct fast blunt speak up impulsive bold argue rush words',
+  'S13': 'queen swords clear honest independent boundaries logical smart fair straight talk',
+  'S14': 'king swords fair judgement logic rules analyze decide authority truth objective',
+
+  'P1' : 'ace pentacles coins opportunity new money gift seed practical body start solid',
+  'P2' : 'two pentacles juggle balance busy time management multitask adapt flexible',
+  'P3' : 'three pentacles teamwork collaborate build skill learn craft recognition roles',
+  'P4' : 'four pentacles save hold tight stingy control security keep possessive hoard',
+  'P5' : 'five pentacles lack poor left out lonely hardship sick ask for help outside cold',
+  'P6' : 'six pentacles share give generosity charity receive help fair split kindness',
+  'P7' : 'seven pentacles patience wait harvest invest assess growth slow results review',
+  'P8' : 'eight pentacles practice focus repeat improve craft study hard work apprentice',
+  'P9' : 'nine pentacles independent self made enjoy comfort reward achievement alone fine',
+  'P10': 'ten pentacles family wealth legacy stability grandparents inheritance long term home',
+  'P11': 'page pentacles study learn new skill save money steady begin practical diligent',
+  'P12': 'knight pentacles slow steady reliable patient routine responsible dependable finish',
+  'P13': 'queen pentacles practical caring organized warm home resourceful nurturing capable',
+  'P14': 'king pentacles success wealth reliable experienced manage stable generous provider'
+};
+
+/* 花色的英文別名，讓 wands / cups / swords / pentacles / major 也能直接搜到 */
+const SUIT_EN = {
+  major : 'major arcana big card trump',
+  wands : 'wands wand fire rods staffs batons',
+  cups  : 'cups cup water hearts chalices',
+  swords: 'swords sword air minds',
+  coins : 'pentacles pentacle coins disks earth money'
+};
+
+/* 把英文關鍵字併進每張牌（搜尋時中英文都吃） */
+CARDS.forEach(c => {
+  c.ekw = (EN_KW[c.id] || '') + ' ' + (SUIT_EN[c.suit] || '');
+});
+
+
+/* ===== 同義詞 / 相關詞擴展 =====
+ * 小朋友想到什麼就打什麼，不一定會打到牌面上的用字。
+ * 這張表讓「勇氣」也能找到寫著「勇敢／不敢／撐住」的牌（同義詞算半分，所以最貼近的還是排前面）。
+ */
+const SYN = {
+  '勇氣':['勇敢','不敢','害怕','面對','撐住','堅持','courage','brave'],
+  '勇敢':['勇氣','冒險','面對','害怕','brave','courage'],
+  '害怕':['怕','不敢','焦慮','擔心','緊張','fear','afraid','anxiety'],
+  '緊張':['焦慮','擔心','害怕','壓力','anxiety','worry'],
+  '考試':['學習','練習','用功','專心','進步','功課','壓力','study','exam','practice'],
+  '功課':['考試','學習','練習','專心','拖延','study','homework'],
+  '讀書':['學習','練習','用功','專心','study'],
+  '朋友':['好朋友','同學','友情','吵架','和好','合作','團體','friend','friendship'],
+  '同學':['朋友','好朋友','團體','合作','friend'],
+  '吵架':['爭執','衝突','意見不合','和好','生氣','argue','conflict'],
+  '生氣':['脾氣','吵架','冷靜','忍耐','anger','angry'],
+  '難過':['傷心','哭','失望','沮喪','眼淚','sad','cry'],
+  '傷心':['難過','哭','失望','受傷','heartbreak','sad'],
+  '喜歡':['心動','戀人','愛','告白','浪漫','love','like'],
+  '暗戀':['喜歡','心動','戀人','告白','love','crush'],
+  '失戀':['離開','結束','放下','傷心','告別','breakup','loss'],
+  '壓力':['累','休息','太多','負擔','焦慮','stress','burden'],
+  '累':['休息','睡覺','放空','太多','疲倦','tired','rest'],
+  '錢':['零用錢','存錢','金幣','分享','禮物','money','coins'],
+  '未來':['接下來','希望','夢想','計畫','future','hope'],
+  '夢想':['希望','願望','計畫','點子','dream','wish'],
+  '搬家':['轉學','離開','結束','改變','新開始','move'],
+  '轉學':['搬家','離開','新開始','朋友','new start'],
+  '被欺負':['取笑','排擠','受傷','求助','孤單','bully','left out'],
+  '孤單':['一個人','獨處','被冷落','求助','lonely','alone'],
+  '手機':['上癮','停不下來','壞習慣','誘惑','拖延','addiction','screen'],
+  '拖延':['懶','壞習慣','開始','行動','procrastinate'],
+  '選擇':['決定','二選一','猶豫','兩難','choice','decide'],
+  '決定':['選擇','猶豫','判斷','decide','choice'],
+  '比賽':['競爭','努力','贏','得獎','練習','win','competition'],
+  '生病':['休息','身體','恢復','照顧','sick','rest'],
+  '家人':['家','爸爸','媽媽','長輩','團圓','family','home'],
+  '道歉':['和好','誠實','負責','原諒','sorry','forgive'],
+  '說謊':['隱瞞','作弊','誠實','心虛','lie','cheat'],
+  '自信':['勇氣','發光','被稱讚','成功','confidence','confident'],
+  'courage':['勇氣','勇敢','brave','strength'],
+  'friend' :['朋友','好朋友','friendship','friends'],
+  'friends':['朋友','好朋友','friend'],
+  'money'  :['錢','存錢','零用錢','coins','pentacles'],
+  'school' :['考試','功課','學習','study','learn'],
+  'sad'    :['難過','傷心','哭','cry','grief'],
+  'tired'  :['累','休息','rest','burden'],
+  'love'   :['喜歡','心動','戀人','like','romance'],
+  'fear'   :['害怕','不敢','焦慮','afraid','anxiety'],
+  'hope'   :['希望','星星','未來','wish','star'],
+  'angry'  :['生氣','脾氣','冷靜','anger'],
+  'happy'  :['開心','快樂','joy','sun']
+};
+
+/* 英文虛詞：句子裡出現時不拿來比對（例如 The Fool 的 the） */
+const STOPWORDS = new Set(['the','of','a','an','and','or','my','me','i','is','am','to','for','in','on','it','this','that','with','card','tarot']);
+
+/* 首頁快速主題：點一下就能篩出相關的牌 */
+const TOPICS = [
+  { label:'😟 心情不好 Sad',     kw:'難過 傷心 哭 失望 焦慮 害怕 sad hurt cry disappointment anxiety fear' },
+  { label:'👫 朋友 Friends',     kw:'朋友 好朋友 吵架 和好 團體 排擠 合作 friend friendship argue make up group' },
+  { label:'📝 考試功課 School',  kw:'考試 功課 學習 練習 專心 用功 進步 study learn practice focus school skill' },
+  { label:'💪 需要勇氣 Courage', kw:'勇氣 勇敢 害怕 不敢 面對 撐住 堅持 courage brave fear persist stand' },
+  { label:'🏠 家人 Family',      kw:'家 家人 爸爸 媽媽 長輩 團圓 照顧 family home mother father care together' },
+  { label:'🎯 新的開始 Start',   kw:'新開始 開始 點子 機會 出發 冒險 new start beginning idea opportunity adventure' },
+  { label:'😵 卡住了 Stuck',     kw:'卡住 困住 猶豫 選擇 想不通 沒辦法 stuck trapped indecision choose confused' },
+  { label:'💰 錢和東西 Money',   kw:'錢 零用錢 存錢 分享 禮物 東西 money save share gift coins' },
+  { label:'😴 好累 Tired',       kw:'累 休息 睡覺 太多 壓力 放空 tired rest sleep burden stress recharge' },
+  { label:'🎉 開心 Happy',       kw:'開心 快樂 慶祝 成功 得獎 滿足 happy joy celebrate success win content' }
+];
+
+/* 掛到 window 方便其他頁面 / 自動測試取用（const 不會自動變成 window 屬性） */
+if (typeof window !== 'undefined') window.TAROT = { CARDS, SUITS, TOPICS, EN_KW, SYN, STOPWORDS, STRUCTURE };
+
+</script>
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const grid=$('grid'), qEl=$('q'), countEl=$('count'), maskEl=$('mask'), modalEl=$('modal');
+  let suitFilter='all', view=[];
+
+  /* ================= 搜尋核心 ================= */
+  const norm = s => (s||'').toLowerCase();
+  function tokens(q){
+    q = (q||'').trim();
+    if(!q) return [];
+    let parts = q.split(/[\s,、，]+/).filter(Boolean).map(norm);
+    const kept = parts.filter(t => !STOPWORDS.has(t));      // 去掉 the / of 之類的虛詞
+    return kept.length ? kept : parts;
+  }
+  function score(c, toks){
+    if(!toks.length) return 1;
+    let s=0;
+    const nm=norm(c.name+' '+c.en+' '+c.id), kw=norm(c.kw+' '+c.ekw),
+          body=norm([c.up,c.rev,c.story,c.tip].join(' ')), suit=norm(SUITS[c.suit].name);
+    const hit = (t,w)=>{
+      if(!t) return 0;
+      if(nm.includes(t))   return 10*w;
+      if(kw.includes(t))   return 5*w;
+      if(suit.includes(t)) return 3*w;
+      if(body.includes(t)) return 1*w;
+      return 0;
+    };
+    for(const t of toks){
+      let best = hit(t,1);
+      if(!best){                                            // 直接找不到 → 用同義詞再找一次（半分）
+        for(const syn of (SYN[t]||[])){
+          best = Math.max(best, hit(norm(syn),0.5));
+          if(best>=5) break;
+        }
+      }
+      s += best;
+    }
+    return s;
+  }
+  function esc(s){ return (s||'').replace(/[&<>"]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+  function hl(text, toks){
+    let out = esc(text);
+    for(const t of toks){
+      if(!t) continue;
+      const re = new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi');
+      out = out.replace(re, m=>'<mark>'+m+'</mark>');
+    }
+    return out;
+  }
+
+  function render(){
+    const toks = tokens(qEl.value);
+    let list = CARDS.filter(c => suitFilter==='all' || c.suit===suitFilter);
+    if(toks.length){
+      list = list.map(c=>({c, s:score(c,toks)})).filter(o=>o.s>0)
+                 .sort((a,b)=>b.s-a.s).map(o=>o.c);
+    }
+    view = list;
+    countEl.innerHTML = toks.length
+      ? '找到 <b>'+list.length+'</b> 張跟「'+esc(qEl.value.trim())+'」有關的牌（越前面越貼近）'
+      : (suitFilter==='all' ? '全部 <b>78</b> 張牌 — 直接點一張，或在上面輸入關鍵字'
+                            : SUITS[suitFilter].name + ' · <b>' + SUITS[suitFilter].elEmoji + ' '
+                              + SUITS[suitFilter].el + '</b> — ' + SUITS[suitFilter].scope
+                              + '<br>' + SUITS[suitFilter].desc);
+    if(!list.length){
+      grid.innerHTML = '<div class="empty">找不到耶 😅<br>換個說法試試：心情／朋友／勇氣／考試／累／開心<br>'
+        + 'Or try English: courage, friends, money, tired, hope</div>';
+      return;
+    }
+    grid.innerHTML = list.map((c,i)=>`
+      <button class="card" data-i="${i}">
+        <span class="tagline" style="background:${SUITS[c.suit].color}"></span>
+        <span class="top">
+          <span class="ico">${c.emoji}</span>
+          <span><div class="nm">${hl(c.name,toks)}</div><div class="en">${hl(c.en,toks)}</div></span>
+        </span>
+        <div class="ex">${hl(c.up,toks)}</div>
+      </button>`).join('');
+  }
+
+  /* ================= 牌義視窗 ================= */
+  function open(card){
+    const toks = tokens(qEl.value);
+    const kws = (card.kw+' '+card.ekw).split(/\s+/).filter(Boolean);
+    const idx = view.indexOf(card);
+    modalEl.innerHTML = `
+      <div class="mhead">
+        <div class="ico">${card.emoji}</div>
+        <div>
+          <div class="nm">${card.name}</div>
+          <div class="en">${card.en}</div>
+          <div class="badge" style="border-color:${SUITS[card.suit].color}">${SUITS[card.suit].name}${
+            card.suit==='major' ? ' · 人生大事' : ' · '+SUITS[card.suit].elEmoji+' '+SUITS[card.suit].el}</div>
+        </div>
+        <button class="x" id="xbtn">✕</button>
+      </div>
+      <div class="sec up"><h3>🌞 正位（牌是正的）</h3><p>${hl(card.up,toks)}</p></div>
+      <div class="sec rev"><h3>🌙 逆位（牌是倒過來的）</h3><p>${hl(card.rev,toks)}</p></div>
+      <div class="sec story"><h3>🏫 生活小故事</h3><p>${hl(card.story,toks)}</p></div>
+      <div class="sec tip"><h3>💛 給你的小提醒</h3><p>${hl(card.tip,toks)}</p></div>
+      <div class="kwbox"><div class="kwt">關鍵字（點一下可以再搜尋 · click to search）</div>
+        ${kws.map(k=>`<span class="kw" data-k="${esc(k)}">${esc(k)}</span>`).join('')}
+      </div>
+      <div class="nav">
+        <button id="prev" ${idx<=0?'disabled style=opacity:.35':''}>← 上一張</button>
+        <button id="next" ${idx<0||idx>=view.length-1?'disabled style=opacity:.35':''}>下一張 →</button>
+      </div>`;
+    maskEl.classList.add('on'); maskEl.scrollTop = 0;
+    $('xbtn').onclick = close;
+    modalEl.querySelectorAll('.kw').forEach(e=>{
+      e.onclick = ()=>{ showPage('search'); qEl.value = e.dataset.k; suitFilter='all';
+                        paintSuits(); render(); close(); window.scrollTo({top:0,behavior:'smooth'}); };
+    });
+    const p=$('prev'), n=$('next');
+    if(p && idx>0) p.onclick = ()=>open(view[idx-1]);
+    if(n && idx>=0 && idx<view.length-1) n.onclick = ()=>open(view[idx+1]);
+  }
+  function close(){ maskEl.classList.remove('on'); }
+  maskEl.addEventListener('click', e=>{ if(e.target===maskEl) close(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') close(); });
+  grid.addEventListener('click', e=>{
+    const b = e.target.closest('.card'); if(!b) return;
+    open(view[+b.dataset.i]);
+  });
+
+  /* ================= 主題 / 牌組按鈕 ================= */
+  $('topics').innerHTML = TOPICS.map((t,i)=>`<button class="chip" data-t="${i}">${t.label}</button>`).join('');
+  $('topics').querySelectorAll('[data-t]').forEach(b=>{
+    b.onclick = ()=>{ qEl.value = TOPICS[+b.dataset.t].kw; suitFilter='all'; paintSuits(); render(); };
+  });
+  function paintSuits(){
+    const keys = ['all'].concat(Object.keys(SUITS));
+    $('suits').innerHTML = keys.map(k=>{
+      const label = k==='all' ? '📚 全部 78 張' : SUITS[k].name;
+      return `<button class="chip ${suitFilter===k?'on':''}" data-s="${k}">${label}</button>`;
+    }).join('');
+    $('suits').querySelectorAll('[data-s]').forEach(b=>{
+      b.onclick = ()=>{ suitFilter=b.dataset.s; paintSuits(); render(); };
+    });
+  }
+
+  /* ================= 分頁切換 ================= */
+  const PAGES = { search:['pageSearch','tabSearch'], sim:['pageSim','tabSim'], guide:['pageGuide','tabGuide'] };
+  function showPage(which){
+    Object.keys(PAGES).forEach(k=>{
+      const [pg,tb] = PAGES[k];
+      $(pg).classList.toggle('on', k===which);
+      $(tb).classList.toggle('on', k===which);
+    });
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  $('tabSearch').onclick = ()=>showPage('search');
+  $('tabSim').onclick    = ()=>showPage('sim');
+  $('tabGuide').onclick  = ()=>showPage('guide');
+
+  /* ================= 牌組結構頁 ================= */
+  function gotoSuit(key){
+    showPage('search'); qEl.value=''; suitFilter = key; paintSuits(); render();
+  }
+  (function buildGuide(){
+    const A = STRUCTURE;
+    const block = (o, goKey, goLabel) => `
+      <div class="arc">
+        <span class="tagline" style="background:${goKey==='major'?SUITS.major.color:'#ffb703'}"></span>
+        <div class="ico">${o.emoji}</div>
+        <div class="t">${o.title}</div>
+        <div class="c">${o.count}</div>
+        <div class="line">${o.sym}</div>
+        <div class="line">${o.use}</div>
+        <div class="ex">${o.ex}</div>
+        <div class="kid">${o.kid}</div>
+        <button class="go" data-go="${goKey}">${goLabel}</button>
+      </div>`;
+    $('arcana').innerHTML = block(A.major,'major','看這 22 張大牌 →') + block(A.minor,'minor','看小牌的四個花色 ↓');
+    $('howto').textContent = A.howto;
+    $('arcana').querySelectorAll('[data-go]').forEach(b=>{
+      b.onclick = ()=>{
+        if(b.dataset.go === 'major') gotoSuit('major');
+        else $('eltable').scrollIntoView({behavior:'smooth', block:'start'});
+      };
+    });
+    $('eltable').innerHTML = A.elements.map(e=>`
+      <button class="elrow" data-s="${e.suit}">
+        <span class="tagline" style="background:${SUITS[e.suit].color}"></span>
+        <span class="nmwrap"><div class="n">${e.n}</div><div class="e">${e.el} · 14 張</div></span>
+        <span><div class="sc">${e.scope}</div><div class="kid">👦 ${e.kid}</div></span>
+      </button>`).join('');
+    $('eltable').querySelectorAll('[data-s]').forEach(b=>{ b.onclick = ()=>gotoSuit(b.dataset.s); });
+  })();
+
+  /* ================= 抽牌模擬器 ================= */
+  const SPREADS = [
+    { key:'one',  t:'🌟 今日一張', n:1, d:'今天心裡放一句話就好。最適合每天早上抽。',
+      pos:['今天的提醒'] },
+    { key:'three',t:'🕰️ 三張牌', n:3, d:'過去 → 現在 → 接下來。想看事情怎麼走的時候用。',
+      pos:['過去 · 已經發生的事','現在 · 你正在的地方','接下來 · 可以試試的方向'] },
+    { key:'five', t:'🧭 五張牌', n:5, d:'把一件煩惱看清楚：情況、卡住的點、真心話、可以做的事、結果。',
+      pos:['現在的情況','卡住的地方','你心裡真正想要的','你可以做的事','如果這樣做，可能會…'] },
+    { key:'yesno',t:'🤔 可不可以', n:1, d:'心裡有件想做的事，先問問看適不適合現在做。',
+      pos:['這件事現在適合嗎'] }
+  ];
+  let spread = SPREADS[1], picks = [], deckOrder = [], picking = false;
+
+  $('spreads').innerHTML = SPREADS.map(s=>`
+    <button class="spread ${s.key===spread.key?'on':''}" data-k="${s.key}">
+      <div class="t">${s.t}<span style="color:var(--dim);font-size:12px"> · ${s.n} 張</span></div>
+      <div class="d">${s.d}</div>
+    </button>`).join('');
+  $('spreads').querySelectorAll('[data-k]').forEach(b=>{
+    b.onclick = ()=>{
+      spread = SPREADS.find(s=>s.key===b.dataset.k);
+      $('spreads').querySelectorAll('.spread').forEach(e=>e.classList.toggle('on', e.dataset.k===spread.key));
+    };
+  });
+
+  function shuffle(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+    return a;
+  }
+
+  function startShuffle(){
+    picks = []; picking = true;
+    deckOrder = shuffle(CARDS).map(c => ({ card:c, rev: Math.random() < 0.35 }));
+    $('simSetup').style.display='none';
+    $('simResult').style.display='none';
+    $('simPick').style.display='';
+    $('pickStep').textContent = 'STEP 3 · 洗牌中…';
+    $('pickNote').textContent = '心裡想著你的問題，慢慢深呼吸 🌬️';
+    const deck = $('deck');
+    deck.className = 'deck shuffling';
+    deck.innerHTML = deckOrder.map((o,i)=>`<div class="back" data-i="${i}"></div>`).join('');
+    setTimeout(()=>{
+      deck.className = 'deck';
+      $('pickStep').textContent = 'STEP 3 · 選你的牌';
+      updateNote();
+      deck.querySelectorAll('.back').forEach(el=>{ el.onclick = ()=>pick(+el.dataset.i, el); });
+    }, 1200);
+  }
+  function updateNote(){
+    const left = spread.n - picks.length;
+    $('pickNote').innerHTML = left>0
+      ? `不用想哪張比較好，憑感覺點就對了 —— 還要選 <b>${left}</b> 張`
+      : '好了！正在翻牌…';
+  }
+  function pick(i, el){
+    if(!picking || picks.some(p=>p.i===i)) return;
+    picks.push({ i, ...deckOrder[i] });
+    el.classList.add('picked');
+    updateNote();
+    if(picks.length >= spread.n){
+      picking = false;
+      $('deck').querySelectorAll('.back:not(.picked)').forEach(e=>e.classList.add('dim'));
+      setTimeout(showResult, 600);
+    }
+  }
+
+  // 綜合小結：大牌 / 小牌比例（本質 vs 細節）、花色元素、正逆位
+  const SUIT_THEME = {
+    wands :'「權杖（火焰棒）· 火元素」—— 重點在行動力：你想做什麼、有沒有真的去做。',
+    cups  :'「聖杯（心情杯）· 水元素」—— 重點在情感和人際關係：你跟別人之間的心情。',
+    swords:'「寶劍（想法劍）· 風元素」—— 重點在思考和決定：你怎麼想、怎麼說，還有腦袋裡打結的地方。',
+    coins :'「錢幣（金幣）· 土元素」—— 重點在很實際的事：練習、時間、東西和成果。'
+  };
+  function summarize(list){
+    const cnt = {major:0,wands:0,cups:0,swords:0,coins:0};
+    list.forEach(p=>cnt[p.card.suit]++);
+    const revN = list.filter(p=>p.rev).length, n = list.length;
+    const minorKeys = ['wands','cups','swords','coins'];
+    const minorN = n - cnt.major;
+    const topMinor = minorKeys.slice().sort((a,b)=>cnt[b]-cnt[a])[0];
+
+    let themeTxt;
+    if(cnt.major === n){
+      themeTxt = (n===1 ? '抽到的是「大阿爾克那（大牌）」' : '這次全部都是「大阿爾克那（大牌）」')
+        + ' —— 講的是這件事的核心本質和長遠影響，代表它對你來說真的滿重要的，不是小事。';
+    }else if(cnt.major*2 >= n && cnt.major > 0){
+      themeTxt = `這次有 ${cnt.major} 張大牌 + ${minorN} 張小牌 —— 大牌指出這件事的本質（它對你的意義），`
+        + `小牌補上細節；小牌這邊以 ${SUIT_THEME[topMinor]}`;
+    }else if(cnt.major > 0){
+      themeTxt = `這次以小牌為主（${minorN} 張），講的是日常的具體情況和心情；另外那 ${cnt.major} 張大牌，`
+        + `是在提醒你這件事背後還有比較大的意義。小牌這邊以 ${SUIT_THEME[topMinor]}`;
+    }else{
+      themeTxt = '這次全部都是小牌 —— 講的是眼前的具體事件、心情和可以馬上做的事。以 ' + SUIT_THEME[topMinor];
+    }
+    let dirTxt;
+    if(revN===0)        dirTxt = '全部都是正位，代表現在方向蠻順的，可以放心往前。';
+    else if(revN===n)   dirTxt = '全部都是逆位，代表現在卡卡的，先別急，慢下來反而會更快。';
+    else                dirTxt = `有 ${revN} 張逆位，代表有些地方順、有些地方要調整一下，這很正常。`;
+    return { themeTxt, dirTxt, cnt, revN };
+  }
+
+  function showResult(){
+    $('simPick').style.display='none';
+    $('simResult').style.display='';
+    const qtext = $('question').value.trim();
+    const s = summarize(picks);
+    $('resultStep').textContent = spread.t + ' · 你抽到的牌';
+    let yn = '';
+    if(spread.key==='yesno'){
+      yn = picks[0].rev
+        ? '<p><b>🌙 目前的感覺是：先等一下。</b>不是不行，是現在還缺一點東西，準備好再做會更順。</p>'
+        : '<p><b>🌞 目前的感覺是：可以，去試試看。</b>條件看起來還不錯，勇敢一點。</p>';
+    }
+    $('summary').innerHTML =
+      '<h3>🔎 這次的小結</h3>' +
+      (qtext ? `<p>你問的是：「${esc(qtext)}」</p>` : '') +
+      yn +
+      `<p>${s.themeTxt}</p><p>${s.dirTxt}</p>` +
+      '<p style="color:var(--dim);font-size:13px">記得：牌只是幫你把心裡的話講出來，真正做決定的人是你。</p>';
+
+    $('reading').innerHTML = picks.map((p,i)=>{
+      const c = p.card;
+      return `<div class="rcard" style="animation-delay:${i*0.12}s">
+        <span class="tagline" style="background:${SUITS[c.suit].color}"></span>
+        <div class="pos">${spread.pos[i] || ('第 '+(i+1)+' 張')}</div>
+        <div class="head">
+          <div class="ico" style="${p.rev?'transform:rotate(180deg)':''}">${c.emoji}</div>
+          <div>
+            <div class="nm">${c.name}</div>
+            <div class="en">${c.en}</div>
+            <span class="dir ${p.rev?'r':'u'}">${p.rev?'🌙 逆位':'🌞 正位'}</span>
+          </div>
+        </div>
+        <div class="body">${esc(p.rev ? c.rev : c.up)}</div>
+        <div class="tip">💛 ${esc(c.tip)}</div>
+        <button class="more" data-id="${c.id}">看這張牌的完整說明 →</button>
+      </div>`;
+    }).join('');
+    $('reading').querySelectorAll('.more').forEach(b=>{
+      b.onclick = ()=>{ const c = CARDS.find(x=>x.id===b.dataset.id); view=[c]; open(c); };
+    });
+    $('simResult').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
+  function resultText(){
+    const q = $('question').value.trim();
+    const s = summarize(picks);
+    let t = '【Tarot for Kids 抽牌結果】\n牌陣：' + spread.t + '\n';
+    if(q) t += '問題：' + q + '\n';
+    t += '\n';
+    picks.forEach((p,i)=>{
+      t += (spread.pos[i]||('第'+(i+1)+'張')) + '：' + p.card.name + '（' + p.card.en + '）'
+         + (p.rev?' 逆位':' 正位') + '\n'
+         + '　' + (p.rev ? p.card.rev : p.card.up) + '\n'
+         + '　💛 ' + p.card.tip + '\n\n';
+    });
+    t += '小結：' + s.themeTxt + ' ' + s.dirTxt + '\n';
+    return t;
+  }
+
+  $('shuffleBtn').onclick = startShuffle;
+  $('again').onclick = ()=>{ $('simResult').style.display='none'; $('simSetup').style.display=''; startShuffle(); };
+  $('cancelPick').onclick = ()=>{ picking=false; $('simPick').style.display='none'; $('simSetup').style.display=''; };
+  $('copy').onclick = ()=>{
+    const t = resultText();
+    const done = ()=>{ $('copy').textContent = '✅ 已複製'; setTimeout(()=>$('copy').textContent='📋 複製這次的結果', 1800); };
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done, fallback); }
+    else fallback();
+    function fallback(){
+      const ta = document.createElement('textarea');
+      ta.value = t; document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); done(); }catch(e){ alert(t); }
+      ta.remove();
+    }
+  };
+
+  /* ================= 啟動 ================= */
+  qEl.addEventListener('input', render);
+  $('clr').onclick = ()=>{ qEl.value=''; render(); qEl.focus(); };
+  paintSuits();
+  // 網址參數：?q=勇氣 直接查詢；#sim 直接開模擬器（方便加書籤 / 分享）
+  const urlQ = new URLSearchParams(location.search).get('q');
+  if(urlQ) qEl.value = urlQ;
+  render();
+  if(location.hash === '#sim') showPage('sim');
+  if(location.hash === '#guide') showPage('guide');
+
+  // 給自動測試用的鉤子
+  window.__tk = { showPage, startShuffle, pick, showResult, summarize, resultText,
+                  get picks(){return picks}, get spread(){return spread},
+                  setSpread(k){ spread = SPREADS.find(s=>s.key===k); }, SPREADS, tokens, score };
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>
