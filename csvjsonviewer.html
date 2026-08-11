@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>資料檢視器 · CSV / JSON</title>
+<meta name="description" content="純前端的 CSV / JSON 檢視器：多分頁開多個檔、欄位裡的 JSON 也讀得懂，可搜尋、篩選、排序、展開、匯出。資料完全不上傳。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📑</text></svg>">
+<style>
+:root{
+  --bg:#0e1420; --panel:#151d2e; --panel2:#1b2437; --line:#28344c;
+  --fg:#e6edf7; --muted:#8ea4c4; --acc:#4da3ff; --acc2:#39d3a0;
+  --warn:#ffb454; --danger:#ff6b81; --json:#c792ea;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:"Noto Sans TC","Microsoft JhengHei",-apple-system,"Segoe UI",sans-serif;
+  font-size:14px; display:flex; flex-direction:column; overflow:hidden;
+}
+button,input,select,textarea{font-family:inherit; font-size:inherit; color:inherit}
+button{cursor:pointer}
+.btn{
+  background:var(--panel2); border:1px solid var(--line); color:var(--fg);
+  border-radius:8px; padding:6px 12px; transition:.15s;
+}
+.btn:hover{background:#243050; border-color:var(--acc)}
+.btn.primary{background:var(--acc); border-color:var(--acc); color:#04121f; font-weight:700}
+.btn.primary:hover{background:#6cb6ff}
+.btn.ghost{background:transparent}
+.btn.sm{padding:3px 8px; font-size:12px; border-radius:6px}
+input[type=text],input[type=search],select,textarea{
+  background:#0b111c; border:1px solid var(--line); border-radius:8px; padding:6px 10px; outline:none;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--acc)}
+
+/* ---------- header ---------- */
+header{
+  padding:10px 14px; border-bottom:1px solid var(--line); background:var(--panel);
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap; flex:0 0 auto;
+}
+h1{font-size:16px; margin:0; letter-spacing:.5px; white-space:nowrap}
+h1 span{color:var(--muted); font-weight:400; font-size:12px; margin-left:6px}
+/* ---------- 檔案分頁列（瀏覽器式） ---------- */
+#tabbar{
+  display:flex; align-items:flex-end; gap:2px; background:#0a0f19; border-bottom:1px solid var(--line);
+  padding:5px 8px 0; overflow-x:auto; overflow-y:hidden; flex:0 0 auto; scrollbar-width:thin;
+}
+#tabbar::-webkit-scrollbar{height:6px}
+#tabbar::-webkit-scrollbar-thumb{background:#2a3854; border-radius:3px}
+.ftab{
+  display:flex; align-items:center; gap:6px; background:var(--panel2); border:1px solid var(--line);
+  border-bottom:none; border-radius:9px 9px 0 0; padding:6px 8px 6px 11px; font-size:12.5px;
+  max-width:270px; min-width:120px; flex:0 0 auto; cursor:pointer; position:relative; top:1px;
+  color:var(--muted); transition:background .12s;
+}
+.ftab:hover{background:#232f47}
+.ftab.active{background:var(--panel); border-color:var(--acc); color:var(--fg); top:0; padding-bottom:7px}
+.ftab.active::after{content:''; position:absolute; left:0; right:0; bottom:-1px; height:2px; background:var(--panel)}
+.ftab .nm{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1}
+.ftab .n{font-size:10.5px; color:#6d80a0; font-variant-numeric:tabular-nums}
+.ftab .x{
+  border:none; background:none; color:#5f7291; padding:0; width:17px; height:17px;
+  border-radius:5px; font-size:13px; line-height:1; flex:0 0 auto;
+}
+.ftab .x:hover{background:#4a2030; color:var(--danger)}
+.ftab.dragover{border-color:var(--acc2)}
+.tabadd{
+  background:transparent; border:1px dashed var(--line); color:var(--muted); border-radius:9px 9px 0 0;
+  padding:6px 12px; font-size:13px; flex:0 0 auto; margin-left:2px;
+}
+.tabadd:hover{border-color:var(--acc); color:var(--acc)}
+.tabtools{margin-left:auto; display:flex; gap:4px; align-items:center; padding-bottom:5px; position:sticky; right:0; background:#0a0f19}
+.badge{font-size:10px; padding:1px 6px; border-radius:10px; background:#24334d; color:var(--muted)}
+.badge.csv{background:#1d3d2e; color:#7ee0b0}
+.badge.json{background:#33244a; color:#d0a8ff}
+.badge.ndjson{background:#3a2f1c; color:#ffcb7a}
+
+/* ---------- toolbar ---------- */
+.toolbar{
+  padding:8px 14px; border-bottom:1px solid var(--line); background:var(--panel);
+  display:flex; gap:8px; align-items:center; flex-wrap:wrap; flex:0 0 auto;
+}
+.tabs{display:flex; gap:4px; background:#0b111c; padding:3px; border-radius:10px}
+.tab{padding:5px 14px; border-radius:8px; border:none; background:transparent; color:var(--muted); font-size:13px}
+.tab.active{background:var(--acc); color:#04121f; font-weight:700}
+.sep{width:1px; height:22px; background:var(--line)}
+.spacer{flex:1}
+.hint{color:var(--muted); font-size:12px}
+
+/* ---------- main ---------- */
+main{flex:1 1 auto; min-height:0; position:relative; display:flex}
+.pane{flex:1; min-width:0; overflow:auto; display:none}
+.pane.active{display:block}
+
+/* drop zone */
+#drop{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  flex-direction:column; gap:16px; z-index:5; background:var(--bg); text-align:center; padding:24px;
+}
+#drop.hide{display:none}
+#drop.over{background:#12233a; outline:3px dashed var(--acc); outline-offset:-16px}
+.dz-icon{font-size:56px}
+.dz-title{font-size:20px; font-weight:700}
+.dz-sub{color:var(--muted); max-width:640px; line-height:1.8}
+.dz-sub code{background:var(--panel2); padding:1px 6px; border-radius:5px; color:var(--acc2)}
+.dz-actions{display:flex; gap:10px; flex-wrap:wrap; justify-content:center}
+
+/* ---------- table ---------- */
+.tablewrap{overflow:auto; height:100%}
+table.grid{border-collapse:separate; border-spacing:0; font-size:13px; min-width:100%}
+table.grid th,table.grid td{
+  border-bottom:1px solid var(--line); border-right:1px solid var(--line);
+  padding:5px 9px; text-align:left; vertical-align:top; white-space:nowrap;
+  max-width:420px; overflow:hidden; text-overflow:ellipsis;
+}
+table.grid thead th{
+  position:sticky; top:0; z-index:2; background:var(--panel2); cursor:pointer; user-select:none;
+  border-bottom:2px solid var(--line);
+}
+table.grid thead tr.filters th{top:31px; z-index:1; padding:3px 4px; background:#101827; cursor:auto}
+table.grid thead tr.filters input{width:100%; min-width:80px; padding:3px 6px; font-size:12px; border-radius:5px}
+table.grid tbody tr:nth-child(even){background:#121a29}
+table.grid tbody tr:hover{background:#1b2740}
+table.grid tbody tr.sel{background:#1c3350}
+th .th-in{display:flex; align-items:center; gap:6px}
+th .ty{font-size:9px; color:var(--muted); font-weight:400; border:1px solid var(--line); border-radius:4px; padding:0 4px}
+th .arrow{color:var(--acc)}
+td.rowno{color:var(--muted); text-align:right; background:#0d1420; position:sticky; left:0; z-index:1; font-variant-numeric:tabular-nums}
+thead th.rowno{left:0; z-index:3; text-align:right}
+.num{color:#9fd6ff; font-variant-numeric:tabular-nums}
+.bool{color:var(--warn)}
+.nul{color:#5a6b86; font-style:italic}
+.str{color:var(--fg)}
+.jchip{
+  display:inline-flex; align-items:center; gap:4px; background:#2b1f45; border:1px solid #47376b;
+  color:var(--json); border-radius:6px; padding:0 7px; font-size:11.5px; cursor:pointer; max-width:100%;
+}
+.jchip:hover{background:#3a2a5c; border-color:var(--json)}
+.jchip .pv{color:#8f7fb0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:200px}
+.hl{background:#5a4b16; color:#ffe9a3; border-radius:3px}
+
+.pager{
+  display:flex; gap:8px; align-items:center; padding:8px 14px; border-top:1px solid var(--line);
+  background:var(--panel); flex-wrap:wrap; flex:0 0 auto;
+}
+.empty{padding:40px; text-align:center; color:var(--muted)}
+
+/* ---------- tree ---------- */
+.tree{padding:12px 16px; font-family:"Cascadia Mono",Consolas,"Courier New",monospace; font-size:12.5px; line-height:1.65}
+.tnode{margin-left:14px}
+.trow{display:flex; align-items:flex-start; gap:5px; border-radius:4px; padding:0 4px}
+.trow:hover{background:#1a2438}
+.tcar{width:13px; color:var(--muted); cursor:pointer; user-select:none; flex:0 0 13px}
+.tkey{color:var(--acc)}
+.tkey.idx{color:#7d8ba5}
+.tmeta{color:#5a6b86}
+.tval{white-space:pre-wrap; word-break:break-all}
+.tacts{margin-left:auto; display:flex; gap:12px; opacity:0; padding-left:14px}
+.trow:hover .tacts{opacity:1}
+.tpath{color:#40506b; font-size:10.5px; cursor:pointer; white-space:nowrap}
+.tpath:hover{color:var(--acc)}
+.topen{color:#4a6a8a; font-size:10.5px; cursor:pointer; white-space:nowrap}
+.topen:hover{color:var(--acc2)}
+
+/* ---------- summary ---------- */
+.sum{padding:14px 16px; display:grid; gap:12px; grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px 14px}
+.card h3{margin:0 0 8px; font-size:13.5px; display:flex; align-items:center; gap:8px; word-break:break-all}
+.card .kv{display:flex; justify-content:space-between; font-size:12px; padding:2px 0; color:var(--muted)}
+.card .kv b{color:var(--fg); font-weight:600; font-variant-numeric:tabular-nums}
+.bar{height:5px; background:#0b111c; border-radius:3px; overflow:hidden; margin:6px 0 2px}
+.bar i{display:block; height:100%; background:var(--acc2)}
+.top{margin-top:8px; border-top:1px dashed var(--line); padding-top:6px}
+.top div{display:flex; justify-content:space-between; font-size:11.5px; color:var(--muted); gap:8px}
+.top div span:first-child{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--fg)}
+
+/* ---------- export / paste ---------- */
+.pad{padding:16px; max-width:900px}
+.pad h2{font-size:15px; margin:0 0 10px}
+.grid2{display:grid; gap:10px; grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+.opt{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px}
+.opt b{display:block; margin-bottom:4px}
+.opt p{margin:0 0 10px; color:var(--muted); font-size:12px; line-height:1.6}
+textarea.paste{width:100%; height:260px; font-family:Consolas,monospace; font-size:12.5px; resize:vertical}
+
+/* ---------- drawer ---------- */
+#drawer{
+  position:fixed; top:0; right:0; bottom:0; width:min(520px,92vw); background:var(--panel);
+  border-left:1px solid var(--line); z-index:20; transform:translateX(100%); transition:.2s;
+  display:flex; flex-direction:column; box-shadow:-8px 0 30px rgba(0,0,0,.45);
+}
+#drawer.open{transform:none}
+#drawer .dh{padding:10px 14px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px}
+#drawer .dh b{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+#drawer .db{flex:1; overflow:auto}
+
+/* ---------- columns popup ---------- */
+.pop{
+  position:fixed; z-index:30; background:var(--panel); border:1px solid var(--line); border-radius:10px;
+  box-shadow:0 12px 40px rgba(0,0,0,.5); padding:8px; max-height:60vh; overflow:auto; min-width:250px; display:none;
+}
+.pop.open{display:block}
+.pop label{display:flex; align-items:center; gap:8px; padding:4px 6px; border-radius:6px; font-size:12.5px; cursor:pointer}
+.pop label:hover{background:var(--panel2)}
+.pop .head{display:flex; gap:6px; padding:2px 4px 8px; border-bottom:1px solid var(--line); margin-bottom:6px}
+
+#toast{
+  position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:#0b111c;
+  border:1px solid var(--acc); color:var(--fg); padding:9px 18px; border-radius:22px; z-index:50;
+  opacity:0; transition:.2s; pointer-events:none; font-size:13px; max-width:80vw; text-align:center;
+}
+#toast.show{opacity:1; transform:translate(-50%,0)}
+#busy{
+  position:fixed; inset:0; background:rgba(8,12,20,.78); z-index:60; display:none;
+  align-items:center; justify-content:center; flex-direction:column; gap:14px;
+}
+#busy.show{display:flex}
+.spin{width:38px; height:38px; border:3px solid var(--line); border-top-color:var(--acc); border-radius:50%; animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.notes{padding:6px 14px; background:#2a2110; border-bottom:1px solid #4a3a17; color:#ffd79a; font-size:12px; display:none}
+.notes.show{display:block}
+@media(max-width:640px){
+  h1 span{display:none}
+  .toolbar{gap:6px}
+  table.grid th,table.grid td{max-width:200px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📑 資料檢視器<span>CSV / JSON · 欄位內含 JSON 也讀得懂</span></h1>
+  <div class="spacer"></div>
+  <span class="hint" id="tabHint"></span>
+  <button class="btn sm" id="btnAdd">＋ 開檔</button>
+  <input type="file" id="fileInput" multiple accept=".csv,.tsv,.txt,.json,.ndjson,.jsonl,.log" style="display:none">
+</header>
+
+<div id="tabbar" style="display:none"></div>
+
+<div class="notes" id="notes"></div>
+
+<div class="toolbar" id="toolbar" style="display:none">
+  <div class="tabs">
+    <button class="tab active" data-pane="table">📋 表格</button>
+    <button class="tab" data-pane="tree">🌲 樹狀</button>
+    <button class="tab" data-pane="summary">📊 欄位摘要</button>
+    <button class="tab" data-pane="export">📤 匯出</button>
+  </div>
+  <div class="sep"></div>
+  <input type="search" id="search" placeholder="🔍 全文搜尋（含 JSON 內容）" style="width:230px">
+  <button class="btn sm" id="btnCols">▦ 欄位</button>
+  <button class="btn sm" id="btnFlat" title="把 JSON 欄位展開成一般欄位">⤢ 展開 JSON 欄</button>
+  <button class="btn sm ghost" id="btnReset">↺ 清除條件</button>
+  <div class="spacer"></div>
+  <span class="hint" id="stat"></span>
+</div>
+
+<main>
+  <div id="drop">
+    <div class="dz-icon">📂</div>
+    <div class="dz-title">把 CSV 或 JSON 檔拖進來</div>
+    <div class="dz-sub">
+      支援 <code>.csv</code> <code>.tsv</code> <code>.json</code> <code>.ndjson</code> <code>.jsonl</code> <code>.txt</code><br>
+      <b>可一次拖多個檔 — 每個檔案一個分頁</b>，搜尋／排序／篩選各自獨立（<code>Ctrl+Tab</code> 切換、<code>Ctrl+1~9</code> 直達）<br>
+      CSV 的分隔符號（<code>,</code> <code>;</code> Tab <code>|</code>）與編碼（UTF-8 / Big5）都會自動判斷；<br>
+      欄位值若是 <b style="color:var(--json)">JSON 字串</b> 會自動辨識，可點開看樹狀、也能一鍵展開成欄位。<br>
+      <b>大檔 OK</b>：超過 8MB 會邊讀邊解析（實測 200MB／百萬列可用），先載前 50 萬列，要全部再按一下。
+    </div>
+    <div class="dz-actions">
+      <button class="btn primary" id="btnPick">選擇檔案…</button>
+      <button class="btn" id="btnPasteMode">📋 貼上文字</button>
+      <button class="btn ghost" id="btnDemo">🧪 載入示範資料</button>
+    </div>
+    <div class="dz-actions" style="margin-top:-4px">
+      <input type="text" id="urlBox" placeholder="或貼上檔案網址（https://…/data.csv）" style="width:min(420px,80vw)">
+      <button class="btn" id="btnUrl">🔗 載入</button>
+    </div>
+    <div class="hint" style="max-width:620px; line-height:1.7">
+      🔒 檔案完全在你的瀏覽器裡處理，不會上傳到任何伺服器。<br>
+      <span id="fileHint"></span>
+    </div>
+  </div>
+
+  <div class="pane" id="pane-table" style="display:none">
+    <div class="tablewrap" id="tablewrap"></div>
+  </div>
+  <div class="pane" id="pane-tree"><div class="tree" id="tree"></div></div>
+  <div class="pane" id="pane-summary"><div class="sum" id="sum"></div></div>
+  <div class="pane" id="pane-export">
+    <div class="pad">
+      <h2>📤 匯出目前檢視</h2>
+      <p class="hint" style="margin-top:-4px">會套用目前的搜尋、欄位篩選、排序、欄位顯示與 JSON 展開設定。</p>
+      <div class="grid2">
+        <div class="opt"><b>CSV（逗號）</b><p>Excel 可直接開，含 UTF-8 BOM。</p><button class="btn primary" data-ex="csv">下載 .csv</button></div>
+        <div class="opt"><b>TSV（Tab）</b><p>貼進 Excel / Google 試算表最不會跑掉。</p><button class="btn" data-ex="tsv">下載 .tsv</button></div>
+        <div class="opt"><b>JSON 陣列</b><p>每列一個物件，巢狀 JSON 會還原成真正的物件。</p><button class="btn" data-ex="json">下載 .json</button></div>
+        <div class="opt"><b>NDJSON</b><p>每行一個 JSON，適合逐行處理 / 匯入 log 系統。</p><button class="btn" data-ex="ndjson">下載 .ndjson</button></div>
+        <div class="opt"><b>複製到剪貼簿</b><p>直接貼到別的地方用。</p>
+          <button class="btn sm" data-cp="tsv">複製 TSV</button> <button class="btn sm" data-cp="json">複製 JSON</button></div>
+        <div class="opt"><b>原始內容</b><p>下載這個檔案原本的文字內容。</p><button class="btn" data-ex="raw">下載原檔</button></div>
+      </div>
+      <h2 style="margin-top:22px">📋 貼上文字轉表格</h2>
+      <p class="hint" style="margin-top:-4px">從 Excel、log、API 回應複製過來直接貼，會自動判斷是 CSV 還是 JSON。</p>
+      <textarea class="paste" id="pasteBox" placeholder='貼上 CSV 或 JSON…&#10;例如：{"orders":[{"id":1,"tags":["vip"]}]}'></textarea>
+      <div style="margin-top:8px; display:flex; gap:8px">
+        <button class="btn primary" id="btnParsePaste">解析並開啟</button>
+        <button class="btn ghost" id="btnClearPaste">清空</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="pager" id="pager" style="display:none">
+  <button class="btn sm" id="pFirst">⏮</button>
+  <button class="btn sm" id="pPrev">◀ 上一頁</button>
+  <span class="hint" id="pInfo"></span>
+  <button class="btn sm" id="pNext">下一頁 ▶</button>
+  <button class="btn sm" id="pLast">⏭</button>
+  <div class="sep"></div>
+  <span class="hint">每頁</span>
+  <select id="pSize"><option>50</option><option selected>100</option><option>500</option><option>2000</option></select>
+  <div class="spacer"></div>
+  <span class="hint" id="pMeta"></span>
+</div>
+
+<div id="drawer">
+  <div class="dh"><b id="drawerTitle">詳細內容</b>
+    <button class="btn sm" id="drawerCopy">複製 JSON</button>
+    <button class="btn sm ghost" id="drawerClose">✕</button></div>
+  <div class="db"><div class="tree" id="drawerBody"></div></div>
+</div>
+
+<div class="pop" id="colPop"></div>
+<div id="toast"></div>
+<div id="busy"><div class="spin"></div><div id="busyMsg" class="hint">解析中…</div></div>
+
+<script>
+// 執行期錯誤留痕（測試與使用者回報都靠它）
+window.__pageError = null;
+window.addEventListener('error', e => {
+  window.__pageError = (e.message || 'error') + ' @ ' + (e.filename || '') + ':' + (e.lineno || 0);
+});
+window.addEventListener('unhandledrejection', e => {
+  window.__pageError = 'unhandled promise: ' + (e.reason && e.reason.message || e.reason);
+});
+
+/* =====================================================================
+   資料檢視器 — 純前端、零相依
+   純函式集中在 DV 物件（掛 window.__DV），方便用 Node / 無頭瀏覽器測試
+   ===================================================================== */
+const DV = (function(){
+
+/* ---------- CSV 分隔符自動偵測 ---------- */
+const CANDIDATES = [',', '\t', ';', '|'];
+
+// 引號感知的「每行分隔符數量」統計
+function countPerLine(text, delim, maxLines){
+  const counts = []; let cur = 0, inQ = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i];
+    if (inQ){
+      if (c === '"'){ if (text[i+1] === '"'){ i++; continue; } inQ = false; }
+      continue;
+    }
+    if (c === '"'){ inQ = true; continue; }
+    if (c === delim){ cur++; continue; }
+    if (c === '\n'){ counts.push(cur); cur = 0; if (counts.length >= maxLines) return counts; }
+  }
+  counts.push(cur);
+  return counts;
+}
+
+function detectDelimiter(text){
+  const sample = text.slice(0, 200000);
+  let best = ',', bestScore = -1;
+  for (const d of CANDIDATES){
+    const counts = countPerLine(sample, d, 50).filter((c, i, a) => i < a.length - 1 || c > 0);
+    if (!counts.length) continue;
+    // 找出現最多次的欄數
+    const freq = {};
+    for (const c of counts) freq[c] = (freq[c] || 0) + 1;
+    let mode = 0, modeN = 0;
+    for (const k in freq){ if (freq[k] > modeN || (freq[k] === modeN && +k > mode)){ mode = +k; modeN = freq[k]; } }
+    if (mode === 0) continue;
+    const consistency = modeN / counts.length;              // 一致性 0~1
+    const score = consistency * 10 + Math.min(mode, 20) * 0.6;
+    if (score > bestScore){ bestScore = score; best = d; }
+  }
+  return best;
+}
+
+/* ---------- CSV 解析（RFC4180 + 寬鬆處理） ----------
+   做成「可分批餵資料」的解析器：大檔可以一塊一塊丟進來，
+   狀態（是否在引號內、跨塊斷開的欄位）都留在 closure 裡。      */
+function createCSVParser(delim, onRow){
+  let field = '', row = [], inQ = false, started = false, quotePending = false;
+  function push(text){
+    const n = text.length;
+    for (let i = 0; i < n; i++){
+      const c = text[i];
+      // 上一塊結尾停在引號內的 " —— 這一塊的第一個字才知道是跳脫還是結束
+      if (quotePending){
+        quotePending = false;
+        if (c === '"'){ field += '"'; continue; }
+        inQ = false;
+        // 落下來照 inQ=false 繼續處理這個字元
+      }
+      if (inQ){
+        if (c === '"'){
+          if (i + 1 < n){
+            if (text[i+1] === '"'){ field += '"'; i++; continue; }
+            inQ = false; continue;
+          }
+          quotePending = true; continue;   // 這塊結束了，等下一塊
+        }
+        field += c; continue;
+      }
+      if (c === '"' && field.trim() === ''){ field = ''; inQ = true; started = true; continue; }
+      if (c === delim){ row.push(field); field = ''; started = true; continue; }
+      if (c === '\r'){ continue; }
+      if (c === '\n'){
+        if (!started && field === '' && row.length === 0) continue;   // 完全空白的一行：略過
+        row.push(field); onRow(row); row = []; field = ''; started = false; continue;
+      }
+      field += c; started = true;
+    }
+  }
+  function end(){
+    if (quotePending){ quotePending = false; inQ = false; }
+    if (started || field !== '' || row.length){
+      row.push(field);
+      // 尾端純空行不算一列
+      if (!(row.length === 1 && row[0] === '')) onRow(row);
+      row = []; field = ''; started = false;
+    }
+  }
+  return { push, end };
+}
+
+function parseCSVRows(text, delim){
+  const rows = [];
+  const p = createCSVParser(delim, r => rows.push(r));
+  p.push(text); p.end();
+  while (rows.length && rows[rows.length-1].length === 1 && rows[rows.length-1][0] === '') rows.pop();
+  return rows;
+}
+
+// 表頭正規化：補空白名、處理重複
+function normalizeHeaders(raw){
+  const seen = {}, out = [];
+  raw.forEach((h, i) => {
+    let name = String(h == null ? '' : h).trim().replace(/^﻿/, '');
+    if (!name) name = '欄位' + (i + 1);
+    if (seen[name]){ const n = ++seen[name]; name = name + '_' + n; }
+    else seen[name] = 1;
+    out.push(name);
+  });
+  return out;
+}
+
+/* ---------- JSON 偵測 / 寬鬆修復 ---------- */
+function looksJSON(s){
+  if (typeof s !== 'string') return false;
+  const t = s.trim();
+  if (t.length < 2) return false;
+  return (t[0] === '{' && t[t.length-1] === '}') || (t[0] === '[' && t[t.length-1] === ']');
+}
+
+// Python dict repr → JSON（'單引號'、None/True/False）
+function pythonish(s){
+  return s
+    .replace(/\bNone\b/g, 'null').replace(/\bTrue\b/g, 'true').replace(/\bFalse\b/g, 'false')
+    .replace(/'((?:[^'\\]|\\.)*)'/g, (m, inner) => '"' + inner.replace(/\\'/g, "'").replace(/"/g, '\\"') + '"');
+}
+
+// 回傳 {ok, value, how}；how: direct / unwrap / doubled / pythonish
+function tryJSON(s, loose){
+  if (typeof s !== 'string') return { ok:false };
+  const t = s.trim();
+  if (!t) return { ok:false };
+  if (looksJSON(t)){
+    try { return { ok:true, value: JSON.parse(t), how:'direct' }; } catch(e){}
+    if (loose !== false){
+      // CSV 內雙引號被寫成 "" 但外層引號已被解掉
+      if (t.indexOf('""') >= 0){ try { return { ok:true, value: JSON.parse(t.replace(/""/g,'"')), how:'doubled' }; } catch(e){} }
+      // 內層用 \" 跳脫
+      if (t.indexOf('\\"') >= 0){ try { return { ok:true, value: JSON.parse(t.replace(/\\"/g,'"')), how:'escaped' }; } catch(e){} }
+      if (t.indexOf("'") >= 0){ try { return { ok:true, value: JSON.parse(pythonish(t)), how:'pythonish' }; } catch(e){} }
+    }
+    return { ok:false };
+  }
+  // 整段被引號包住的 JSON 字串："{\"a\":1}"
+  if (t[0] === '"' && t[t.length-1] === '"' && t.length > 3){
+    try {
+      const inner = JSON.parse(t);
+      if (looksJSON(inner)){ try { return { ok:true, value: JSON.parse(inner), how:'unwrap' }; } catch(e){} }
+    } catch(e){}
+  }
+  return { ok:false };
+}
+
+/* ---------- 型別 ---------- */
+const NUM_RE = /^[+-]?(\d{1,3}(,\d{3})+|\d+)(\.\d+)?([eE][+-]?\d+)?$/;
+const MAYBE_JSON = /^\s*[{["]/;      // 便宜的預篩：大檔時每格都跑 tryJSON 太慢
+function coerce(s){
+  if (typeof s !== 'string') return s;
+  const t = s.trim();
+  if (t === '') return '';
+  const c0 = t.charCodeAt(0);
+  // 快速路徑：不是數字開頭就只可能是 null/true/false，其餘直接當字串
+  if (!((c0 >= 48 && c0 <= 57) || c0 === 43 || c0 === 45)){
+    if (t === 'null' || t === 'NULL' || t === 'None') return null;
+    if (t === 'true' || t === 'TRUE' || t === 'True') return true;
+    if (t === 'false' || t === 'FALSE' || t === 'False') return false;
+    return s;
+  }
+  if (NUM_RE.test(t)){
+    const n = Number(t.replace(/,/g, ''));
+    // 保留前導 0 的識別碼（如 007、電話 0912...）與超長數字，不轉數字
+    if (Number.isFinite(n) && !(/^0\d/.test(t)) && t.replace(/[^0-9]/g,'').length <= 15) return n;
+  }
+  return s;
+}
+function typeOf(v){
+  if (v === null || v === undefined || v === '') return 'empty';
+  if (typeof v === 'number') return 'number';
+  if (typeof v === 'boolean') return 'bool';
+  if (typeof v === 'object') return 'json';
+  if (looksJSON(v) && tryJSON(v).ok) return 'json';
+  return 'string';
+}
+
+/* ---------- 攤平 ---------- */
+function flattenInto(val, prefix, out, depth){
+  depth = depth == null ? 4 : depth;
+  if (val === null || typeof val !== 'object' || depth <= 0){ out[prefix] = val; return out; }
+  if (Array.isArray(val)){
+    if (!val.length){ out[prefix] = '[]'; return out; }
+    // 純量陣列 → 用逗號串起來（比 a.0 a.1 好讀）
+    if (val.every(v => v === null || typeof v !== 'object')){ out[prefix] = val.join(', '); return out; }
+    val.forEach((v, i) => flattenInto(v, prefix + '[' + i + ']', out, depth - 1));
+    return out;
+  }
+  const keys = Object.keys(val);
+  if (!keys.length){ out[prefix] = '{}'; return out; }
+  for (const k of keys) flattenInto(val[k], prefix ? prefix + '.' + k : k, out, depth - 1);
+  return out;
+}
+function flattenObject(obj, depth){ return flattenInto(obj, '', {}, depth); }
+
+/* ---------- JSON 檔 → 記錄集 ---------- */
+function parseJSONText(text){
+  const t = text.replace(/^﻿/, '').trim();
+  if (!t) throw new Error('內容是空的');
+  try { return { kind:'json', value: JSON.parse(t) }; } catch(e){ /* 試 NDJSON */ }
+  const lines = t.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  if (lines.length > 1){
+    const vals = [];
+    for (const ln of lines){
+      const cleaned = ln.replace(/,$/, '');
+      try { vals.push(JSON.parse(cleaned)); } catch(e){ throw new Error('不是合法的 JSON，第 ' + (vals.length+1) + ' 行解析失敗'); }
+    }
+    return { kind:'ndjson', value: vals };
+  }
+  throw new Error('不是合法的 JSON');
+}
+
+// 找出所有陣列節點（給「用哪個節點當表格」用）
+function findArrayPaths(root, max){
+  const out = []; max = max || 200;
+  (function walk(v, path, depth){
+    if (out.length >= max || depth > 6 || v === null || typeof v !== 'object') return;
+    if (Array.isArray(v)){
+      const objN = v.filter(x => x && typeof x === 'object' && !Array.isArray(x)).length;
+      out.push({ path: path || '(根)', len: v.length, objN, score: objN * 1000 + v.length });
+      for (let i = 0; i < Math.min(v.length, 3); i++) walk(v[i], path + '[' + i + ']', depth + 1);
+      return;
+    }
+    for (const k of Object.keys(v)) walk(v[k], path ? path + '.' + k : k, depth + 1);
+  })(root, '', 0);
+  return out.sort((a, b) => b.score - a.score);
+}
+
+function getByPath(root, path){
+  if (!path || path === '(根)') return root;
+  let cur = root;
+  const re = /([^.[\]]+)|\[(\d+)\]/g; let m;
+  while ((m = re.exec(path))){
+    if (cur == null) return undefined;
+    cur = m[2] !== undefined ? cur[+m[2]] : cur[m[1]];
+  }
+  return cur;
+}
+
+// 任意 JSON 值 → {columns, records}
+function recordsFrom(value){
+  let arr;
+  if (Array.isArray(value)) arr = value;
+  else if (value && typeof value === 'object') arr = [value];
+  else arr = [{ value }];
+  const records = arr.map(v => {
+    if (v === null || typeof v !== 'object') return { value: v };
+    if (Array.isArray(v)){ const o = {}; v.forEach((x, i) => o['[' + i + ']'] = x); return o; }
+    return v;
+  });
+  const cols = [], seen = {};
+  for (const r of records) for (const k of Object.keys(r)) if (!seen[k]){ seen[k] = 1; cols.push(k); }
+  return { columns: cols.length ? cols : ['value'], records };
+}
+
+/* ---------- 建立資料集 ---------- */
+// 一列字串陣列 → 一筆記錄（CSV 兩條路徑共用：一次載入 / 串流載入）
+function makeRowMapper(headers){
+  const n = headers.length;
+  return function(r){
+    const o = {};
+    for (let c = 0; c < n; c++){
+      const raw = c < r.length ? r[c] : '';
+      if (raw.length > 1 && MAYBE_JSON.test(raw)){
+        const j = tryJSON(raw);
+        o[headers[c]] = j.ok ? j.value : coerce(raw);
+      } else o[headers[c]] = coerce(raw);
+    }
+    // 欄數比表頭多 → 收進額外欄位，不丟資料
+    for (let c = n; c < r.length; c++) o['額外_' + (c - n + 1)] = coerce(r[c]);
+    return o;
+  };
+}
+function columnsOf(headers, records){
+  const cols = [], seen = {};
+  headers.forEach(h => { if (!seen[h]){ seen[h] = 1; cols.push(h); } });
+  for (const r of records) for (const k of Object.keys(r)) if (!seen[k]){ seen[k] = 1; cols.push(k); }
+  return cols;
+}
+
+function buildFromCSV(text, name, opts){
+  opts = opts || {};
+  const clean = text.replace(/^﻿/, '');
+  const delim = opts.delimiter || detectDelimiter(clean);
+  const rows = parseCSVRows(clean, delim);
+  if (!rows.length) throw new Error('CSV 沒有任何內容');
+  const headers = normalizeHeaders(rows[0]);
+  const toRec = makeRowMapper(headers);
+  const records = [];
+  for (let i = 1; i < rows.length; i++){
+    const r = rows[i];
+    if (r.length === 1 && r[0].trim() === '') continue;      // 空行
+    records.push(toRec(r));
+  }
+  const notes = ['分隔符號：' + (delim === '\t' ? 'Tab' : delim)];
+  return { source:'csv', name, columns: columnsOf(headers, records), records, root: records,
+           delimiter: delim, raw: text, notes };
+}
+
+function buildFromJSON(text, name){
+  const parsed = parseJSONText(text);
+  const root = parsed.value;
+  const paths = findArrayPaths(root);
+  let usePath = '';
+  if (!Array.isArray(root) && paths.length && paths[0].objN > 0) usePath = paths[0].path;
+  const target = usePath ? getByPath(root, usePath) : root;
+  const { columns, records } = recordsFrom(target);
+  const notes = [];
+  if (parsed.kind === 'ndjson') notes.push('偵測為 NDJSON（每行一個 JSON）');
+  if (usePath) notes.push('自動選用節點：' + usePath);
+  return { source: parsed.kind === 'ndjson' ? 'ndjson' : 'json', name, columns, records, root,
+           arrayPaths: paths, usePath, raw: text, notes };
+}
+
+// 自動判斷是 CSV 還是 JSON
+function buildAuto(text, name){
+  const t = text.replace(/^﻿/, '').trim();
+  const isJsonish = t[0] === '{' || t[0] === '[';
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  if (ext === 'json' || ext === 'ndjson' || ext === 'jsonl' || isJsonish){
+    try { return buildFromJSON(text, name); }
+    catch(e){ if (ext === 'csv' || ext === 'tsv') return buildFromCSV(text, name); throw e; }
+  }
+  return buildFromCSV(text, name);
+}
+
+/* ---------- 篩選 / 排序 ---------- */
+function cellText(v){
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'object') return JSON.stringify(v);
+  return String(v);
+}
+
+// 支援 >n <n >=n <=n =x !=x !x /regex/ 其餘為包含
+function matchFilter(value, expr){
+  const e = String(expr).trim();
+  if (!e) return true;
+  const txt = cellText(value);
+  const num = typeof value === 'number' ? value : (NUM_RE.test(txt.trim()) ? Number(txt.replace(/,/g,'')) : NaN);
+  let m;
+  if ((m = e.match(/^(>=|<=|>|<)\s*(-?[\d.]+)$/))){
+    if (!Number.isFinite(num)) return false;
+    const n = Number(m[2]);
+    return m[1] === '>' ? num > n : m[1] === '<' ? num < n : m[1] === '>=' ? num >= n : num <= n;
+  }
+  if ((m = e.match(/^!=\s*(.*)$/))) return txt.toLowerCase() !== m[1].trim().toLowerCase();
+  if ((m = e.match(/^=\s*(.*)$/))) return txt.toLowerCase() === m[1].trim().toLowerCase();
+  if ((m = e.match(/^!\s*(.+)$/))) return txt.toLowerCase().indexOf(m[1].trim().toLowerCase()) < 0;
+  if ((m = e.match(/^\/(.+)\/([a-z]*)$/))){ try { return new RegExp(m[1], m[2] || 'i').test(txt); } catch(err){ return true; } }
+  if (e === '空' || e.toLowerCase() === 'empty') return txt === '';
+  if (e === '非空') return txt !== '';
+  return txt.toLowerCase().indexOf(e.toLowerCase()) >= 0;
+}
+
+function sortKey(v){
+  if (v === null || v === undefined || v === '') return { n: null, s: '' };
+  if (typeof v === 'number') return { n: v, s: String(v) };
+  if (typeof v === 'boolean') return { n: v ? 1 : 0, s: String(v) };
+  if (typeof v === 'object') return { n: null, s: JSON.stringify(v) };
+  const t = String(v).trim();
+  if (NUM_RE.test(t)) return { n: Number(t.replace(/,/g,'')), s: t };
+  return { n: null, s: t };
+}
+function compareVals(a, b){
+  const ka = sortKey(a), kb = sortKey(b);
+  const ea = ka.s === '', eb = kb.s === '';
+  if (ea && eb) return 0;
+  if (ea) return 1;                      // 空值永遠排最後
+  if (eb) return -1;
+  if (ka.n !== null && kb.n !== null) return ka.n - kb.n;
+  return ka.s.localeCompare(kb.s, 'zh-Hant', { numeric:true, sensitivity:'base' });
+}
+
+/* ---------- 欄位統計 ---------- */
+function columnStats(records, col){
+  const st = { col, total: records.length, empty:0, types:{}, uniq:new Set(), nums:[], lens:[], freq:new Map() };
+  for (const r of records){
+    const v = r[col];
+    const t = typeOf(v);
+    st.types[t] = (st.types[t] || 0) + 1;
+    if (t === 'empty'){ st.empty++; continue; }
+    const txt = cellText(v);
+    if (st.uniq.size < 100000) st.uniq.add(txt);
+    st.freq.set(txt, (st.freq.get(txt) || 0) + 1);
+    if (t === 'number') st.nums.push(typeof v === 'number' ? v : Number(txt));
+    else st.lens.push(txt.length);
+  }
+  st.filled = st.total - st.empty;
+  st.uniqN = st.uniq.size;
+  let main = 'empty', mainN = -1;
+  for (const k in st.types) if (k !== 'empty' && st.types[k] > mainN){ main = k; mainN = st.types[k]; }
+  st.mainType = st.filled === 0 ? 'empty' : main;
+  st.mixed = Object.keys(st.types).filter(k => k !== 'empty').length > 1;
+  if (st.nums.length){
+    let mn = Infinity, mx = -Infinity, sum = 0;
+    for (const n of st.nums){ if (n < mn) mn = n; if (n > mx) mx = n; sum += n; }
+    st.min = mn; st.max = mx; st.avg = sum / st.nums.length; st.sum = sum;
+  }
+  if (st.lens.length){ st.minLen = Math.min.apply(null, st.lens); st.maxLen = Math.max.apply(null, st.lens); }
+  st.top = Array.from(st.freq.entries()).sort((a,b) => b[1]-a[1]).slice(0,5);
+  return st;
+}
+
+/* ---------- 輸出 ---------- */
+function csvEscape(v, delim){
+  const s = cellText(v);
+  if (s === '') return '';
+  if (s.indexOf(delim) >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0 || s.indexOf('\r') >= 0)
+    return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+function toCSV(columns, records, delim){
+  delim = delim || ',';
+  const out = [columns.map(c => csvEscape(c, delim)).join(delim)];
+  for (const r of records) out.push(columns.map(c => csvEscape(r[c], delim)).join(delim));
+  return out.join('\r\n');
+}
+function toJSONText(columns, records){
+  return JSON.stringify(records.map(r => { const o = {}; for (const c of columns) if (c in r) o[c] = r[c]; return o; }), null, 2);
+}
+function toNDJSON(columns, records){
+  return records.map(r => { const o = {}; for (const c of columns) if (c in r) o[c] = r[c]; return JSON.stringify(o); }).join('\n');
+}
+
+return { CANDIDATES, detectDelimiter, countPerLine, parseCSVRows, createCSVParser,
+         makeRowMapper, columnsOf, normalizeHeaders,
+         looksJSON, tryJSON, pythonish, coerce, typeOf, flattenObject, flattenInto,
+         parseJSONText, findArrayPaths, getByPath, recordsFrom,
+         buildFromCSV, buildFromJSON, buildAuto,
+         cellText, matchFilter, compareVals, sortKey, columnStats,
+         toCSV, toJSONText, toNDJSON, csvEscape };
+})();
+window.__DV = DV;
+
+/* =====================================================================
+   以下是 UI（DOM 相依）
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.prototype.slice.call(document.querySelectorAll(s));
+const state = { sets: [], active: -1 };
+window.__STATE = state;
+
+function esc(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2200);
+}
+function busy(on, msg){
+  $('#busyMsg').textContent = msg || '解析中…';
+  $('#busy').classList.toggle('show', !!on);
+}
+function fmtN(n){ return typeof n === 'number' ? n.toLocaleString('en-US', { maximumFractionDigits:4 }) : n; }
+function fmtSize(b){ return b < 1024 ? b + ' B' : b < 1048576 ? (b/1024).toFixed(1) + ' KB' : (b/1048576).toFixed(1) + ' MB'; }
+
+/* ---------- 讀檔（含編碼判斷） ---------- */
+function decodeBuffer(buf){
+  const bytes = new Uint8Array(buf);
+  if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF)
+    return { text: new TextDecoder('utf-8').decode(buf), enc: 'UTF-8 (BOM)' };
+  if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE)
+    return { text: new TextDecoder('utf-16le').decode(buf), enc: 'UTF-16LE' };
+  if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF)
+    return { text: new TextDecoder('utf-16be').decode(buf), enc: 'UTF-16BE' };
+  try { return { text: new TextDecoder('utf-8', { fatal:true }).decode(buf), enc: 'UTF-8' }; }
+  catch(e){
+    try { return { text: new TextDecoder('big5').decode(buf), enc: 'Big5' }; }
+    catch(e2){ return { text: new TextDecoder('utf-8').decode(buf), enc: 'UTF-8 (含無法解碼的位元組)' }; }
+  }
+}
+
+/* ---------- 大檔處理 ----------
+   小檔（<8MB）就一次讀完，最省事。
+   大檔改成「切塊串流解析」：邊讀邊解析邊回報進度，UI 不會整個凍住，
+   而且不會同時存在「整份原始字串 + 整份解析結果」兩份記憶體。      */
+const STREAM_THRESHOLD = 8 * 1024 * 1024;   // 超過這個大小走串流
+const CHUNK = 4 * 1024 * 1024;              // 每次讀 4MB
+const DEFAULT_ROW_LIMIT = 500000;           // 預設最多載入的列數（可在提示列按「全部載入」解除）
+
+function tick(){ return new Promise(r => setTimeout(r, 0)); }
+
+// 先偷看檔頭決定編碼（串流時中途不能再改）
+async function sniffEncoding(file){
+  const head = await file.slice(0, Math.min(file.size, 65536)).arrayBuffer();
+  const b = new Uint8Array(head);
+  if (b.length >= 3 && b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF) return { enc:'utf-8', label:'UTF-8 (BOM)' };
+  if (b.length >= 2 && b[0] === 0xFF && b[1] === 0xFE) return { enc:'utf-16le', label:'UTF-16LE' };
+  if (b.length >= 2 && b[0] === 0xFE && b[1] === 0xFF) return { enc:'utf-16be', label:'UTF-16BE' };
+  try { new TextDecoder('utf-8', { fatal:true }).decode(head); return { enc:'utf-8', label:'UTF-8' }; }
+  catch(e){ return { enc:'big5', label:'Big5' }; }
+}
+
+// 串流讀 CSV / NDJSON。onProgress(ratio, rows)；回傳資料集
+async function streamParse(file, opts){
+  opts = opts || {};
+  const limit = opts.limit || DEFAULT_ROW_LIMIT;
+  const onProgress = opts.onProgress || function(){};
+  const { enc, label } = await sniffEncoding(file);
+  const dec = new TextDecoder(enc, { stream:true });
+  const isND = /\.(ndjson|jsonl)$/i.test(file.name) || opts.ndjson;
+
+  let delim = opts.delimiter || null;
+  let headers = null, toRec = null, parser = null;
+  const records = [];
+  let truncated = false, bad = 0, first = true;
+
+  const onRow = r => {
+    if (records.length >= limit){ truncated = true; return; }
+    if (!headers){ headers = DV.normalizeHeaders(r); toRec = DV.makeRowMapper(headers); return; }
+    if (r.length === 1 && r[0].trim() === '') return;
+    records.push(toRec(r));
+  };
+
+  let ndCarry = '';
+  const onNDText = text => {
+    const lines = (ndCarry + text).split('\n');
+    ndCarry = lines.pop();
+    for (const ln of lines){
+      if (records.length >= limit){ truncated = true; return; }
+      const s = ln.trim().replace(/,$/, '');
+      if (!s) continue;
+      try { records.push(normalizeRecord(JSON.parse(s))); } catch(e){ bad++; }
+    }
+  };
+
+  for (let pos = 0; pos < file.size; pos += CHUNK){
+    const buf = await file.slice(pos, Math.min(pos + CHUNK, file.size)).arrayBuffer();
+    let text = dec.decode(buf, { stream: pos + CHUNK < file.size });
+    if (first){ text = text.replace(/^﻿/, ''); first = false;
+      if (!isND && !delim) delim = DV.detectDelimiter(text);
+      if (!isND) parser = DV.createCSVParser(delim, onRow);
+    }
+    if (isND) onNDText(text); else parser.push(text);
+    onProgress(Math.min(1, (pos + CHUNK) / file.size), records.length);
+    if (truncated) break;
+    await tick();                       // 讓畫面有機會更新進度
+  }
+  if (isND){ onNDText('\n'); if (ndCarry.trim() && !truncated){
+      try { records.push(normalizeRecord(JSON.parse(ndCarry.trim().replace(/,$/, '')))); } catch(e){ bad++; }
+    } }
+  else if (parser) parser.end();
+
+  if (!isND && !headers) throw new Error('CSV 沒有任何內容');
+
+  const notes = [];
+  if (!isND) notes.push('分隔符號：' + (delim === '\t' ? 'Tab' : delim));
+  else notes.push('每行一個 JSON（NDJSON）');
+  notes.push('編碼：' + label);
+  notes.push('大檔串流載入');
+  if (bad) notes.push('有 ' + bad + ' 行不是合法 JSON，已略過');
+
+  const columns = isND ? DV.recordsFrom(records).columns : DV.columnsOf(headers, records.slice(0, 2000));
+  // 大檔只掃前 2000 列決定欄位順序，後面出現的新欄位補在最後
+  if (!isND){
+    const seen = {}; columns.forEach(c => seen[c] = 1);
+    for (let i = 2000; i < records.length; i += 997)
+      for (const k of Object.keys(records[i])) if (!seen[k]){ seen[k] = 1; columns.push(k); }
+  }
+  return { source: isND ? 'ndjson' : 'csv', name: file.name, columns, records,
+           root: records, delimiter: delim, raw: null, file, notes, truncated, rowLimit: limit };
+}
+function normalizeRecord(v){
+  if (v === null || typeof v !== 'object') return { value: v };
+  if (Array.isArray(v)){ const o = {}; v.forEach((x, i) => o['[' + i + ']'] = x); return o; }
+  return v;
+}
+
+// 一次讀多個檔 → 每個檔一個分頁（保持選檔時的順序，全部讀完才重畫一次）
+async function openFiles(fileList, opts){
+  const files = Array.prototype.slice.call(fileList);
+  if (!files.length) return;
+  opts = opts || {};
+  const slots = new Array(files.length).fill(null);
+  const fails = [];
+  for (let idx = 0; idx < files.length; idx++){
+    const f = files[idx];
+    const tag = files.length > 1 ? '(' + (idx + 1) + '/' + files.length + ') ' : '';
+    try {
+      if (f.size > STREAM_THRESHOLD && !/\.json$/i.test(f.name)){
+        busy(true, tag + '解析大檔 ' + f.name + '（' + fmtSize(f.size) + '）…');
+        const ds = await streamParse(f, {
+          limit: opts.limit,
+          onProgress: (ratio, rows) => busy(true, tag + f.name + '　' + Math.round(ratio * 100) + '%　已讀 ' +
+                                            rows.toLocaleString() + ' 列'),
+        });
+        finishDataset(ds, { size: f.size });
+        slots[idx] = ds;
+      } else {
+        busy(true, tag + '讀取 ' + f.name + '…');
+        const buf = await f.arrayBuffer();
+        const { text, enc } = decodeBuffer(buf);
+        if (f.size > STREAM_THRESHOLD) await tick();
+        const ds = makeDataset(text, f.name, { encoding: enc, size: f.size });
+        ds.file = f;
+        slots[idx] = ds;
+      }
+    } catch(e){ fails.push(f.name + '（' + e.message + '）'); }
+    await tick();
+  }
+  const added = slots.filter(Boolean);
+  const firstNew = state.sets.length;
+  added.forEach(ds => state.sets.push(ds));
+  if (added.length) state.active = firstNew;
+  busy(false);
+  renderAll();
+  if (fails.length) toast('✕ ' + fails.length + ' 個檔案讀不進來：' + fails.join('、'));
+  else if (added.length > 1) toast('已開啟 ' + added.length + ' 個分頁（Ctrl+Tab 切換）');
+  else if (added.length === 1 && added[0].truncated)
+    toast('資料很大，先載入前 ' + added[0].records.length.toLocaleString() + ' 列');
+}
+
+// 把某個被截斷的分頁重新完整載入
+async function loadAll(idx){
+  const old = state.sets[idx];
+  if (!old || !old.file){ toast('這個分頁沒有留著原始檔案，請重新拖入'); return; }
+  try {
+    const ds = await streamParse(old.file, {
+      limit: Infinity,
+      onProgress: (ratio, rows) => busy(true, '完整載入　' + Math.round(ratio * 100) + '%　已讀 ' + rows.toLocaleString() + ' 列'),
+    });
+    finishDataset(ds, old.meta);
+    ds.view = old.view; ds._eff = null; ds._vc = null; ds._st = null;
+    state.sets[idx] = ds;
+    busy(false); renderAll(true);
+    toast('已完整載入 ' + ds.records.length.toLocaleString() + ' 列');
+  } catch(e){ busy(false); toast('✕ 載入失敗：' + e.message); }
+}
+
+// 串流建出來的資料集補上共用欄位
+function finishDataset(ds, meta){
+  ds.meta = meta || {};
+  ds.view = { search:'', filters:{}, sortCol:null, sortDir:1, page:0, pageSize:100, hidden:{}, flat:{} };
+  ds.jsonCols = detectJsonCols(ds);
+  return ds;
+}
+
+// 建立資料集物件（不掛進 state）
+function makeDataset(text, name, meta){
+  const ds = DV.buildAuto(text, name);
+  ds.meta = meta || {};
+  if (meta && meta.encoding) ds.notes.push('編碼：' + meta.encoding);
+  ds.view = { search:'', filters:{}, sortCol:null, sortDir:1, page:0, pageSize:100, hidden:{}, flat:{} };
+  ds.jsonCols = detectJsonCols(ds);
+  return ds;
+}
+
+// 建立並開成新分頁
+function addDataset(text, name, meta){
+  const ds = makeDataset(text, name, meta);
+  state.sets.push(ds);
+  state.active = state.sets.length - 1;
+  renderAll();
+  return ds;
+}
+
+// 把一段 JSON 值另開成新分頁（樹狀檢視用）
+function openValueAsTab(value, name){
+  const { columns, records } = DV.recordsFrom(value);
+  const ds = { source:'json', name, columns, records, root:value,
+               arrayPaths: DV.findArrayPaths(value), usePath:'',
+               raw: JSON.stringify(value, null, 2), notes:['由節點另開：' + name], meta:{},
+               view:{ search:'', filters:{}, sortCol:null, sortDir:1, page:0, pageSize:100, hidden:{}, flat:{} } };
+  ds.jsonCols = detectJsonCols(ds);
+  state.sets.splice(state.active + 1, 0, ds);
+  activate(state.active + 1);
+  toast('已在新分頁開啟：' + name);
+  return ds;
+}
+
+// 哪些欄位「大多是 JSON」
+function detectJsonCols(ds){
+  const res = {};
+  const n = Math.min(ds.records.length, 400);
+  for (const c of ds.columns){
+    let j = 0, f = 0;
+    for (let i = 0; i < n; i++){
+      const v = ds.records[i][c];
+      const t = DV.typeOf(v);
+      if (t === 'empty') continue;
+      f++; if (t === 'json') j++;
+    }
+    if (f > 0 && j / f >= 0.5) res[c] = true;
+  }
+  return res;
+}
+
+function cur(){ return state.active >= 0 ? state.sets[state.active] : null; }
+
+/* ---------- 檢視資料計算 ---------- */
+function jsonValue(v){
+  if (v && typeof v === 'object') return v;
+  const j = DV.tryJSON(v);
+  return j.ok ? j.value : null;
+}
+
+// 展開後的欄位 + 記錄（套用 view.flat）。大檔時這步很貴 → 快取
+function effective(ds){
+  const key = JSON.stringify(ds.view.flat);
+  if (ds._eff && ds._eff.key === key) return ds._eff.val;
+  const val = effectiveCalc(ds);
+  ds._eff = { key, val };
+  return val;
+}
+function effectiveCalc(ds){
+  const flatCols = Object.keys(ds.view.flat).filter(c => ds.view.flat[c]);
+  if (!flatCols.length) return { columns: ds.columns.slice(), records: ds.records };
+  const cols = [], seen = {};
+  const recs = ds.records.map(r => {
+    const o = {};
+    for (const c of ds.columns){
+      if (ds.view.flat[c]){
+        const jv = jsonValue(r[c]);
+        if (jv && typeof jv === 'object'){
+          const flat = DV.flattenObject(jv);
+          for (const k in flat) o[c + '.' + k] = flat[k];
+          continue;
+        }
+      }
+      o[c] = r[c];
+    }
+    return o;
+  });
+  for (const c of ds.columns){
+    if (!ds.view.flat[c]){ if (!seen[c]){ seen[c] = 1; cols.push(c); } continue; }
+    for (const r of recs) for (const k of Object.keys(r)) if (k.indexOf(c + '.') === 0 && !seen[k]){ seen[k] = 1; cols.push(k); }
+    // 展開不出東西的（非 JSON 值）保留原欄
+    if (!cols.some(k => k.indexOf(c + '.') === 0)){ if (!seen[c]){ seen[c] = 1; cols.push(c); } }
+  }
+  for (const r of recs) for (const k of Object.keys(r)) if (!seen[k]){ seen[k] = 1; cols.push(k); }
+  return { columns: cols, records: recs };
+}
+
+function viewData(ds){
+  const eff = effective(ds);
+  const v = ds.view;
+  // 搜尋 / 篩選 / 排序沒變就重用上次結果（翻頁、改欄位顯示不必重算一遍）
+  const key = JSON.stringify([v.search, v.filters, v.sortCol, v.sortDir, v.flat]);
+  let rows;
+  if (ds._vc && ds._vc.key === key) rows = ds._vc.rows;
+  else { rows = computeRows(ds, eff); ds._vc = { key, rows }; }
+  const visible = eff.columns.filter(c => !v.hidden[c]);
+  return { columns: visible, allColumns: eff.columns, rows, total: eff.records.length };
+}
+
+// 全文搜尋索引：每列串成一條小寫字串，只建一次（大檔搜尋的關鍵）
+function searchIndex(ds, eff){
+  const key = JSON.stringify(ds.view.flat);
+  if (ds._si && ds._si.key === key) return ds._si.arr;
+  const n = eff.records.length, cols = eff.columns, arr = new Array(n);
+  for (let i = 0; i < n; i++){
+    const r = eff.records[i];
+    let s = '';
+    for (let c = 0; c < cols.length; c++){
+      const val = r[cols[c]];
+      if (val === null || val === undefined) continue;
+      s += (typeof val === 'object' ? JSON.stringify(val) : val) + '';
+    }
+    arr[i] = s.toLowerCase();
+  }
+  ds._si = { key, arr };
+  return arr;
+}
+
+function computeRows(ds, eff){
+  const v = ds.view;
+  let rows = eff.records.map((r, i) => ({ r, i }));
+  const q = v.search.trim().toLowerCase();
+  if (q){
+    const idx = searchIndex(ds, eff);
+    rows = rows.filter(x => idx[x.i].indexOf(q) >= 0);
+  }
+  const fkeys = Object.keys(v.filters).filter(k => String(v.filters[k]).trim() !== '');
+  if (fkeys.length) rows = rows.filter(({ r }) => fkeys.every(k => DV.matchFilter(r[k], v.filters[k])));
+  if (v.sortCol && eff.columns.indexOf(v.sortCol) >= 0){
+    rows.sort((a, b) => DV.compareVals(a.r[v.sortCol], b.r[v.sortCol]) * v.sortDir);
+  }
+  return rows;
+}
+
+/* ---------- 渲染：檔案分頁列 ---------- */
+function activate(i){
+  if (i < 0 || i >= state.sets.length) return;
+  state.active = i;
+  renderAll(true);
+  const el = document.querySelector('#tabbar .ftab[data-i="' + i + '"]');
+  if (el && el.scrollIntoView) el.scrollIntoView({ block:'nearest', inline:'nearest' });
+}
+function closeTab(i){
+  if (i < 0 || i >= state.sets.length) return;
+  state.sets.splice(i, 1);
+  if (state.active > i) state.active--;
+  state.active = Math.min(state.active, state.sets.length - 1);
+  renderAll(true);
+}
+function duplicateTab(i){
+  const src = state.sets[i]; if (!src) return;
+  const ds = Object.assign({}, src);
+  ds.name = src.name.replace(/(\s*\(\d+\))?(\.[^.]+)?$/, (m, p, ext) => ' (副本)' + (ext || ''));
+  ds.view = JSON.parse(JSON.stringify(src.view));
+  ds._st = null;
+  state.sets.splice(i + 1, 0, ds);
+  activate(i + 1);
+  toast('已複製分頁（兩邊的篩選/排序各自獨立）');
+}
+
+let dragFrom = -1;
+function renderTabs(){
+  const bar = $('#tabbar');
+  bar.style.display = state.sets.length ? '' : 'none';
+  bar.innerHTML = '';
+  state.sets.forEach((ds, i) => {
+    const el = document.createElement('div');
+    el.className = 'ftab' + (i === state.active ? ' active' : '');
+    el.setAttribute('data-i', i);
+    el.draggable = true;
+    el.title = ds.name + '\n' + ds.records.length + ' 列 · ' + ds.columns.length + ' 欄' +
+               (ds.meta && ds.meta.size ? ' · ' + fmtSize(ds.meta.size) : '') + '\n（中鍵可關閉、可拖曳排序）';
+    el.innerHTML = '<span class="badge ' + ds.source + '">' + ds.source.toUpperCase() + '</span>' +
+                   '<span class="nm">' + esc(ds.name) + '</span>' +
+                   '<span class="n">' + ds.records.length.toLocaleString() + '</span>' +
+                   '<button class="x" title="關閉分頁">✕</button>';
+    el.onclick = e => { if (!e.target.classList.contains('x')) activate(i); };
+    el.onauxclick = e => { if (e.button === 1){ e.preventDefault(); closeTab(i); } };
+    el.oncontextmenu = e => { e.preventDefault(); duplicateTab(i); };
+    el.querySelector('.x').onclick = e => { e.stopPropagation(); closeTab(i); };
+    el.ondragstart = e => { dragFrom = i; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(i)); } catch(err){} };
+    el.ondragover = e => { if (dragFrom >= 0){ e.preventDefault(); e.stopPropagation(); el.classList.add('dragover'); } };
+    el.ondragleave = () => el.classList.remove('dragover');
+    el.ondrop = e => {
+      el.classList.remove('dragover');
+      if (dragFrom < 0 || dragFrom === i) return;
+      e.preventDefault(); e.stopPropagation();
+      const activeDs = state.sets[state.active];
+      const [moved] = state.sets.splice(dragFrom, 1);
+      state.sets.splice(i, 0, moved);
+      state.active = state.sets.indexOf(activeDs);
+      dragFrom = -1; renderAll(true);
+    };
+    el.ondragend = () => { dragFrom = -1; $$('#tabbar .ftab').forEach(t => t.classList.remove('dragover')); };
+    bar.appendChild(el);
+  });
+  const add = document.createElement('button');
+  add.className = 'tabadd'; add.textContent = '＋'; add.title = '再開一個檔案（可多選）';
+  add.onclick = () => $('#fileInput').click();
+  bar.appendChild(add);
+
+  if (state.sets.length > 1){
+    const tools = document.createElement('div');
+    tools.className = 'tabtools';
+    tools.innerHTML = '<button class="btn sm ghost" id="tabCloseOthers">關閉其他</button>' +
+                      '<button class="btn sm ghost" id="tabCloseAll">全部關閉</button>';
+    bar.appendChild(tools);
+    tools.querySelector('#tabCloseOthers').onclick = () => {
+      state.sets = [state.sets[state.active]]; state.active = 0; renderAll(true); toast('已關閉其他分頁');
+    };
+    tools.querySelector('#tabCloseAll').onclick = () => { state.sets = []; state.active = -1; renderAll(); };
+  }
+  $('#tabHint').textContent = state.sets.length > 1
+    ? state.sets.length + ' 個分頁　(Ctrl+Tab 切換 · Ctrl+1~9 直達)' : '';
+}
+
+/* 鍵盤：Ctrl+Tab 下一個、Ctrl+Shift+Tab 上一個、Ctrl+1~9 直達、Ctrl+W 關閉 */
+document.addEventListener('keydown', e => {
+  if (!state.sets.length) return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (e.ctrlKey && e.key === 'Tab'){
+    e.preventDefault();
+    const n = state.sets.length;
+    activate((state.active + (e.shiftKey ? -1 : 1) + n) % n);
+  } else if (e.ctrlKey && !e.shiftKey && /^[1-9]$/.test(e.key)){
+    const i = e.key === '9' ? state.sets.length - 1 : +e.key - 1;
+    if (i < state.sets.length){ e.preventDefault(); activate(i); }
+  } else if (e.ctrlKey && (e.key === 'w' || e.key === 'W')){
+    e.preventDefault(); closeTab(state.active);
+  } else if (e.key === 'Escape'){
+    $('#drawer').classList.remove('open'); $('#colPop').classList.remove('open');
+  } else if (e.key === '/' && tag !== 'input' && tag !== 'textarea'){
+    e.preventDefault(); $('#search').focus();
+  }
+});
+
+/* ---------- 渲染：儲存格 ---------- */
+function cellHTML(v, q){
+  if (v === null || v === undefined) return '<span class="nul">null</span>';
+  if (typeof v === 'object'){
+    const n = Array.isArray(v) ? v.length : Object.keys(v).length;
+    const tag = Array.isArray(v) ? '[ ] ' + n + ' 項' : '{ } ' + n + ' 鍵';
+    return '<span class="jchip">' + tag + '<span class="pv">' + esc(preview(v)) + '</span></span>';
+  }
+  if (typeof v === 'number') return '<span class="num">' + hl(fmtN(v), q) + '</span>';
+  if (typeof v === 'boolean') return '<span class="bool">' + v + '</span>';
+  const s = String(v);
+  if (s === '') return '';
+  if (DV.looksJSON(s)){
+    const j = DV.tryJSON(s);
+    if (j.ok && typeof j.value === 'object'){
+      const n = Array.isArray(j.value) ? j.value.length : Object.keys(j.value).length;
+      const tag = Array.isArray(j.value) ? '[ ] ' + n + ' 項' : '{ } ' + n + ' 鍵';
+      return '<span class="jchip">' + tag + '<span class="pv">' + esc(preview(j.value)) + '</span></span>';
+    }
+  }
+  return '<span class="str">' + hl(s, q) + '</span>';
+}
+function preview(v){
+  try {
+    const s = JSON.stringify(v);
+    return s.length > 60 ? s.slice(0, 60) + '…' : s;
+  } catch(e){ return ''; }
+}
+function hl(s, q){
+  s = String(s);
+  if (!q) return esc(s);
+  const i = s.toLowerCase().indexOf(q);
+  if (i < 0) return esc(s);
+  return esc(s.slice(0, i)) + '<span class="hl">' + esc(s.slice(i, i + q.length)) + '</span>' + esc(s.slice(i + q.length));
+}
+
+/* ---------- 渲染：表格 ---------- */
+function renderTable(){
+  const ds = cur(); if (!ds) return;
+  const vd = viewData(ds), v = ds.view;
+  const start = v.page * v.pageSize;
+  const page = vd.rows.slice(start, start + v.pageSize);
+  const q = v.search.trim().toLowerCase();
+
+  if (!vd.columns.length){
+    $('#tablewrap').innerHTML = '<div class="empty">所有欄位都被隱藏了 — 點上方「▦ 欄位」重新開啟。</div>';
+  } else {
+    const eff = effective(ds);
+    const stats = {};
+    for (const c of vd.columns) stats[c] = ds._st && ds._st[c] ? ds._st[c] : null;
+    const h = [];
+    h.push('<table class="grid"><thead><tr><th class="rowno">#</th>');
+    for (const c of vd.columns){
+      const arrow = v.sortCol === c ? (v.sortDir > 0 ? '▲' : '▼') : '';
+      const isJ = ds.jsonCols[c] || ds.jsonCols[c.split('.')[0]];
+      h.push('<th data-col="' + esc(c) + '" title="點擊排序：' + esc(c) + '"><div class="th-in">' +
+             (isJ ? '<span style="color:var(--json)">◆</span>' : '') +
+             '<span>' + esc(c) + '</span><span class="arrow">' + arrow + '</span></div></th>');
+    }
+    h.push('</tr><tr class="filters"><th class="rowno"></th>');
+    for (const c of vd.columns)
+      h.push('<th><input type="text" data-f="' + esc(c) + '" value="' + esc(v.filters[c] || '') +
+             '" placeholder="篩選 例:>100 !草稿 /re/"></th>');
+    h.push('</tr></thead><tbody>');
+    for (const { r, i } of page){
+      h.push('<tr data-i="' + i + '"><td class="rowno">' + (i + 1) + '</td>');
+      for (const c of vd.columns) h.push('<td data-col="' + esc(c) + '">' + cellHTML(r[c], q) + '</td>');
+      h.push('</tr>');
+    }
+    h.push('</tbody></table>');
+    if (!page.length) h.push('<div class="empty">沒有符合條件的資料。</div>');
+    $('#tablewrap').innerHTML = h.join('');
+
+    $$('#tablewrap thead th[data-col]').forEach(th => {
+      th.onclick = () => {
+        const c = th.getAttribute('data-col');
+        if (v.sortCol === c) v.sortDir = -v.sortDir; else { v.sortCol = c; v.sortDir = 1; }
+        v.page = 0; renderTable();
+      };
+    });
+    $$('#tablewrap input[data-f]').forEach(inp => {
+      inp.onclick = e => e.stopPropagation();
+      inp.oninput = () => {
+        v.filters[inp.getAttribute('data-f')] = inp.value; v.page = 0;
+        clearTimeout(renderTable._t);
+        renderTable._t = setTimeout(() => {
+          const pos = inp.selectionStart, key = inp.getAttribute('data-f');
+          renderTable();
+          const again = document.querySelector('#tablewrap input[data-f="' + CSS.escape(key) + '"]');
+          if (again){ again.focus(); try { again.setSelectionRange(pos, pos); } catch(e){} }
+        }, 250);
+      };
+    });
+    $$('#tablewrap tbody tr').forEach(tr => {
+      tr.onclick = e => {
+        const i = +tr.getAttribute('data-i');
+        const td = e.target.closest && e.target.closest('td');
+        const col = td && td.getAttribute('data-col');
+        const rec = eff.records[i];
+        if (col && e.target.closest('.jchip')){
+          openDrawer(col + ' — 第 ' + (i + 1) + ' 列', jsonValue(rec[col]));
+        } else {
+          openDrawer('第 ' + (i + 1) + ' 列', expandRow(rec));
+        }
+        $$('#tablewrap tbody tr').forEach(x => x.classList.remove('sel'));
+        tr.classList.add('sel');
+      };
+    });
+  }
+
+  // 分頁列
+  const pages = Math.max(1, Math.ceil(vd.rows.length / v.pageSize));
+  v.page = Math.min(v.page, pages - 1);
+  $('#pInfo').textContent = '第 ' + (v.page + 1) + ' / ' + pages + ' 頁　（' +
+    (vd.rows.length ? (start + 1) + '–' + Math.min(start + v.pageSize, vd.rows.length) : 0) + ' 筆）';
+  $('#pMeta').textContent = ds.name + '　' + (ds.meta.size ? fmtSize(ds.meta.size) + '　' : '') +
+    vd.allColumns.length + ' 欄　' + vd.total.toLocaleString() + ' 列';
+  $('#stat').textContent = vd.rows.length === vd.total
+    ? vd.total.toLocaleString() + ' 列 · ' + vd.columns.length + '/' + vd.allColumns.length + ' 欄'
+    : '篩出 ' + vd.rows.length.toLocaleString() + ' / ' + vd.total.toLocaleString() + ' 列';
+}
+
+// 把列裡的 JSON 字串還原成物件（給詳情面板看）
+function expandRow(r){
+  const o = {};
+  for (const k of Object.keys(r)){
+    const jv = (r[k] && typeof r[k] === 'object') ? r[k] : jsonValue(r[k]);
+    o[k] = jv !== null && typeof jv === 'object' ? jv : r[k];
+  }
+  return o;
+}
+
+/* ---------- 渲染：樹狀 ---------- */
+function treeNode(key, val, path, depth, isIdx){
+  const wrap = document.createElement('div');
+  const row = document.createElement('div'); row.className = 'trow';
+  const isObj = val !== null && typeof val === 'object';
+  const car = document.createElement('span'); car.className = 'tcar'; car.textContent = isObj ? '▾' : '';
+  row.appendChild(car);
+  if (key !== null){
+    const k = document.createElement('span'); k.className = 'tkey' + (isIdx ? ' idx' : '');
+    k.textContent = (isIdx ? '[' + key + ']' : key) + '：'; row.appendChild(k);
+  }
+  const val_ = document.createElement('span'); val_.className = 'tval';
+  if (isObj){
+    const arr = Array.isArray(val);
+    const n = arr ? val.length : Object.keys(val).length;
+    val_.className = 'tmeta';
+    val_.textContent = arr ? 'Array(' + n + ')' : 'Object{' + n + '}';
+  } else {
+    if (typeof val === 'number'){ val_.className = 'tval num'; val_.textContent = fmtN(val); }
+    else if (typeof val === 'boolean'){ val_.className = 'tval bool'; val_.textContent = String(val); }
+    else if (val === null || val === undefined){ val_.className = 'tval nul'; val_.textContent = 'null'; }
+    else {
+      const j = DV.tryJSON(val);
+      if (j.ok && typeof j.value === 'object'){
+        return treeNode(key, j.value, path, depth, isIdx);   // JSON 字串直接展開
+      }
+      val_.className = 'tval str'; val_.textContent = String(val) === '' ? '(空白)' : String(val);
+    }
+  }
+  row.appendChild(val_);
+  const acts = document.createElement('span'); acts.className = 'tacts';
+  if (isObj){
+    const o = document.createElement('span'); o.className = 'topen'; o.textContent = '⧉ 另開分頁';
+    o.title = '把這個節點當成一份新資料，開在新分頁';
+    o.onclick = e => {
+      e.stopPropagation();
+      const nm = (cur() ? cur().name.replace(/\.[^.]+$/, '') : '節點') + ' › ' + (path || '(根)');
+      openValueAsTab(val, nm);
+    };
+    acts.appendChild(o);
+  }
+  const p = document.createElement('span'); p.className = 'tpath'; p.textContent = path || '(根)';
+  p.title = '點擊複製路徑'; p.onclick = e => { e.stopPropagation(); copyText(path || ''); toast('已複製路徑：' + (path || '(根)')); };
+  acts.appendChild(p);
+  row.appendChild(acts);
+  wrap.appendChild(row);
+
+  if (isObj){
+    const kids = document.createElement('div'); kids.className = 'tnode';
+    let built = false;
+    const build = () => {
+      if (built) return; built = true;
+      const arr = Array.isArray(val);
+      const keys = arr ? val.map((_, i) => i) : Object.keys(val);
+      const LIMIT = 500;
+      keys.slice(0, LIMIT).forEach(k => {
+        const childPath = arr ? path + '[' + k + ']' : (path ? path + '.' + k : String(k));
+        kids.appendChild(treeNode(k, val[k], childPath, depth + 1, arr));
+      });
+      if (keys.length > LIMIT){
+        const more = document.createElement('div'); more.className = 'trow tmeta';
+        more.textContent = '… 還有 ' + (keys.length - LIMIT) + ' 項未顯示';
+        kids.appendChild(more);
+      }
+    };
+    if (depth < 2){ build(); } else { kids.style.display = 'none'; car.textContent = '▸'; }
+    row.style.cursor = 'pointer';
+    const toggle = () => {
+      build();
+      const open = kids.style.display !== 'none';
+      kids.style.display = open ? 'none' : '';
+      car.textContent = open ? '▸' : '▾';
+    };
+    car.onclick = e => { e.stopPropagation(); toggle(); };
+    row.onclick = e => { if (!e.target.classList.contains('tpath')) toggle(); };
+    wrap.appendChild(kids);
+  }
+  return wrap;
+}
+
+function renderTree(){
+  const ds = cur(); if (!ds) return;
+  const box = $('#tree'); box.innerHTML = '';
+  if (ds.source !== 'csv' && ds.arrayPaths && ds.arrayPaths.length > 1){
+    const bar = document.createElement('div');
+    bar.style.cssText = 'margin-bottom:10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-family:inherit';
+    bar.innerHTML = '<span class="hint">用哪個節點當表格：</span>';
+    const sel = document.createElement('select');
+    ds.arrayPaths.slice(0, 40).forEach(p => {
+      const o = document.createElement('option');
+      o.value = p.path; o.textContent = p.path + '　(' + p.len + ' 項' + (p.objN ? '、物件' : '') + ')';
+      if (p.path === (ds.usePath || '(根)')) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.onchange = () => {
+      const target = DV.getByPath(ds.root, sel.value);
+      const { columns, records } = DV.recordsFrom(target);
+      ds.columns = columns; ds.records = records; ds.usePath = sel.value;
+      ds.view.page = 0; ds.view.sortCol = null; ds.view.filters = {}; ds.view.hidden = {}; ds.view.flat = {};
+      ds.jsonCols = detectJsonCols(ds);
+      ds._st = null; ds._eff = null; ds._vc = null; ds._si = null;
+      toast('已切換節點：' + sel.value); renderAll();
+    };
+    bar.appendChild(sel);
+    box.appendChild(bar);
+  }
+  const root = ds.source === 'csv' ? ds.records : ds.root;
+  box.appendChild(treeNode(null, root, '', 0, false));
+}
+
+/* ---------- 渲染：欄位摘要 ---------- */
+const TYPE_LABEL = { number:'數值', string:'文字', bool:'布林', json:'JSON', empty:'空值' };
+const STAT_SAMPLE = 50000;   // 統計最多掃這麼多列，再多就抽樣（不然大檔按一下摘要要等很久）
+function renderSummary(){
+  const ds = cur(); if (!ds) return;
+  const eff = effective(ds);
+  const sampled = eff.records.length > STAT_SAMPLE;
+  const recs = sampled ? eff.records.slice(0, STAT_SAMPLE) : eff.records;
+  ds._st = {};
+  const box = $('#sum'); box.innerHTML = '';
+  const head = document.createElement('div');
+  head.className = 'card'; head.style.gridColumn = '1 / -1';
+  head.innerHTML = '<h3>📄 ' + esc(ds.name) + '</h3>' +
+    '<div class="kv"><span>來源格式</span><b>' + ds.source.toUpperCase() + '</b></div>' +
+    '<div class="kv"><span>列數</span><b>' + ds.records.length.toLocaleString() +
+      (ds.truncated ? '（檔案更大，只載入了這些）' : '') + '</b></div>' +
+    '<div class="kv"><span>欄數</span><b>' + eff.columns.length + '</b></div>' +
+    (ds.meta.size ? '<div class="kv"><span>檔案大小</span><b>' + fmtSize(ds.meta.size) + '</b></div>' : '') +
+    (sampled ? '<div class="kv"><span>統計範圍</span><b>前 ' + STAT_SAMPLE.toLocaleString() + ' 列（抽樣）</b></div>' : '') +
+    (ds.notes.length ? '<div class="kv"><span>備註</span><b>' + esc(ds.notes.join('　·　')) + '</b></div>' : '');
+  box.appendChild(head);
+
+  for (const c of eff.columns){
+    const st = DV.columnStats(recs, c);
+    ds._st[c] = st;
+    const pct = st.total ? Math.round(st.filled / st.total * 100) : 0;
+    const el = document.createElement('div'); el.className = 'card';
+    let h = '<h3>' + (st.mainType === 'json' ? '<span style="color:var(--json)">◆</span> ' : '') + esc(c) +
+            ' <span class="badge">' + (st.mixed ? '混合/' : '') + (TYPE_LABEL[st.mainType] || st.mainType) + '</span></h3>';
+    h += '<div class="bar"><i style="width:' + pct + '%"></i></div>';
+    h += '<div class="kv"><span>有值 / 總數</span><b>' + st.filled.toLocaleString() + ' / ' + st.total.toLocaleString() + '（' + pct + '%）</b></div>';
+    h += '<div class="kv"><span>不重複值</span><b>' + st.uniqN.toLocaleString() + '</b></div>';
+    if (st.nums.length){
+      h += '<div class="kv"><span>最小 / 最大</span><b>' + fmtN(st.min) + ' / ' + fmtN(st.max) + '</b></div>';
+      h += '<div class="kv"><span>平均 / 總和</span><b>' + fmtN(+st.avg.toFixed(4)) + ' / ' + fmtN(+st.sum.toFixed(4)) + '</b></div>';
+    }
+    if (st.minLen !== undefined) h += '<div class="kv"><span>字數 最短/最長</span><b>' + st.minLen + ' / ' + st.maxLen + '</b></div>';
+    if (st.top.length && st.uniqN < st.filled){
+      h += '<div class="top">';
+      for (const [val, n] of st.top)
+        h += '<div><span title="' + esc(val) + '">' + esc(val.length > 28 ? val.slice(0,28) + '…' : val) + '</span><b>' + n + '</b></div>';
+      h += '</div>';
+    }
+    el.innerHTML = h;
+    box.appendChild(el);
+  }
+}
+
+/* ---------- 詳情抽屜 ---------- */
+let drawerVal = null;
+function openDrawer(title, val){
+  drawerVal = val;
+  $('#drawerTitle').textContent = title;
+  const b = $('#drawerBody'); b.innerHTML = '';
+  b.appendChild(treeNode(null, val, '', 0, false));
+  $('#drawer').classList.add('open');
+}
+$('#drawerClose').onclick = () => $('#drawer').classList.remove('open');
+$('#drawerCopy').onclick = () => { copyText(JSON.stringify(drawerVal, null, 2)); toast('已複製 JSON'); };
+
+/* ---------- 欄位面板 ---------- */
+function openColPop(anchor){
+  const ds = cur(); if (!ds) return;
+  const eff = effective(ds);
+  const pop = $('#colPop');
+  let h = '<div class="head"><button class="btn sm" id="cAll">全選</button><button class="btn sm" id="cNone">全不選</button>' +
+          '<input type="text" id="cSearch" placeholder="搜尋欄位" style="flex:1; min-width:80px; padding:3px 8px"></div><div id="cList">';
+  for (const c of eff.columns)
+    h += '<label data-name="' + esc(c.toLowerCase()) + '"><input type="checkbox" data-c="' + esc(c) + '"' +
+         (ds.view.hidden[c] ? '' : ' checked') + '><span>' + esc(c) + '</span></label>';
+  h += '</div>';
+  pop.innerHTML = h;
+  const r = anchor.getBoundingClientRect();
+  pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 280)) + 'px';
+  pop.style.top = (r.bottom + 6) + 'px';
+  pop.classList.add('open');
+  pop.querySelectorAll('input[data-c]').forEach(cb => {
+    cb.onchange = () => { ds.view.hidden[cb.getAttribute('data-c')] = !cb.checked; renderTable(); };
+  });
+  $('#cAll').onclick = () => { ds.view.hidden = {}; openColPop(anchor); renderTable(); };
+  $('#cNone').onclick = () => { eff.columns.forEach(c => ds.view.hidden[c] = true); openColPop(anchor); renderTable(); };
+  $('#cSearch').oninput = e => {
+    const q = e.target.value.toLowerCase();
+    pop.querySelectorAll('#cList label').forEach(l => {
+      l.style.display = !q || l.getAttribute('data-name').indexOf(q) >= 0 ? '' : 'none';
+    });
+  };
+}
+document.addEventListener('mousedown', e => {
+  const pop = $('#colPop');
+  if (pop.classList.contains('open') && !pop.contains(e.target) && e.target.id !== 'btnCols') pop.classList.remove('open');
+});
+
+/* ---------- 展開 JSON 欄 ---------- */
+function toggleFlatten(){
+  const ds = cur(); if (!ds) return;
+  const jcols = Object.keys(ds.jsonCols);
+  if (!jcols.length){ toast('這個檔案沒有偵測到 JSON 欄位'); return; }
+  const anyOn = jcols.some(c => ds.view.flat[c]);
+  const big = !anyOn && ds.records.length > 50000;
+  if (big) busy(true, '展開 ' + ds.records.length.toLocaleString() + ' 列的 JSON 欄位…');
+  setTimeout(() => {
+    jcols.forEach(c => ds.view.flat[c] = !anyOn);
+    ds.view.sortCol = null; ds.view.page = 0; ds._st = null;
+    renderAll(true);
+    busy(false);
+    toast(anyOn ? '已收合 JSON 欄位' : '已展開：' + jcols.join('、'));
+  }, big ? 30 : 0);
+}
+
+/* ---------- 匯出 ---------- */
+function currentExport(){
+  const ds = cur();
+  const vd = viewData(ds);
+  return { ds, columns: vd.columns, records: vd.rows.map(x => x.r) };
+}
+function download(name, text, mime){
+  const blob = new Blob([text], { type: (mime || 'text/plain') + ';charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+function baseName(n){ return n.replace(/\.[^.]+$/, ''); }
+function copyText(t){
+  if (navigator.clipboard && window.isSecureContext){ navigator.clipboard.writeText(t).catch(() => fallbackCopy(t)); }
+  else fallbackCopy(t);
+}
+function fallbackCopy(t){
+  const ta = document.createElement('textarea');
+  ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); } catch(e){}
+  ta.remove();
+}
+
+$$('[data-ex]').forEach(b => b.onclick = () => {
+  const ds = cur(); if (!ds){ toast('先開一個檔案'); return; }
+  const kind = b.getAttribute('data-ex');
+  if (kind === 'raw'){
+    // 大檔沒有把原始文字留在記憶體裡，直接把使用者選的檔案本身存回去
+    if (ds.raw == null && ds.file){
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(ds.file); a.download = ds.name;
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    } else if (ds.raw != null){ download(ds.name, ds.raw, 'text/plain'); }
+    else { toast('這個分頁沒有原始檔可下載'); return; }
+    toast('已下載原檔'); return;
+  }
+  const big = ds.records.length > 20000;
+  if (big) busy(true, '產生檔案中…');
+  setTimeout(() => {
+    try {
+      const { columns, records } = currentExport();
+      const nb = baseName(ds.name);
+      if (kind === 'csv'){ download(nb + '.csv', '﻿' + DV.toCSV(columns, records, ','), 'text/csv'); }
+      else if (kind === 'tsv'){ download(nb + '.tsv', '﻿' + DV.toCSV(columns, records, '\t'), 'text/tab-separated-values'); }
+      else if (kind === 'json'){ download(nb + '.json', DV.toJSONText(columns, records), 'application/json'); }
+      else if (kind === 'ndjson'){ download(nb + '.ndjson', DV.toNDJSON(columns, records), 'application/x-ndjson'); }
+      toast('已下載 ' + records.length.toLocaleString() + ' 列');
+    } catch(err){ toast('✕ 產生檔案失敗（資料量太大）：' + err.message); }
+    busy(false);
+  }, big ? 30 : 0);
+});
+$$('[data-cp]').forEach(b => b.onclick = () => {
+  const ds = cur(); if (!ds){ toast('先開一個檔案'); return; }
+  const { columns, records } = currentExport();
+  copyText(b.getAttribute('data-cp') === 'tsv' ? DV.toCSV(columns, records, '\t') : DV.toJSONText(columns, records));
+  toast('已複製 ' + records.length + ' 列');
+});
+
+/* ---------- 分頁與工具列事件 ---------- */
+function setPane(name){
+  $$('.tab').forEach(t => t.classList.toggle('active', t.getAttribute('data-pane') === name));
+  $$('.pane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + name));
+  $('#pane-table').style.display = name === 'table' ? '' : 'none';
+  $('#pager').style.display = name === 'table' && cur() ? '' : 'none';
+  if (name === 'tree') renderTree();
+  if (name === 'summary') renderSummary();
+  state.pane = name;
+}
+$$('.tab').forEach(t => t.onclick = () => setPane(t.getAttribute('data-pane')));
+
+$('#search').oninput = e => {
+  const ds = cur(); if (!ds) return;
+  ds.view.search = e.target.value; ds.view.page = 0;
+  clearTimeout($('#search')._t);
+  $('#search')._t = setTimeout(renderTable, 200);
+};
+$('#btnCols').onclick = e => {
+  const pop = $('#colPop');
+  if (pop.classList.contains('open')) pop.classList.remove('open'); else openColPop(e.target);
+};
+$('#btnFlat').onclick = toggleFlatten;
+$('#btnReset').onclick = () => {
+  const ds = cur(); if (!ds) return;
+  ds.view.search = ''; ds.view.filters = {}; ds.view.sortCol = null; ds.view.hidden = {}; ds.view.flat = {}; ds.view.page = 0;
+  $('#search').value = ''; ds._st = null; renderAll(); toast('已清除所有條件');
+};
+$('#pFirst').onclick = () => { cur().view.page = 0; renderTable(); };
+$('#pPrev').onclick = () => { const v = cur().view; v.page = Math.max(0, v.page - 1); renderTable(); };
+$('#pNext').onclick = () => { const v = cur().view; v.page++; renderTable(); };
+$('#pLast').onclick = () => { const v = cur().view; v.page = 1e9; renderTable(); };
+$('#pSize').onchange = e => { const v = cur().view; v.pageSize = +e.target.value; v.page = 0; renderTable(); };
+
+/* ---------- 開檔 / 拖放 ---------- */
+$('#btnPick').onclick = $('#btnAdd').onclick = () => $('#fileInput').click();
+$('#fileInput').onchange = e => { openFiles(e.target.files); e.target.value = ''; };
+$('#btnPasteMode').onclick = () => { showUI(); setPane('export'); setTimeout(() => $('#pasteBox').focus(), 50); };
+$('#btnClearPaste').onclick = () => { $('#pasteBox').value = ''; };
+$('#btnParsePaste').onclick = () => {
+  const txt = $('#pasteBox').value;
+  if (!txt.trim()){ toast('貼上區是空的'); return; }
+  try {
+    const t = txt.trim();
+    const name = (t[0] === '{' || t[0] === '[') ? '貼上的內容.json' : '貼上的內容.csv';
+    addDataset(txt, name, { size: txt.length });
+    setPane('table'); toast('已解析');
+  } catch(e){ toast('✕ 解析失敗：' + e.message); }
+};
+
+const drop = $('#drop');
+['dragenter','dragover'].forEach(ev => document.addEventListener(ev, e => {
+  e.preventDefault(); if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0){
+    drop.classList.remove('hide'); drop.classList.add('over');
+  }
+}));
+document.addEventListener('dragleave', e => { if (e.relatedTarget === null){ drop.classList.remove('over'); if (state.sets.length) drop.classList.add('hide'); } });
+document.addEventListener('drop', e => {
+  e.preventDefault(); drop.classList.remove('over');
+  if (state.sets.length) drop.classList.add('hide');
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) openFiles(e.dataTransfer.files);
+});
+
+/* ---------- 從網址載入（GitHub Pages 上很方便；會受對方網站的 CORS 限制） ---------- */
+function loadFromUrl(u){
+  if (!u || !u.trim()) return;
+  const url = u.trim();
+  busy(true, '下載中…');
+  fetch(url)
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+    .then(blob => {
+      let name = decodeURIComponent((url.split('?')[0].split('#')[0].split('/').pop()) || '');
+      if (!name) name = 'remote.csv';
+      // 包成 File 走跟本機檔一樣的路徑（大檔就自動串流解析）
+      return openFiles([new File([blob], name, { type: blob.type })]);
+    })
+    .catch(e => { busy(false); toast('✕ 載入失敗：' + e.message + '（網址錯誤，或對方網站不允許跨網域讀取）'); });
+}
+$('#btnUrl').onclick = () => loadFromUrl($('#urlBox').value);
+$('#urlBox').onkeydown = e => { if (e.key === 'Enter') loadFromUrl($('#urlBox').value); };
+
+/* ---------- 示範資料 ---------- */
+const DEMO_CSV = 'order_id,customer,amount,status,items,meta\n' +
+'A1001,王小明,1280,paid,"[{""sku"":""P-01"",""name"":""藍芽耳機"",""qty"":1,""price"":1280}]","{""channel"":""web"",""coupon"":null,""tags"":[""new"",""vip""]}"\n' +
+'A1002,陳美麗,3450,shipped,"[{""sku"":""P-07"",""name"":""行動電源"",""qty"":2,""price"":990},{""sku"":""P-11"",""name"":""快充線"",""qty"":3,""price"":490}]","{""channel"":""app"",""coupon"":""SAVE100"",""tags"":[""repeat""]}"\n' +
+'A1003,林大同,690,cancelled,"[{""sku"":""P-03"",""name"":""手機殼"",""qty"":1,""price"":690}]","{""channel"":""web"",""coupon"":null,""tags"":[]}"\n' +
+'A1004,張雅婷,15800,paid,"[{""sku"":""P-20"",""name"":""平板電腦"",""qty"":1,""price"":15800}]","{""channel"":""store"",""coupon"":""VIP2024"",""tags"":[""vip"",""highvalue""]}"\n' +
+'A1005,黃志豪,2100,pending,"[{""sku"":""P-05"",""name"":""滑鼠"",""qty"":2,""price"":1050}]","{""channel"":""app"",""coupon"":null,""tags"":[""new""]}"\n';
+const DEMO_JSON = JSON.stringify({
+  meta: { generated: '2026-08-11', source: 'demo-api', version: 2 },
+  data: {
+    users: [
+      { id: 1, name: '王小明', email: 'ming@example.com', active: true,
+        profile: { city: '台北', level: 3, tags: ['vip','early'] }, last_login: '2026-08-10T09:12:00Z' },
+      { id: 2, name: '陳美麗', email: 'mei@example.com', active: true,
+        profile: { city: '高雄', level: 5, tags: ['vip'] }, last_login: '2026-08-11T21:40:00Z' },
+      { id: 3, name: '林大同', email: 'ta@example.com', active: false,
+        profile: { city: '台中', level: 1, tags: [] }, last_login: null }
+    ],
+    totals: { users: 3, active: 2 }
+  }
+}, null, 2);
+const DEMO_ND = [
+  '{"ts":"2026-08-11T10:00:01Z","level":"INFO","svc":"api","msg":"start","ctx":{"pid":8123,"ver":"1.4.2"}}',
+  '{"ts":"2026-08-11T10:00:07Z","level":"WARN","svc":"api","msg":"slow query","ctx":{"ms":1840,"sql":"SELECT *"}}',
+  '{"ts":"2026-08-11T10:01:12Z","level":"ERROR","svc":"worker","msg":"job failed","ctx":{"job":"mail","retry":2}}',
+  '{"ts":"2026-08-11T10:02:00Z","level":"INFO","svc":"worker","msg":"job ok","ctx":{"job":"mail","ms":320}}'
+].join('\n');
+$('#btnDemo').onclick = () => {
+  const before = state.sets.length;
+  state.sets.push(makeDataset(DEMO_CSV, '示範_訂單含JSON欄位.csv', { size: DEMO_CSV.length }));
+  state.sets.push(makeDataset(DEMO_JSON, '示範_巢狀JSON.json', { size: DEMO_JSON.length }));
+  state.sets.push(makeDataset(DEMO_ND, '示範_log.ndjson', { size: DEMO_ND.length }));
+  state.active = before;
+  renderAll();
+  toast('已開 3 個示範分頁 — 點紫色 ◆ 儲存格看 JSON，Ctrl+Tab 換分頁');
+};
+
+/* ---------- 總渲染 ---------- */
+function showUI(){
+  $('#toolbar').style.display = '';
+  drop.classList.add('hide');
+}
+function renderAll(keepPane){
+  renderTabs();
+  const ds = cur();
+  const notes = $('#notes');
+  if (!ds){
+    $('#toolbar').style.display = 'none';
+    $('#pager').style.display = 'none';
+    drop.classList.remove('hide');
+    notes.classList.remove('show');
+    $('#tablewrap').innerHTML = '';
+    return;
+  }
+  showUI();
+  if (ds.truncated){
+    notes.innerHTML = '⚠ 檔案很大，目前只載入前 <b>' + ds.records.length.toLocaleString() + '</b> 列' +
+      (ds.meta.size ? '（原檔 ' + fmtSize(ds.meta.size) + '）' : '') +
+      '　<button class="btn sm" id="btnLoadAll">載入全部</button>' +
+      '　<span class="hint">全部載入會用掉較多記憶體，視電腦而定可能會有點慢。</span>';
+    notes.classList.add('show');
+    const b = notes.querySelector('#btnLoadAll');
+    if (b) b.onclick = () => loadAll(state.active);
+  } else if (ds.notes && ds.notes.length){
+    notes.textContent = 'ℹ ' + ds.notes.join('　·　'); notes.classList.add('show');
+  } else notes.classList.remove('show');
+  $('#search').value = ds.view.search;
+  const jn = Object.keys(ds.jsonCols).length;
+  $('#btnFlat').textContent = jn ? '⤢ 展開 JSON 欄 (' + jn + ')' : '⤢ 展開 JSON 欄';
+  renderTable();
+  const pane = keepPane && state.pane ? state.pane : 'table';
+  setPane(pane);
+}
+
+/* 測試掛勾：直接用文字載入 */
+window.__load = (text, name) => addDataset(text, name || 'test.csv', { size: text.length });
+window.__openFiles = openFiles;          // 走真正的讀檔路徑（含大檔串流）
+window.__loadAll = loadAll;
+window.__limits = { STREAM_THRESHOLD, CHUNK, DEFAULT_ROW_LIMIT, STAT_SAMPLE };
+window.__view = () => { const ds = cur(); return ds ? viewData(ds) : null; };
+window.__cur = cur;
+window.__setPane = setPane;
+window.__ready = true;
+
+// file:// 直接開時 fetch 會被擋，提示改用檔案；http(s) 才顯示網址列
+if (location.protocol === 'file:'){
+  $('#urlBox').parentElement.style.display = 'none';
+  $('#fileHint').textContent = '（目前是用本機檔案開啟，功能完整；放到網站上時還能用網址載入遠端檔案）';
+}
+
+// 網址參數：?demo=1 載示範資料、?url=... 直接載遠端檔案
+const qs = new URLSearchParams(location.search);
+if (qs.get('demo') === '1') $('#btnDemo').click();
+if (qs.get('url')) loadFromUrl(qs.get('url'));
+</script>
+</body>
+</html>
