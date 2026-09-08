@@ -467,13 +467,33 @@ function viaProxy(p, target) {
 // 「HTTP 429」光看數字沒用 —— 要知道是 YouTube 對代理的出口 IP 限流，
 // 還是代理自己（Cloudflare 額度）擋的，這兩件事的解法完全不同。
 // x-proxy-upstream 是我們的 Worker 加的：有這個標頭就代表請求真的送到 YouTube 了。
+// 回應內容比狀態碼更會說話。這幾個特徵字串把「擋在哪一層」講清楚 ——
+// 尤其 ipBlocked：那是 Google 針對代理的出口 IP 封鎖，換 client、換金鑰、
+// 改標頭全都沒用，只有換出口 IP（或改用本機版）才有救。認出它才不會白試。
+const BLOCK_SIGNS = [
+  {
+    re: /sending automated queries|unusual traffic|automated requests/i,
+    what: 'Google 封鎖了這個代理的出口 IP（自動化查詢）', ip: true,
+  },
+  {
+    re: /enable javascript|before you continue/i,
+    what: 'Google 的機器人驗證／同意頁', ip: true,
+  },
+  {
+    re: /Precondition check failed/i,
+    what: 'API 閘道就擋掉了（沒進到播放器）', ip: false,
+  },
+];
+
 function failInfo(res, text) {
   const upstream = res.headers.get('x-proxy-upstream');
   const who = upstream
     ? (upstream === String(res.status) ? 'YouTube 回的' : '代理改寫過，YouTube 原本回 ' + upstream)
     : '代理自己回的（沒經過 YouTube）';
-  const snippet = String(text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
-  return { who, snippet, upstream };
+  const raw = String(text || '');
+  const snippet = raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+  const sign = BLOCK_SIGNS.filter(s => s.re.test(raw))[0] || null;
+  return { who, snippet, upstream, sign };
 }
 
 async function fetchViaProxies(target, opts) {
@@ -487,6 +507,7 @@ async function fetchViaProxies(target, opts) {
   let rateLimited = false;
   let upstreamAnswered = false;   // 至少有一次真的送到 YouTube、拿到它的狀態碼
   let proxyFailed = false;        // 代理層自己的失敗（連不上、逾時、額度、白名單）
+  let ipBlocked = false;          // 撞到 Google 的 IP 層封鎖（換 client 也沒用）
 
   for (const p of proxyList()) {
     const url = viaProxy(p, target);
@@ -508,7 +529,9 @@ async function fetchViaProxies(target, opts) {
           const info = failInfo(res, await res.text().catch(() => ''));
           if (res.status === 429) rateLimited = true;
           if (info.upstream) upstreamAnswered = true; else proxyFailed = true;
+          if (info.sign && info.sign.ip) ipBlocked = true;
           const why = 'HTTP ' + res.status + '（' + info.who + '）' +
+            (info.sign ? '［' + info.sign.what + '］' : '') +
             (info.snippet ? '：' + info.snippet : '');
           log('  ✗ ' + p.name + '：' + why);
 
@@ -549,6 +572,7 @@ async function fetchViaProxies(target, opts) {
   err.allProxiesFailed = true;
   err.rateLimited = rateLimited;
   err.upstreamAnswered = upstreamAnswered;
+  err.ipBlocked = ipBlocked;
   throw err;
 }
 
@@ -739,6 +763,10 @@ const CLIENTS = [
 // 對排查完全沒用，要知道的是狀態碼、合一幾個、分軌幾個、幾個被簽章鎖住
 let lastDiag = [];
 
+// 一句話的結論：這次到底是被哪一層擋住。IP 層被封的話，
+// 使用者再怎麼重試都不會過，要早點講明白，別讓人一直按。
+let lastVerdict = '';
+
 function summarize(pr) {
   const sd = (pr && pr.streamingData) || {};
   const ps = (pr && pr.playabilityStatus) || {};
@@ -797,8 +825,10 @@ async function fetchPlayerResponse(id) {
   const notes = [];
   let rateLimited = false;
   let upstreamAnswered = false;
+  let ipBlocked = false;
   let best = null;
   lastDiag = [];
+  lastVerdict = '';
 
   for (const route of routes) {
     try {
@@ -821,6 +851,7 @@ async function fetchPlayerResponse(id) {
     } catch (e) {
       if (e && e.rateLimited) rateLimited = true;
       if (e && e.upstreamAnswered) upstreamAnswered = true;
+      if (e && e.ipBlocked) ipBlocked = true;
       const msg = (e && e.message) || String(e);
       lastDiag.push(route.how + ' → 失敗：' + msg);
       notes.push(route.how + '「' + msg + '」');
@@ -830,6 +861,13 @@ async function fetchPlayerResponse(id) {
 
   // 每一條都走完了。有拿到 playerResponse 的話還是交出去，讓畫面顯示
   // 「為什麼沒有格式」的具體統計，比只說一句 0 個有用得多。
+  if (ipBlocked) {
+    lastVerdict = 'Google 封鎖了這個代理的出口 IP。' +
+      '換 client、換金鑰、改標頭都沒用 —— 那是認 IP 不是認請求內容。' +
+      '唯一的解法是換一個沒被列管的出口（自己的 VPS，或乾脆用本機版從你家的 IP 直接抓）。';
+    log('◆ 結論：' + lastVerdict);
+  }
+
   if (best) {
     best.exhausted = true;
     best.notes = notes;
@@ -841,6 +879,7 @@ async function fetchPlayerResponse(id) {
   err.allProxiesFailed = true;
   err.rateLimited = rateLimited;
   err.upstreamAnswered = upstreamAnswered;
+  err.ipBlocked = ipBlocked;
   throw err;
 }
 
@@ -883,7 +922,15 @@ async function lookup() {
   } catch (e) {
     const msg = (e && e.message) || String(e);
     log('✗ 查詢失敗：' + msg);
-    if (e && e.rateLimited) {
+    if (e && e.ipBlocked) {
+      // 認 IP 的封鎖：再按幾次、換影片、改設定都不會過，直接講死
+      banner('err', '<b>Google 封鎖了這個代理的出口 IP。</b>' +
+        '它回的是「your computer or network may be sending automated queries」那一頁 —— ' +
+        '<b>認的是 IP，不是請求內容</b>，所以換 client、換金鑰、改標頭、重試都不會過。<br>' +
+        '兩條出路：把代理換到一個沒被列管的出口（自己的 VPS），' +
+        '或改用<b>本機版</b> —— 從你家的 IP 直接抓，根本不經過任何代理。' +
+        '展開下面的「診斷資訊」可以看到每一條路各被擋在哪一層。');
+    } else if (e && e.rateLimited) {
       banner('err', '<b>被限流了（HTTP 429）。</b>' + esc(msg) +
         '<br><br>Cloudflare Worker 是從資料中心的<b>共用 IP</b> 出去的，Google 對那批 IP 特別敏感 —— ' +
         '同一個 Worker 被很多人用、或短時間查很多次，就會收到 429。這不是網址打錯。<br>' +
@@ -976,6 +1023,10 @@ function render(picked, problem) {
   }
 
   if (!c.formats.length) {
+    if (lastVerdict) {
+      parts.push('<div class="banner err" style="margin:14px 0 0">' +
+        '<b>◆ 結論：</b>' + esc(lastVerdict) + '</div>');
+    }
     parts.push('<div class="banner warn" style="margin:14px 0 0">' +
       '<b>沒有可直接下載的影音合一格式。</b>' +
       (picked.needsCipher
@@ -1308,8 +1359,10 @@ window.__t = {
   parseVideoId, extractPlayerResponse, sliceJsonObject, pickProgressive,
   playabilityProblem, fmtBytes, fmtDur, safeName,
   proxyList, viaProxy, parseProxyLine, parseProxyList, listToText, readHealth,
-  DEFAULT_PROXIES, CLIENTS, testProxies, lookup, failInfo, fetchPlayerResponse, summarize,
+  DEFAULT_PROXIES, CLIENTS, KEYS, BLOCK_SIGNS,
+  testProxies, lookup, failInfo, fetchPlayerResponse, summarize,
   get lastDiag() { return lastDiag; },
+  get lastVerdict() { return lastVerdict; },
   get current() { return current; },
 };
 
