@@ -124,7 +124,12 @@
 
   <div class="card">
     <h2>代理設定</h2>
-    <label for="myProxy">你自己的代理（強烈建議，填了就優先用；<code>{url}</code> 會被替換成目標網址）</label>
+    <div class="note" style="margin:0 0 12px">
+      全部流量只走一個專用的 Cloudflare Worker：<code>ythelper.jasonl1019.workers.dev</code>。
+      <b>沒有放公共代理當備援</b> &mdash;&mdash; 那些服務會限流、會突然關掉，而且整支影片都會流過陌生人的機器。
+      要換成別的就填在這裡。
+    </div>
+    <label for="myProxy">改用你自己的代理（填了就排在最前面；<code>{url}</code> 會被替換成目標網址）</label>
     <input type="text" id="myProxy" placeholder="https://xxx.workers.dev/?url={url}" autocomplete="off">
     <div class="row">
       <div style="flex:0 0 auto"><button class="small" id="btnSaveProxy">儲存</button></div>
@@ -133,11 +138,14 @@
     </div>
 
     <details id="pubDetails">
-      <summary>公共代理清單（沒填自己的就依序試這些）</summary>
+      <summary>代理清單與實測結果</summary>
       <div id="pubList"></div>
       <div class="note">
-        公共代理是別人免費提供的服務，<b>隨時可能限流、變慢或關掉</b>，而且整支影片的位元組都會經過它。
-        按上面的「<b>測試代理</b>」會實測一輪，之後就<b>照實測速度排序、跳過死掉的</b>（結果記在這個瀏覽器裡）。
+        按上面的「<b>測試代理</b>」會拿 YouTube 的 <code>robots.txt</code> 當試紙實測一輪，
+        結果記在這個瀏覽器裡（開頁時直接顯示上次結論）。判斷「通了」不只看 HTTP 狀態碼，
+        還會檢查回應內容認不認得 &mdash;&mdash; 有些代理會回自己的錯誤頁配 200。<br>
+        想加備援的話就在下面補幾行（有多個時：<b>照實測速度排序、跳過死掉的</b>，
+        專用那個只要沒掛就一直排第一）。
       </div>
       <label for="pxList" style="margin-top:14px">自訂這份清單（一行一個，<code>{url}</code> 是目標網址的位置；
         開頭加 <code>raw:</code> 表示<b>不要</b>做 encodeURIComponent）</label>
@@ -153,8 +161,9 @@
     </details>
 
     <details>
-      <summary>用 Cloudflare Worker 自架代理（免費，5 分鐘，貼上就好）</summary>
+      <summary>換成你自己的 Cloudflare Worker（免費，5 分鐘，貼上就好）</summary>
       <div class="note">
+        預設那個 <code>ythelper</code> 就是這段程式碼部署出來的。想用自己的（額度獨立、不依賴別人）：<br>
         1. 登入 <b>Cloudflare</b> &rarr; Workers &amp; Pages &rarr; Create &rarr; Worker &rarr;
         2. 把預設程式碼整段換成下面這段 &rarr; Deploy &rarr;
         3. 把它給你的網址填進上面那格，後面加 <code>/?url={url}</code>
@@ -183,7 +192,8 @@
       &bull; <b>不保證每支都行。</b>YouTube 一直在加驗證（PO token、簽章混淆）。抓不到時這頁會直說是哪一步失敗，不會裝沒事。<br>
       &bull; <b>可能很慢。</b>YouTube 的網址帶一個 <code>n</code> 參數要跑它播放器的混淆 JS 才能解開；沒解開會被降速。<br>
       &bull; <b>畫質上限 720p。</b>原因見最上面那條。要 1080p/4K 就得用<b>本機版</b>（yt-dlp + ffmpeg）。<br>
-      &bull; <b>大檔可能失敗。</b>經代理存檔要先整支收進記憶體，公共代理也常有大小上限。
+      &bull; <b>大檔可能失敗。</b>「經代理存檔」要先把整支收進瀏覽器的記憶體才存檔；
+      幾百 MB 以上就改用「直接開連結」（那條不經代理）。
     </div>
     <div class="note">
       想要完整能力（4K、播放清單、批次、指定檔案大小、字幕）的話，同一個專案裡有<b>本機版</b>：
@@ -220,26 +230,15 @@
 // ===========================================================================
 'use strict';
 
-// ------------------------------------------------------------------ 公共代理
-// 這些是別人免費提供的服務：會壞、會限流、參數格式也可能改。所以
-//   (1) 每個各自帶「要不要 encodeURIComponent」—— 兩種家族的寫法不一樣：
-//       具名參數（?url=）要 encode；把整段網址接在 ? 或路徑後面的那種不能 encode，
-//       encode 過去它就當成路徑的一部分了。
-//   (2) 這份清單可以在介面上直接改（存 localStorage），格式猜錯不必改程式碼。
-//   (3) 按「測試代理」實測後，之後就照實測速度排序、跳過死掉的。
-const PUBLIC_PROXIES = [
-  { name: 'allorigins',       enc: 1, tpl: 'https://api.allorigins.win/raw?url={url}',
-    docs: 'https://allorigins.win' },
-  { name: 'cors.workers.dev', enc: 0, tpl: 'https://test.cors.workers.dev/?{url}',
-    docs: 'https://test.cors.workers.dev' },
-  { name: 'codetabs',         enc: 1, tpl: 'https://api.codetabs.com/v1/proxy?quest={url}',
-    docs: 'https://codetabs.com/cors-proxy/cors-proxy.html' },
-  { name: 'cors-anywhere',    enc: 0, tpl: 'https://cors-anywhere.com/{url}',
-    docs: 'https://cors-anywhere.com/' },
-  { name: 'cors.x2u.in',      enc: 0, tpl: 'https://cors.x2u.in/{url}',
-    docs: 'https://cors.x2u.in' },
-  { name: 'thebugging',       enc: 1, tpl: 'https://www.thebugging.com/apis/cors-proxy?url={url}',
-    docs: 'https://www.thebugging.com/apis/cors-proxy' },
+// ------------------------------------------------------------------ 代理
+// 預設只有一個：專用的 Cloudflare Worker（就是下面 WORKER_CODE 那段部署出來的）。
+// 刻意不放公共代理當備援 —— 那些服務會限流、會突然關掉、參數格式也常變，
+// 而且整支影片的位元組都會流過陌生人的機器。真要備援就在介面上自己加（清單可編輯）。
+// enc = 要不要 encodeURIComponent：具名參數（?url=）要；把整段網址直接接在 ? 或
+// 路徑後面的那種不能，encode 過去會被當成路徑的一部分。
+const DEFAULT_PROXIES = [
+  { name: 'ythelper', enc: 1, tpl: 'https://ythelper.jasonl1019.workers.dev/?url={url}',
+    docs: 'https://ythelper.jasonl1019.workers.dev/' },
 ];
 
 const LS_LIST = 'ytpages.list';     // 使用者改過的清單（純文字，一行一個模板）
@@ -392,7 +391,7 @@ function proxyList() {
   }
 
   const saved = (localStorage.getItem(LS_LIST) || '').trim();
-  const pub = saved ? parseProxyList(saved) : PUBLIC_PROXIES.slice();
+  const pub = saved ? parseProxyList(saved) : DEFAULT_PROXIES.slice();
 
   const health = readHealth();
   const rank = p => {
@@ -566,8 +565,9 @@ async function lookup() {
     const msg = (e && e.message) || String(e);
     log('✗ 查詢失敗：' + msg);
     if (e && e.allProxiesFailed) {
-      banner('err', '<b>連不到任何代理。</b>' + esc(msg) +
-        '<br>公共代理常常掛掉或限流。請在下面「代理設定」填一個自己的 Cloudflare Worker（有現成程式碼，5 分鐘）。');
+      banner('err', '<b>連不到代理。</b>' + esc(msg) +
+        '<br>代理掛掉時整頁就沒辦法查了。可以在下面「代理設定」換一個自己的 Cloudflare Worker' +
+        '（有現成程式碼，5 分鐘），或稍後再試。');
     } else {
       banner('err', esc(msg));
     }
@@ -670,7 +670,7 @@ function render(picked, problem) {
     parts.push('<div class="note">' +
       '<b>經代理存檔</b>：整支影片經代理收進瀏覽器再存成 <code>' +
         esc(safeName(c.title)) + ' [' + esc(c.formats[0].quality) + '].mp4</code>，檔名漂亮，' +
-        '但大檔（公共代理大約 100 MB 以上）容易失敗。<br>' +
+        '但要先整支收進瀏覽器記憶體，幾百 MB 以上容易失敗。<br>' +
       '<b>直接開連結</b>：把 YouTube 的原始網址直接交給瀏覽器，不經代理、最快，' +
         '但檔名會是一串亂碼，而且瀏覽器可能選擇「直接播放」而不是下載（那就在播放畫面上按右鍵另存）。<br>' +
       '這些網址有時效（約幾小時），過期就重新查一次。</div>');
@@ -837,8 +837,8 @@ async function testProxies() {
     $('pxDot').className = 'dot off';
     $('pxText').textContent = '0/' + results.length + ' 個代理可用';
     banner('err', '<b>目前沒有任何代理能用</b>，所以查詢一定會失敗。' +
-      '這些公共服務常常整批掛掉或限流 —— 最可靠的做法是在下面填一個自己的 Cloudflare Worker（有現成程式碼）。' +
-      '也可能只是某個代理的網址格式變了，可以在「公共代理清單」裡直接改。');
+      '可能是 Worker 掛了、額度用完，或網址格式變了 —— 可以在下面「代理清單」裡直接改，' +
+      '或改用自己部署的 Worker（有現成程式碼，5 分鐘）。');
   }
   $('btnTest').disabled = false;
   return results;
@@ -890,14 +890,14 @@ function init() {
     const v = $('myProxy').value.trim();
     if (v) { localStorage.setItem(LS_PROXY, v); log('已儲存代理：' + v); }
     else { localStorage.removeItem(LS_PROXY); log('已清除自訂代理'); }
-    banner('warn', v ? '代理已儲存，之後會優先使用它。' : '已清除自訂代理，改用公共代理。');
+    banner('warn', v ? '代理已儲存，之後會優先使用它。' : '已清除自訂代理，改回預設的 ythelper。');
   });
 
   $('btnClearProxy').addEventListener('click', () => {
     $('myProxy').value = '';
     localStorage.removeItem(LS_PROXY);
     log('已清除自訂代理');
-    banner('warn', '已清除自訂代理，改用公共代理。');
+    banner('warn', '已清除自訂代理，改回預設的 ythelper。');
   });
 
   $('btnSaveList').addEventListener('click', () => {
@@ -918,7 +918,7 @@ function init() {
   });
 
   $('btnLoadList').addEventListener('click', () => {
-    $('pxList').value = listToText(PUBLIC_PROXIES);
+    $('pxList').value = listToText(DEFAULT_PROXIES);
     log('已把內建清單帶進編輯框（還沒儲存）');
   });
 
@@ -959,7 +959,7 @@ window.__t = {
   parseVideoId, extractPlayerResponse, sliceJsonObject, pickProgressive,
   playabilityProblem, fmtBytes, fmtDur, safeName,
   proxyList, viaProxy, parseProxyLine, parseProxyList, listToText, readHealth,
-  PUBLIC_PROXIES, testProxies, lookup, get current() { return current; },
+  DEFAULT_PROXIES, testProxies, lookup, get current() { return current; },
 };
 
 document.addEventListener('DOMContentLoaded', init);
