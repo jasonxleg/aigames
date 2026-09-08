@@ -262,7 +262,7 @@ export default {
     const cors = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET,POST,HEAD,OPTIONS',
-      'Access-Control-Allow-Headers': 'range,content-type',
+      'Access-Control-Allow-Headers': 'range,content-type,x-forward-ua',
       // 前端要讀得到這些：算進度、判斷 429 是誰回的
       'Access-Control-Expose-Headers':
         'content-length,content-range,content-type,retry-after,x-proxy-upstream,x-proxy-cache',
@@ -300,7 +300,9 @@ export default {
 
     // 乾淨的標頭：只送 YouTube 真的需要的
     const fwd = new Headers();
-    fwd.set('user-agent',
+    // 前端可以指定 UA：打 InnerTube 的 iOS / Android client 時，UA 必須跟
+    // context 裡宣告的 client 一致，不然 YouTube 會覺得對不上而不給網址
+    fwd.set('user-agent', req.headers.get('x-forward-ua') ||
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
       '(KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36');
     fwd.set('accept-language', 'en-US,en;q=0.9');
@@ -494,7 +496,9 @@ async function fetchViaProxies(target, opts) {
         log('→ ' + label + '：經由 ' + p.name + (attempt > 1 ? '（第 ' + attempt + ' 次）' : ''));
         const res = await fetch(url, {
           method, body: o.body || null, signal: ctl.signal, redirect: 'follow',
-          headers: method === 'POST' ? { 'content-type': 'application/json' } : undefined,
+          headers: Object.assign({},
+            method === 'POST' ? { 'content-type': 'application/json' } : null,
+            o.headers || null),
         });
         clearTimeout(timer);
 
@@ -611,9 +615,19 @@ function playabilityProblem(pr) {
     (ps.errorScreen && ps.errorScreen.playerErrorMessageRenderer &&
      ps.errorScreen.playerErrorMessageRenderer.reason &&
      ps.errorScreen.playerErrorMessageRenderer.reason.simpleText) || '';
+  // 「Video unavailable」是 YouTube 對「我驗不了這個 client」的統一回答，
+  // 跟真正的地區／版權封鎖長得一模一樣。從代理的資料中心 IP 打過去時幾乎都是前者，
+  // 所以不要一口斷定是版權問題 —— 那會讓人以為影片有問題，其實是我們被擋。
+  if (st === 'UNPLAYABLE') {
+    if (!reason || /unavailable/i.test(reason))
+      return '這支回「' + (reason || 'Video unavailable') + '」。從代理的資料中心 IP 打過去時，' +
+        'YouTube 很常用這句話拒絕（它驗不了這個 client），不一定真的是地區或版權封鎖 —— ' +
+        '同一支影片用本機版通常抓得到。';
+    return '這支不能播放：' + reason + '。';
+  }
+
   const map = {
     LOGIN_REQUIRED: '這支需要登入（年齡限制或私人影片）。純網頁版沒辦法帶你的登入狀態，請用本機版（可借用瀏覽器 Cookie）。',
-    UNPLAYABLE: '這支不能播放' + (reason ? '：' + reason : '') + '。可能是地區限制或版權封鎖。',
     ERROR: '找不到這支影片（可能已刪除或網址錯了）。',
     LIVE_STREAM_OFFLINE: '這是還沒開始的直播。',
     AGE_VERIFICATION_REQUIRED: '這支需要年齡驗證，純網頁版做不到。',
@@ -627,36 +641,94 @@ let current = null;   // { id, title, formats, ... }
 // YouTube 網頁版把這把金鑰寫死在自己的原始碼裡，是公開常數，不是祕密。
 const INNERTUBE_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
 
-// 兩條不同的路去拿同一份播放資料。分開試是有意義的：被擋的時候，
-// 「抓 watch 頁面」和「打 player API」踩到的是不同的防線（前者更容易吃到
-// 機器人牆和 429），一條掛了另一條常常還能過。
-async function fetchPlayerResponse(id) {
-  const strategies = [
-    {
-      how: 'watch 頁面',
-      run: async () => {
-        const url = 'https://www.youtube.com/watch?v=' + id + '&bpctr=9999999999&has_verified=1';
-        const r = await fetchViaProxies(url, { label: '讀取影片頁面' });
-        const pr = extractPlayerResponse(r.text);
-        if (!pr) throw new Error('讀到頁面了，但裡面找不到播放資料（YouTube 改版，或代理只回了半截）');
-        return { pr, proxy: r.proxy };
-      },
+// InnerTube 的 client 是關鍵，不同 client 拿到的東西差很多：
+// 從代理的資料中心 IP 打「桌機網頁版」，YouTube 現在多半回 "Video unavailable"
+// （那不是版權封鎖，是它驗不了這個 client）或只給分軌格式；
+// iOS / Android client 回的通常是「影音合一 + 沒有簽章」的直連網址，
+// 正好就是這一頁需要的東西。所以照 yt-dlp 的做法：一個個 client 試到拿到可用格式。
+//
+// ua 要跟 context 裡宣告的 client 一致 —— 用桌機 UA 去自稱 iOS App，YouTube 會覺得對不上。
+// 那個 UA 是透過 x-forward-ua 交給代理去設的（瀏覽器不准 JS 改 user-agent）。
+const CLIENTS = [
+  {
+    name: 'iOS',
+    ua: 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X)',
+    client: {
+      clientName: 'IOS', clientVersion: '19.29.1', deviceMake: 'Apple',
+      deviceModel: 'iPhone16,2', osName: 'iPhone', osVersion: '17.5.1.21F90',
+      hl: 'en', gl: 'US',
     },
-    {
-      how: 'InnerTube player API',
+  },
+  {
+    name: 'Android',
+    ua: 'com.google.android.youtube/19.29.37 (Linux; U; Android 11) gzip',
+    client: {
+      clientName: 'ANDROID', clientVersion: '19.29.37', androidSdkVersion: 30,
+      osName: 'Android', osVersion: '11', hl: 'en', gl: 'US',
+    },
+  },
+  {
+    name: 'TV 嵌入版',
+    client: {
+      clientName: 'TVHTML5_SIMPLY_EMBEDDED_PLAYER', clientVersion: '2.0', hl: 'en', gl: 'US',
+    },
+  },
+  {
+    name: '手機網頁版',
+    ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 ' +
+        '(KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+    client: { clientName: 'MWEB', clientVersion: '2.20240726.00.00', hl: 'en', gl: 'US' },
+  },
+  {
+    name: '桌機網頁版',
+    client: { clientName: 'WEB', clientVersion: '2.20240726.00.00', hl: 'en', gl: 'US' },
+  },
+];
+
+// 每一條路各拿到什麼，失敗時讓使用者一鍵複製回報 —— 「0 個格式」這種訊息
+// 對排查完全沒用，要知道的是狀態碼、合一幾個、分軌幾個、幾個被簽章鎖住
+let lastDiag = [];
+
+function summarize(pr) {
+  const sd = (pr && pr.streamingData) || {};
+  const ps = (pr && pr.playabilityStatus) || {};
+  const picked = pickProgressive(pr);
+  return {
+    status: ps.status || '(無)',
+    reason: ps.reason || '',
+    usable: picked.formats.length,
+    cipher: picked.needsCipher,
+    progressive: (sd.formats || []).length,
+    adaptive: (sd.adaptiveFormats || []).length,
+    picked,
+  };
+}
+
+async function fetchPlayerResponse(id) {
+  const routes = [{
+    // 抓 watch 頁面：資料最完整，但也最容易吃到機器人驗證頁
+    how: 'watch 頁面',
+    run: async () => {
+      const url = 'https://www.youtube.com/watch?v=' + id + '&bpctr=9999999999&has_verified=1';
+      const r = await fetchViaProxies(url, { label: '讀取影片頁面' });
+      const pr = extractPlayerResponse(r.text);
+      if (!pr) throw new Error('讀到頁面了，但裡面找不到播放資料（可能是機器人驗證頁）');
+      return { pr, proxy: r.proxy };
+    },
+  }];
+
+  for (const c of CLIENTS) {
+    routes.push({
+      how: 'player API · ' + c.name,
       run: async () => {
         const r = await fetchViaProxies(
-          'https://www.youtube.com/youtubei/v1/player?key=' + INNERTUBE_KEY,
-          {
-            method: 'POST', label: '呼叫 player API',
+          'https://www.youtube.com/youtubei/v1/player?key=' + INNERTUBE_KEY, {
+            method: 'POST',
+            label: '呼叫 player API（' + c.name + '）',
+            headers: c.ua ? { 'x-forward-ua': c.ua } : null,
             body: JSON.stringify({
               videoId: id, contentCheckOk: true, racyCheckOk: true,
-              context: {
-                client: {
-                  clientName: 'WEB', clientVersion: '2.20240726.00.00',
-                  hl: 'en', gl: 'US',
-                },
-              },
+              context: { client: c.client },
             }),
           });
         let pr = null;
@@ -665,25 +737,51 @@ async function fetchPlayerResponse(id) {
           throw new Error('回應裡沒有播放資料');
         return { pr, proxy: r.proxy };
       },
-    },
-  ];
+    });
+  }
 
   const notes = [];
   let rateLimited = false;
+  let best = null;
+  lastDiag = [];
 
-  for (const s of strategies) {
+  for (const route of routes) {
     try {
-      const out = await s.run();
-      log('✓ ' + s.how + '：拿到播放資料');
-      return { pr: out.pr, proxy: out.proxy, how: s.how };
+      const out = await route.run();
+      const s = summarize(out.pr);
+      lastDiag.push(route.how + ' → 狀態 ' + s.status + (s.reason ? '(' + s.reason + ')' : '') +
+        '｜可用 ' + s.usable + '｜合一 ' + s.progressive + '（簽章鎖住 ' + s.cipher + '）｜分軌 ' + s.adaptive);
+
+      if (s.usable) {
+        log('✓ ' + route.how + '：可用格式 ' + s.usable + ' 個');
+        return { pr: out.pr, proxy: out.proxy, how: route.how, picked: s.picked };
+      }
+
+      // 拿到資料但沒有能直接下載的格式 —— 換下一個 client 常常就有了，不要在這裡就放棄
+      notes.push(route.how + '「' + (playabilityProblem(out.pr) ||
+        ('沒有影音合一格式（簽章鎖住 ' + s.cipher + ' 個、分軌 ' + s.adaptive + ' 個）')) + '」');
+      log('… ' + route.how + '：狀態 ' + s.status + '、可用 0（合一 ' + s.progressive +
+        '、分軌 ' + s.adaptive + '、簽章 ' + s.cipher + '）→ 換下一個');
+      if (!best) best = { pr: out.pr, proxy: out.proxy, how: route.how, picked: s.picked };
     } catch (e) {
       if (e && e.rateLimited) rateLimited = true;
-      notes.push(s.how + '「' + ((e && e.message) || e) + '」');
-      log('✗ ' + s.how + ' 這條路失敗' + (s === strategies[strategies.length - 1] ? '' : '，換下一條'));
+      const msg = (e && e.message) || String(e);
+      lastDiag.push(route.how + ' → 失敗：' + msg);
+      notes.push(route.how + '「' + msg + '」');
+      log('✗ ' + route.how + ' 失敗，換下一條');
     }
   }
 
-  const err = new Error('兩條路都失敗 —— ' + notes.join('；'));
+  // 每一條都走完了。有拿到 playerResponse 的話還是交出去，讓畫面顯示
+  // 「為什麼沒有格式」的具體統計，比只說一句 0 個有用得多。
+  if (best) {
+    best.exhausted = true;
+    best.notes = notes;
+    log('✗ ' + routes.length + ' 條路都沒拿到可用格式');
+    return best;
+  }
+
+  const err = new Error('所有路徑都失敗 —— ' + notes.join('；'));
   err.allProxiesFailed = true;
   err.rateLimited = rateLimited;
   throw err;
@@ -704,7 +802,7 @@ async function lookup() {
     const pr = got.pr;
 
     const problem = playabilityProblem(pr);
-    const picked = pickProgressive(pr);
+    const picked = got.picked || pickProgressive(pr);
     const details = pr.videoDetails || {};
 
     current = {
@@ -822,7 +920,10 @@ function render(picked, problem) {
         ? '有 ' + picked.needsCipher + ' 個格式的網址被簽章保護（<code>signatureCipher</code>），' +
           '要跑 YouTube 播放器的混淆 JS 才能解開，純網頁做不到。'
         : 'YouTube 這次只給了分軌格式（要 ffmpeg 合併）。') +
-      '<br>這種情況請用<b>本機版</b>（yt-dlp 有解簽章和合軌的能力）。</div>');
+      '<br>這種情況請用<b>本機版</b>（yt-dlp 有解簽章和合軌的能力，也不受出口 IP 影響）。</div>');
+    parts.push('<details open><summary>診斷資訊（每一條路各拿到什麼）</summary>' +
+      '<pre class="log" id="diag"></pre>' +
+      '<button class="small" id="btnCopyDiag" style="margin-top:8px">複製診斷資訊</button></details>');
   } else {
     parts.push('<div class="note" style="margin-top:16px">可下載的格式（都是單一 mp4，存下來直接能播）：</div>');
     c.formats.forEach((f, i) => {
@@ -850,6 +951,21 @@ function render(picked, problem) {
   box.innerHTML = parts.join('');
   box.classList.remove('hide');
   $('hint').textContent = '查到了。選一個格式下載。';
+
+  const diagBox = $('diag');
+  if (diagBox) {
+    diagBox.textContent = lastDiag.length ? lastDiag.join('\n') : '（沒有紀錄）';
+    $('btnCopyDiag').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(
+          'YouTube 720p 純網頁版 診斷\n影片 ' + c.id + '\n' + lastDiag.join('\n'));
+        $('btnCopyDiag').textContent = '已複製 ✓';
+      } catch (e) {
+        $('btnCopyDiag').textContent = '複製失敗，請手動選取';
+      }
+      setTimeout(() => { $('btnCopyDiag').textContent = '複製診斷資訊'; }, 2500);
+    });
+  }
 
   box.querySelectorAll('button[data-act]').forEach(b => {
     b.addEventListener('click', () => {
@@ -1130,7 +1246,8 @@ window.__t = {
   parseVideoId, extractPlayerResponse, sliceJsonObject, pickProgressive,
   playabilityProblem, fmtBytes, fmtDur, safeName,
   proxyList, viaProxy, parseProxyLine, parseProxyList, listToText, readHealth,
-  DEFAULT_PROXIES, testProxies, lookup, failInfo, fetchPlayerResponse,
+  DEFAULT_PROXIES, CLIENTS, testProxies, lookup, failInfo, fetchPlayerResponse, summarize,
+  get lastDiag() { return lastDiag; },
   get current() { return current; },
 };
 
