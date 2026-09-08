@@ -244,48 +244,96 @@ const DEFAULT_PROXIES = [
 const LS_LIST = 'ytpages.list';     // 使用者改過的清單（純文字，一行一個模板）
 const LS_HEALTH = 'ytpages.health'; // 上次實測結果 { 名稱: {ok, ms} }
 
-const WORKER_CODE = `// CORS 代理 — Cloudflare Worker（免費方案就夠）
+const WORKER_CODE = `// YouTube CORS 代理 — Cloudflare Worker（免費方案就夠）
 // 用法：https://你的worker.workers.dev/?url=<經過 encodeURIComponent 的目標網址>
+//
+// 這一版是針對「HTTP 429」調過的。429 是這類代理最常見的失敗，三個成因都處理了：
+//   1) 標頭。不要把瀏覽器那一整包原封不動轉給 YouTube —— origin / sec-fetch-* /
+//      cookie / accept-encoding 一起送過去，看起來就是機器人，Google 直接丟 429。
+//      這裡只送乾淨的最小集合。
+//   2) 次數。加快取：同一支影片被查好幾次時不再打 YouTube（影片位元組不快取）。
+//   3) 白名單。沒有白名單就是一個全世界都能用的開放代理，別人拿去打別的網站，
+//      你的免費額度被燒光 —— 那同樣會變成 429。
+//
+// 另外回應會多一個 x-proxy-upstream 標頭，讓前端分得出 429 是 YouTube 回的
+// 還是 Cloudflare 自己的額度限制（沒有這個標頭就是後者）。
 export default {
-  async fetch(req) {
+  async fetch(req, env, ctx) {
     const cors = {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+      'Access-Control-Allow-Methods': 'GET,POST,HEAD,OPTIONS',
       'Access-Control-Allow-Headers': 'range,content-type',
-      // 讓前端讀得到這兩個，才能算進度
-      'Access-Control-Expose-Headers': 'content-length,content-range,content-type',
+      // 前端要讀得到這些：算進度、判斷 429 是誰回的
+      'Access-Control-Expose-Headers':
+        'content-length,content-range,content-type,retry-after,x-proxy-upstream,x-proxy-cache',
+      'Access-Control-Max-Age': '86400',
     };
-    if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
+    if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
-    const target = new URL(req.url).searchParams.get('url');
-    if (!target) return new Response('missing ?url=', { status: 400, headers: cors });
+    const u = new URL(req.url);
+    // 兩種寫法都收：?url=<encoded>，或直接把網址接在路徑後面
+    let target = u.searchParams.get('url');
+    if (!target && u.pathname.length > 1) target = u.pathname.slice(1) + u.search;
+    if (!target || !/^https?:\\/\\//.test(target))
+      return new Response('用法：?url=<目標網址>', { status: 400, headers: cors });
 
     let host;
     try { host = new URL(target).hostname; }
-    catch { return new Response('bad url', { status: 400, headers: cors }); }
+    catch (e) { return new Response('bad url', { status: 400, headers: cors }); }
 
-    // 只放行 YouTube 相關網域，否則這就變成公開的萬用跳板了
     if (!/(^|\\.)(youtube\\.com|youtu\\.be|googlevideo\\.com|ytimg\\.com)$/.test(host))
       return new Response('host not allowed: ' + host, { status: 403, headers: cors });
 
+    const isMedia = /googlevideo\\.com$/.test(host);
+
+    // 快取：只快取中介資料（watch 頁面、player API），影片位元組不快取
+    const cache = caches.default;
+    const key = new Request(u.toString(), { method: 'GET' });
+    if (req.method === 'GET' && !isMedia) {
+      const hit = await cache.match(key);
+      if (hit) {
+        const hh = new Headers(hit.headers);
+        hh.set('x-proxy-cache', 'HIT');
+        return new Response(hit.body, { status: hit.status, headers: hh });
+      }
+    }
+
+    // 乾淨的標頭：只送 YouTube 真的需要的
     const fwd = new Headers();
-    fwd.set('user-agent', req.headers.get('user-agent') || 'Mozilla/5.0');
+    fwd.set('user-agent',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+      '(KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36');
     fwd.set('accept-language', 'en-US,en;q=0.9');
+    fwd.set('accept', isMedia ? '*/*' : 'text/html,application/json;q=0.9,*/*;q=0.8');
     const range = req.headers.get('range');
-    if (range) fwd.set('range', range);           // 讓瀏覽器能續傳／分段抓
+    if (range) fwd.set('range', range);            // 讓瀏覽器能分段／續傳
+    if (req.method === 'POST')
+      fwd.set('content-type', req.headers.get('content-type') || 'application/json');
 
-    const upstream = await fetch(target, {
-      method: req.method,
-      headers: fwd,
-      body: req.method === 'POST' ? await req.arrayBuffer() : undefined,
-      redirect: 'follow',
-    });
+    const body = req.method === 'POST' ? await req.arrayBuffer() : undefined;
 
-    const h = new Headers(upstream.headers);
+    // 429 常常只是瞬間爆量，隔一下再打一次就過了
+    let up = null;
+    for (let i = 0; i < 2; i++) {
+      up = await fetch(target, { method: req.method, headers: fwd, body: body, redirect: 'follow' });
+      if (up.status !== 429) break;
+      if (i === 0) await new Promise(function (r) { setTimeout(r, 700); });
+    }
+
+    const h = new Headers(up.headers);
     for (const k in cors) h.set(k, cors[k]);
+    h.set('x-proxy-upstream', String(up.status));
     h.delete('content-security-policy');
     h.delete('content-disposition');
-    return new Response(upstream.body, { status: upstream.status, headers: h });
+    h.delete('set-cookie');
+
+    if (up.ok && req.method === 'GET' && !isMedia) {
+      h.set('cache-control', 'public, max-age=300');
+      const out = new Response(up.body, { status: up.status, headers: h });
+      ctx.waitUntil(cache.put(key, out.clone()));
+      return out;
+    }
+    return new Response(up.body, { status: up.status, headers: h });
   },
 };`;
 
@@ -293,6 +341,7 @@ const LS_PROXY = 'ytpages.proxy';
 
 // ------------------------------------------------------------------ 小工具
 const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
   c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -413,30 +462,81 @@ function viaProxy(p, target) {
 }
 
 // 逐個代理試，第一個成功的就用它。回傳 { text, proxy }。
-async function fetchViaProxies(target, { as = 'text', timeoutMs = 20000, label = '' } = {}) {
+// 「HTTP 429」光看數字沒用 —— 要知道是 YouTube 對代理的出口 IP 限流，
+// 還是代理自己（Cloudflare 額度）擋的，這兩件事的解法完全不同。
+// x-proxy-upstream 是我們的 Worker 加的：有這個標頭就代表請求真的送到 YouTube 了。
+function failInfo(res, text) {
+  const upstream = res.headers.get('x-proxy-upstream');
+  const who = upstream
+    ? (upstream === String(res.status) ? 'YouTube 回的' : '代理改寫過，YouTube 原本回 ' + upstream)
+    : '代理自己回的（沒經過 YouTube）';
+  const snippet = String(text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+  return { who, snippet, upstream };
+}
+
+async function fetchViaProxies(target, opts) {
+  const o = opts || {};
+  const as = o.as || 'text';
+  const timeoutMs = o.timeoutMs || 20000;
+  const label = o.label || '取得';
+  const method = o.method || 'GET';
+  const tries = o.tries || 2;
   const errs = [];
+  let rateLimited = false;
+
   for (const p of proxyList()) {
     const url = viaProxy(p, target);
-    const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), timeoutMs);
-    try {
-      log('→ ' + (label || '取得') + '：經由 ' + p.name);
-      const res = await fetch(url, { signal: ctl.signal, redirect: 'follow' });
-      clearTimeout(timer);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      if (as === 'response') return { res, proxy: p };
-      const text = await res.text();
-      if (!text) throw new Error('回應是空的');
-      return { text, proxy: p };
-    } catch (e) {
-      clearTimeout(timer);
-      const why = e && e.name === 'AbortError' ? '逾時' : (e && e.message) || String(e);
-      log('  ✗ ' + p.name + '：' + why);
-      errs.push(p.name + '（' + why + '）');
+
+    for (let attempt = 1; attempt <= tries; attempt++) {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), timeoutMs);
+      try {
+        log('→ ' + label + '：經由 ' + p.name + (attempt > 1 ? '（第 ' + attempt + ' 次）' : ''));
+        const res = await fetch(url, {
+          method, body: o.body || null, signal: ctl.signal, redirect: 'follow',
+          headers: method === 'POST' ? { 'content-type': 'application/json' } : undefined,
+        });
+        clearTimeout(timer);
+
+        if (!res.ok) {
+          const info = failInfo(res, await res.text().catch(() => ''));
+          if (res.status === 429) rateLimited = true;
+          const why = 'HTTP ' + res.status + '（' + info.who + '）' +
+            (info.snippet ? '：' + info.snippet : '');
+          log('  ✗ ' + p.name + '：' + why);
+
+          // 429 和 5xx 常常是瞬間的，值得等一下再試；其他錯誤重試沒意義
+          const worthRetry = res.status === 429 || res.status >= 500;
+          if (worthRetry && attempt < tries) {
+            const wait = 1200 * attempt;
+            const ra = Number(res.headers.get('retry-after'));
+            const ms = ra > 0 && ra <= 30 ? ra * 1000 : wait;
+            log('  … 等 ' + ms + ' ms 再試一次');
+            await sleep(ms);
+            continue;
+          }
+          errs.push(p.name + '（' + why + '）');
+          break;
+        }
+
+        if (res.headers.get('x-proxy-cache') === 'HIT') log('  （代理的快取命中，沒去打 YouTube）');
+        if (as === 'response') return { res, proxy: p };
+        const text = await res.text();
+        if (!text) throw new Error('回應是空的');
+        return { text, proxy: p, res };
+      } catch (e) {
+        clearTimeout(timer);
+        const why = e && e.name === 'AbortError' ? '逾時' : (e && e.message) || String(e);
+        log('  ✗ ' + p.name + '：' + why);
+        errs.push(p.name + '（' + why + '）');
+        break;
+      }
     }
   }
+
   const err = new Error('所有代理都失敗：' + errs.join('、'));
   err.allProxiesFailed = true;
+  err.rateLimited = rateLimited;
   throw err;
 }
 
@@ -524,6 +624,71 @@ function playabilityProblem(pr) {
 // ------------------------------------------------------------------ 查詢
 let current = null;   // { id, title, formats, ... }
 
+// YouTube 網頁版把這把金鑰寫死在自己的原始碼裡，是公開常數，不是祕密。
+const INNERTUBE_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
+
+// 兩條不同的路去拿同一份播放資料。分開試是有意義的：被擋的時候，
+// 「抓 watch 頁面」和「打 player API」踩到的是不同的防線（前者更容易吃到
+// 機器人牆和 429），一條掛了另一條常常還能過。
+async function fetchPlayerResponse(id) {
+  const strategies = [
+    {
+      how: 'watch 頁面',
+      run: async () => {
+        const url = 'https://www.youtube.com/watch?v=' + id + '&bpctr=9999999999&has_verified=1';
+        const r = await fetchViaProxies(url, { label: '讀取影片頁面' });
+        const pr = extractPlayerResponse(r.text);
+        if (!pr) throw new Error('讀到頁面了，但裡面找不到播放資料（YouTube 改版，或代理只回了半截）');
+        return { pr, proxy: r.proxy };
+      },
+    },
+    {
+      how: 'InnerTube player API',
+      run: async () => {
+        const r = await fetchViaProxies(
+          'https://www.youtube.com/youtubei/v1/player?key=' + INNERTUBE_KEY,
+          {
+            method: 'POST', label: '呼叫 player API',
+            body: JSON.stringify({
+              videoId: id, contentCheckOk: true, racyCheckOk: true,
+              context: {
+                client: {
+                  clientName: 'WEB', clientVersion: '2.20240726.00.00',
+                  hl: 'en', gl: 'US',
+                },
+              },
+            }),
+          });
+        let pr = null;
+        try { pr = JSON.parse(r.text); } catch (e) { throw new Error('回應不是 JSON'); }
+        if (!pr || !(pr.streamingData || pr.playabilityStatus))
+          throw new Error('回應裡沒有播放資料');
+        return { pr, proxy: r.proxy };
+      },
+    },
+  ];
+
+  const notes = [];
+  let rateLimited = false;
+
+  for (const s of strategies) {
+    try {
+      const out = await s.run();
+      log('✓ ' + s.how + '：拿到播放資料');
+      return { pr: out.pr, proxy: out.proxy, how: s.how };
+    } catch (e) {
+      if (e && e.rateLimited) rateLimited = true;
+      notes.push(s.how + '「' + ((e && e.message) || e) + '」');
+      log('✗ ' + s.how + ' 這條路失敗' + (s === strategies[strategies.length - 1] ? '' : '，換下一條'));
+    }
+  }
+
+  const err = new Error('兩條路都失敗 —— ' + notes.join('；'));
+  err.allProxiesFailed = true;
+  err.rateLimited = rateLimited;
+  throw err;
+}
+
 async function lookup() {
   const id = parseVideoId($('url').value);
   if (!id) { banner('err', '看不懂這個網址。貼 <code>https://www.youtube.com/watch?v=...</code>、<code>https://youtu.be/...</code> 或 11 碼影片 ID。'); return; }
@@ -535,11 +700,8 @@ async function lookup() {
   $('hint').textContent = '查詢中…';
 
   try {
-    const watch = 'https://www.youtube.com/watch?v=' + id + '&bpctr=9999999999&has_verified=1';
-    const pageResult = await fetchViaProxies(watch, { label: '讀取影片頁面' });
-
-    const pr = extractPlayerResponse(pageResult.text);
-    if (!pr) throw new Error('讀到頁面了，但裡面找不到播放資料（YouTube 改版、或代理只回了部分內容）。');
+    const got = await fetchPlayerResponse(id);
+    const pr = got.pr;
 
     const problem = playabilityProblem(pr);
     const picked = pickProgressive(pr);
@@ -551,10 +713,12 @@ async function lookup() {
       author: details.author || '',
       duration: details.lengthSeconds || 0,
       formats: picked.formats,
-      proxy: pageResult.proxy.name,
+      proxy: got.proxy.name,
+      how: got.how,
     };
 
-    log('取得播放資料（代理：' + pageResult.proxy.name + '）；影音合一格式 ' + picked.formats.length + ' 個');
+    log('取得播放資料（' + got.how + '，代理：' + got.proxy.name + '）；影音合一格式 ' +
+      picked.formats.length + ' 個');
     render(picked, problem);
 
     // oEmbed 只是「標題漂亮一點」的加分項，所以放到畫面出來之後才做、也不等它。
@@ -564,7 +728,14 @@ async function lookup() {
   } catch (e) {
     const msg = (e && e.message) || String(e);
     log('✗ 查詢失敗：' + msg);
-    if (e && e.allProxiesFailed) {
+    if (e && e.rateLimited) {
+      banner('err', '<b>被限流了（HTTP 429）。</b>' + esc(msg) +
+        '<br><br>Cloudflare Worker 是從資料中心的<b>共用 IP</b> 出去的，Google 對那批 IP 特別敏感 —— ' +
+        '同一個 Worker 被很多人用、或短時間查很多次，就會收到 429。這不是網址打錯。<br>' +
+        '可以試：<b>等幾分鐘</b>再查（代理端有 5 分鐘快取，同一支影片第二次不會再打 YouTube）；' +
+        '或部署<b>一個自己的 Worker</b>（下面有現成程式碼，出口 IP 和額度都獨立）；' +
+        '或改用<b>本機版</b> —— 那是從你家的 IP 直接抓，根本不會有這個問題。');
+    } else if (e && e.allProxiesFailed) {
       banner('err', '<b>連不到代理。</b>' + esc(msg) +
         '<br>代理掛掉時整頁就沒辦法查了。可以在下面「代理設定」換一個自己的 Cloudflare Worker' +
         '（有現成程式碼，5 分鐘），或稍後再試。');
@@ -637,7 +808,7 @@ function render(picked, problem) {
       '<div class="t" id="vidTitle">' + esc(c.title) + '</div>' +
       '<div class="d">' + esc(c.author) +
         (c.duration ? ' · ' + fmtDur(c.duration) : '') +
-        ' · 代理：' + esc(c.proxy) + '</div>' +
+        ' · 代理：' + esc(c.proxy) + ' · 來源：' + esc(c.how || '') + '</div>' +
     '</div></div>');
 
   if (problem) {
@@ -959,7 +1130,8 @@ window.__t = {
   parseVideoId, extractPlayerResponse, sliceJsonObject, pickProgressive,
   playabilityProblem, fmtBytes, fmtDur, safeName,
   proxyList, viaProxy, parseProxyLine, parseProxyList, listToText, readHealth,
-  DEFAULT_PROXIES, testProxies, lookup, get current() { return current; },
+  DEFAULT_PROXIES, testProxies, lookup, failInfo, fetchPlayerResponse,
+  get current() { return current; },
 };
 
 document.addEventListener('DOMContentLoaded', init);
