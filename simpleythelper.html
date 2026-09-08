@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>YouTube 720p 純網頁下載器</title>
+<meta property="og:title" content="YouTube 720p 純網頁下載器">
+<meta property="og:description" content="單一 HTML 檔，架在 GitHub Pages 就能把 YouTube 影片存成 720p MP4，不用在電腦上安裝任何東西。">
+<meta name="theme-color" content="#0e1116">
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c2230; --line:#2a3140;
+    --fg:#e6edf3; --dim:#93a1b0; --accent:#ff4d4d; --accent2:#4da3ff;
+    --ok:#3fb950; --warn:#d29922; --err:#f85149;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font-family:"Segoe UI","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;font-size:15px}
+  header{display:flex;align-items:center;gap:12px;padding:14px 20px;
+    background:linear-gradient(90deg,#1a0f12,#161b22 55%);border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:5}
+  header h1{font-size:19px;margin:0;font-weight:700;letter-spacing:.5px}
+  .logo{width:34px;height:24px;background:var(--accent);border-radius:7px;position:relative;flex:0 0 auto}
+  .logo::after{content:"";position:absolute;left:13px;top:6px;border:6px solid transparent;
+    border-left:10px solid #fff;border-right:0}
+  .wrap{max-width:900px;margin:0 auto;padding:18px 20px 60px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+  label{display:block;font-size:13px;color:var(--dim);margin-bottom:6px}
+  input[type=text],select,textarea{width:100%;background:var(--panel2);color:var(--fg);
+    border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:14px;font-family:inherit}
+  textarea{min-height:110px;resize:vertical;line-height:1.6;font-size:12.5px;
+    font-family:Consolas,"Courier New",monospace;white-space:pre;overflow-wrap:normal;overflow-x:auto}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent2)}
+  table.px{width:100%;border-collapse:collapse;margin-top:10px;font-size:12.5px}
+  table.px th,table.px td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);
+    vertical-align:top;word-break:break-all}
+  table.px th{color:var(--dim);font-weight:600;white-space:nowrap}
+  table.px td.n{white-space:nowrap;font-weight:600}
+  table.px td.ok{color:var(--ok);white-space:nowrap}
+  table.px td.no{color:var(--err)}
+  table.px td.unk{color:var(--dim);white-space:nowrap}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:12px}
+  .row > div{flex:1 1 160px;min-width:0}
+  button{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:8px;
+    padding:10px 16px;font-size:14px;cursor:pointer;font-family:inherit;white-space:nowrap}
+  button:hover:not(:disabled){border-color:var(--accent2)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.primary:hover:not(:disabled){filter:brightness(1.12)}
+  button.small{padding:5px 10px;font-size:12.5px}
+  h2{font-size:15px;margin:0 0 12px;font-weight:600}
+  .split{display:flex;gap:10px;align-items:center}
+  .split input{flex:1}
+  .status{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--dim);
+    padding:10px 14px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+    align-items:center;margin-bottom:16px}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}
+  .dot.on{background:var(--ok)} .dot.off{background:var(--err)} .dot.mid{background:var(--warn)}
+  .vid{display:flex;gap:14px;align-items:flex-start}
+  .vid img{width:160px;height:90px;object-fit:cover;border-radius:8px;background:#000;flex:0 0 auto}
+  .vid .t{font-size:15px;line-height:1.5;font-weight:600;word-break:break-word}
+  .vid .d{font-size:12.5px;color:var(--dim);margin-top:6px}
+  .fmt{display:flex;gap:10px;align-items:center;background:var(--panel2);border:1px solid var(--line);
+    border-radius:10px;padding:11px 13px;margin-top:10px;flex-wrap:wrap}
+  .fmt.best{border-color:#1d4429;background:#0f2416}
+  .fmt .q{font-weight:700;font-size:15px;flex:0 0 auto;min-width:62px}
+  .fmt .m{font-size:12.5px;color:var(--dim);flex:1 1 130px;min-width:0}
+  .bar{height:7px;background:#0c1017;border-radius:4px;overflow:hidden;margin-top:10px;flex:1 1 100%}
+  .bar > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),#ff8a4d);
+    transition:width .2s}
+  .bar.done > i{background:var(--ok)}
+  .tag{font-size:11.5px;padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--dim);flex:0 0 auto}
+  .tag.ok{color:var(--ok);border-color:var(--ok)}
+  pre.log{background:#0a0d12;border:1px solid var(--line);border-radius:8px;padding:10px;
+    max-height:220px;overflow:auto;font-size:12px;color:#9fb3c8;white-space:pre-wrap;word-break:break-all;margin:10px 0 0}
+  pre.code{background:#0a0d12;border:1px solid var(--line);border-radius:8px;padding:12px;
+    overflow:auto;font-size:12px;color:#b9c7d6;margin:10px 0 0;max-height:340px;line-height:1.55}
+  .note{font-size:12.5px;color:var(--dim);line-height:1.7;margin-top:10px}
+  .note code,.note b{color:var(--fg)}
+  .note code{background:#0e1116;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12px}
+  .banner{border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:13.5px;line-height:1.65}
+  .banner.warn{background:#2b1d10;border:1px solid var(--warn);color:#f0c674}
+  .banner.err{background:#2b1211;border:1px solid var(--err);color:#ffb3ae}
+  .banner b{color:#fff}
+  details{margin-top:12px}
+  summary{cursor:pointer;font-size:13.5px;color:var(--accent2);user-select:none}
+  summary:hover{text-decoration:underline}
+  .hide{display:none}
+  @media(max-width:640px){
+    .row > div{flex:1 1 100%} header h1{font-size:16px}
+    .vid{flex-direction:column} .vid img{width:100%;height:auto}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"></div>
+  <h1>YouTube 720p 下載器 <span style="color:var(--dim);font-weight:400;font-size:14px">純網頁版</span></h1>
+</header>
+
+<div class="wrap">
+
+  <div class="status" id="status">
+    <span><span class="dot mid" id="pxDot"></span><span id="pxText">尚未測試代理</span></span>
+    <span style="margin-left:auto"><button class="small" id="btnTest">測試代理</button></span>
+  </div>
+
+  <div class="banner warn" id="intro">
+    這一頁只抓 <b>720p 以下、影音合一</b>的格式（itag 22 / 18）&mdash;&mdash;那種是單一檔案，不必合軌，
+    所以瀏覽器自己就能存下來。1080p 以上 YouTube 是視訊軌、音訊軌分開存的，需要 ffmpeg 合併，
+    純網頁做不到（<a href="#why" style="color:#f0c674">為什麼？</a>）。
+  </div>
+
+  <div class="card">
+    <label for="url">YouTube 網址（或直接貼影片 ID）</label>
+    <div class="split">
+      <input type="text" id="url" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off">
+      <button class="primary" id="btnGo">查詢格式</button>
+    </div>
+    <div class="note" id="hint">按下去之後：透過代理讀取 YouTube 頁面 &rarr; 取出可用格式 &rarr; 選一個存檔。</div>
+  </div>
+
+  <div class="card hide" id="result"></div>
+
+  <div class="card">
+    <h2>代理設定</h2>
+    <label for="myProxy">你自己的代理（強烈建議，填了就優先用；<code>{url}</code> 會被替換成目標網址）</label>
+    <input type="text" id="myProxy" placeholder="https://xxx.workers.dev/?url={url}" autocomplete="off">
+    <div class="row">
+      <div style="flex:0 0 auto"><button class="small" id="btnSaveProxy">儲存</button></div>
+      <div style="flex:0 0 auto"><button class="small" id="btnClearProxy">清除</button></div>
+      <div class="note" style="flex:1 1 200px;margin:0">存在這個瀏覽器裡（localStorage），不會上傳。</div>
+    </div>
+
+    <details id="pubDetails">
+      <summary>公共代理清單（沒填自己的就依序試這些）</summary>
+      <div id="pubList"></div>
+      <div class="note">
+        公共代理是別人免費提供的服務，<b>隨時可能限流、變慢或關掉</b>，而且整支影片的位元組都會經過它。
+        按上面的「<b>測試代理</b>」會實測一輪，之後就<b>照實測速度排序、跳過死掉的</b>（結果記在這個瀏覽器裡）。
+      </div>
+      <label for="pxList" style="margin-top:14px">自訂這份清單（一行一個，<code>{url}</code> 是目標網址的位置；
+        開頭加 <code>raw:</code> 表示<b>不要</b>做 encodeURIComponent）</label>
+      <textarea id="pxList" spellcheck="false" placeholder="留空 = 用內建清單"></textarea>
+      <div class="row">
+        <div style="flex:0 0 auto"><button class="small" id="btnSaveList">儲存清單</button></div>
+        <div style="flex:0 0 auto"><button class="small" id="btnLoadList">帶入內建清單</button></div>
+        <div style="flex:0 0 auto"><button class="small" id="btnResetList">還原內建</button></div>
+        <div class="note" style="flex:1 1 200px;margin:0">
+          某個代理的網址格式不對就直接在這裡改，不用改程式碼。
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary>用 Cloudflare Worker 自架代理（免費，5 分鐘，貼上就好）</summary>
+      <div class="note">
+        1. 登入 <b>Cloudflare</b> &rarr; Workers &amp; Pages &rarr; Create &rarr; Worker &rarr;
+        2. 把預設程式碼整段換成下面這段 &rarr; Deploy &rarr;
+        3. 把它給你的網址填進上面那格，後面加 <code>/?url={url}</code>
+      </div>
+      <pre class="code" id="workerCode"></pre>
+      <button class="small" id="btnCopyWorker">複製程式碼</button>
+      <div class="note">
+        這段代理只放行 <code>youtube.com</code> / <code>googlevideo.com</code>，
+        免得你的 Worker 被當成公開的萬用跳板。
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2 id="why">為什麼需要代理？</h2>
+    <div class="note">
+      瀏覽器的同源政策規定：JS 要讀取別的網站的回應，那個網站必須回一個
+      <code>Access-Control-Allow-Origin</code> 標頭同意。<b>YouTube 不同意</b>，
+      <code>googlevideo.com</code>（實際放影片的機器）也不同意。所以一份純靜態的 HTML
+      連「這支影片有哪些格式」都問不到，更別說讀影片內容。<br><br>
+      代理的作用只是把 YouTube 的回應原封不動轉一次、順手補上那個標頭。
+      這也是那些「免安裝」下載網站的真相：它們有自己的伺服器在做這件事，只是那台是它們的。<br><br>
+      <b>已知限制，先講清楚：</b>
+    </div>
+    <div class="note">
+      &bull; <b>不保證每支都行。</b>YouTube 一直在加驗證（PO token、簽章混淆）。抓不到時這頁會直說是哪一步失敗，不會裝沒事。<br>
+      &bull; <b>可能很慢。</b>YouTube 的網址帶一個 <code>n</code> 參數要跑它播放器的混淆 JS 才能解開；沒解開會被降速。<br>
+      &bull; <b>畫質上限 720p。</b>原因見最上面那條。要 1080p/4K 就得用<b>本機版</b>（yt-dlp + ffmpeg）。<br>
+      &bull; <b>大檔可能失敗。</b>經代理存檔要先整支收進記憶體，公共代理也常有大小上限。
+    </div>
+    <div class="note">
+      想要完整能力（4K、播放清單、批次、指定檔案大小、字幕）的話，同一個專案裡有<b>本機版</b>：
+      雙擊一個 .bat 起一個小伺服器，由你自己電腦上的 yt-dlp 下載，影片不經過任何第三方。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>紀錄</h2>
+    <pre class="log" id="log">（還沒有動作）</pre>
+    <button class="small" id="btnClearLog" style="margin-top:10px">清除紀錄</button>
+    <div class="note">
+      請只下載你有權下載的內容（自己的影片、已授權、或明確允許重製的素材）。
+      這一頁不會、也沒辦法繞過付費牆或 DRM。
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ===========================================================================
+//  YouTube 720p 純網頁下載器 — 單檔、零相依，丟上 GitHub Pages 就能用
+//
+//  架構（重點）：
+//    瀏覽器 ──▶ CORS 代理 ──▶ youtube.com/watch  取出 ytInitialPlayerResponse
+//    瀏覽器 ──▶ CORS 代理 ──▶ googlevideo.com    收位元組 → Blob → 存檔
+//
+//  為什麼一定要那個代理：youtube.com 和 googlevideo.com 都不回
+//  Access-Control-Allow-Origin，靜態頁的 JS 讀不到它們的回應。代理只做一件事：
+//  原封不動轉一次、補上那個標頭。（使用者也可以填自己的 Cloudflare Worker。）
+//
+//  為什麼只到 720p：itag 22(720p) / 18(360p) 是「影音合一」的單一檔案，
+//  直接存下來就是可播的 mp4。1080p 以上是視訊軌、音訊軌分開存，要 ffmpeg 合併 —— 瀏覽器做不到。
+// ===========================================================================
+'use strict';
+
+// ------------------------------------------------------------------ 公共代理
+// 這些是別人免費提供的服務：會壞、會限流、參數格式也可能改。所以
+//   (1) 每個各自帶「要不要 encodeURIComponent」—— 兩種家族的寫法不一樣：
+//       具名參數（?url=）要 encode；把整段網址接在 ? 或路徑後面的那種不能 encode，
+//       encode 過去它就當成路徑的一部分了。
+//   (2) 這份清單可以在介面上直接改（存 localStorage），格式猜錯不必改程式碼。
+//   (3) 按「測試代理」實測後，之後就照實測速度排序、跳過死掉的。
+const PUBLIC_PROXIES = [
+  { name: 'allorigins',       enc: 1, tpl: 'https://api.allorigins.win/raw?url={url}',
+    docs: 'https://allorigins.win' },
+  { name: 'cors.workers.dev', enc: 0, tpl: 'https://test.cors.workers.dev/?{url}',
+    docs: 'https://test.cors.workers.dev' },
+  { name: 'codetabs',         enc: 1, tpl: 'https://api.codetabs.com/v1/proxy?quest={url}',
+    docs: 'https://codetabs.com/cors-proxy/cors-proxy.html' },
+  { name: 'cors-anywhere',    enc: 0, tpl: 'https://cors-anywhere.com/{url}',
+    docs: 'https://cors-anywhere.com/' },
+  { name: 'cors.x2u.in',      enc: 0, tpl: 'https://cors.x2u.in/{url}',
+    docs: 'https://cors.x2u.in' },
+  { name: 'thebugging',       enc: 1, tpl: 'https://www.thebugging.com/apis/cors-proxy?url={url}',
+    docs: 'https://www.thebugging.com/apis/cors-proxy' },
+];
+
+const LS_LIST = 'ytpages.list';     // 使用者改過的清單（純文字，一行一個模板）
+const LS_HEALTH = 'ytpages.health'; // 上次實測結果 { 名稱: {ok, ms} }
+
+const WORKER_CODE = `// CORS 代理 — Cloudflare Worker（免費方案就夠）
+// 用法：https://你的worker.workers.dev/?url=<經過 encodeURIComponent 的目標網址>
+export default {
+  async fetch(req) {
+    const cors = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+      'Access-Control-Allow-Headers': 'range,content-type',
+      // 讓前端讀得到這兩個，才能算進度
+      'Access-Control-Expose-Headers': 'content-length,content-range,content-type',
+    };
+    if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
+
+    const target = new URL(req.url).searchParams.get('url');
+    if (!target) return new Response('missing ?url=', { status: 400, headers: cors });
+
+    let host;
+    try { host = new URL(target).hostname; }
+    catch { return new Response('bad url', { status: 400, headers: cors }); }
+
+    // 只放行 YouTube 相關網域，否則這就變成公開的萬用跳板了
+    if (!/(^|\\.)(youtube\\.com|youtu\\.be|googlevideo\\.com|ytimg\\.com)$/.test(host))
+      return new Response('host not allowed: ' + host, { status: 403, headers: cors });
+
+    const fwd = new Headers();
+    fwd.set('user-agent', req.headers.get('user-agent') || 'Mozilla/5.0');
+    fwd.set('accept-language', 'en-US,en;q=0.9');
+    const range = req.headers.get('range');
+    if (range) fwd.set('range', range);           // 讓瀏覽器能續傳／分段抓
+
+    const upstream = await fetch(target, {
+      method: req.method,
+      headers: fwd,
+      body: req.method === 'POST' ? await req.arrayBuffer() : undefined,
+      redirect: 'follow',
+    });
+
+    const h = new Headers(upstream.headers);
+    for (const k in cors) h.set(k, cors[k]);
+    h.delete('content-security-policy');
+    h.delete('content-disposition');
+    return new Response(upstream.body, { status: upstream.status, headers: h });
+  },
+};`;
+
+const LS_PROXY = 'ytpages.proxy';
+
+// ------------------------------------------------------------------ 小工具
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function fmtBytes(n) {
+  n = Number(n);
+  if (!isFinite(n) || n <= 0) return '未知';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+  if (n < 1024 * 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' MB';
+  return (n / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+}
+
+function fmtDur(sec) {
+  sec = Math.floor(Number(sec) || 0);
+  if (!sec) return '';
+  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+  const p = x => String(x).padStart(2, '0');
+  return h ? h + ':' + p(m) + ':' + p(s) : m + ':' + p(s);
+}
+
+// 檔名裡不能有這些字，換掉而不是整段刪掉，這樣標題還看得懂
+function safeName(s) {
+  return String(s || 'video').replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, ' ').trim().slice(0, 120);
+}
+
+const logLines = [];
+function log(msg) {
+  const t = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+  logLines.push('[' + t + '] ' + msg);
+  if (logLines.length > 300) logLines.shift();
+  const el = $('log');
+  el.textContent = logLines.join('\n');
+  el.scrollTop = el.scrollHeight;
+}
+
+// ------------------------------------------------------------------ 網址解析
+// 支援 watch?v= / youtu.be / shorts / embed / live，以及直接貼 11 碼 ID
+function parseVideoId(input) {
+  const s = String(input || '').trim();
+  if (!s) return null;
+  if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
+
+  let u;
+  try { u = new URL(s.startsWith('http') ? s : 'https://' + s); }
+  catch { return null; }
+
+  const host = u.hostname.replace(/^www\./, '');
+  const grab = v => (/^[A-Za-z0-9_-]{11}$/.test(v || '') ? v : null);
+
+  if (host === 'youtu.be') return grab(u.pathname.slice(1).split('/')[0]);
+  if (!/(^|\.)youtube(-nocookie)?\.com$/.test(host)) return null;
+
+  const v = u.searchParams.get('v');
+  if (grab(v)) return v;
+
+  const m = u.pathname.match(/^\/(shorts|embed|live|v)\/([A-Za-z0-9_-]{11})/);
+  return m ? m[2] : null;
+}
+
+// ------------------------------------------------------------------ 代理
+// 一行文字 → 一個代理設定。開頭 raw: 代表不要 encode；沒寫 {url} 就當成接在後面。
+function parseProxyLine(line) {
+  let s = String(line || '').trim();
+  if (!s || s.startsWith('#')) return null;
+
+  let enc = 1;
+  if (/^raw:/i.test(s)) { enc = 0; s = s.slice(4).trim(); }
+  if (!s) return null;
+  if (!s.includes('{url}')) s += '{url}';
+
+  let name = s;
+  try { name = new URL(s.replace('{url}', '')).hostname.replace(/^(www|api|test)\./, ''); } catch { }
+  return { name, tpl: s, enc };
+}
+
+function parseProxyList(text) {
+  return String(text || '').split(/\r?\n/).map(parseProxyLine).filter(Boolean);
+}
+
+function listToText(list) {
+  return list.map(p => (p.enc ? '' : 'raw:') + p.tpl).join('\n');
+}
+
+function readHealth() {
+  try { return JSON.parse(localStorage.getItem(LS_HEALTH) || '{}') || {}; } catch { return {}; }
+}
+
+// 嘗試順序：自訂代理永遠第一，其餘按上次實測結果排（快的先、沒測過的次之、死的最後）。
+// 死的不直接剔除 —— 服務常常只是暫時掛掉，全都拿掉會讓頁面永遠救不回來。
+function proxyList() {
+  const list = [];
+
+  const mine = (localStorage.getItem(LS_PROXY) || '').trim();
+  if (mine) {
+    const p = parseProxyLine(mine);
+    if (p) { p.name = '你的代理'; list.push(p); }
+  }
+
+  const saved = (localStorage.getItem(LS_LIST) || '').trim();
+  const pub = saved ? parseProxyList(saved) : PUBLIC_PROXIES.slice();
+
+  const health = readHealth();
+  const rank = p => {
+    const h = health[p.name];
+    if (!h) return { tier: 1, ms: 0 };
+    return h.ok ? { tier: 0, ms: h.ms } : { tier: 2, ms: 0 };
+  };
+  pub.map((p, i) => ({ p, i, r: rank(p) }))
+    .sort((a, b) => (a.r.tier - b.r.tier) || (a.r.ms - b.r.ms) || (a.i - b.i))
+    .forEach(x => list.push(x.p));
+
+  return list;
+}
+
+function viaProxy(p, target) {
+  const entry = typeof p === 'string' ? parseProxyLine(p) : p;
+  if (!entry) return target;
+  return entry.tpl.replace('{url}', entry.enc ? encodeURIComponent(target) : target);
+}
+
+// 逐個代理試，第一個成功的就用它。回傳 { text, proxy }。
+async function fetchViaProxies(target, { as = 'text', timeoutMs = 20000, label = '' } = {}) {
+  const errs = [];
+  for (const p of proxyList()) {
+    const url = viaProxy(p, target);
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), timeoutMs);
+    try {
+      log('→ ' + (label || '取得') + '：經由 ' + p.name);
+      const res = await fetch(url, { signal: ctl.signal, redirect: 'follow' });
+      clearTimeout(timer);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      if (as === 'response') return { res, proxy: p };
+      const text = await res.text();
+      if (!text) throw new Error('回應是空的');
+      return { text, proxy: p };
+    } catch (e) {
+      clearTimeout(timer);
+      const why = e && e.name === 'AbortError' ? '逾時' : (e && e.message) || String(e);
+      log('  ✗ ' + p.name + '：' + why);
+      errs.push(p.name + '（' + why + '）');
+    }
+  }
+  const err = new Error('所有代理都失敗：' + errs.join('、'));
+  err.allProxiesFailed = true;
+  throw err;
+}
+
+// ------------------------------------------------------------------ 取出 JSON
+// 不能用正則抓 ytInitialPlayerResponse —— 那個物件裡到處是巢狀大括號和字串，
+// 貪婪/非貪婪都會切錯。所以自己數括號，並且正確跳過字串與轉義。
+function sliceJsonObject(src, marker) {
+  const at = src.indexOf(marker);
+  if (at < 0) return null;
+  const start = src.indexOf('{', at);
+  if (start < 0) return null;
+
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < src.length; i++) {
+    const c = src[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === '{') depth++;
+    else if (c === '}' && --depth === 0) return src.slice(start, i + 1);
+  }
+  return null;  // 括號沒收完（回應被截斷）
+}
+
+function extractPlayerResponse(html) {
+  for (const marker of ['ytInitialPlayerResponse', '"streamingData"']) {
+    const raw = sliceJsonObject(html, marker);
+    if (!raw) continue;
+    try {
+      const obj = JSON.parse(raw);
+      if (obj && (obj.streamingData || obj.playabilityStatus)) return obj;
+    } catch { /* 換下一個 marker */ }
+  }
+  return null;
+}
+
+// ------------------------------------------------------------------ 挑格式
+// 只要 formats（影音合一）。adaptiveFormats 是分軌的，要 ffmpeg，這頁不碰。
+function pickProgressive(playerResponse) {
+  const sd = (playerResponse && playerResponse.streamingData) || {};
+  const out = [];
+  let needsCipher = 0;
+
+  for (const f of sd.formats || []) {
+    // 先數「被簽章保護」的：不管容器是 mp4 還是 webm，都要能告訴使用者
+    // 「不是沒有格式，是解不開」—— 這兩件事的下一步完全不同
+    if (!f.url) { if (f.signatureCipher || f.cipher) needsCipher++; continue; }
+    if (!/^video\/mp4/.test(f.mimeType || '')) continue;
+    out.push({
+      itag: f.itag,
+      quality: f.qualityLabel || (f.height ? f.height + 'p' : '未知'),
+      height: f.height || 0,
+      size: Number(f.contentLength || 0),
+      url: f.url,
+      fps: f.fps || 0,
+    });
+  }
+
+  out.sort((a, b) => b.height - a.height);
+  return { formats: out, needsCipher, expiresIn: Number(sd.expiresInSeconds || 0) };
+}
+
+function playabilityProblem(pr) {
+  const ps = (pr && pr.playabilityStatus) || {};
+  const st = ps.status;
+  if (!st || st === 'OK') return null;
+  const reason = ps.reason ||
+    (ps.errorScreen && ps.errorScreen.playerErrorMessageRenderer &&
+     ps.errorScreen.playerErrorMessageRenderer.reason &&
+     ps.errorScreen.playerErrorMessageRenderer.reason.simpleText) || '';
+  const map = {
+    LOGIN_REQUIRED: '這支需要登入（年齡限制或私人影片）。純網頁版沒辦法帶你的登入狀態，請用本機版（可借用瀏覽器 Cookie）。',
+    UNPLAYABLE: '這支不能播放' + (reason ? '：' + reason : '') + '。可能是地區限制或版權封鎖。',
+    ERROR: '找不到這支影片（可能已刪除或網址錯了）。',
+    LIVE_STREAM_OFFLINE: '這是還沒開始的直播。',
+    AGE_VERIFICATION_REQUIRED: '這支需要年齡驗證，純網頁版做不到。',
+  };
+  return map[st] || (st + (reason ? '：' + reason : ''));
+}
+
+// ------------------------------------------------------------------ 查詢
+let current = null;   // { id, title, formats, ... }
+
+async function lookup() {
+  const id = parseVideoId($('url').value);
+  if (!id) { banner('err', '看不懂這個網址。貼 <code>https://www.youtube.com/watch?v=...</code>、<code>https://youtu.be/...</code> 或 11 碼影片 ID。'); return; }
+
+  $('btnGo').disabled = true;
+  $('result').classList.add('hide');
+  clearBanner();
+  log('=== 查詢 ' + id + ' ===');
+  $('hint').textContent = '查詢中…';
+
+  try {
+    const watch = 'https://www.youtube.com/watch?v=' + id + '&bpctr=9999999999&has_verified=1';
+    const pageResult = await fetchViaProxies(watch, { label: '讀取影片頁面' });
+
+    const pr = extractPlayerResponse(pageResult.text);
+    if (!pr) throw new Error('讀到頁面了，但裡面找不到播放資料（YouTube 改版、或代理只回了部分內容）。');
+
+    const problem = playabilityProblem(pr);
+    const picked = pickProgressive(pr);
+    const details = pr.videoDetails || {};
+
+    current = {
+      id,
+      title: details.title || id,
+      author: details.author || '',
+      duration: details.lengthSeconds || 0,
+      formats: picked.formats,
+      proxy: pageResult.proxy.name,
+    };
+
+    log('取得播放資料（代理：' + pageResult.proxy.name + '）；影音合一格式 ' + picked.formats.length + ' 個');
+    render(picked, problem);
+
+    // oEmbed 只是「標題漂亮一點」的加分項，所以放到畫面出來之後才做、也不等它。
+    // （踩過的坑：本來跟主流程一起 Promise.all，遇到連不出外網的環境時 fetch
+    //   不是失敗而是一直掛著，整個查詢就永遠停在「查詢中…」。）
+    refineTitle(id);
+  } catch (e) {
+    const msg = (e && e.message) || String(e);
+    log('✗ 查詢失敗：' + msg);
+    if (e && e.allProxiesFailed) {
+      banner('err', '<b>連不到任何代理。</b>' + esc(msg) +
+        '<br>公共代理常常掛掉或限流。請在下面「代理設定」填一個自己的 Cloudflare Worker（有現成程式碼，5 分鐘）。');
+    } else {
+      banner('err', esc(msg));
+    }
+    $('hint').textContent = '查詢失敗，詳情看下面的紀錄。';
+  } finally {
+    $('btnGo').disabled = false;
+  }
+}
+
+// oEmbed 是少數會回 CORS 標頭的 YouTube 端點，所以標題不必靠代理。
+// 拿到就把畫面上的標題換成它的版本；拿不到就維持 videoDetails 的，不影響任何事。
+async function refineTitle(id) {
+  const o = await fetchOembed(id);
+  if (!o || !current || current.id !== id) return;
+  if (o.title && o.title !== current.title) {
+    current.title = o.title;
+    const el = $('vidTitle');
+    if (el) el.textContent = o.title;
+    log('標題改用 oEmbed 的版本：' + o.title);
+  }
+  if (o.author_name && !current.author) {
+    current.author = o.author_name;
+  }
+}
+
+async function fetchOembed(id) {
+  const ctl = new AbortController();
+  // 一定要有逾時：連不出外網的環境裡 fetch 可能不回錯誤、就只是一直掛著
+  const timer = setTimeout(() => ctl.abort(), 6000);
+  try {
+    const u = 'https://www.youtube.com/oembed?format=json&url=' +
+      encodeURIComponent('https://www.youtube.com/watch?v=' + id);
+    const res = await fetch(u, { signal: ctl.signal });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } catch (e) {
+    const why = e && e.name === 'AbortError' ? '逾時' : (e && e.message) || String(e);
+    log('（oEmbed 拿不到標題，改用頁面裡的：' + why + '）');
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ------------------------------------------------------------------ 畫面
+function banner(kind, html) {
+  let el = $('dyn');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'dyn';
+    $('intro').after(el);
+  }
+  el.className = 'banner ' + kind;
+  el.innerHTML = html;
+}
+function clearBanner() { const el = $('dyn'); if (el) el.remove(); }
+
+function render(picked, problem) {
+  const c = current;
+  const box = $('result');
+  const parts = [];
+
+  parts.push('<div class="vid">' +
+    '<img src="https://i.ytimg.com/vi/' + esc(c.id) + '/mqdefault.jpg" alt="" ' +
+      'onerror="this.style.visibility=\'hidden\'">' +
+    '<div style="flex:1;min-width:0">' +
+      '<div class="t" id="vidTitle">' + esc(c.title) + '</div>' +
+      '<div class="d">' + esc(c.author) +
+        (c.duration ? ' · ' + fmtDur(c.duration) : '') +
+        ' · 代理：' + esc(c.proxy) + '</div>' +
+    '</div></div>');
+
+  if (problem) {
+    parts.push('<div class="banner err" style="margin:14px 0 0">' + esc(problem) + '</div>');
+  }
+
+  if (!c.formats.length) {
+    parts.push('<div class="banner warn" style="margin:14px 0 0">' +
+      '<b>沒有可直接下載的影音合一格式。</b>' +
+      (picked.needsCipher
+        ? '有 ' + picked.needsCipher + ' 個格式的網址被簽章保護（<code>signatureCipher</code>），' +
+          '要跑 YouTube 播放器的混淆 JS 才能解開，純網頁做不到。'
+        : 'YouTube 這次只給了分軌格式（要 ffmpeg 合併）。') +
+      '<br>這種情況請用<b>本機版</b>（yt-dlp 有解簽章和合軌的能力）。</div>');
+  } else {
+    parts.push('<div class="note" style="margin-top:16px">可下載的格式（都是單一 mp4，存下來直接能播）：</div>');
+    c.formats.forEach((f, i) => {
+      parts.push(
+        '<div class="fmt' + (i === 0 ? ' best' : '') + '" data-i="' + i + '">' +
+          '<span class="q">' + esc(f.quality) + '</span>' +
+          (i === 0 ? '<span class="tag ok">最佳</span>' : '') +
+          '<span class="m">mp4 · itag ' + f.itag + (f.fps ? ' · ' + f.fps + 'fps' : '') +
+            ' · ' + fmtBytes(f.size) + '</span>' +
+          '<button class="primary small" data-act="save" data-i="' + i + '">經代理存檔</button>' +
+          '<button class="small" data-act="open" data-i="' + i + '">直接開連結</button>' +
+          '<div class="bar hide"><i></i></div>' +
+          '<div class="m hide" data-role="prog" style="flex:1 1 100%"></div>' +
+        '</div>');
+    });
+    parts.push('<div class="note">' +
+      '<b>經代理存檔</b>：整支影片經代理收進瀏覽器再存成 <code>' +
+        esc(safeName(c.title)) + ' [' + esc(c.formats[0].quality) + '].mp4</code>，檔名漂亮，' +
+        '但大檔（公共代理大約 100 MB 以上）容易失敗。<br>' +
+      '<b>直接開連結</b>：把 YouTube 的原始網址直接交給瀏覽器，不經代理、最快，' +
+        '但檔名會是一串亂碼，而且瀏覽器可能選擇「直接播放」而不是下載（那就在播放畫面上按右鍵另存）。<br>' +
+      '這些網址有時效（約幾小時），過期就重新查一次。</div>');
+  }
+
+  box.innerHTML = parts.join('');
+  box.classList.remove('hide');
+  $('hint').textContent = '查到了。選一個格式下載。';
+
+  box.querySelectorAll('button[data-act]').forEach(b => {
+    b.addEventListener('click', () => {
+      const f = current.formats[Number(b.dataset.i)];
+      if (b.dataset.act === 'open') openDirect(f);
+      else saveViaProxy(f, b);
+    });
+  });
+}
+
+// ------------------------------------------------------------------ 下載
+function openDirect(f) {
+  log('直接開啟 itag ' + f.itag + ' 的原始網址（不經代理）');
+  window.open(f.url, '_blank', 'noopener');
+}
+
+function triggerSave(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 60000);
+  window.__lastSave = { name, size: blob.size };   // 測試用掛勾
+}
+
+async function saveViaProxy(f, btn) {
+  const row = btn.closest('.fmt');
+  const bar = row.querySelector('.bar');
+  const barFill = bar.querySelector('i');
+  const prog = row.querySelector('[data-role=prog]');
+  const name = safeName(current.title) + ' [' + f.quality + '].mp4';
+
+  row.querySelectorAll('button').forEach(b => { b.disabled = true; });
+  bar.classList.remove('hide', 'done');
+  prog.classList.remove('hide');
+  prog.textContent = '連線中…';
+  log('=== 存檔 itag ' + f.itag + '（' + f.quality + '，' + fmtBytes(f.size) + '）===');
+
+  try {
+    const { res, proxy } = await fetchViaProxies(f.url, {
+      as: 'response', timeoutMs: 60000, label: '下載影片位元組',
+    });
+    // 代理不一定轉發 content-length，所以以 YouTube 給的 contentLength 為底
+    const total = Number(res.headers.get('content-length')) || f.size || 0;
+    log('開始接收（代理：' + proxy.name + '，預期 ' + fmtBytes(total) + '）');
+
+    const chunks = [];
+    let got = 0, t0 = Date.now(), lastPaint = 0;
+
+    if (res.body && res.body.getReader) {
+      const reader = res.body.getReader();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        got += value.length;
+        if (Date.now() - lastPaint > 200) {
+          lastPaint = Date.now();
+          paint(got, total, t0, barFill, prog);
+        }
+      }
+    } else {
+      // 舊瀏覽器沒有串流：只能整包等，進度條就沒得動
+      prog.textContent = '接收中（這個瀏覽器不支援串流，沒有進度）…';
+      const buf = await res.arrayBuffer();
+      chunks.push(new Uint8Array(buf));
+      got = buf.byteLength;
+    }
+
+    paint(got, total || got, t0, barFill, prog);
+    if (!got) throw new Error('代理回了 0 位元組');
+
+    const blob = new Blob(chunks, { type: 'video/mp4' });
+    triggerSave(blob, name);
+    bar.classList.add('done');
+    barFill.style.width = '100%';
+    prog.textContent = '完成 · ' + fmtBytes(blob.size) + ' · 已存成「' + name + '」';
+    log('✓ 完成：' + name + '（' + fmtBytes(blob.size) + '）');
+
+    if (total && Math.abs(blob.size - total) > 65536) {
+      prog.textContent += '（注意：實際 ' + fmtBytes(blob.size) + ' 與預期 ' + fmtBytes(total) + ' 不符，檔案可能不完整）';
+      log('⚠ 大小與預期不符，代理可能中途截斷');
+    }
+  } catch (e) {
+    const msg = (e && e.message) || String(e);
+    prog.textContent = '失敗：' + msg;
+    log('✗ 存檔失敗：' + msg);
+    if (e && e.allProxiesFailed) {
+      banner('err', '<b>存檔失敗：沒有代理能把影片轉給你。</b>' +
+        '可以改按「直接開連結」（不經代理），或在下面填自己的 Cloudflare Worker。');
+    }
+  } finally {
+    row.querySelectorAll('button').forEach(b => { b.disabled = false; });
+  }
+}
+
+function paint(got, total, t0, barFill, prog) {
+  const sec = Math.max(0.001, (Date.now() - t0) / 1000);
+  const speed = got / sec;
+  const pct = total ? Math.min(100, got / total * 100) : 0;
+  barFill.style.width = (total ? pct : 100) + '%';
+  const bits = [fmtBytes(got) + (total ? ' / ' + fmtBytes(total) : ''),
+                (speed / 1024 / 1024).toFixed(2) + ' MB/s'];
+  if (total && speed > 0) {
+    const left = (total - got) / speed;
+    if (left > 0.5) bits.push('剩 ' + fmtDur(left));
+  }
+  prog.textContent = (total ? pct.toFixed(1) + '% · ' : '') + bits.join(' · ');
+}
+
+// ------------------------------------------------------------------ 代理自測
+async function testProxies() {
+  $('btnTest').disabled = true;
+  $('pxDot').className = 'dot mid';
+  $('pxText').textContent = '測試中…';
+  log('=== 測試代理 ===');
+
+  const results = [];
+  const health = readHealth();
+
+  for (const p of proxyList()) {
+    const t0 = Date.now();
+    try {
+      // 用 YouTube 的 robots.txt 當試紙：小、快、一定存在，而且內容認得出來
+      // —— 有些代理會回自己的錯誤頁而不是 HTTP 錯誤碼，只看 res.ok 會誤判成通
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 12000);
+      const res = await fetch(viaProxy(p, 'https://www.youtube.com/robots.txt'), { signal: ctl.signal });
+      clearTimeout(timer);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const text = await res.text();
+      if (!/user-agent/i.test(text)) throw new Error('回應內容不對（拿到的不是 robots.txt）');
+      const ms = Date.now() - t0;
+      results.push({ p, ms, ok: true });
+      health[p.name] = { ok: true, ms, at: Date.now() };
+      log('✓ ' + p.name + '：' + ms + ' ms');
+    } catch (e) {
+      const why = e && e.name === 'AbortError' ? '逾時' : (e && e.message) || String(e);
+      results.push({ p, ok: false, why });
+      health[p.name] = { ok: false, why, at: Date.now() };
+      log('✗ ' + p.name + '：' + why);
+    }
+  }
+
+  try { localStorage.setItem(LS_HEALTH, JSON.stringify(health)); } catch { }
+  renderProxyTable(results);
+
+  const good = results.filter(r => r.ok).sort((a, b) => a.ms - b.ms);
+  if (good.length) {
+    $('pxDot').className = 'dot on';
+    $('pxText').textContent = good.length + '/' + results.length + ' 個代理可用（最快：' +
+      good[0].p.name + ' ' + good[0].ms + ' ms）';
+    log('之後會優先用 ' + good[0].p.name + '，死掉的排到最後');
+  } else {
+    $('pxDot').className = 'dot off';
+    $('pxText').textContent = '0/' + results.length + ' 個代理可用';
+    banner('err', '<b>目前沒有任何代理能用</b>，所以查詢一定會失敗。' +
+      '這些公共服務常常整批掛掉或限流 —— 最可靠的做法是在下面填一個自己的 Cloudflare Worker（有現成程式碼）。' +
+      '也可能只是某個代理的網址格式變了，可以在「公共代理清單」裡直接改。');
+  }
+  $('btnTest').disabled = false;
+  return results;
+}
+
+// 把實測結果畫成表，順便讓使用者看得到每一個用的是什麼網址格式
+function renderProxyTable(results) {
+  const health = readHealth();
+  const rows = (results || proxyList().map(p => ({ p }))).map(r => {
+    const h = health[r.p.name] || {};
+    let cell = '<td class="unk">還沒測</td>';
+    if (r.ok || h.ok === true) cell = '<td class="ok">✓ ' + (r.ms != null ? r.ms + ' ms' : h.ms + ' ms') + '</td>';
+    else if (r.ok === false || h.ok === false) cell = '<td class="no">✗ ' + esc(r.why || h.why || '') + '</td>';
+    return '<tr><td class="n">' + esc(r.p.name) + (r.p.enc ? '' : ' <span class="tag">raw</span>') + '</td>' +
+      cell + '<td><code>' + esc(r.p.tpl) + '</code></td></tr>';
+  });
+  $('pubList').innerHTML =
+    '<table class="px"><tr><th>代理</th><th>實測</th><th>網址格式</th></tr>' + rows.join('') + '</table>';
+}
+
+// ------------------------------------------------------------------ 起始
+function init() {
+  $('workerCode').textContent = WORKER_CODE;
+
+  const saved = localStorage.getItem(LS_PROXY);
+  if (saved) { $('myProxy').value = saved; log('已載入你儲存的代理'); }
+
+  const savedList = localStorage.getItem(LS_LIST);
+  if (savedList) { $('pxList').value = savedList; log('已載入你儲存的代理清單'); }
+
+  renderProxyTable(null);
+
+  // 上次測過的話，開頁就先把結論寫在狀態列，使用者不必再按一次
+  const health = readHealth();
+  const names = proxyList().filter(p => p.name !== '你的代理').map(p => p.name);
+  const alive = names.filter(n => health[n] && health[n].ok);
+  if (names.some(n => health[n])) {
+    $('pxDot').className = alive.length ? 'dot on' : 'dot off';
+    $('pxText').textContent = alive.length
+      ? alive.length + '/' + names.length + ' 個代理上次可用（最快：' + alive[0] + '）'
+      : '上次測試時沒有代理可用（建議自架 Worker）';
+  }
+
+  $('btnGo').addEventListener('click', lookup);
+  $('url').addEventListener('keydown', e => { if (e.key === 'Enter') lookup(); });
+  $('btnTest').addEventListener('click', testProxies);
+
+  $('btnSaveProxy').addEventListener('click', () => {
+    const v = $('myProxy').value.trim();
+    if (v) { localStorage.setItem(LS_PROXY, v); log('已儲存代理：' + v); }
+    else { localStorage.removeItem(LS_PROXY); log('已清除自訂代理'); }
+    banner('warn', v ? '代理已儲存，之後會優先使用它。' : '已清除自訂代理，改用公共代理。');
+  });
+
+  $('btnClearProxy').addEventListener('click', () => {
+    $('myProxy').value = '';
+    localStorage.removeItem(LS_PROXY);
+    log('已清除自訂代理');
+    banner('warn', '已清除自訂代理，改用公共代理。');
+  });
+
+  $('btnSaveList').addEventListener('click', () => {
+    const v = $('pxList').value.trim();
+    const parsed = parseProxyList(v);
+    if (v && !parsed.length) {
+      banner('err', '這份清單一行都看不懂。每行要是一個網址，用 <code>{url}</code> 標出目標網址的位置。');
+      return;
+    }
+    if (v) { localStorage.setItem(LS_LIST, v); log('已儲存代理清單（' + parsed.length + ' 個）'); }
+    else { localStorage.removeItem(LS_LIST); log('已清除自訂清單，改用內建的'); }
+    localStorage.removeItem(LS_HEALTH);   // 清單換了，舊的實測結果就沒意義了
+    renderProxyTable(null);
+    $('pxDot').className = 'dot mid';
+    $('pxText').textContent = '清單已更新，尚未測試';
+    banner('warn', v ? '清單已儲存（' + parsed.length + ' 個）。按上面的「測試代理」實測一輪。'
+                     : '已改回內建清單。');
+  });
+
+  $('btnLoadList').addEventListener('click', () => {
+    $('pxList').value = listToText(PUBLIC_PROXIES);
+    log('已把內建清單帶進編輯框（還沒儲存）');
+  });
+
+  $('btnResetList').addEventListener('click', () => {
+    $('pxList').value = '';
+    localStorage.removeItem(LS_LIST);
+    localStorage.removeItem(LS_HEALTH);
+    renderProxyTable(null);
+    log('已還原內建清單');
+    banner('warn', '已還原內建清單。');
+  });
+
+  $('btnCopyWorker').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(WORKER_CODE);
+      $('btnCopyWorker').textContent = '已複製 ✓';
+    } catch {
+      $('btnCopyWorker').textContent = '複製失敗，請手動選取';
+    }
+    setTimeout(() => { $('btnCopyWorker').textContent = '複製程式碼'; }, 2500);
+  });
+
+  $('btnClearLog').addEventListener('click', () => {
+    logLines.length = 0;
+    $('log').textContent = '（已清除）';
+  });
+
+  // 網址可以直接帶進來：index.html?v=<id> 或 ?url=<youtube 網址>
+  const q = new URLSearchParams(location.search);
+  const pre = q.get('v') || q.get('url');
+  if (pre) { $('url').value = pre; lookup(); }
+
+  log('就緒。純網頁版：只抓 720p 以下影音合一格式，需要 CORS 代理。');
+}
+
+// 測試掛勾：把純函式露出來，離線也能驗解析邏輯
+window.__t = {
+  parseVideoId, extractPlayerResponse, sliceJsonObject, pickProgressive,
+  playabilityProblem, fmtBytes, fmtDur, safeName,
+  proxyList, viaProxy, parseProxyLine, parseProxyList, listToText, readHealth,
+  PUBLIC_PROXIES, testProxies, lookup, get current() { return current; },
+};
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
