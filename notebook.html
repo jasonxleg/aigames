@@ -22,7 +22,8 @@ body{
   margin:0; background:var(--bg); color:var(--fg); overflow:hidden;
   font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,-apple-system,"Segoe UI",sans-serif;
   overscroll-behavior:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
-  position:fixed; inset:0;   /* iOS Safari：避免整頁被橡皮筋拖動 */
+  /* 不用 inset 簡寫：舊版瀏覽器不認得會整條丟掉，版面會歪掉 */
+  position:fixed; top:0; left:0; right:0; bottom:0; width:100%; height:100%;
 }
 /* 注意：touch-action 只能加在 #stage，不能加在 body。
    touch-action 會跟祖先取交集，body 設 none 會讓工具列與縮圖列在手機上滑不動。 */
@@ -30,7 +31,7 @@ button,input,select{font:inherit; color:inherit;}
 button{background:none; border:0; cursor:pointer;}
 
 /* ---------- 版面骨架 ---------- */
-#app{display:flex; flex-direction:column; height:100%; height:100dvh; padding-top:env(safe-area-inset-top);}
+#app{display:flex; flex-direction:column; width:100%; height:100%; height:100dvh; padding-top:env(safe-area-inset-top);}
 #warn{
   display:none; flex:0 0 auto; align-items:center; gap:8px; padding:8px 10px; font-size:13px; line-height:1.5;
   background:#7c2d12; color:#fed7aa; border-bottom:1px solid #9a3412;
@@ -64,6 +65,9 @@ body.read #warn{display:none !important;}
   width:var(--strip); flex:0 0 auto; background:var(--bg2); border-right:1px solid var(--line);
   display:flex; flex-direction:column; z-index:20;
 }
+#stripHead{display:none; flex:0 0 auto; align-items:center; justify-content:space-between; gap:8px;
+  padding:8px 10px; border-bottom:1px solid var(--line); font-size:13px; color:var(--dim);}
+#stripBack{display:none; position:fixed; left:0; top:0; right:0; bottom:0; background:#000a; z-index:45;}
 #thumbs{flex:1 1 auto; min-height:110px; overflow-y:auto; overflow-x:hidden; padding:10px; display:flex; flex-direction:column; gap:10px; touch-action:pan-y;}
 /* 底部按鈕用兩欄排，短螢幕才不會把縮圖列擠沒了 */
 #stripFoot{flex:0 0 auto; padding:8px; display:grid; grid-template-columns:1fr 1fr; gap:6px; border-top:1px solid var(--line);}
@@ -91,7 +95,7 @@ body.dragging #thumbs{touch-action:none; cursor:grabbing;}
   background:#ffffff0f; color:#fca5a5; font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center;
 }
 .thumb .delp:hover,.thumb .delp:active{background:var(--danger); color:#fff;}
-.thumb canvas{width:78px; height:auto; border-radius:5px; background:#fff; display:block; pointer-events:none; box-shadow:0 1px 4px #0008;}
+.thumb canvas{height:auto; border-radius:5px; background:#fff; display:block; pointer-events:none; box-shadow:0 1px 4px #0008; margin-left:auto; margin-right:auto;}
 .thumb .no{font-size:12px; color:var(--dim); width:22px; text-align:center; flex:0 0 auto;}
 
 /* ---------- 畫布舞台 ---------- */
@@ -111,7 +115,7 @@ body.dragging #thumbs{touch-action:none; cursor:grabbing;}
   background:#0b1020cc; border:1px solid var(--line);
 }
 body:not(.read) #zoomBadge.show ~ #btnFitFloat{display:inline-flex;}
-#empty{position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:14px; color:var(--dim); text-align:center; padding:20px;}
+#empty{position:absolute; left:0; top:0; right:0; bottom:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:14px; color:var(--dim); text-align:center; padding:20px;}
 body.blank #empty{display:flex;}
 body.blank #wrap{display:none;}
 
@@ -142,7 +146,7 @@ body.blank #wrap{display:none;}
 #modeSw .tb.on{background:var(--accent); color:#fff;}
 body.read #top,body.read #tools,body.read #strip{display:none;}
 body.read #stage{background:#000;}
-#zones{display:none; position:fixed; inset:0; z-index:40; pointer-events:none;}
+#zones{display:none; position:fixed; left:0; top:0; right:0; bottom:0; z-index:40; pointer-events:none;}
 body.read #zones{display:block;}
 .zone{
   position:absolute; pointer-events:auto; touch-action:none; display:flex;
@@ -191,17 +195,19 @@ body.read #lockBar{display:flex;}
 body.read #lockPage{display:block;}
 
 /* ---------- 面板 ---------- */
-#backdrop{position:fixed; inset:0; background:#000a; z-index:50; display:none;}
-body.panel #backdrop{display:block;}
-.panel{
+#backdrop{position:fixed; left:0; top:0; right:0; bottom:0; background:#000a; z-index:50; display:none;}
+/* 注意：body 的狀態 class 不能取名 "panel"，那會讓 body 自己套到 .panel 元件樣式
+   （position:fixed; right:0; width:400px; translateX(100%)）→ 整個頁面縮成 400px 被推到右邊。 */
+body.panelopen #backdrop{display:block;}
+.sidepanel{
   position:fixed; z-index:51; top:0; right:0; bottom:0; width:min(400px,100%); background:var(--bg2);
   border-left:1px solid var(--line); transform:translateX(100%); transition:transform .22s ease;
   display:flex; flex-direction:column; padding-top:env(safe-area-inset-top);
 }
-.panel.open{transform:none;}
-.panel header{display:flex; align-items:center; gap:8px; padding:12px; border-bottom:1px solid var(--line);}
-.panel header h2{margin:0; font-size:16px; flex:1;}
-.panel .body{flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:18px; touch-action:pan-y;}
+.sidepanel.open{transform:none;}
+.sidepanel header{display:flex; align-items:center; gap:8px; padding:12px; border-bottom:1px solid var(--line);}
+.sidepanel header h2{margin:0; font-size:16px; flex:1;}
+.sidepanel .body{flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:18px; touch-action:pan-y;}
 .grp{display:flex; flex-direction:column; gap:8px;}
 .grp h3{margin:0; font-size:12px; letter-spacing:.08em; color:var(--dim); text-transform:uppercase;}
 .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
@@ -216,6 +222,11 @@ label.fld{display:flex; align-items:center; gap:10px; font-size:14px;}
 label.fld input[type=range]{flex:1; accent-color:var(--accent2);}
 label.fld input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent);}
 select,input[type=text]{background:#111a2c; border:1px solid var(--line); border-radius:8px; padding:8px 10px; width:100%;}
+#zoomHint{
+  display:none; position:fixed; z-index:75; left:50%; top:8px; transform:translateX(-50%);
+  background:#7c2d12f2; color:#fed7aa; border:1px solid #9a3412; border-radius:999px;
+  padding:6px 14px; font-size:12px; white-space:nowrap; max-width:96vw; overflow:hidden; text-overflow:ellipsis;
+}
 #toast{
   position:fixed; z-index:70; left:50%; bottom:calc(var(--tools) + 24px); transform:translateX(-50%) translateY(10px);
   background:#0b1020ee; border:1px solid var(--line); border-radius:10px; padding:10px 16px; font-size:14px;
@@ -225,9 +236,15 @@ select,input[type=text]{background:#111a2c; border:1px solid var(--line); border
 
 /* ---------- 手機 ---------- */
 @media (max-width:820px){
-  :root{--strip:150px;}
-  #strip{position:absolute; left:0; top:0; bottom:0; transform:translateX(-100%); transition:transform .2s ease; box-shadow:4px 0 20px #0008;}
+  #strip{
+    position:fixed; left:0; top:0; bottom:0; width:min(74vw,272px); z-index:46;
+    transform:translateX(-100%); transition:transform .2s ease; box-shadow:6px 0 26px #000b;
+    padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);
+  }
   body.strip #strip{transform:none;}
+  #stripHead{display:flex;}
+  body.strip #stripBack{display:block;}
+  #thumbs{padding:10px 10px 4px;}
   #bookTitle{font-size:14px;}
 }
 @media (min-width:821px){ body.nostrip #strip{display:none;} }
@@ -278,7 +295,12 @@ select,input[type=text]{background:#111a2c; border:1px solid var(--line); border
   </header>
 
   <div id="mid">
+    <div id="stripBack"></div>
     <aside id="strip">
+      <div id="stripHead">
+        <span>📑 頁面</span>
+        <button class="tb icon ghost" id="stripClose" title="關閉">✕</button>
+      </div>
       <div id="thumbs"></div>
       <div id="stripFoot">
         <button class="tb" id="btnAddPhoto" title="上傳照片變成新的頁"><i>🖼️</i><span class="lb">照片</span></button>
@@ -359,7 +381,7 @@ select,input[type=text]{background:#111a2c; border:1px solid var(--line); border
 <div id="backdrop"></div>
 
 <!-- 選單面板 -->
-<div class="panel" id="menuPanel">
+<div class="sidepanel" id="menuPanel">
   <header><h2>選單</h2><button class="tb icon ghost" data-close>✕</button></header>
   <div class="body">
     <div class="grp">
@@ -437,7 +459,7 @@ select,input[type=text]{background:#111a2c; border:1px solid var(--line); border
 </div>
 
 <!-- 本頁設定面板 -->
-<div class="panel" id="pagePanel">
+<div class="sidepanel" id="pagePanel">
   <header><h2>本頁設定</h2><button class="tb icon ghost" data-close>✕</button></header>
   <div class="body">
     <div class="grp">
@@ -476,6 +498,7 @@ select,input[type=text]{background:#111a2c; border:1px solid var(--line); border
   </div>
 </div>
 
+<div id="zoomHint">🔍 畫面被手指放大了（版面會看起來怪怪的）— 兩指往內捏一下就會恢復</div>
 <div id="toast"></div>
 <div id="print"></div>
 
@@ -849,7 +872,8 @@ async function renderPage(full) {
   const p = cur();
   document.body.classList.toggle("blank", !p);
   updatePageInfo();
-  if (!p) return;
+  // 沒有任何頁時也要重畫縮圖列，否則換到新本子（空的）會留著上一本的縮圖
+  if (!p) { if (full !== false) await renderThumbs(); return; }
   computeFit();
   applyTransform();
   const rs = renderScale();
@@ -897,8 +921,11 @@ async function renderThumbs() {
     d.dataset.id = p.id;
     const no = document.createElement("span"); no.className = "no"; no.textContent = String(i + 1);
     const c = document.createElement("canvas");
-    const tw = 156, th = Math.max(20, Math.round(tw * p.h / p.w));
-    c.width = tw; c.height = th; c.style.height = Math.round(78 * p.h / p.w) + "px";
+    const cssW = window.innerWidth <= 820 ? 132 : 78;          // 手機抽屜比較寬，縮圖也放大
+    const tw = cssW * 2, th = Math.max(20, Math.round(tw * p.h / p.w));
+    c.width = tw; c.height = th;
+    c.style.width = cssW + "px";
+    c.style.height = Math.round(cssW * p.h / p.w) + "px";
     const g = document.createElement("span"); g.className = "grip"; g.textContent = "⠿"; g.title = "拖曳調整順序";
     const del = document.createElement("button");
     del.className = "delp"; del.textContent = "✕"; del.title = "刪除這一頁";
@@ -1028,7 +1055,9 @@ async function openBook(id) {
   S.pages = ordered;
   S.idx = 0;
   S.undo = []; S.redo = [];
-  await renderPage();
+  syncUndoBtns();
+  resetView();
+  await renderPage();      // renderPage 內部會重畫縮圖（空本子也會，等於清掉上一本的）
   renderBookList();
 }
 function renderBookList() {
@@ -1340,7 +1369,10 @@ function resetView() {
     clearMarks();
     const from = S.pages.findIndex((p) => p.id === d.id);
     if (!d.active) {                       // 只是點一下＝選取那一頁
-      if (!cancelled && !d.moved && from >= 0) await gotoPage(from, { force: true });
+      if (!cancelled && !d.moved && from >= 0) {
+        await gotoPage(from, { force: true });
+        if (window.innerWidth <= 820) document.body.classList.remove("strip");  // 手機：選完就收起，馬上看得到頁面
+      }
       return;
     }
     if (!target) { await renderThumbs(); return; }
@@ -1552,9 +1584,9 @@ async function printAll() {
 function openPanel(sel) {
   closePanels();
   $(sel).classList.add("open");
-  document.body.classList.add("panel");
+  document.body.classList.add("panelopen");
 }
-function closePanels() { $$(".panel").forEach((p) => p.classList.remove("open")); document.body.classList.remove("panel"); }
+function closePanels() { $$(".sidepanel").forEach((p) => p.classList.remove("open")); document.body.classList.remove("panelopen"); }
 $("#backdrop").addEventListener("click", closePanels);
 $$("[data-close]").forEach((b) => b.addEventListener("click", closePanels));
 
@@ -1565,7 +1597,11 @@ $("#btnPagePanel").onclick = () => { syncPagePanel(); openPanel("#pagePanel"); }
 $("#btnStrip").onclick = () => {
   if (window.innerWidth <= 820) document.body.classList.toggle("strip");
   else { document.body.classList.toggle("nostrip"); rerender(); }
+  $("#btnStrip").classList.toggle("on", document.body.classList.contains("strip"));
 };
+function closeStrip() { document.body.classList.remove("strip"); }
+$("#stripClose").onclick = closeStrip;
+$("#stripBack").onclick = closeStrip;
 $("#warnClose").onclick = () => { $("#warn").style.display = "none"; relayout(10); };
 $("#mEdit").onclick = () => setMode("edit");
 $("#mRead").onclick = () => setMode("read");
@@ -1575,8 +1611,9 @@ $("#btnFs").onclick = () => {
   else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
 };
 
-$("#btnAddPhoto").onclick = $("#btnAddPhoto2").onclick = () => $("#filePhotos").click();
-$("#btnAddBlank").onclick = $("#btnAddBlank2").onclick = () => addBlankPage(S.pages.length ? S.idx : null);
+function autoCloseStrip() { if (window.innerWidth <= 820) document.body.classList.remove("strip"); }
+$("#btnAddPhoto").onclick = $("#btnAddPhoto2").onclick = () => { $("#filePhotos").click(); autoCloseStrip(); };
+$("#btnAddBlank").onclick = $("#btnAddBlank2").onclick = async () => { await addBlankPage(S.pages.length ? S.idx : null); autoCloseStrip(); };
 $("#filePhotos").onchange = async (e) => { const f = Array.from(e.target.files || []); e.target.value = ""; await addPhotoPages(f); };
 $("#fileImport").onchange = async (e) => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) await importBackup(f); };
 $("#fileReplace").onchange = async (e) => {
@@ -1804,6 +1841,18 @@ window.addEventListener("drop", async (e) => {
   const fs = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
   if (fs.length) await addPhotoPages(fs);
 });
+
+/* 手指把整頁捏放大時（Chrome 會無視 user-scalable=no），版面會看起來整個跑掉，明講一聲 */
+if (window.visualViewport) {
+  const vv = window.visualViewport;
+  const updZoom = () => {
+    const el = $("#zoomHint");
+    if (el) el.style.display = vv.scale > 1.08 ? "block" : "none";
+  };
+  vv.addEventListener("resize", updZoom);
+  vv.addEventListener("scroll", updZoom);
+  updZoom();
+}
 
 /* 尺寸變化 */
 let roT = 0;
