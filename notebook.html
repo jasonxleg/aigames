@@ -1,0 +1,1646 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>手寫筆記本</title>
+<meta name="theme-color" content="#111827">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="筆記本">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23111827'/%3E%3Crect x='14' y='10' width='36' height='44' rx='4' fill='%23f8fafc'/%3E%3Crect x='14' y='10' width='7' height='44' fill='%236366f1'/%3E%3Cpath d='M27 40 L44 22' stroke='%23ef4444' stroke-width='4' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#0f1420; --bg2:#171e2e; --line:#2a3550; --fg:#e8edf7; --dim:#93a0bd;
+  --accent:#6366f1; --accent2:#22d3ee; --danger:#ef4444; --ok:#10b981;
+  --bar:60px; --tools:64px; --strip:168px;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+  margin:0; background:var(--bg); color:var(--fg); overflow:hidden;
+  font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+  overscroll-behavior:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
+  position:fixed; inset:0;   /* iOS Safari：避免整頁被橡皮筋拖動 */
+}
+/* 注意：touch-action 只能加在 #stage，不能加在 body。
+   touch-action 會跟祖先取交集，body 設 none 會讓工具列與縮圖列在手機上滑不動。 */
+button,input,select{font:inherit; color:inherit;}
+button{background:none; border:0; cursor:pointer;}
+
+/* ---------- 版面骨架 ---------- */
+#app{display:flex; flex-direction:column; height:100%; height:100dvh; padding-top:env(safe-area-inset-top);}
+#warn{
+  display:none; flex:0 0 auto; align-items:center; gap:8px; padding:8px 10px; font-size:13px; line-height:1.5;
+  background:#7c2d12; color:#fed7aa; border-bottom:1px solid #9a3412;
+}
+#warn b{color:#fff;}
+body.read #warn{display:none !important;}
+#top{
+  height:var(--bar); flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:0 10px;
+  background:var(--bg2); border-bottom:1px solid var(--line); z-index:30;
+}
+#mid{flex:1 1 auto; display:flex; min-height:0; position:relative;}
+.tb{
+  display:inline-flex; align-items:center; justify-content:center; gap:6px; height:40px; padding:0 12px;
+  border-radius:10px; background:#222c44; border:1px solid var(--line); color:var(--fg);
+  font-size:14px; white-space:nowrap; transition:background .15s,border-color .15s;
+}
+.tb:hover{background:#2b3757;}
+.tb.on{background:var(--accent); border-color:var(--accent); color:#fff;}
+.tb.ghost{background:transparent;}
+.tb.icon{width:40px; padding:0; font-size:18px;}
+.tb:disabled{opacity:.35; cursor:default;}
+#bookTitle{
+  flex:1 1 auto; min-width:0; text-align:left; font-size:15px; font-weight:600;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 8px; height:40px; line-height:40px; border-radius:10px;
+}
+#bookTitle:hover{background:#222c44;}
+#pageInfo{font-size:13px; color:var(--dim); font-variant-numeric:tabular-nums; padding:0 4px; white-space:nowrap;}
+
+/* ---------- 頁面縮圖側欄 ---------- */
+#strip{
+  width:var(--strip); flex:0 0 auto; background:var(--bg2); border-right:1px solid var(--line);
+  display:flex; flex-direction:column; z-index:20;
+}
+#thumbs{flex:1 1 auto; overflow-y:auto; overflow-x:hidden; padding:10px; display:flex; flex-direction:column; gap:10px; touch-action:pan-y;}
+#stripFoot{flex:0 0 auto; padding:10px; display:flex; flex-direction:column; gap:8px; border-top:1px solid var(--line);}
+.thumb{
+  position:relative; border-radius:10px; border:2px solid transparent; background:#0b1020;
+  padding:6px; display:flex; gap:8px; align-items:center; cursor:pointer;
+}
+.thumb.sel{border-color:var(--accent); background:#1b2340;}
+.thumb.drag{opacity:.35;}
+.thumb.over{outline:2px dashed var(--accent2); outline-offset:2px;}
+.thumb canvas{width:78px; height:auto; border-radius:5px; background:#fff; display:block; pointer-events:none; box-shadow:0 1px 4px #0008;}
+.thumb .no{font-size:12px; color:var(--dim); width:22px; text-align:center; flex:0 0 auto;}
+.thumb .grip{position:absolute; right:4px; top:4px; font-size:13px; color:var(--dim); line-height:1;}
+
+/* ---------- 畫布舞台 ---------- */
+#stage{flex:1 1 auto; position:relative; overflow:hidden; touch-action:none; background:
+  radial-gradient(circle at 50% 30%, #1b2338 0%, #0d1220 70%);}
+#wrap{position:absolute; left:0; top:0; transform-origin:0 0; box-shadow:0 10px 40px #000a; background:#fff; border-radius:2px;}
+#wrap canvas{position:absolute; left:0; top:0; width:100%; height:100%; display:block;}
+#base{z-index:1;} #ink{z-index:2;} #live{z-index:3;}
+#zoomBadge{
+  position:absolute; left:10px; top:10px; z-index:6; font-size:12px; font-variant-numeric:tabular-nums;
+  background:#0b1020cc; border:1px solid var(--line); border-radius:999px; padding:4px 10px; color:var(--dim);
+  opacity:0; transition:opacity .18s; pointer-events:none;
+}
+#zoomBadge.show{opacity:1;}
+#btnFitFloat{
+  position:absolute; right:10px; top:10px; z-index:6; display:none;
+  background:#0b1020cc; border:1px solid var(--line);
+}
+body:not(.read) #zoomBadge.show ~ #btnFitFloat{display:inline-flex;}
+#empty{position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:14px; color:var(--dim); text-align:center; padding:20px;}
+body.blank #empty{display:flex;}
+body.blank #wrap{display:none;}
+
+/* ---------- 工具列 ---------- */
+#tools{
+  flex:0 0 auto; min-height:var(--tools); background:var(--bg2); border-top:1px solid var(--line);
+  display:flex; align-items:center; gap:6px; padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+  overflow-x:auto; overflow-y:hidden; z-index:25; scrollbar-width:thin;
+  touch-action:pan-x; -webkit-overflow-scrolling:touch;
+}
+/* 重要：flex 子項預設會被壓縮，手機上按鈕會被擠成細條。
+   一律不縮，超出寬度就讓工具列自己橫向捲動。 */
+#tools > *{flex:0 0 auto;}
+#tools::-webkit-scrollbar{height:4px;}
+#tools::-webkit-scrollbar-thumb{background:#ffffff33; border-radius:3px;}
+#tools .sep{width:1px; height:30px; background:var(--line); flex:0 0 auto; margin:0 2px;}
+.sw{width:30px; height:30px; border-radius:50%; border:2px solid #0006; flex:0 0 auto; position:relative;}
+.sw.on{box-shadow:0 0 0 3px var(--accent2); border-color:#fff;}
+#widthWrap{display:flex; align-items:center; gap:6px; flex:0 0 auto;}
+#width{width:96px; accent-color:var(--accent2);}
+#wdot{width:26px; height:26px; flex:0 0 auto; display:grid; place-items:center;}
+#wdot i{display:block; border-radius:50%; background:var(--fg);}
+#customColor{width:30px; height:30px; padding:0; border:1px solid var(--line); border-radius:50%; background:none; overflow:hidden; flex:0 0 auto;}
+
+/* ---------- 模式切換（編輯 / 閱讀） ---------- */
+#modeSw{display:flex; flex:0 0 auto; background:#1b2338; border:1px solid var(--line); border-radius:10px; padding:2px; gap:2px;}
+#modeSw .tb{height:34px; padding:0 10px; border:0; background:transparent; border-radius:8px; font-size:13px;}
+#modeSw .tb.on{background:var(--accent); color:#fff;}
+body.read #top,body.read #tools,body.read #strip{display:none;}
+body.read #stage{background:#000;}
+#zones{display:none; position:fixed; inset:0; z-index:40; pointer-events:none;}
+body.read #zones{display:block;}
+.zone{position:absolute; bottom:0; pointer-events:auto; touch-action:none; display:flex; align-items:flex-end; justify-content:center; padding-bottom:calc(10px + env(safe-area-inset-bottom));}
+#zoneL{left:0;} #zoneR{right:0;}
+#zones.pv{display:block !important; z-index:60;}
+#zones.pv .zone{pointer-events:none; background:#6366f166; border:2px dashed var(--accent2); border-radius:6px;}
+#zones.pv .zone .hint{opacity:1 !important; background:#000c;}
+.zone .hint{
+  font-size:12px; color:#fff; background:#ffffff22; border:1px solid #ffffff33; border-radius:999px;
+  padding:4px 10px; opacity:.5; transition:opacity .2s, background .2s;
+}
+.zone:active .hint{opacity:1; background:#ffffff55;}
+body.read.nohint .zone .hint{opacity:0;}
+.zone.flash{background:#ffffff1f;}
+#lockBar{
+  display:none; position:fixed; z-index:41; top:calc(env(safe-area-inset-top) + 8px); right:10px; gap:8px;
+}
+body.read #lockBar{display:flex;}
+#lockBar .tb{background:#ffffff1a; border-color:#ffffff2e; height:36px;}
+#lockPage{
+  display:none; position:fixed; z-index:41; top:calc(env(safe-area-inset-top) + 8px); left:50%; transform:translateX(-50%);
+  font-size:13px; color:#fff9; background:#ffffff14; border-radius:999px; padding:4px 12px; font-variant-numeric:tabular-nums;
+}
+body.read #lockPage{display:block;}
+
+/* ---------- 面板 ---------- */
+#backdrop{position:fixed; inset:0; background:#000a; z-index:50; display:none;}
+body.panel #backdrop{display:block;}
+.panel{
+  position:fixed; z-index:51; top:0; right:0; bottom:0; width:min(400px,100%); background:var(--bg2);
+  border-left:1px solid var(--line); transform:translateX(100%); transition:transform .22s ease;
+  display:flex; flex-direction:column; padding-top:env(safe-area-inset-top);
+}
+.panel.open{transform:none;}
+.panel header{display:flex; align-items:center; gap:8px; padding:12px; border-bottom:1px solid var(--line);}
+.panel header h2{margin:0; font-size:16px; flex:1;}
+.panel .body{flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:18px; touch-action:pan-y;}
+.grp{display:flex; flex-direction:column; gap:8px;}
+.grp h3{margin:0; font-size:12px; letter-spacing:.08em; color:var(--dim); text-transform:uppercase;}
+.row{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+.row .tb{flex:1 1 auto;}
+.list{display:flex; flex-direction:column; gap:6px;}
+.bookrow{display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:10px; background:#222c44; border:1px solid var(--line);}
+.bookrow.cur{border-color:var(--accent);}
+.bookrow .nm{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; text-align:left;}
+.bookrow .meta{font-size:11px; color:var(--dim);}
+.hint2{font-size:12px; color:var(--dim); line-height:1.7;}
+label.fld{display:flex; align-items:center; gap:10px; font-size:14px;}
+label.fld input[type=range]{flex:1; accent-color:var(--accent2);}
+label.fld input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent);}
+select,input[type=text]{background:#111a2c; border:1px solid var(--line); border-radius:8px; padding:8px 10px; width:100%;}
+#toast{
+  position:fixed; z-index:70; left:50%; bottom:calc(var(--tools) + 24px); transform:translateX(-50%) translateY(10px);
+  background:#0b1020ee; border:1px solid var(--line); border-radius:10px; padding:10px 16px; font-size:14px;
+  opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; max-width:80vw; text-align:center;
+}
+#toast.show{opacity:1; transform:translateX(-50%);}
+
+/* ---------- 手機 ---------- */
+@media (max-width:820px){
+  :root{--strip:150px;}
+  #strip{position:absolute; left:0; top:0; bottom:0; transform:translateX(-100%); transition:transform .2s ease; box-shadow:4px 0 20px #0008;}
+  body.strip #strip{transform:none;}
+  #bookTitle{font-size:14px;}
+}
+@media (min-width:821px){ body.nostrip #strip{display:none;} }
+/* 觸控裝置：把可點區域放大到 44px，手指才好按 */
+@media (pointer:coarse){
+  .tb{height:44px;} .tb.icon{width:44px; font-size:20px;}
+  #modeSw .tb{height:38px;} .sw{width:34px; height:34px;} #customColor{width:34px; height:34px;}
+  #width{width:120px;} .thumb{padding:8px;}
+}
+/* 橫躺的手機：壓縮上下列，把畫布留大一點 */
+@media (max-height:540px){
+  :root{--bar:48px; --tools:56px;}
+  .tb{height:36px !important;} .tb.icon{width:36px !important;}
+  #tools{padding-top:5px; padding-bottom:calc(5px + env(safe-area-inset-bottom));}
+}
+
+/* ---------- 列印 ---------- */
+#print{display:none;}
+@media print{
+  body>*{display:none !important;}
+  #print{display:block !important;}
+  #print img{width:100%; page-break-after:always; break-after:page;}
+  @page{margin:8mm;}
+}
+</style>
+</head>
+<body class="blank">
+
+<div id="app">
+  <div id="warn">
+    <span>⚠️ <b></b>：這次寫的東西關掉就沒了，請先用選單的「匯出備份檔」存起來。建議改用「手機連線.bat」或網址版開啟。</span>
+    <button class="tb icon ghost" id="warnClose" title="知道了">✕</button>
+  </div>
+  <header id="top">
+    <button class="tb icon ghost" id="btnStrip" title="頁面清單">📑</button>
+    <button id="bookTitle" title="筆記本管理">我的筆記本</button>
+    <span id="pageInfo">0 / 0</span>
+    <div id="modeSw">
+      <button class="tb on" id="mEdit" title="編輯模式：可以手寫、換頁面順序">✏️ 編輯</button>
+      <button class="tb" id="mRead" title="閱讀模式：畫面鎖住，點左下／右下角翻頁">📖 閱讀</button>
+    </div>
+    <button class="tb icon ghost" id="btnMenu" title="選單">☰</button>
+  </header>
+
+  <div id="mid">
+    <aside id="strip">
+      <div id="thumbs"></div>
+      <div id="stripFoot">
+        <button class="tb" id="btnAddPhoto">🖼️ 上傳照片</button>
+        <button class="tb" id="btnAddBlank">📄 空白頁</button>
+      </div>
+    </aside>
+
+    <div id="stage">
+      <div id="wrap">
+        <canvas id="base"></canvas>
+        <canvas id="ink"></canvas>
+        <canvas id="live"></canvas>
+      </div>
+      <div id="zoomBadge">100%</div>
+      <button class="tb icon" id="btnFitFloat" title="回到符合畫面">⛶</button>
+      <div id="empty">
+        <div style="font-size:44px">📓</div>
+        <div>這本筆記本還沒有頁面</div>
+        <div class="row" style="justify-content:center">
+          <button class="tb" id="btnAddPhoto2">🖼️ 上傳照片</button>
+          <button class="tb" id="btnAddBlank2">📄 新增空白頁</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tools">
+    <button class="tb icon" data-tool="pen" id="tPen" title="筆">✏️</button>
+    <button class="tb icon" data-tool="hl" id="tHl" title="螢光筆">🖍️</button>
+    <button class="tb icon" data-tool="eraser" id="tEraser" title="橡皮擦">🧽</button>
+    <button class="tb icon" data-tool="hand" id="tHand" title="移動 / 縮放">✋</button>
+    <span class="sep"></span>
+    <span id="swatches"></span>
+    <input type="color" id="customColor" value="#6366f1" title="自訂顏色">
+    <span class="sep"></span>
+    <span id="widthWrap"><span id="wdot"><i></i></span><input type="range" id="width" min="1" max="40" step="1" value="4" title="粗細"></span>
+    <span class="sep"></span>
+    <button class="tb icon" id="btnUndo" title="復原">↩️</button>
+    <button class="tb icon" id="btnRedo" title="重做">↪️</button>
+    <button class="tb icon" id="btnClear" title="清除本頁手寫">🗑️</button>
+    <span class="sep"></span>
+    <button class="tb icon" id="btnZoomOut" title="縮小">➖</button>
+    <button class="tb icon" id="btnZoomFit" title="符合畫面">⛶</button>
+    <button class="tb icon" id="btnZoomIn" title="放大">➕</button>
+    <span class="sep"></span>
+    <button class="tb" id="btnPagePanel" title="本頁設定">🎨 頁面</button>
+    <button class="tb icon" id="btnPrev" title="上一頁">◀</button>
+    <button class="tb icon" id="btnNext" title="下一頁">▶</button>
+  </div>
+</div>
+
+<div id="zones">
+  <div class="zone" id="zoneL"><span class="hint">◀ 上一頁</span></div>
+  <div class="zone" id="zoneR"><span class="hint">下一頁 ▶</span></div>
+</div>
+<div id="lockBar">
+  <button class="tb" id="btnFitMode" title="切換顯示方式：符合畫面 / 滿版 / 貼齊寬度">🔳 滿版</button>
+  <button class="tb icon" id="btnFs" title="全螢幕">⛶</button>
+  <button class="tb" id="btnUnlock" title="回到編輯模式">✏️ 編輯模式</button>
+</div>
+<div id="lockPage">1 / 1</div>
+
+<div id="backdrop"></div>
+
+<!-- 選單面板 -->
+<div class="panel" id="menuPanel">
+  <header><h2>選單</h2><button class="tb icon ghost" data-close>✕</button></header>
+  <div class="body">
+    <div class="grp">
+      <h3>筆記本</h3>
+      <div class="list" id="bookList"></div>
+      <div class="row">
+        <button class="tb" id="btnNewBook">➕ 新增筆記本</button>
+        <button class="tb" id="btnRenameBook">✏️ 改名</button>
+      </div>
+    </div>
+    <div class="grp">
+      <h3>閱讀模式（鎖定翻頁）</h3>
+      <label class="fld">頁面顯示方式
+        <select id="cfgFit">
+          <option value="contain">符合畫面（整頁看得到）</option>
+          <option value="cover">滿版（填滿螢幕，邊緣會裁掉一點）</option>
+          <option value="width">貼齊寬度（太長就上下拖）</option>
+        </select>
+      </label>
+      <label class="fld">角落動作
+        <select id="cfgCorner">
+          <option value="prevnext">左下＝上一頁、右下＝下一頁</option>
+          <option value="next">左下／右下都是下一頁</option>
+          <option value="nextprev">左下＝下一頁、右下＝上一頁</option>
+        </select>
+      </label>
+      <div class="row" id="zonePreset">
+        <button class="tb" data-zp="corner">角落小塊</button>
+        <button class="tb" data-zp="side">左右整邊</button>
+        <button class="tb" data-zp="bar">底部長條</button>
+      </div>
+      <label class="fld">感應區寬度 <input type="range" id="cfgZoneW" min="5" max="50" step="1"><span id="cfgZoneWV" style="width:48px;text-align:right;color:var(--dim)"></span></label>
+      <label class="fld">感應區高度 <input type="range" id="cfgZoneH" min="5" max="100" step="1"><span id="cfgZoneHV" style="width:48px;text-align:right;color:var(--dim)"></span></label>
+      <label class="fld">垂直位置
+        <select id="cfgZoneV">
+          <option value="bottom">靠下（預設）</option>
+          <option value="center">畫面中間</option>
+          <option value="top">靠上</option>
+          <option value="full">整個畫面高度</option>
+        </select>
+      </label>
+      <div class="row"><button class="tb" id="btnZonePreview">👁️ 在畫面上預覽感應區</button></div>
+      <label class="fld"><input type="checkbox" id="cfgHint"> 顯示角落提示文字</label>
+      <label class="fld"><input type="checkbox" id="cfgWake"> 閱讀模式時螢幕不休眠</label>
+      <label class="fld"><input type="checkbox" id="cfgRemember"> 記住上次使用的模式</label>
+      <div class="hint2">閱讀模式下畫面不會被畫到，點感應區即可翻頁；也可以左右滑動翻頁、兩指放大看照片。</div>
+    </div>
+    <div class="grp">
+      <h3>書寫</h3>
+      <label class="fld"><input type="checkbox" id="cfgStylus"> 只接受觸控筆（防手掌誤觸）</label>
+      <label class="fld"><input type="checkbox" id="cfgPressure"> 觸控筆壓感（粗細隨力道）</label>
+    </div>
+    <div class="grp">
+      <h3>匯出 / 備份</h3>
+      <div class="row">
+        <button class="tb" id="btnExport">💾 匯出備份檔</button>
+        <button class="tb" id="btnImport">📥 匯入備份檔</button>
+      </div>
+      <div class="row">
+        <button class="tb" id="btnPng">🖼️ 本頁存成 PNG</button>
+        <button class="tb" id="btnPrint">🖨️ 整本列印 / PDF</button>
+      </div>
+      <div class="hint2">筆記自動存在這台裝置的瀏覽器裡（IndexedDB），關掉網頁也還在。換手機／平板時用「匯出備份檔」搬過去。</div>
+    </div>
+    <div class="grp">
+      <h3>危險操作</h3>
+      <div class="row"><button class="tb" id="btnDelBook" style="color:var(--danger)">🗑️ 刪除目前這本筆記本</button></div>
+    </div>
+    <div class="grp">
+      <h3>說明</h3>
+      <div class="hint2">
+        • 手機／平板：用瀏覽器「加入主畫面」就像一個 App。<br>
+        • 縮圖可直接拖曳調整頁面前後順序。<br>
+        • 兩指可縮放、移動頁面。<br>
+        • 資料存在瀏覽器本機，清除瀏覽器資料會一併清掉，重要內容請匯出備份。
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 本頁設定面板 -->
+<div class="panel" id="pagePanel">
+  <header><h2>本頁設定</h2><button class="tb icon ghost" data-close>✕</button></header>
+  <div class="body">
+    <div class="grp">
+      <h3>紙張樣式</h3>
+      <div class="row" id="paperRow">
+        <button class="tb" data-paper="plain">空白</button>
+        <button class="tb" data-paper="lined">橫線</button>
+        <button class="tb" data-paper="grid">方格</button>
+        <button class="tb" data-paper="dots">點陣</button>
+      </div>
+    </div>
+    <div class="grp">
+      <h3>頁面底色</h3>
+      <div class="row" id="bgRow"></div>
+      <label class="fld">自訂 <input type="color" id="bgCustom" style="width:48px;height:34px;padding:0;border-radius:8px"></label>
+    </div>
+    <div class="grp">
+      <h3>照片</h3>
+      <div class="row">
+        <button class="tb" id="btnReplacePhoto">🔄 換張照片</button>
+        <button class="tb" id="btnRemovePhoto">✂️ 移除照片</button>
+      </div>
+      <label class="fld">照片不透明度 <input type="range" id="imgAlpha" min="10" max="100" step="5"><span id="imgAlphaV" style="width:44px;text-align:right;color:var(--dim)"></span></label>
+    </div>
+    <div class="grp">
+      <h3>頁面</h3>
+      <div class="row">
+        <button class="tb" id="btnDupPage">📑 複製此頁</button>
+        <button class="tb" id="btnDelPage" style="color:var(--danger)">🗑️ 刪除此頁</button>
+      </div>
+      <div class="row">
+        <button class="tb" id="btnMoveUp">⬆️ 往前移</button>
+        <button class="tb" id="btnMoveDown">⬇️ 往後移</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="print"></div>
+
+<input type="file" id="filePhotos" accept="image/*" multiple hidden>
+<input type="file" id="fileReplace" accept="image/*" hidden>
+<input type="file" id="fileImport" accept=".json,application/json,.jsnb" hidden>
+
+<script>
+"use strict";
+(function () {
+/* =======================================================================
+ * 手寫筆記本 — 單檔純前端，資料存在瀏覽器 IndexedDB
+ * ===================================================================== */
+
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+
+const BLANK_W = 1240, BLANK_H = 1754;        // A4 直式 150dpi
+const MAX_PHOTO = 2400;                       // 上傳照片最長邊
+const PALETTE = ["#111827", "#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#6366f1", "#ec4899", "#ffffff"];
+const BG_PALETTE = ["#ffffff", "#fffdf2", "#fef3c7", "#e0f2fe", "#dcfce7", "#fce7f3", "#e5e7eb", "#1f2937"];
+
+/* ---------------------- IndexedDB ---------------------- */
+const DB_NAME = "josh-notebook", DB_VER = 1;
+let _db = null, dbFailed = false;
+/* 直接用 file:// 雙擊開啟時，Chrome 的 IndexedDB 會「沒有回應」（不是報錯，是永遠不回 callback），
+   私密瀏覽或關閉網站資料時也可能開不起來。這時退回記憶體暫存，並在畫面上明講「這次不會自動儲存」。 */
+const MEM = { books: new Map(), pages: new Map() };
+function storageBroken(why) {
+  if (dbFailed) return;
+  dbFailed = true;
+  const el = $("#warn");
+  if (el) {
+    el.style.display = "flex";
+    el.querySelector("b").textContent = why;
+  }
+}
+function openDB() {
+  return new Promise((res, rej) => {
+    if (_db) return res(_db);
+    if (dbFailed) return rej(new Error("no-storage"));
+    let settled = false;
+    const done = (fn, v) => { if (!settled) { settled = true; fn(v); } };
+    setTimeout(() => {
+      if (!settled) { storageBroken(location.protocol === "file:" ? "這是直接開檔案的模式，沒辦法自動儲存" : "瀏覽器不讓這個頁面存資料"); done(rej, new Error("timeout")); }
+    }, 2500);
+    let rq;
+    try { rq = indexedDB.open(DB_NAME, DB_VER); }
+    catch (e) { storageBroken("瀏覽器不讓這個頁面存資料"); return done(rej, e); }
+    rq.onupgradeneeded = () => {
+      const db = rq.result;
+      if (!db.objectStoreNames.contains("books")) db.createObjectStore("books", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("pages")) {
+        const st = db.createObjectStore("pages", { keyPath: "id" });
+        st.createIndex("bookId", "bookId");
+      }
+    };
+    rq.onsuccess = () => { _db = rq.result; done(res, _db); };
+    rq.onerror = () => { storageBroken("瀏覽器不讓這個頁面存資料"); done(rej, rq.error); };
+    rq.onblocked = () => { storageBroken("另一個分頁佔住了資料庫"); done(rej, new Error("blocked")); };
+  });
+}
+/* 拿不到資料庫時回 null，呼叫端就走記憶體暫存（仍然可以用、可以匯出備份） */
+function tx(store, mode) {
+  return openDB().then((db) => db.transaction(store, mode).objectStore(store)).catch(() => null);
+}
+function idbPut(store, val) {
+  return tx(store, "readwrite").then((st) => {
+    if (!st) { MEM[store].set(val.id, val); return val; }
+    return new Promise((res, rej) => { const r = st.put(val); r.onsuccess = () => res(val); r.onerror = () => rej(r.error); });
+  });
+}
+function idbGet(store, key) {
+  return tx(store, "readonly").then((st) => {
+    if (!st) return MEM[store].get(key);
+    return new Promise((res, rej) => { const r = st.get(key); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  });
+}
+function idbDel(store, key) {
+  return tx(store, "readwrite").then((st) => {
+    if (!st) { MEM[store].delete(key); return; }
+    return new Promise((res, rej) => { const r = st.delete(key); r.onsuccess = () => res(); r.onerror = () => rej(r.error); });
+  });
+}
+function idbAll(store) {
+  return tx(store, "readonly").then((st) => {
+    if (!st) return Array.from(MEM[store].values());
+    return new Promise((res, rej) => { const r = st.getAll(); r.onsuccess = () => res(r.result || []); r.onerror = () => rej(r.error); });
+  });
+}
+function idbByBook(bookId) {
+  return tx("pages", "readonly").then((st) => {
+    if (!st) return Array.from(MEM.pages.values()).filter((p) => p.bookId === bookId);
+    return new Promise((res, rej) => {
+      const r = st.index("bookId").getAll(bookId);
+      r.onsuccess = () => res(r.result || []); r.onerror = () => rej(r.error);
+    });
+  });
+}
+
+/* ---------------------- 設定（localStorage） ---------------------- */
+const DEF_CFG = {
+  tool: "pen", color: "#111827", width: 4, hlColor: "#fde047", hlWidth: 22, eraserWidth: 24,
+  corner: "prevnext", hint: true, wake: true, stylus: false, pressure: true, lastBook: "",
+  mode: "edit", rememberMode: true,
+  zoneW: 22, zoneH: 30, zoneV: "bottom", fit: "contain",
+};
+let cfg = Object.assign({}, DEF_CFG);
+try { Object.assign(cfg, JSON.parse(localStorage.getItem("nb-cfg") || "{}")); } catch (e) {}
+if (cfg.zone && cfg.zoneW == null) { cfg.zoneW = cfg.zone; cfg.zoneH = Math.min(60, cfg.zone + 8); }  // 舊版設定沿用
+const saveCfg = debounce(() => { try { localStorage.setItem("nb-cfg", JSON.stringify(cfg)); } catch (e) {} }, 200);
+
+function debounce(fn, ms) { let t = 0; return function () { clearTimeout(t); const a = arguments; t = setTimeout(() => fn.apply(null, a), ms); }; }
+
+/* ---------------------- 狀態 ---------------------- */
+const S = {
+  books: [], book: null, pages: [], idx: 0,
+  zoom: 1, panX: 0, panY: 0, fit: { w: 0, h: 0, x: 0, y: 0 },
+  mode: "edit", drawing: null, bmp: new Map(), rs: 1,
+};
+function isRead() { return S.mode === "read"; }
+
+/* ---------------------- 小工具 ---------------------- */
+let toastT = 0;
+function toast(msg) {
+  const el = $("#toast"); el.textContent = msg; el.classList.add("show");
+  clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("show"), 1800);
+}
+function fileToBlobURL(blob) { return URL.createObjectURL(blob); }
+function download(blob, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+}
+function blobToDataURL(blob) {
+  return new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => rej(fr.error); fr.readAsDataURL(blob); });
+}
+function dataURLToBlob(url) { return fetch(url).then((r) => r.blob()); }
+
+async function decodeImage(blob) {
+  if (typeof createImageBitmap === "function") {
+    try { return await createImageBitmap(blob); } catch (e) {}
+  }
+  return new Promise((res, rej) => {
+    const img = new Image(); const u = URL.createObjectURL(blob);
+    img.onload = () => { res(img); setTimeout(() => URL.revokeObjectURL(u), 1000); };
+    img.onerror = () => { URL.revokeObjectURL(u); rej(new Error("圖片無法讀取")); };
+    img.src = u;
+  });
+}
+async function shrinkImage(file) {
+  const bmp = await decodeImage(file);
+  let w = bmp.width, h = bmp.height;
+  const m = Math.max(w, h);
+  if (m > MAX_PHOTO) { const k = MAX_PHOTO / m; w = Math.round(w * k); h = Math.round(h * k); }
+  if (w === bmp.width && h === bmp.height && /jpeg|png|webp/.test(file.type)) return { blob: file, w, h, bmp };
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  c.getContext("2d").drawImage(bmp, 0, 0, w, h);
+  const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.9));
+  if (bmp.close) bmp.close();
+  return { blob: blob || file, w, h, bmp: await decodeImage(blob || file) };
+}
+
+/* ---------------------- 資料模型 ---------------------- */
+function newPage(bookId, extra) {
+  return Object.assign({
+    id: uid(), bookId, kind: "blank", img: null, w: BLANK_W, h: BLANK_H,
+    bg: "#ffffff", paper: "lined", alpha: 1, strokes: [], created: Date.now(),
+  }, extra || {});
+}
+function newBook(name) { return { id: uid(), name: name || "我的筆記本", order: [], created: Date.now(), updated: Date.now() }; }
+
+/* iOS / Safari 早期版本把 Blob 存進 IndexedDB 會有讀不回來的狀況，
+   所以一律轉成 ArrayBuffer 存，讀出來再組回 Blob。 */
+async function pageToRecord(p) {
+  const r = Object.assign({}, p);
+  if (p.img instanceof Blob) {
+    r.imgType = p.img.type || "image/jpeg";
+    r.imgBuf = await p.img.arrayBuffer();
+  }
+  r.img = null;
+  return r;
+}
+function recordToPage(r) {
+  const p = Object.assign({}, r);
+  if (r.imgBuf) { p.img = new Blob([r.imgBuf], { type: r.imgType || "image/jpeg" }); }
+  else if (r.img instanceof Blob) { p.img = r.img; }
+  else p.img = null;
+  delete p.imgBuf; delete p.imgType;
+  if (!Array.isArray(p.strokes)) p.strokes = [];
+  return p;
+}
+async function savePage(p) { return idbPut("pages", await pageToRecord(p)); }
+
+const dirtyPages = new Set();
+const flushPages = debounce(async () => {
+  const ids = Array.from(dirtyPages); dirtyPages.clear();
+  for (const id of ids) {
+    const p = S.pages.find((x) => x.id === id);
+    if (p) await savePage(p);
+  }
+}, 350);
+function markPage(p) { if (p) { dirtyPages.add(p.id); flushPages(); } }
+const flushBook = debounce(async () => {
+  if (!S.book) return;
+  S.book.updated = Date.now();
+  S.book.order = S.pages.map((p) => p.id);
+  await idbPut("books", S.book);
+}, 300);
+function markBook() { flushBook(); }
+async function saveNow() {
+  const ids = Array.from(dirtyPages); dirtyPages.clear();
+  for (const id of ids) { const p = S.pages.find((x) => x.id === id); if (p) await savePage(p); }
+  if (S.book) { S.book.order = S.pages.map((p) => p.id); await idbPut("books", S.book); }
+}
+
+/* ---------------------- 繪圖 ---------------------- */
+const base = $("#base"), ink = $("#ink"), live = $("#live");
+const bctx = base.getContext("2d"), ictx = ink.getContext("2d"), lctx = live.getContext("2d");
+
+function cur() { return S.pages[S.idx] || null; }
+
+function paintPaper(ctx, w, h, page) {
+  ctx.save();
+  ctx.fillStyle = page.bg || "#ffffff";
+  ctx.fillRect(0, 0, w, h);
+  const dark = isDark(page.bg || "#ffffff");
+  ctx.strokeStyle = dark ? "rgba(255,255,255,.18)" : "rgba(30,64,120,.18)";
+  ctx.fillStyle = dark ? "rgba(255,255,255,.28)" : "rgba(30,64,120,.28)";
+  const unit = w / 26;
+  if (page.paper === "lined") {
+    ctx.lineWidth = Math.max(1, w / 900);
+    for (let y = unit; y < h; y += unit) { ctx.beginPath(); ctx.moveTo(unit * 0.6, y); ctx.lineTo(w - unit * 0.6, y); ctx.stroke(); }
+  } else if (page.paper === "grid") {
+    ctx.lineWidth = Math.max(1, w / 1100);
+    for (let y = unit; y < h; y += unit) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+    for (let x = unit; x < w; x += unit) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+  } else if (page.paper === "dots") {
+    const r = Math.max(1, w / 700);
+    for (let y = unit; y < h; y += unit) for (let x = unit; x < w; x += unit) { ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill(); }
+  }
+  ctx.restore();
+}
+function isDark(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  return (((n >> 16) & 255) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 < 130;
+}
+function drawBaseInto(ctx, w, h, page, bmp) {
+  ctx.clearRect(0, 0, w, h);
+  paintPaper(ctx, w, h, page);
+  if (bmp) {
+    ctx.save();
+    ctx.globalAlpha = page.alpha == null ? 1 : page.alpha;
+    // 照片以 contain 方式填滿頁面（頁面比例本來就取自照片，正常會剛好滿版）
+    const k = Math.min(w / bmp.width, h / bmp.height);
+    const dw = bmp.width * k, dh = bmp.height * k;
+    ctx.drawImage(bmp, (w - dw) / 2, (h - dh) / 2, dw, dh);
+    ctx.restore();
+  }
+}
+function strokePath(ctx, s, w, h) {
+  const pts = s.pts;
+  if (!pts || !pts.length) return;
+  const bw = Math.max(0.6, s.width * w);
+  ctx.save();
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  if (s.tool === "eraser") { ctx.globalCompositeOperation = "destination-out"; ctx.strokeStyle = "rgba(0,0,0,1)"; }
+  else { ctx.strokeStyle = s.color; ctx.globalAlpha = s.tool === "hl" ? 0.38 : 1; }
+  if (pts.length === 1) {
+    ctx.beginPath(); ctx.arc(pts[0][0] * w, pts[0][1] * h, bw / 2, 0, 6.2832);
+    ctx.fillStyle = s.tool === "eraser" ? "rgba(0,0,0,1)" : s.color;
+    ctx.fill(); ctx.restore(); return;
+  }
+  const varw = s.tool === "pen" && s.pressure;
+  if (!varw) {
+    ctx.lineWidth = bw; ctx.beginPath();
+    ctx.moveTo(pts[0][0] * w, pts[0][1] * h);
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i];
+      ctx.quadraticCurveTo(a[0] * w, a[1] * h, (a[0] + b[0]) / 2 * w, (a[1] + b[1]) / 2 * h);
+    }
+    ctx.lineTo(pts[pts.length - 1][0] * w, pts[pts.length - 1][1] * h);
+    ctx.stroke();
+  } else {
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i];
+      const p = (a[2] == null ? 0.5 : a[2] + (b[2] == null ? 0.5 : b[2])) / 2;
+      ctx.lineWidth = bw * (0.45 + 1.1 * clamp(p, 0.05, 1));
+      ctx.beginPath(); ctx.moveTo(a[0] * w, a[1] * h); ctx.lineTo(b[0] * w, b[1] * h); ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+function drawInkInto(ctx, w, h, strokes) {
+  ctx.clearRect(0, 0, w, h);
+  for (const s of strokes) strokePath(ctx, s, w, h);
+}
+
+/* ---------------------- 版面 / 渲染 ---------------------- */
+/* 顯示方式：
+   contain 符合畫面（整頁都看得到，會有留白）
+   cover   滿版（填滿整個螢幕，長邊會被裁掉一點）— 直立平板看樂譜用這個
+   width   貼齊寬度（寬度填滿，太長就上下拖）*/
+function computeFit() {
+  const p = cur(); if (!p) return;
+  const st = $("#stage").getBoundingClientRect();
+  const mode = cfg.fit || "contain";
+  // 閱讀模式、以及「滿版／貼齊寬度」都不留邊，才是真的填滿
+  const pad = (isRead() || mode !== "contain") ? 0 : 12;
+  const aw = Math.max(40, st.width - pad * 2), ah = Math.max(40, st.height - pad * 2);
+  let k;
+  if (mode === "cover") k = Math.max(aw / p.w, ah / p.h);
+  else if (mode === "width") k = aw / p.w;
+  else k = Math.min(aw / p.w, ah / p.h);
+  const w = Math.round(p.w * k), h = Math.round(p.h * k);
+  S.fit = { w, h, x: Math.round((st.width - w) / 2), y: Math.round((st.height - h) / 2) };
+}
+function stageBox() { return $("#stage").getBoundingClientRect(); }
+function overflowX() { return S.fit.w * S.zoom > stageBox().width + 1; }
+function overflowY() { return S.fit.h * S.zoom > stageBox().height + 1; }
+/* 拖動時不要把頁面拖到畫面外看不見 */
+function clampPan() {
+  const st = stageBox();
+  const w = S.fit.w * S.zoom, h = S.fit.h * S.zoom;
+  const slack = isRead() ? 0 : Math.min(st.width, st.height) * 0.35;
+  const fix = (fitPos, size, avail, pan) => {
+    const left = fitPos + pan;
+    if (size <= avail) {
+      const lo = Math.min(0, avail - size) - slack, hi = Math.max(0, avail - size) + slack;
+      return clamp(left, lo, hi) - fitPos;
+    }
+    return clamp(left, avail - size - slack, slack) - fitPos;
+  };
+  S.panX = fix(S.fit.x, w, st.width, S.panX);
+  S.panY = fix(S.fit.y, h, st.height, S.panY);
+}
+function applyTransform() {
+  const wrap = $("#wrap");
+  wrap.style.width = S.fit.w + "px"; wrap.style.height = S.fit.h + "px";
+  wrap.style.transform = "translate(" + (S.fit.x + S.panX) + "px," + (S.fit.y + S.panY) + "px) scale(" + S.zoom + ")";
+  const z = $("#zoomBadge");
+  if (z) {
+    const on = Math.abs(S.zoom - 1) > 0.02;
+    z.textContent = Math.round(S.zoom * 100) + "%";
+    z.classList.toggle("show", on);
+  }
+}
+function renderScale() {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  let rs = clamp(dpr * S.zoom, 1, 4);
+  // 記憶體保護：放大到很大時不要真的開出上億像素的畫布（手機會直接爆掉）
+  const budget = 12e6;
+  const px = S.fit.w * S.fit.h * rs * rs;
+  if (px > budget) rs = Math.max(1, rs * Math.sqrt(budget / px));
+  return rs;
+}
+async function renderPage(full) {
+  const p = cur();
+  document.body.classList.toggle("blank", !p);
+  updatePageInfo();
+  if (!p) return;
+  computeFit();
+  applyTransform();
+  const rs = renderScale();
+  S.rs = rs;
+  const cw = Math.max(1, Math.round(S.fit.w * rs)), ch = Math.max(1, Math.round(S.fit.h * rs));
+  for (const c of [base, ink, live]) { if (c.width !== cw || c.height !== ch) { c.width = cw; c.height = ch; } }
+  const bmp = p.img ? await getBmp(p) : null;
+  drawBaseInto(bctx, cw, ch, p, bmp);
+  drawInkInto(ictx, cw, ch, p.strokes);
+  lctx.clearRect(0, 0, cw, ch);
+  if (full !== false) renderThumbs();
+}
+const rerender = debounce(() => renderPage(false), 120);
+
+async function getBmp(p) {
+  if (!p.img) return null;
+  if (S.bmp.has(p.id)) return S.bmp.get(p.id);
+  const bmp = await decodeImage(p.img);
+  S.bmp.set(p.id, bmp);
+  return bmp;
+}
+function dropBmp(id) {
+  const b = S.bmp.get(id);
+  if (b && b.close) b.close();
+  S.bmp.delete(id);
+}
+function updatePageInfo() {
+  const t = S.pages.length, n = t ? S.idx + 1 : 0;
+  $("#pageInfo").textContent = n + " / " + t;
+  $("#lockPage").textContent = n + " / " + t;
+  $("#btnPrev").disabled = S.idx <= 0;
+  $("#btnNext").disabled = S.idx >= t - 1;
+  $("#bookTitle").textContent = S.book ? S.book.name : "—";
+}
+
+/* ---------------------- 縮圖 ---------------------- */
+let thumbSeq = 0;
+async function renderThumbs() {
+  const host = $("#thumbs");
+  const seq = ++thumbSeq;
+  host.textContent = "";
+  S.pages.forEach((p, i) => {
+    const d = document.createElement("div");
+    d.className = "thumb" + (i === S.idx ? " sel" : "");
+    d.dataset.id = p.id;
+    const no = document.createElement("span"); no.className = "no"; no.textContent = String(i + 1);
+    const c = document.createElement("canvas");
+    const tw = 156, th = Math.max(20, Math.round(tw * p.h / p.w));
+    c.width = tw; c.height = th; c.style.height = Math.round(78 * p.h / p.w) + "px";
+    const g = document.createElement("span"); g.className = "grip"; g.textContent = "⠿";
+    d.appendChild(no); d.appendChild(c); d.appendChild(g);
+    host.appendChild(d);
+    drawThumb(c, p, seq);
+  });
+  const sel = host.querySelector(".thumb.sel");
+  if (sel && sel.scrollIntoView) sel.scrollIntoView({ block: "nearest" });
+}
+async function drawThumb(c, p, seq) {
+  const ctx = c.getContext("2d");
+  const bmp = p.img ? await getBmp(p) : null;
+  if (seq !== thumbSeq) return;
+  drawBaseInto(ctx, c.width, c.height, p, bmp);
+  drawInkInto2(ctx, c.width, c.height, p.strokes);
+}
+function drawInkInto2(ctx, w, h, strokes) { for (const s of strokes) strokePath(ctx, s, w, h); }
+
+/* ---------------------- 頁面操作 ---------------------- */
+async function gotoPage(i, opts) {
+  if (!S.pages.length) { S.idx = 0; await renderPage(); return; }
+  const n = clamp(i, 0, S.pages.length - 1);
+  if (n === S.idx && !(opts && opts.force)) { return; }
+  S.idx = n;
+  resetView();
+  await renderPage();
+  const host = $("#thumbs");
+  $$("#thumbs .thumb").forEach((el, k) => el.classList.toggle("sel", k === S.idx));
+  const sel = host.querySelector(".thumb.sel");
+  if (sel && sel.scrollIntoView) sel.scrollIntoView({ block: "nearest" });
+}
+async function addBlankPage(after) {
+  if (!S.book) await ensureBook();
+  const p = newPage(S.book.id);
+  const at = after == null ? S.pages.length : after + 1;
+  S.pages.splice(at, 0, p);
+  await savePage(p);
+  markBook();
+  await gotoPage(at, { force: true });
+  await renderThumbs();
+  toast("已新增空白頁");
+  return p;
+}
+async function addPhotoPages(files) {
+  if (!files || !files.length) return;
+  if (!S.book) await ensureBook();
+  let first = -1;
+  for (const f of files) {
+    if (!/^image\//.test(f.type) && !/\.(jpe?g|png|gif|webp|bmp|heic)$/i.test(f.name || "")) continue;
+    try {
+      const r = await shrinkImage(f);
+      const p = newPage(S.book.id, { kind: "photo", img: r.blob, w: r.w, h: r.h, paper: "plain", bg: "#ffffff" });
+      S.pages.push(p);
+      S.bmp.set(p.id, r.bmp);
+      await savePage(p);
+      if (first < 0) first = S.pages.length - 1;
+    } catch (e) { console.warn(e); toast("有照片讀不到：" + (f.name || "")); }
+  }
+  markBook();
+  if (first >= 0) { await gotoPage(first, { force: true }); toast("已加入照片"); }
+  await renderThumbs();
+}
+async function deletePage(i) {
+  const p = S.pages[i]; if (!p) return;
+  if (!confirm("確定刪除第 " + (i + 1) + " 頁？此動作無法復原。")) return;
+  S.pages.splice(i, 1);
+  dropBmp(p.id);
+  await idbDel("pages", p.id);
+  markBook();
+  S.idx = clamp(S.idx, 0, Math.max(0, S.pages.length - 1));
+  await renderPage();
+  toast("已刪除");
+}
+async function duplicatePage(i) {
+  const p = S.pages[i]; if (!p) return;
+  const c = newPage(S.book.id, {
+    kind: p.kind, img: p.img, w: p.w, h: p.h, bg: p.bg, paper: p.paper, alpha: p.alpha,
+    strokes: JSON.parse(JSON.stringify(p.strokes)),
+  });
+  S.pages.splice(i + 1, 0, c);
+  await savePage(c);
+  markBook();
+  await gotoPage(i + 1, { force: true });
+  await renderThumbs();
+  toast("已複製此頁");
+}
+async function movePage(from, to) {
+  if (from === to || from < 0 || from >= S.pages.length) return;
+  to = clamp(to, 0, S.pages.length - 1);
+  const [p] = S.pages.splice(from, 1);
+  S.pages.splice(to, 0, p);
+  const keep = S.pages.indexOf(p);
+  S.idx = keep;
+  markBook();
+  await renderPage();
+}
+
+/* ---------------------- 筆記本管理 ---------------------- */
+async function loadBooks() {
+  S.books = (await idbAll("books")).sort((a, b) => b.updated - a.updated);
+  return S.books;
+}
+async function ensureBook() {
+  await loadBooks();
+  if (!S.books.length) {
+    const b = newBook("我的筆記本");
+    await idbPut("books", b);
+    S.books = [b];
+  }
+  return S.books[0];
+}
+async function openBook(id) {
+  await saveNow();
+  for (const p of S.pages) dropBmp(p.id);
+  const b = S.books.find((x) => x.id === id) || (await idbGet("books", id));
+  if (!b) return;
+  S.book = b;
+  cfg.lastBook = b.id; saveCfg();
+  const all = (await idbByBook(b.id)).map(recordToPage);
+  const byId = new Map(all.map((p) => [p.id, p]));
+  const ordered = [];
+  for (const pid of b.order || []) { if (byId.has(pid)) { ordered.push(byId.get(pid)); byId.delete(pid); } }
+  for (const p of byId.values()) ordered.push(p);
+  S.pages = ordered;
+  S.idx = 0;
+  S.undo = []; S.redo = [];
+  await renderPage();
+  renderBookList();
+}
+function renderBookList() {
+  const host = $("#bookList"); host.textContent = "";
+  S.books.forEach((b) => {
+    const row = document.createElement("div");
+    row.className = "bookrow" + (S.book && b.id === S.book.id ? " cur" : "");
+    const nm = document.createElement("button");
+    nm.className = "nm"; nm.textContent = b.name;
+    nm.onclick = async () => { await openBook(b.id); closePanels(); toast("已開啟：" + b.name); };
+    const meta = document.createElement("span");
+    meta.className = "meta"; meta.textContent = (b.order ? b.order.length : 0) + " 頁";
+    row.appendChild(nm); row.appendChild(meta);
+    host.appendChild(row);
+  });
+}
+
+/* ---------------------- 復原 / 重做 ---------------------- */
+S.undo = []; S.redo = [];
+function pushUndo(op) { S.undo.push(op); if (S.undo.length > 120) S.undo.shift(); S.redo.length = 0; syncUndoBtns(); }
+function syncUndoBtns() { $("#btnUndo").disabled = !S.undo.length; $("#btnRedo").disabled = !S.redo.length; }
+async function doUndo() {
+  const op = S.undo.pop(); if (!op) return;
+  const p = S.pages.find((x) => x.id === op.pageId); if (!p) { syncUndoBtns(); return; }
+  if (op.type === "add") { const k = p.strokes.indexOf(op.stroke); if (k >= 0) p.strokes.splice(k, 1); }
+  else if (op.type === "clear") { p.strokes = op.strokes.slice(); }
+  S.redo.push(op); markPage(p); syncUndoBtns();
+  if (p === cur()) { drawInkInto(ictx, ink.width, ink.height, p.strokes); }
+  refreshThumb(p);
+}
+async function doRedo() {
+  const op = S.redo.pop(); if (!op) return;
+  const p = S.pages.find((x) => x.id === op.pageId); if (!p) { syncUndoBtns(); return; }
+  if (op.type === "add") p.strokes.push(op.stroke);
+  else if (op.type === "clear") p.strokes = [];
+  S.undo.push(op); markPage(p); syncUndoBtns();
+  if (p === cur()) drawInkInto(ictx, ink.width, ink.height, p.strokes);
+  refreshThumb(p);
+}
+function clearPage() {
+  const p = cur(); if (!p || !p.strokes.length) return;
+  pushUndo({ type: "clear", pageId: p.id, strokes: p.strokes.slice() });
+  p.strokes = [];
+  drawInkInto(ictx, ink.width, ink.height, p.strokes);
+  markPage(p); refreshThumb(p); toast("已清除本頁手寫");
+}
+function refreshThumb(p) {
+  const el = $('#thumbs .thumb[data-id="' + p.id + '"] canvas');
+  if (el) drawThumb(el, p, thumbSeq);
+}
+
+/* ---------------------- 輸入（畫筆 / 縮放 / 翻頁） ---------------------- */
+const stage = $("#stage");
+const pointers = new Map();
+let pinch = null, swipe = null;
+
+function toNorm(e) {
+  const r = $("#wrap").getBoundingClientRect();
+  return [clamp((e.clientX - r.left) / r.width, -0.2, 1.2), clamp((e.clientY - r.top) / r.height, -0.2, 1.2)];
+}
+function toolWidthNorm(tool) {
+  const t = tool || cfg.tool;
+  const px = t === "hl" ? cfg.hlWidth : t === "eraser" ? cfg.eraserWidth : cfg.width;
+  // 以 1000px 寬的頁面為基準換算成比例，讓不同尺寸的頁面筆跡粗細一致
+  return px / 1000;
+}
+function beginStroke(e) {
+  const p = cur(); if (!p) return;
+  const s = {
+    tool: cfg.tool, color: cfg.tool === "hl" ? cfg.hlColor : cfg.color,
+    width: toolWidthNorm(), pressure: !!cfg.pressure && e.pointerType === "pen", pts: [],
+  };
+  const n = toNorm(e);
+  s.pts.push([r4(n[0]), r4(n[1]), pr(e)]);
+  S.drawing = { stroke: s, page: p, id: e.pointerId };
+  if (s.tool === "eraser") strokePath(ictx, s, ink.width, ink.height);
+  else { lctx.clearRect(0, 0, live.width, live.height); strokePath(lctx, s, live.width, live.height); }
+}
+function moveStroke(e) {
+  const d = S.drawing; if (!d || d.id !== e.pointerId) return;
+  const s = d.stroke;
+  const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+  for (const ev of (evs.length ? evs : [e])) {
+    const n = toNorm(ev);
+    const last = s.pts[s.pts.length - 1];
+    if (last && Math.abs(last[0] - n[0]) < 0.0012 && Math.abs(last[1] - n[1]) < 0.0012) continue;
+    s.pts.push([r4(n[0]), r4(n[1]), pr(ev)]);
+  }
+  if (s.tool === "eraser") {
+    const tail = { tool: s.tool, color: s.color, width: s.width, pts: s.pts.slice(-3) };
+    strokePath(ictx, tail, ink.width, ink.height);
+  } else {
+    lctx.clearRect(0, 0, live.width, live.height);
+    strokePath(lctx, s, live.width, live.height);
+  }
+}
+function endStroke() {
+  const d = S.drawing; if (!d) return;
+  S.drawing = null;
+  const s = d.stroke, p = d.page;
+  lctx.clearRect(0, 0, live.width, live.height);
+  if (!s.pts.length) return;
+  p.strokes.push(s);
+  pushUndo({ type: "add", pageId: p.id, stroke: s });
+  if (p === cur()) drawInkInto(ictx, ink.width, ink.height, p.strokes);
+  markPage(p); refreshThumb(p);
+}
+function r4(v) { return Math.round(v * 10000) / 10000; }
+function pr(e) {
+  if (e.pointerType !== "pen") return 0.5;
+  const v = e.pressure;
+  return v == null || v === 0 ? 0.5 : Math.round(v * 100) / 100;
+}
+
+stage.addEventListener("pointerdown", (e) => {
+  pointers.set(e.pointerId, e);
+  if (pointers.size === 2) { S.drawing = null; swipe = null; lctx.clearRect(0, 0, live.width, live.height); startPinch(); return; }
+  if (pointers.size > 2) return;
+  if (isRead()) {
+    // 閱讀模式：單指＝滑動翻頁；頁面比螢幕大（滿版／貼齊寬度／放大）時改成拖著看
+    swipe = { x: e.clientX, y: e.clientY, t: Date.now() };
+    if (overflowX() || overflowY()) startPan(e);
+    return;
+  }
+  if (cfg.stylus && e.pointerType === "touch") return;
+  if (cfg.tool === "hand" || e.button === 1) { startPan(e); return; }
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  try { stage.setPointerCapture(e.pointerId); } catch (err) {}
+  beginStroke(e);
+});
+stage.addEventListener("pointermove", (e) => {
+  if (pointers.has(e.pointerId)) pointers.set(e.pointerId, e);
+  if (pinch) { movePinch(); return; }
+  if (panning) { movePan(e); return; }
+  if (isRead()) return;
+  if (S.drawing) moveStroke(e);
+});
+function up(e) {
+  pointers.delete(e.pointerId);
+  if (pinch && pointers.size < 2) { pinch = null; rerender(); }
+  if (isRead()) {
+    if (panning) endPan();
+    // 左右方向沒東西可拖時，橫向滑動就是翻頁
+    if (swipe && !pinch && !overflowX()) {
+      const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5 && Date.now() - swipe.t < 800) {
+        if (dx < 0) gotoPage(S.idx + 1); else gotoPage(S.idx - 1);
+      }
+    }
+    swipe = null;
+    return;
+  }
+  if (panning) { endPan(); return; }
+  if (S.drawing) endStroke();
+}
+stage.addEventListener("pointerup", up);
+stage.addEventListener("pointercancel", up);
+stage.addEventListener("pointerleave", (e) => { if (!isRead() && S.drawing && e.pointerId === S.drawing.id) endStroke(); });
+
+/* 兩指縮放 / 平移 */
+function twoPointers() { const a = Array.from(pointers.values()); return [a[0], a[1]]; }
+function startPinch() {
+  const [a, b] = twoPointers(); if (!a || !b) return;
+  pinch = {
+    d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+    cx: (a.clientX + b.clientX) / 2, cy: (a.clientY + b.clientY) / 2,
+    z: S.zoom, px: S.panX, py: S.panY,
+  };
+}
+function movePinch() {
+  const [a, b] = twoPointers(); if (!a || !b || !pinch) return;
+  const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  const cx = (a.clientX + b.clientX) / 2, cy = (a.clientY + b.clientY) / 2;
+  const nz = clamp(pinch.z * (d / (pinch.d || 1)), 0.4, 8);
+  const k = nz / pinch.z;
+  S.zoom = nz;
+  S.panX = pinch.px + (cx - pinch.cx) - (pinch.cx - (S.fit.x + pinch.px)) * (k - 1);
+  S.panY = pinch.py + (cy - pinch.cy) - (pinch.cy - (S.fit.y + pinch.py)) * (k - 1);
+  clampPan(); applyTransform();
+}
+let panning = null;
+function startPan(e) { panning = { x: e.clientX, y: e.clientY, px: S.panX, py: S.panY }; try { stage.setPointerCapture(e.pointerId); } catch (err) {} }
+function movePan(e) { if (!panning) return; S.panX = panning.px + (e.clientX - panning.x); S.panY = panning.py + (e.clientY - panning.y); clampPan(); applyTransform(); }
+function endPan() { panning = null; }
+
+stage.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  if (e.ctrlKey || e.metaKey) {
+    const k = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+    zoomAt(e.clientX, e.clientY, clamp(S.zoom * k, 0.4, 8));
+  } else { S.panX -= e.deltaX; S.panY -= e.deltaY; clampPan(); applyTransform(); }
+}, { passive: false });
+function zoomAt(cx, cy, nz) {
+  const k = nz / S.zoom;
+  S.panX = cx - (cx - (S.fit.x + S.panX)) * k - S.fit.x;
+  S.panY = cy - (cy - (S.fit.y + S.panY)) * k - S.fit.y;
+  S.zoom = nz; clampPan(); applyTransform(); rerender();
+}
+function zoomBy(k) {
+  const r = stage.getBoundingClientRect();
+  zoomAt(r.left + r.width / 2, r.top + r.height / 2, clamp(S.zoom * k, 0.4, 8));
+}
+function zoomFit() { resetView(); renderPage(false); }
+/* 回到預設檢視：貼齊寬度而且頁面比螢幕長時，從最上面開始看（看樂譜用） */
+function resetView() {
+  S.zoom = 1; S.panX = 0; S.panY = 0;
+  computeFit();
+  const st = stageBox();
+  if (S.fit.h > st.height + 1) S.panY = -S.fit.y;
+  if (S.fit.w > st.width + 1) S.panX = -S.fit.x;
+  clampPan();
+}
+
+/* ---------------------- 縮圖拖曳排序 ---------------------- */
+(function thumbDnD() {
+  const host = $("#thumbs");
+  let drag = null;
+  host.addEventListener("pointerdown", (e) => {
+    const t = e.target.closest(".thumb"); if (!t) return;
+    drag = { el: t, id: t.dataset.id, x: e.clientX, y: e.clientY, moved: false, pid: e.pointerId };
+    try { host.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  host.addEventListener("pointermove", (e) => {
+    if (!drag || e.pointerId !== drag.pid) return;
+    if (!drag.moved) {
+      if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 8) return;
+      drag.moved = true; drag.el.classList.add("drag");
+    }
+    const over = document.elementFromPoint(e.clientX, e.clientY);
+    const t = over && over.closest ? over.closest(".thumb") : null;
+    $$("#thumbs .thumb").forEach((x) => x.classList.remove("over"));
+    if (t && t !== drag.el) t.classList.add("over");
+  });
+  const finish = async (e) => {
+    if (!drag || (e && e.pointerId !== drag.pid)) return;
+    const d = drag; drag = null;
+    d.el.classList.remove("drag");
+    const target = host.querySelector(".thumb.over");
+    $$("#thumbs .thumb").forEach((x) => x.classList.remove("over"));
+    const from = S.pages.findIndex((p) => p.id === d.id);
+    if (!d.moved) { if (from >= 0) await gotoPage(from, { force: true }); return; }
+    if (!target) { await renderThumbs(); return; }
+    const to = S.pages.findIndex((p) => p.id === target.dataset.id);
+    if (from >= 0 && to >= 0) { await movePage(from, to); toast("順序已更新：第 " + (to + 1) + " 頁"); }
+    else await renderThumbs();
+  };
+  host.addEventListener("pointerup", finish);
+  host.addEventListener("pointercancel", finish);
+})();
+
+/* ---------------------- 模式：編輯 / 閱讀 ---------------------- */
+let wakeLock = null;
+async function setMode(m, silent) {
+  const read = m === "read";
+  S.mode = read ? "read" : "edit";
+  S.drawing = null;
+  document.body.classList.toggle("read", read);
+  document.body.classList.toggle("nohint", !cfg.hint);
+  document.body.classList.remove("strip");
+  $("#mEdit").classList.toggle("on", !read);
+  $("#mRead").classList.toggle("on", read);
+  applyZoneSize();
+  if (cfg.rememberMode) { cfg.mode = S.mode; saveCfg(); }
+  resetView();
+  await renderPage(false);
+  if (read) {
+    if (cfg.wake && navigator.wakeLock) { try { wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {} }
+    if (!silent) toast("閱讀模式：點左下／右下角翻頁，畫面不會被畫到");
+  } else {
+    if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
+    if (!silent) toast("編輯模式：可以手寫、調整順序");
+  }
+}
+function applyZoneSize() {
+  const w = clamp(+cfg.zoneW || 22, 3, 50);
+  const h = cfg.zoneV === "full" ? 100 : clamp(+cfg.zoneH || 30, 3, 100);
+  for (const id of ["#zoneL", "#zoneR"]) {
+    const el = $(id);
+    el.style.width = w + "%";
+    el.style.height = h + "%";
+    el.style.top = ""; el.style.bottom = ""; el.style.transform = "";
+    if (cfg.zoneV === "top" || cfg.zoneV === "full") el.style.top = "0";
+    else if (cfg.zoneV === "center") { el.style.top = "50%"; el.style.transform = "translateY(-50%)"; }
+    else el.style.bottom = "0";
+    el.style.alignItems = cfg.zoneV === "bottom" ? "flex-end" : "center";
+  }
+}
+let pvT = 0;
+function previewZones(ms) {
+  $("#zones").classList.add("pv");
+  clearTimeout(pvT);
+  pvT = setTimeout(() => $("#zones").classList.remove("pv"), ms || 1800);
+}
+function cornerAction(side) {
+  const m = cfg.corner;
+  if (m === "next") return 1;
+  if (m === "nextprev") return side === "L" ? 1 : -1;
+  return side === "L" ? -1 : 1;
+}
+function hookZone(el, side) {
+  el.addEventListener("click", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const d = cornerAction(side);
+    const t = S.idx + d;
+    if (t < 0) { toast("已經是第一頁"); return; }
+    if (t >= S.pages.length) { toast("已經是最後一頁"); return; }
+    el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 140);
+    gotoPage(t);
+  });
+}
+hookZone($("#zoneL"), "L"); hookZone($("#zoneR"), "R");
+
+/* ---------------------- 匯出 / 匯入 / 列印 ---------------------- */
+function flattenPage(p, bmp, scale) {
+  const w = Math.round(p.w * (scale || 1)), h = Math.round(p.h * (scale || 1));
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const ctx = c.getContext("2d");
+  drawBaseInto(ctx, w, h, p, bmp);
+  drawInkInto(ctx, w, h, p.strokes);
+  return c;
+}
+async function exportPNG() {
+  const p = cur(); if (!p) return;
+  const c = flattenPage(p, p.img ? await getBmp(p) : null, 1);
+  c.toBlob((b) => { if (b) download(b, (S.book.name || "notebook") + "-p" + (S.idx + 1) + ".png"); }, "image/png");
+  toast("已輸出 PNG");
+}
+async function exportBackup() {
+  if (!S.book) return;
+  toast("匯出中…");
+  const out = { v: 1, app: "josh-notebook", name: S.book.name, exported: new Date().toISOString(), pages: [] };
+  for (const p of S.pages) {
+    out.pages.push({
+      kind: p.kind, w: p.w, h: p.h, bg: p.bg, paper: p.paper, alpha: p.alpha,
+      strokes: p.strokes, img: p.img ? await blobToDataURL(p.img) : null,
+    });
+  }
+  const blob = new Blob([JSON.stringify(out)], { type: "application/json" });
+  download(blob, (S.book.name || "notebook") + "-備份.json");
+  toast("已匯出備份檔");
+}
+async function importBackup(file) {
+  const txt = await file.text();
+  let data;
+  try { data = JSON.parse(txt); } catch (e) { toast("這不是備份檔"); return; }
+  if (!data || !Array.isArray(data.pages)) { toast("備份檔格式不對"); return; }
+  const b = newBook((data.name || "匯入的筆記本"));
+  await idbPut("books", b);
+  const pages = [];
+  for (const q of data.pages) {
+    const p = newPage(b.id, {
+      kind: q.kind || (q.img ? "photo" : "blank"), w: q.w || BLANK_W, h: q.h || BLANK_H,
+      bg: q.bg || "#ffffff", paper: q.paper || "plain", alpha: q.alpha == null ? 1 : q.alpha,
+      strokes: Array.isArray(q.strokes) ? q.strokes : [],
+      img: q.img ? await dataURLToBlob(q.img) : null,
+    });
+    await savePage(p);
+    pages.push(p);
+  }
+  b.order = pages.map((p) => p.id);
+  await idbPut("books", b);
+  await loadBooks();
+  await openBook(b.id);
+  closePanels();
+  toast("已匯入：" + b.name + "（" + pages.length + " 頁）");
+}
+async function printAll() {
+  if (!S.pages.length) return;
+  toast("準備列印…");
+  const host = $("#print"); host.textContent = "";
+  for (const p of S.pages) {
+    const c = flattenPage(p, p.img ? await getBmp(p) : null, 1);
+    const img = document.createElement("img");
+    img.src = c.toDataURL("image/jpeg", 0.92);
+    host.appendChild(img);
+  }
+  setTimeout(() => { window.print(); }, 350);
+}
+
+/* ---------------------- UI 綁定 ---------------------- */
+function openPanel(sel) {
+  closePanels();
+  $(sel).classList.add("open");
+  document.body.classList.add("panel");
+}
+function closePanels() { $$(".panel").forEach((p) => p.classList.remove("open")); document.body.classList.remove("panel"); }
+$("#backdrop").addEventListener("click", closePanels);
+$$("[data-close]").forEach((b) => b.addEventListener("click", closePanels));
+
+$("#btnMenu").onclick = async () => { await loadBooks(); renderBookList(); openPanel("#menuPanel"); };
+$("#bookTitle").onclick = async () => { await loadBooks(); renderBookList(); openPanel("#menuPanel"); };
+$("#btnPagePanel").onclick = () => { syncPagePanel(); openPanel("#pagePanel"); };
+
+$("#btnStrip").onclick = () => {
+  if (window.innerWidth <= 820) document.body.classList.toggle("strip");
+  else { document.body.classList.toggle("nostrip"); rerender(); }
+};
+$("#warnClose").onclick = () => { $("#warn").style.display = "none"; relayout(10); };
+$("#mEdit").onclick = () => setMode("edit");
+$("#mRead").onclick = () => setMode("read");
+$("#btnUnlock").onclick = () => setMode("edit");
+$("#btnFs").onclick = () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+};
+
+$("#btnAddPhoto").onclick = $("#btnAddPhoto2").onclick = () => $("#filePhotos").click();
+$("#btnAddBlank").onclick = $("#btnAddBlank2").onclick = () => addBlankPage(S.pages.length ? S.idx : null);
+$("#filePhotos").onchange = async (e) => { const f = Array.from(e.target.files || []); e.target.value = ""; await addPhotoPages(f); };
+$("#fileImport").onchange = async (e) => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) await importBackup(f); };
+$("#fileReplace").onchange = async (e) => {
+  const f = e.target.files && e.target.files[0]; e.target.value = "";
+  const p = cur(); if (!f || !p) return;
+  const r = await shrinkImage(f);
+  p.kind = "photo"; p.img = r.blob; p.w = r.w; p.h = r.h;
+  dropBmp(p.id); S.bmp.set(p.id, r.bmp);
+  markPage(p); await renderPage(); toast("照片已更換");
+};
+
+$("#btnPrev").onclick = () => gotoPage(S.idx - 1);
+$("#btnNext").onclick = () => gotoPage(S.idx + 1);
+$("#btnUndo").onclick = doUndo;
+$("#btnRedo").onclick = doRedo;
+$("#btnClear").onclick = clearPage;
+$("#btnZoomIn").onclick = () => zoomBy(1.25);
+$("#btnZoomOut").onclick = () => zoomBy(1 / 1.25);
+$("#btnZoomFit").onclick = zoomFit;
+$("#btnFitFloat").onclick = zoomFit;
+
+$("#btnExport").onclick = exportBackup;
+$("#btnImport").onclick = () => $("#fileImport").click();
+$("#btnPng").onclick = exportPNG;
+$("#btnPrint").onclick = printAll;
+$("#btnNewBook").onclick = async () => {
+  const n = prompt("新筆記本的名稱：", "筆記本 " + (S.books.length + 1));
+  if (n == null) return;
+  const b = newBook(n.trim() || "未命名");
+  await idbPut("books", b);
+  await loadBooks();
+  await openBook(b.id);
+  closePanels(); toast("已建立：" + b.name);
+};
+$("#btnRenameBook").onclick = async () => {
+  if (!S.book) return;
+  const n = prompt("改成什麼名字？", S.book.name);
+  if (n == null) return;
+  S.book.name = n.trim() || S.book.name;
+  await idbPut("books", S.book);
+  await loadBooks(); renderBookList(); updatePageInfo(); toast("已改名");
+};
+$("#btnDelBook").onclick = async () => {
+  if (!S.book) return;
+  if (!confirm("刪除「" + S.book.name + "」整本筆記本？此動作無法復原。")) return;
+  for (const p of S.pages) { dropBmp(p.id); await idbDel("pages", p.id); }
+  await idbDel("books", S.book.id);
+  S.book = null; S.pages = []; S.idx = 0;
+  await loadBooks();
+  if (!S.books.length) { const b = newBook("我的筆記本"); await idbPut("books", b); await loadBooks(); }
+  await openBook(S.books[0].id);
+  closePanels(); toast("已刪除筆記本");
+};
+
+/* 工具列 */
+function syncTools() {
+  $$("#tools [data-tool]").forEach((b) => b.classList.toggle("on", b.dataset.tool === cfg.tool));
+  const w = cfg.tool === "hl" ? cfg.hlWidth : cfg.tool === "eraser" ? cfg.eraserWidth : cfg.width;
+  $("#width").value = w;
+  const dot = $("#wdot i");
+  const d = clamp(Math.round(w * 0.7), 3, 26);
+  dot.style.width = d + "px"; dot.style.height = d + "px";
+  dot.style.background = cfg.tool === "eraser" ? "#94a3b8" : cfg.tool === "hl" ? cfg.hlColor : cfg.color;
+  const c = cfg.tool === "hl" ? cfg.hlColor : cfg.color;
+  $$("#swatches .sw").forEach((s) => s.classList.toggle("on", s.dataset.c === c));
+  $("#customColor").value = /^#[0-9a-f]{6}$/i.test(c) ? c : "#6366f1";
+  $("#swatches").style.opacity = cfg.tool === "eraser" ? ".4" : "1";
+}
+(function buildSwatches() {
+  const host = $("#swatches");
+  PALETTE.forEach((c) => {
+    const b = document.createElement("button");
+    b.className = "sw"; b.dataset.c = c; b.style.background = c; b.title = c;
+    b.onclick = () => { setColor(c); };
+    host.appendChild(b);
+  });
+})();
+function setColor(c) {
+  if (cfg.tool === "eraser") cfg.tool = "pen";
+  if (cfg.tool === "hl") cfg.hlColor = c; else cfg.color = c;
+  saveCfg(); syncTools();
+}
+$$("#tools [data-tool]").forEach((b) => { b.onclick = () => { cfg.tool = b.dataset.tool; saveCfg(); syncTools(); }; });
+$("#customColor").oninput = (e) => setColor(e.target.value);
+$("#width").oninput = (e) => {
+  const v = +e.target.value;
+  if (cfg.tool === "hl") cfg.hlWidth = v; else if (cfg.tool === "eraser") cfg.eraserWidth = v; else cfg.width = v;
+  saveCfg(); syncTools();
+};
+
+/* 本頁設定 */
+(function buildBgRow() {
+  const host = $("#bgRow");
+  BG_PALETTE.forEach((c) => {
+    const b = document.createElement("button");
+    b.className = "sw"; b.dataset.bg = c; b.style.background = c;
+    b.onclick = () => setPageBg(c);
+    host.appendChild(b);
+  });
+})();
+function setPageBg(c) {
+  const p = cur(); if (!p) return;
+  p.bg = c; markPage(p); renderPage(false); refreshThumbSoon(p); syncPagePanel();
+}
+const refreshThumbSoon = debounce((p) => refreshThumb(p), 120);
+$("#bgCustom").oninput = (e) => setPageBg(e.target.value);
+$$("#paperRow [data-paper]").forEach((b) => {
+  b.onclick = () => {
+    const p = cur(); if (!p) return;
+    p.paper = b.dataset.paper; markPage(p); renderPage(false); refreshThumbSoon(p); syncPagePanel();
+  };
+});
+$("#imgAlpha").oninput = (e) => {
+  const p = cur(); if (!p) return;
+  p.alpha = +e.target.value / 100;
+  $("#imgAlphaV").textContent = e.target.value + "%";
+  markPage(p); renderPage(false); refreshThumbSoon(p);
+};
+$("#btnReplacePhoto").onclick = () => $("#fileReplace").click();
+$("#btnRemovePhoto").onclick = async () => {
+  const p = cur(); if (!p || !p.img) { toast("這頁沒有照片"); return; }
+  p.img = null; p.kind = "blank"; dropBmp(p.id);
+  markPage(p); await renderPage(); syncPagePanel(); toast("已移除照片");
+};
+$("#btnDupPage").onclick = () => duplicatePage(S.idx);
+$("#btnDelPage").onclick = async () => { await deletePage(S.idx); closePanels(); };
+$("#btnMoveUp").onclick = async () => { await movePage(S.idx, S.idx - 1); toast("已往前移"); };
+$("#btnMoveDown").onclick = async () => { await movePage(S.idx, S.idx + 1); toast("已往後移"); };
+function syncPagePanel() {
+  const p = cur();
+  $$("#paperRow [data-paper]").forEach((b) => b.classList.toggle("on", !!p && b.dataset.paper === p.paper));
+  $$("#bgRow .sw").forEach((b) => b.classList.toggle("on", !!p && b.dataset.bg === p.bg));
+  if (p) {
+    $("#bgCustom").value = /^#[0-9a-f]{6}$/i.test(p.bg) ? p.bg : "#ffffff";
+    const a = Math.round((p.alpha == null ? 1 : p.alpha) * 100);
+    $("#imgAlpha").value = a; $("#imgAlphaV").textContent = a + "%";
+    $("#imgAlpha").disabled = !p.img;
+  }
+}
+
+/* 設定面板 */
+function syncCfgPanel() {
+  $("#cfgCorner").value = cfg.corner;
+  $("#cfgFit").value = cfg.fit || "contain";
+  $("#btnFitMode").textContent = FIT_LABEL[cfg.fit] || FIT_LABEL.contain;
+  $("#cfgZoneW").value = cfg.zoneW; $("#cfgZoneWV").textContent = cfg.zoneW + "%";
+  $("#cfgZoneH").value = cfg.zoneH; $("#cfgZoneHV").textContent = cfg.zoneH + "%";
+  $("#cfgZoneV").value = cfg.zoneV;
+  $("#cfgZoneH").disabled = cfg.zoneV === "full";
+  $("#cfgHint").checked = !!cfg.hint;
+  $("#cfgWake").checked = !!cfg.wake;
+  $("#cfgRemember").checked = !!cfg.rememberMode;
+  $("#cfgStylus").checked = !!cfg.stylus;
+  $("#cfgPressure").checked = !!cfg.pressure;
+}
+const FIT_LABEL = { contain: "🔲 符合畫面", cover: "🔳 滿版", width: "↔️ 貼齊寬度" };
+async function setFitMode(m) {
+  cfg.fit = m; saveCfg();
+  $("#btnFitMode").textContent = FIT_LABEL[m] || FIT_LABEL.contain;
+  const sel = $("#cfgFit"); if (sel) sel.value = m;
+  resetView();
+  await renderPage(false);
+  toast("顯示方式：" + (FIT_LABEL[m] || "").replace(/^\S+\s/, ""));
+}
+$("#cfgFit").onchange = (e) => setFitMode(e.target.value);
+$("#btnFitMode").onclick = () => {
+  const order = ["contain", "cover", "width"];
+  setFitMode(order[(order.indexOf(cfg.fit) + 1) % order.length]);
+};
+$("#cfgCorner").onchange = (e) => { cfg.corner = e.target.value; saveCfg(); previewZones(1400); };
+$("#cfgZoneW").oninput = (e) => { cfg.zoneW = +e.target.value; $("#cfgZoneWV").textContent = cfg.zoneW + "%"; applyZoneSize(); previewZones(1400); saveCfg(); };
+$("#cfgZoneH").oninput = (e) => { cfg.zoneH = +e.target.value; $("#cfgZoneHV").textContent = cfg.zoneH + "%"; applyZoneSize(); previewZones(1400); saveCfg(); };
+$("#cfgZoneV").onchange = (e) => { cfg.zoneV = e.target.value; applyZoneSize(); syncCfgPanel(); previewZones(1600); saveCfg(); };
+$("#btnZonePreview").onclick = () => previewZones(2600);
+$$("#zonePreset [data-zp]").forEach((b) => {
+  b.onclick = () => {
+    const v = b.dataset.zp;
+    if (v === "corner") { cfg.zoneW = 20; cfg.zoneH = 28; cfg.zoneV = "bottom"; }
+    else if (v === "side") { cfg.zoneW = 35; cfg.zoneH = 100; cfg.zoneV = "full"; }
+    else { cfg.zoneW = 50; cfg.zoneH = 16; cfg.zoneV = "bottom"; }
+    applyZoneSize(); syncCfgPanel(); previewZones(2000); saveCfg();
+  };
+});
+$("#cfgHint").onchange = (e) => { cfg.hint = e.target.checked; document.body.classList.toggle("nohint", !cfg.hint); saveCfg(); };
+$("#cfgWake").onchange = (e) => { cfg.wake = e.target.checked; saveCfg(); };
+$("#cfgRemember").onchange = (e) => { cfg.rememberMode = e.target.checked; if (e.target.checked) cfg.mode = S.mode; saveCfg(); };
+$("#cfgStylus").onchange = (e) => { cfg.stylus = e.target.checked; saveCfg(); };
+$("#cfgPressure").onchange = (e) => { cfg.pressure = e.target.checked; saveCfg(); };
+
+/* 鍵盤 */
+window.addEventListener("keydown", (e) => {
+  if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  const k = e.key;
+  if (k === "ArrowRight" || k === "PageDown" || k === " ") { gotoPage(S.idx + 1); e.preventDefault(); }
+  else if (k === "ArrowLeft" || k === "PageUp") { gotoPage(S.idx - 1); e.preventDefault(); }
+  else if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? doRedo() : doUndo(); }
+  else if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === "y") { e.preventDefault(); doRedo(); }
+  else if (k === "Escape") { if (isRead()) setMode("edit"); else closePanels(); }
+  else if (k.toLowerCase() === "r" && !e.ctrlKey && !e.metaKey) setMode(isRead() ? "edit" : "read");
+});
+
+/* iOS Safari：擋掉整頁縮放手勢，兩指要留給畫布自己的縮放 */
+for (const t of ["gesturestart", "gesturechange", "gestureend"]) {
+  document.addEventListener(t, (e) => { e.preventDefault(); }, { passive: false });
+}
+document.addEventListener("dblclick", (e) => { e.preventDefault(); }, { passive: false });
+
+/* 手機上點畫布＝收起縮圖抽屜 */
+stage.addEventListener("pointerdown", () => {
+  if (window.innerWidth <= 820 && document.body.classList.contains("strip")) document.body.classList.remove("strip");
+}, true);
+
+/* 拖曳圖片進來 */
+window.addEventListener("dragover", (e) => { e.preventDefault(); });
+window.addEventListener("drop", async (e) => {
+  e.preventDefault();
+  const fs = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
+  if (fs.length) await addPhotoPages(fs);
+});
+
+/* 尺寸變化 */
+let roT = 0;
+// 轉向（直立↔橫放）後要整個重新排版：重算頁面大小、把檢視位置歸位
+function relayout(delay) {
+  clearTimeout(roT);
+  roT = setTimeout(() => { resetView(); renderPage(false); }, delay || 120);
+}
+window.addEventListener("resize", () => relayout(120));
+window.addEventListener("orientationchange", () => relayout(320));
+if (window.visualViewport) window.visualViewport.addEventListener("resize", () => relayout(160));
+document.addEventListener("visibilitychange", () => { if (document.hidden) saveNow(); });
+window.addEventListener("pagehide", () => { saveNow(); });
+window.addEventListener("beforeunload", () => { saveNow(); });
+
+/* ---------------------- 啟動 ---------------------- */
+async function boot() {
+  syncTools(); syncCfgPanel(); applyZoneSize(); syncUndoBtns();
+  document.body.classList.toggle("nohint", !cfg.hint);
+  await loadBooks();
+  if (!S.books.length) { const b = newBook("我的筆記本"); await idbPut("books", b); await loadBooks(); }
+  const want = S.books.find((b) => b.id === cfg.lastBook) || S.books[0];
+  await openBook(want.id);
+  document.body.classList.remove("strip");
+  await setMode(cfg.rememberMode && cfg.mode === "read" ? "read" : "edit", true);
+}
+
+/* 測試掛勾（自動化驗證用；一般使用不影響） */
+window.__NB = {
+  S, cfg, gotoPage, addBlankPage, addPhotoPages, deletePage, duplicatePage, movePage,
+  openBook, loadBooks, newBook, newPage, idbPut, idbGet, idbAll, idbByBook, saveNow,
+  setMode, isRead, cornerAction, applyZoneSize, previewZones, zoomFit, zoomBy, savePage, recordToPage,
+  clearPage, doUndo, doRedo, renderPage, renderThumbs, flattenPage, setFitMode, resetView, relayout,
+  computeFit, overflowX, overflowY, stageBox,
+  get storageBroken() { return dbFailed; },
+  exportBackup, importBackup, cur, toast, boot, getBmp, toolWidthNorm,
+  simulateStroke: async function (pts, tool) {
+    const p = cur(); if (!p) return null;
+    const t = tool || cfg.tool;
+    const s = { tool: t, color: t === "hl" ? cfg.hlColor : cfg.color, width: toolWidthNorm(t), pressure: false, pts: pts.slice() };
+    p.strokes.push(s);
+    pushUndo({ type: "add", pageId: p.id, stroke: s });
+    drawInkInto(ictx, ink.width, ink.height, p.strokes);
+    markPage(p); refreshThumb(p);
+    return s;
+  },
+  ready: false,
+};
+
+boot().then(() => { window.__NB.ready = true; document.dispatchEvent(new CustomEvent("nb-ready")); })
+      .catch((e) => { console.error(e); toast("啟動失敗：" + e.message); });
+
+})();
+</script>
+</body>
+</html>
