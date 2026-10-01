@@ -314,14 +314,12 @@ async function live(){
    $('status').textContent='抓取最新收盤價…';
    const px=await officialPrices();
    POOL.forEach(p=>{if(px[p.c]>0){state[p.c].price=px[p.c];pxOk++;}});
-   if(pxOk){run();$('status').textContent=`已帶入 ${pxOk}/${POOL.length} 檔最新收盤價，嘗試補抓 6 個月歷史…`;}
-   // 第二步：公共 CORS 代理抓 6 個月歷史（常被擋，抓不到不影響）
-   j={};await Promise.all(POOL.map(async p=>{j[p.c]=await clientHist(p.c);}));
+      j={}; // 公共 CORS 代理已不可用（被擋），Pages 版不抓歷史；要歷史請用本機「開啟工具.bat」
   }
   let ok=0,last='';
   POOL.forEach(p=>{const d=j[p.c];if(d&&d.data){Object.assign(state[p.c],metrics(d.data));ok++;last=state[p.c].date;}});
   if(ok)$('status').innerHTML=`<span class="dn">已更新 ${ok}/${POOL.length} 檔（含 6 個月歷史），最新收盤日 ${last}</span>`;
-  else if(pxOk)$('status').innerHTML=`<span class="dn">已帶入 ${pxOk}/${POOL.length} 檔最新收盤價</span><span class="warn">（6 個月歷史抓不到：評分只用題材分，「回到前高法」請手動填高點）</span>`;
+  else if(pxOk)$('status').innerHTML=`<span class="dn">已帶入 ${pxOk}/${POOL.length} 檔最新收盤價</span><span class="warn">（Pages 版無 6 個月歷史：評分只用題材分，「回到前高法」請在候選池手動填 6 月高點；要自動歷史請用本機版）</span>`;
   else $('status').innerHTML='<span class="warn">一檔都沒抓到：請直接在表格填券商 App 的現價（零股也能算）。</span>';
  }catch(e){
   $('status').innerHTML='<span class="warn">抓取失敗（'+e.message+'）。請用「開啟工具.bat」啟動，且需連外網；或手動填現價。</span>';
