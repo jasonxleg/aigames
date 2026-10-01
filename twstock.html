@@ -58,8 +58,15 @@ td input{width:78px;text-align:right;padding:3px 5px}
   <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
     <button id="btnLive">抓取近 6 個月真實股價</button>
     <button id="btnRun" class="g">重新計算</button>
+    <button id="btnExport" class="g">匯出資料檔</button>
+    <button id="btnPick" class="g">📂 指定資料檔</button>
+    <button id="btnImport">▶ 執行匯入</button>
+    <input type="file" id="fileInput" accept=".json" style="display:none">
+    <span id="fileName" class="sub"></span>
     <span id="status" class="sub"></span>
   </div>
+  <details style="margin-top:8px"><summary class="sub" style="cursor:pointer">📋 貼上報價（每行「代號 現價」，例：2330 1050）</summary><textarea id="paste" rows="5" style="width:100%;margin-top:6px;background:#0f1626;color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:7px" placeholder="2330 1050
+3017 1500"></textarea><button id="btnApply" class="g" style="margin-top:6px">套用報價</button></details>
   <div class="sub" style="margin-top:6px">沒按「抓取」也能用：在下表手動輸入現價與 6 個月漲跌%，或只用內建題材評分。</div>
 </div>
 
@@ -297,36 +304,97 @@ async function clientHist(code){
  }
  return null;
 }
-async function live(){
- const b=$('btnLive');b.disabled=true;$('status').textContent='抓取中…（約 10~30 秒）';
+function applyData(d,src){
+ let n=0;
+ for(const c in d.stocks){if(state[c]){Object.assign(state[c],d.stocks[c]);n++;}}
+ $('status').innerHTML=`<span class="dn">已匯入 ${n} 檔（${src}），資料日 ${d.date}，含 6 個月歷史</span>`;
+ run();return n;
+}
+async function loadDataFile(){ // 同源資料檔（與 twstock.html 同資料夾）
  try{
-  let j=null;
+  const r=await fetch('twstock-data.json?_='+Date.now());if(!r.ok)return 0;
+  return applyData(await r.json(),'同資料夾資料檔');
+ }catch(e){return 0;}
+}
+function buildPayload(){
+ const stocks={};let last='';
+ POOL.forEach(p=>{const s=state[p.c];if(s.live){stocks[p.c]={price:s.price,ret6:s.ret6,vol:s.vol,ma60gap:s.ma60gap,dd:s.dd,hi:s.hi,live:true,date:s.date};last=s.date;}});
+ return last?{date:last,stocks}:null;
+}
+function exportData(){
+ const d=buildPayload();
+ if(!d){alert('還沒有抓到資料，請先按「抓取近 6 個月真實股價」（本機版）。');return;}
+ const a=document.createElement('a');
+ a.href=URL.createObjectURL(new Blob([JSON.stringify(d)],{type:'application/json'}));
+ a.download='twstock-data.json';a.click();
+}
+
+/* ---- 指定本機資料檔：選一次、瀏覽器記住 handle，之後按「執行」自動匯入 ---- */
+const idb=()=>new Promise((ok,ng)=>{const q=indexedDB.open('twstock',1);q.onupgradeneeded=()=>q.result.createObjectStore('kv');q.onsuccess=()=>ok(q.result);q.onerror=()=>ng(q.error);});
+async function kvGet(k){try{const d=await idb();return await new Promise(ok=>{const r=d.transaction('kv').objectStore('kv').get(k);r.onsuccess=()=>ok(r.result);r.onerror=()=>ok(null);});}catch(e){return null;}}
+async function kvSet(k,v){try{const d=await idb();await new Promise(ok=>{const t=d.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=ok;t.onerror=ok;});}catch(e){}}
+async function importFromHandle(hd,interactive){
+ let p=await hd.queryPermission({mode:'read'});
+ if(p!=='granted'){if(!interactive)return false;p=await hd.requestPermission({mode:'read'});}
+ if(p!=='granted')return false;
+ const file=await hd.getFile();
+ applyData(JSON.parse(await file.text()),file.name);
+ $('fileName').textContent='📄 '+file.name+'（'+new Date(file.lastModified).toLocaleString('zh-TW')+'）';
+ return true;
+}
+async function pickFile(){
+ if(window.showOpenFilePicker){
+  try{
+   const [hd]=await showOpenFilePicker({types:[{description:'twstock-data.json',accept:{'application/json':['.json']}}]});
+   await kvSet('handle',hd);
+   await importFromHandle(hd,true);
+  }catch(e){if(e.name!=='AbortError')$('status').innerHTML='<span class="warn">選檔失敗：'+e.message+'</span>';}
+ }else{ // Firefox/Safari 沒有 File System Access：退回一般選檔（每次要重選）
+  $('fileInput').click();
+ }
+}
+async function runImport(){
+ const hd=await kvGet('handle');
+ if(hd){
+  try{if(await importFromHandle(hd,true))return;}catch(e){$('status').innerHTML='<span class="warn">讀檔失敗（檔案可能被移動）：'+e.message+'，請重新指定。</span>';}
+ }
+ await pickFile();
+}
+async function live(){
+ const b=$('btnLive');b.disabled=true;
+ try{
   if(isLocal){ // 本機伺服器：證交所/櫃買官方資料，逐檔抓以顯示進度
-   j={};let k=0;
+   const j={};let k=0;
    for(const p of POOL){
     try{const r=await fetch('/api/hist?codes='+p.c);j[p.c]=(await r.json())[p.c];}catch(e){j[p.c]=null;}
     $('status').textContent=`抓取中 ${++k}/${POOL.length}（首次約 2~3 分鐘，之後有快取很快）`;
    }
+   let ok=0,last='';
+   POOL.forEach(p=>{const d=j[p.c];if(d&&d.data){Object.assign(state[p.c],metrics(d.data));ok++;last=state[p.c].date;}});
+   let saved='';
+   if(ok){try{const r=await fetch('/api/save',{method:'POST',body:JSON.stringify(buildPayload())});saved=(await r.json()).path||'';}catch(e){}}
+   $('status').innerHTML=ok?`<span class="dn">已更新 ${ok}/${POOL.length} 檔，最新收盤日 ${last}。${saved?'已自動存到 '+saved+'（Pages 版指定這個檔即可匯入）':'可按「匯出資料檔」手動下載。'}</span>`
+    :'<span class="warn">一檔都沒抓到：請確認這台能連證交所，或手動填現價。</span>';
+  }else{ // Pages：瀏覽器無法直連證交所（CORS），只能讀同源資料檔
+   const n=await loadDataFile();
+   if(!n)$('status').innerHTML='<span class="warn">Pages 版無法直連證交所（對方不允許跨網站讀取）。請用下方「貼上報價」，或在外網機用本機版抓取後「匯出資料檔」，把 twstock-data.json 上傳到本頁同資料夾。</span>';
   }
-  let pxOk=0;
-  if(!j||!Object.values(j).some(v=>v&&v.data)){ // 單檔模式（GitHub Pages）
-   // 第一步：證交所/櫃買開放資料直連，最新收盤價（快、不經代理）
-   $('status').textContent='抓取最新收盤價…';
-   const px=await officialPrices();
-   POOL.forEach(p=>{if(px[p.c]>0){state[p.c].price=px[p.c];pxOk++;}});
-      j={}; // 公共 CORS 代理已不可用（被擋），Pages 版不抓歷史；要歷史請用本機「開啟工具.bat」
-  }
-  let ok=0,last='';
-  POOL.forEach(p=>{const d=j[p.c];if(d&&d.data){Object.assign(state[p.c],metrics(d.data));ok++;last=state[p.c].date;}});
-  if(ok)$('status').innerHTML=`<span class="dn">已更新 ${ok}/${POOL.length} 檔（含 6 個月歷史），最新收盤日 ${last}</span>`;
-  else if(pxOk)$('status').innerHTML=`<span class="dn">已帶入 ${pxOk}/${POOL.length} 檔最新收盤價</span><span class="warn">（Pages 版無 6 個月歷史：評分只用題材分，「回到前高法」請在候選池手動填 6 月高點；要自動歷史請用本機版）</span>`;
-  else $('status').innerHTML='<span class="warn">一檔都沒抓到：請直接在表格填券商 App 的現價（零股也能算）。</span>';
  }catch(e){
-  $('status').innerHTML='<span class="warn">抓取失敗（'+e.message+'）。請用「開啟工具.bat」啟動，且需連外網；或手動填現價。</span>';
+  $('status').innerHTML='<span class="warn">抓取失敗（'+e.message+'）。</span>';
  }
  b.disabled=false;run();
 }
-$('btnLive').onclick=live;$('btnRun').onclick=run;
+function applyPaste(){
+ let n=0;
+ $('paste').value.split(/\n/).forEach(l=>{
+  const m=l.match(/(\d{4,6})\D+([\d,]+(?:\.\d+)?)/);
+  if(m&&state[m[1]]){state[m[1]].price=parseFloat(m[2].replace(/,/g,''));n++;}
+ });
+ $('status').innerHTML=n?`<span class="dn">已套用 ${n} 檔報價</span>`:'<span class="warn">沒有可辨識的行（格式：2330 1050）</span>';
+ run();
+}
+$('btnLive').onclick=live;$('btnExport').onclick=exportData;$('btnPick').onclick=pickFile;$('btnImport').onclick=runImport;
+$('fileInput').onchange=async e=>{const fl=e.target.files[0];if(fl){applyData(JSON.parse(await fl.text()),fl.name);$('fileName').textContent='📄 '+fl.name;}};$('btnApply').onclick=applyPaste;$('btnRun').onclick=run;
 ['target','cap','maxloss','stop','n','opt','maxlots','recover'].forEach(id=>$(id).addEventListener('change',run));
 $('themes').addEventListener('change',run);
 (async()=>{ // 本機模式：帶入 K:\TwStock 追蹤清單（★）
@@ -340,6 +408,12 @@ $('themes').addEventListener('change',run);
   });
   buildThemes();
  }catch(e){}}
+ if(!isLocal){
+  const hd=await kvGet('handle');
+  let done=false;
+  if(hd){try{done=await importFromHandle(hd,false);if(!done)$('fileName').textContent='📄 '+hd.name+'（按「▶ 執行匯入」授權讀取）';}catch(e){}}
+  if(!done)await loadDataFile();
+ }
  run();renderPool(POOL.map(evalStock).sort((a,b)=>b.score-a.score));
 })();
 </script>
