@@ -81,10 +81,10 @@ td input{width:78px;text-align:right;padding:3px 5px}
 <div class="card">
   <h2>③ 回到前高法：離 6 個月高點還有空間，幾張就能賺到目標？</h2>
   <div class="grid" style="margin-bottom:10px">
-    <div><label>最多願意買幾張</label><input id="maxlots" type="number" value="3" min="1"></div>
+    <div><label>最多願意買幾張（可小數，零股 0.5＝500 股）</label><input id="maxlots" type="number" value="3" min="1"></div>
     <div><label>預期只回到高點的幾 %（100=全回；保守填 70）</label><input id="recover" type="number" value="100"></div>
   </div>
-  <div class="sub" style="margin-bottom:6px">算法：每股價差＝(6個月高點−現價)×回升比例；所需張數＝目標獲利÷(價差×1000)。符合「張數≤上限、資金≤總資金」的才推薦。例：高點180、現價160、價差20，買3張＝60,000元。</div>
+  <div class="sub" style="margin-bottom:6px">算法：每股價差＝(6個月高點−現價)×回升比例；賺到目標需買股數＝目標獲利÷價差（零股，不必整張）。符合「股數≤張數上限、資金≤總資金」的才推薦。例：高點180、現價160、價差20，賺5萬要買2,500股＝50萬元。</div>
   <div class="tbl"><table id="high"></table></div>
 </div>
 
@@ -236,22 +236,26 @@ function renderHigh(all){
  const th=selectedThemes();
  const target=parseFloat($('target').value)||50000;
  const cap=parseFloat($('cap').value)||0;
- const maxlots=parseFloat($('maxlots').value)||3;
+ const maxlots=parseFloat($('maxlots').value)||3;       // 股數上限（張，可小數；零股 0.5 張=500 股）
  const rec=(parseFloat($('recover').value)||100)/100;
  const stop=(parseFloat($('stop').value)||12)/100;
  const rows=[];
  all.filter(x=>th.includes(x.p.t)).forEach(x=>{
   const s=x.s;if(!(s.price>0)||!(s.hi>0))return;
   const gap=(s.hi-s.price)*rec;if(gap<=0)return;
-  const lots=Math.ceil(target/(gap*1000)),capital=lots*1000*s.price;
-  rows.push({x,s,gap,lots,capital,room:s.hi/s.price-1,ok:lots<=maxlots&&capital<=cap});
+  // 零股：以「股」為單位反推，不必湊整張
+  const need=Math.ceil(target/gap);                      // 賺到目標所需股數
+  const capital=need*s.price;
+  const maxSh=Math.min(Math.floor(cap/s.price),Math.floor(maxlots*1000)); // 資金與張數上限內最多可買股數
+  const ok=need<=maxSh;
+  rows.push({x,s,gap,need,capital,maxSh,maxProfit:Math.max(0,Math.min(need,maxSh))*gap,room:s.hi/s.price-1,ok});
  });
  if(!rows.length){$('high').innerHTML='<tr><td>需要「現價」與「6月高點」：按上方「抓取近 6 個月真實股價」，或在候選池表格手動填入。</td></tr>';return;}
- rows.sort((a,b)=>(b.ok-a.ok)||(b.x.score-a.x.score));
- let h='<tr><th>推薦</th><th>代號</th><th>名稱</th><th>評分</th><th>現價</th><th>6月高點</th><th>回高空間</th><th>每股價差</th><th>所需張數</th><th>所需資金</th><th>回高時獲利</th><th>停損價</th><th>停損虧損</th></tr>';
+ rows.sort((a,b)=>(b.ok-a.ok)||(b.ok?b.x.score-a.x.score:b.maxProfit-a.maxProfit));
+ let h='<tr><th>推薦</th><th>代號</th><th>名稱</th><th>評分</th><th>現價</th><th>6月高點</th><th>回高空間</th><th>每股價差</th><th>賺到目標需買</th><th>約幾張</th><th>所需資金</th><th>停損價</th><th>停損虧損</th><th>資金/張數上限內最多可賺</th></tr>';
  rows.forEach(r=>{
   const p=r.x.p,s=r.s;
-  h+=`<tr><td>${r.ok?'<b class="up">✔ 推薦</b>':'<span class="sub">超出上限</span>'}</td><td>${p.c}</td><td>${nm(p)}</td><td><span class="sc">${r.x.score.toFixed(0)}</span></td><td>${s.price.toFixed(2)}</td><td>${s.hi.toFixed(2)}</td><td class="up">+${pct(r.room)}</td><td>${r.gap.toFixed(2)}</td><td><b>${r.lots}</b></td><td>${fmt(r.capital)}</td><td class="up">${fmt(r.lots*1000*r.gap)}</td><td class="dn">${(s.price*(1-stop)).toFixed(1)}</td><td class="dn">-${fmt(r.capital*stop)}</td></tr>`;
+  h+=`<tr><td>${r.ok?'<b class="up">✔ 推薦</b>':'<span class="sub">超出上限</span>'}</td><td>${p.c}</td><td>${nm(p)}</td><td><span class="sc">${r.x.score.toFixed(0)}</span></td><td>${s.price.toFixed(2)}</td><td>${s.hi.toFixed(2)}</td><td class="up">+${pct(r.room)}</td><td>${r.gap.toFixed(2)}</td><td><b>${fmt(r.need)}</b> 股</td><td>${(r.need/1000).toFixed(2)}</td><td>${fmt(r.capital)}</td><td class="dn">${(s.price*(1-stop)).toFixed(1)}</td><td class="dn">-${fmt(r.capital*stop)}</td><td class="up">${fmt(r.maxProfit)}${r.ok?'':'（買 '+fmt(r.maxSh)+' 股）'}</td></tr>`;
  });
  $('high').innerHTML=h;
 }
