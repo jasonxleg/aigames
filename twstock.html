@@ -177,13 +177,13 @@ function run(){
  const th=selectedThemes();
  const all=POOL.map(evalStock).sort((a,b)=>b.score-a.score);
  renderPool(all);renderHigh(all);
- const cand=all.filter(x=>th.includes(x.p.t)&&state[x.p.c].price>0);
+ const cand=all.filter(x=>th.includes(x.p.t));
  const N=clamp(parseInt($('n').value)||4,1,10);
  const warns=[];
  const noPrice=all.filter(x=>th.includes(x.p.t)&&!(state[x.p.c].price>0));
  if(!cand.length){$('resultCard').style.display='none';
   $('status').innerHTML='<span class="warn">尚無股價：請先按「抓取近 6 個月真實股價」，或在下表手動填現價。</span>';return;}
- if(noPrice.length)warns.push(`有 ${noPrice.length} 檔沒有現價未納入（${noPrice.map(x=>x.p.n).join('、')}）`);
+ 
  const pick=cand.slice(0,N);
  // 權重：分數 / 波動（高分低波動多配）
  const raw=pick.map(x=>x.score/(x.sig6+0.1));const sr=raw.reduce((a,b)=>a+b,0);
@@ -216,10 +216,13 @@ function run(){
  $('warns').innerHTML=warns.map(w=>`<div class="msg">${w}</div>`).join('');
  let h='<tr><th>代號</th><th>名稱</th><th>題材</th><th>評分</th><th>配置%</th><th>投入金額</th><th>現價</th><th>可買股數</th><th>約幾張</th><th>目標價</th><th>停損價</th><th>6月預期</th><th>悲觀/樂觀</th></tr>';
  pick.forEach(x=>{
-  const amt=invest*x.w,pr=state[x.p.c].price,sh=Math.floor(amt/pr);
-  h+=`<tr><td>${x.p.c}</td><td>${x.p.n}</td><td>${x.p.t}</td><td><span class="sc">${x.score.toFixed(0)}</span></td><td>${pct(x.w,0)}</td><td>${fmt(amt)}</td><td>${pr.toFixed(2)}</td><td>${fmt(sh)}</td><td>${(sh/1000).toFixed(2)}</td><td class="up">${(pr*(1+x.base)).toFixed(1)}</td><td class="dn">${(pr*(1-stop)).toFixed(1)}</td><td class="up">+${pct(x.base)}</td><td><span class="${x.bear<0?'dn':'up'}">${pct(x.bear,0)}</span> / <span class="up">+${pct(x.bull,0)}</span></td></tr>`;
+  const amt=invest*x.w,pr=state[x.p.c].price,has=pr>0,sh=has?Math.floor(amt/pr):0;
+  h+=`<tr><td>${x.p.c}</td><td>${x.p.n}</td><td>${x.p.t}</td><td><span class="sc">${x.score.toFixed(0)}</span></td><td>${pct(x.w,0)}</td><td>${fmt(amt)}</td><td><input type="number" step="0.1" value="${has?pr:''}" data-c="${x.p.c}" data-k="price" placeholder="填現價"></td><td>${has?'<b>'+fmt(sh)+'</b> 股':'—'}</td><td>${has?(sh/1000).toFixed(2):'—'}</td><td class="up">${has?(pr*(1+x.base)).toFixed(1):'—'}</td><td class="dn">${has?(pr*(1-stop)).toFixed(1):'—'}</td><td class="up">+${pct(x.base)}</td><td><span class="${x.bear<0?'dn':'up'}">${pct(x.bear,0)}</span> / <span class="up">+${pct(x.bull,0)}</span></td></tr>`;
  });
- $('plan').innerHTML=h;$('resultCard').style.display='block';
+ if(pick.some(x=>!(state[x.p.c].price>0)))warns.push('👉 在下表「現價」欄輸入券商 App 看到的現價（按 Enter），就會算出每檔要買幾股（零股）、目標價與停損價。');
+ $('warns').innerHTML=warns.map(w=>`<div class="msg">${w}</div>`).join('');
+ $('plan').innerHTML=h;
+ $('plan').querySelectorAll('input').forEach(i=>i.addEventListener('change',()=>{const v=parseFloat(i.value);state[i.dataset.c].price=isNaN(v)?undefined:v;run();}));$('resultCard').style.display='block';
 }
 
 function renderHigh(all){
@@ -266,13 +269,25 @@ function renderPool(all){
   const v=parseFloat(i.value);state[i.dataset.c][i.dataset.k]=isNaN(v)?undefined:v;run();}));
 }
 
+async function officialPrices(){
+ const out={};
+ try{
+  const a=await (await fetch('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL')).json();
+  a.forEach(r=>{const v=parseFloat(String(r.ClosingPrice).replace(/,/g,''));if(v>0)out[r.Code]=v;});
+ }catch(e){}
+ try{
+  const b=await (await fetch('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes')).json();
+  b.forEach(r=>{const v=parseFloat(String(r.Close).replace(/,/g,''));if(v>0)out[r.SecuritiesCompanyCode]=v;});
+ }catch(e){}
+ return out;
+}
 async function clientHist(code){
  const proxies=[u=>'https://corsproxy.io/?'+encodeURIComponent(u),u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u)];
  for(const suf of ['.TW','.TWO']){
   const url=`https://query1.finance.yahoo.com/v8/finance/chart/${code}${suf}?range=1y&interval=1d`;
   for(const px of proxies){
    try{
-    const r=await fetch(px(url));if(!r.ok)continue;
+    const r=await fetch(px(url),{signal:AbortSignal.timeout(7000)});if(!r.ok)continue;
     const res=(await r.json()).chart.result[0];
     const ts=res.timestamp||[],cl=res.indicators.quote[0].close||[],data=[];
     ts.forEach((t,i)=>{if(cl[i]!=null)data.push([t,cl[i]]);});
@@ -293,12 +308,21 @@ async function live(){
     $('status').textContent=`抓取中 ${++k}/${POOL.length}（首次約 2~3 分鐘，之後有快取很快）`;
    }
   }
-  if(!j||!Object.values(j).some(v=>v&&v.data)){ // 單檔模式（GitHub Pages）：走公共 CORS 代理
+  let pxOk=0;
+  if(!j||!Object.values(j).some(v=>v&&v.data)){ // 單檔模式（GitHub Pages）
+   // 第一步：證交所/櫃買開放資料直連，最新收盤價（快、不經代理）
+   $('status').textContent='抓取最新收盤價…';
+   const px=await officialPrices();
+   POOL.forEach(p=>{if(px[p.c]>0){state[p.c].price=px[p.c];pxOk++;}});
+   if(pxOk){run();$('status').textContent=`已帶入 ${pxOk}/${POOL.length} 檔最新收盤價，嘗試補抓 6 個月歷史…`;}
+   // 第二步：公共 CORS 代理抓 6 個月歷史（常被擋，抓不到不影響）
    j={};await Promise.all(POOL.map(async p=>{j[p.c]=await clientHist(p.c);}));
   }
   let ok=0,last='';
   POOL.forEach(p=>{const d=j[p.c];if(d&&d.data){Object.assign(state[p.c],metrics(d.data));ok++;last=state[p.c].date;}});
-  $('status').innerHTML=ok?`<span class="dn">已更新 ${ok}/${POOL.length} 檔，最新收盤日 ${last}</span>`:'<span class="warn">一檔都沒抓到：這台可能連不到外網，請手動填現價。</span>';
+  if(ok)$('status').innerHTML=`<span class="dn">已更新 ${ok}/${POOL.length} 檔（含 6 個月歷史），最新收盤日 ${last}</span>`;
+  else if(pxOk)$('status').innerHTML=`<span class="dn">已帶入 ${pxOk}/${POOL.length} 檔最新收盤價</span><span class="warn">（6 個月歷史抓不到：評分只用題材分，「回到前高法」請手動填高點）</span>`;
+  else $('status').innerHTML='<span class="warn">一檔都沒抓到：請直接在表格填券商 App 的現價（零股也能算）。</span>';
  }catch(e){
   $('status').innerHTML='<span class="warn">抓取失敗（'+e.message+'）。請用「開啟工具.bat」啟動，且需連外網；或手動填現價。</span>';
  }
