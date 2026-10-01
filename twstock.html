@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>台股潛力股試算器</title>
+<style>
+:root{--bg:#0f1420;--card:#182033;--line:#2a3550;--tx:#e6ebf5;--mut:#8b97b3;--ac:#4cc9f0;--up:#ef476f;--dn:#06d6a0;--warn:#ffd166}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 "Microsoft JhengHei",system-ui,sans-serif}
+header{padding:14px 18px;border-bottom:1px solid var(--line)}
+h1{margin:0;font-size:20px}
+.sub{color:var(--mut);font-size:12px}
+.wrap{max-width:1200px;margin:0 auto;padding:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.card h2{margin:0 0 10px;font-size:16px;color:var(--ac)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+label{display:block;font-size:12px;color:var(--mut)}
+input,select{width:100%;background:#0f1626;color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:7px;font-size:14px}
+button{background:var(--ac);color:#04121c;border:0;border-radius:6px;padding:9px 16px;font-size:14px;font-weight:700;cursor:pointer}
+button.g{background:#2a3550;color:var(--tx)}
+button:disabled{opacity:.5}
+.chips label{display:inline-flex;align-items:center;gap:4px;margin:2px 10px 2px 0;color:var(--tx);font-size:13px}
+.chips input{width:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:6px 7px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+th{color:var(--mut);font-weight:600;position:sticky;top:0;background:var(--card)}
+.sc{display:inline-block;min-width:34px;padding:1px 6px;border-radius:10px;background:#24304d;font-weight:700}
+.up{color:var(--up)}.dn{color:var(--dn)}.warn{color:var(--warn)}
+.tbl{overflow-x:auto}
+.big{font-size:22px;font-weight:700}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-bottom:12px}
+.kpi div{background:#0f1626;border:1px solid var(--line);border-radius:8px;padding:10px}
+.kpi small{color:var(--mut);display:block}
+.msg{padding:8px 10px;border-radius:6px;margin:6px 0;background:#2b2440;border-left:3px solid var(--warn)}
+.disc{font-size:12px;color:var(--mut);border-left:3px solid var(--up);padding-left:10px}
+td input{width:78px;text-align:right;padding:3px 5px}
+</style>
+</head>
+<body>
+<header>
+  <h1>📈 台股潛力股試算器 <span class="sub">散熱 · AI · 科技　｜　目標：6 個月賺 5 萬，該買多少？</span></h1>
+</header>
+<div class="wrap">
+
+<div class="card">
+  <h2>① 你的條件</h2>
+  <div class="grid">
+    <div><label>目標獲利（元）</label><input id="target" type="number" value="50000"></div>
+    <div><label>可投入總資金（元）</label><input id="cap" type="number" value="500000"></div>
+    <div><label>最大可承受虧損（占總資金 %）</label><input id="maxloss" type="number" value="8"></div>
+    <div><label>停損幅度（%）</label><input id="stop" type="number" value="12"></div>
+    <div><label>持股檔數</label><input id="n" type="number" value="4" min="1" max="10"></div>
+    <div><label>樂觀係數（1=基準，0.7=保守）</label><input id="opt" type="number" value="0.85" step="0.05"></div>
+  </div>
+  <div class="chips" style="margin-top:10px" id="themes"></div>
+  <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <button id="btnLive">抓取近 6 個月真實股價</button>
+    <button id="btnRun" class="g">重新計算</button>
+    <span id="status" class="sub"></span>
+  </div>
+  <div class="sub" style="margin-top:6px">沒按「抓取」也能用：在下表手動輸入現價與 6 個月漲跌%，或只用內建題材評分。</div>
+</div>
+
+<div class="card" id="resultCard" style="display:none">
+  <h2>② 建議買進方案</h2>
+  <div class="kpi" id="kpi"></div>
+  <div id="warns"></div>
+  <div class="tbl"><table id="plan"></table></div>
+  <div class="sub" style="margin-top:8px">分批建議：第 1 批 40%（現價附近）、第 2 批 30%（回檔 5% 或站穩 20 日線）、第 3 批 30%（突破前高確認）。停損價＝成本×(1−停損%)，跌破就走，不加碼攤平。</div>
+</div>
+
+<div class="card">
+  <h2>③ 回到前高法：離 6 個月高點還有空間，幾張就能賺到目標？</h2>
+  <div class="grid" style="margin-bottom:10px">
+    <div><label>最多願意買幾張</label><input id="maxlots" type="number" value="3" min="1"></div>
+    <div><label>預期只回到高點的幾 %（100=全回；保守填 70）</label><input id="recover" type="number" value="100"></div>
+  </div>
+  <div class="sub" style="margin-bottom:6px">算法：每股價差＝(6個月高點−現價)×回升比例；所需張數＝目標獲利÷(價差×1000)。符合「張數≤上限、資金≤總資金」的才推薦。例：高點180、現價160、價差20，買3張＝60,000元。</div>
+  <div class="tbl"><table id="high"></table></div>
+</div>
+
+<div class="card">
+  <h2>④ 候選池評分排行（可編輯成長/護城河/估值風險 1~5，現價可手動填）</h2>
+  <div class="tbl"><table id="pool"></table></div>
+</div>
+
+<div class="card disc">
+  ⚠ 本工具為個人試算輔助，不是投資建議。「預期漲幅」由題材評分＋近半年動能依簡單公式推估，情境（樂觀/基準/悲觀）是假設而非預測；股價可能與估算完全不同，包含大幅虧損。
+  上表的成長/護城河/估值分數是依公開產業認知給的主觀初值，請自行更新。AI／散熱族群近年漲幅大、波動大，宜用閒錢、分批、設停損。
+</div>
+</div>
+
+<script>
+// 候選池：g=成長 m=護城河 v=估值風險(越高越貴) vol=預設年化波動
+const POOL=[
+ {c:'3017',n:'奇鋐',t:'散熱',g:5,m:4,v:4,vol:.55},
+ {c:'3324',n:'雙鴻',t:'散熱',g:5,m:4,v:4,vol:.60},
+ {c:'2421',n:'建準',t:'散熱',g:3,m:3,v:3,vol:.45},
+ {c:'6230',n:'超眾',t:'散熱',g:4,m:3,v:4,vol:.60},
+ {c:'8996',n:'高力',t:'散熱',g:4,m:3,v:3,vol:.50},
+ {c:'3653',n:'健策',t:'散熱',g:4,m:4,v:4,vol:.55},
+ {c:'6805',n:'富世達',t:'散熱',g:4,m:4,v:4,vol:.60},
+ {c:'2308',n:'台達電',t:'電源/散熱',g:4,m:5,v:4,vol:.40},
+ {c:'6669',n:'緯穎',t:'AI伺服器',g:5,m:4,v:4,vol:.50},
+ {c:'2382',n:'廣達',t:'AI伺服器',g:4,m:4,v:3,vol:.42},
+ {c:'3231',n:'緯創',t:'AI伺服器',g:4,m:3,v:3,vol:.50},
+ {c:'2376',n:'技嘉',t:'AI伺服器',g:4,m:3,v:3,vol:.50},
+ {c:'2356',n:'英業達',t:'AI伺服器',g:3,m:3,v:3,vol:.45},
+ {c:'2317',n:'鴻海',t:'AI伺服器',g:3,m:4,v:2,vol:.32},
+ {c:'2330',n:'台積電',t:'半導體',g:4,m:5,v:3,vol:.32},
+ {c:'3661',n:'世芯-KY',t:'半導體',g:5,m:3,v:5,vol:.65},
+ {c:'3443',n:'創意',t:'半導體',g:4,m:3,v:4,vol:.55},
+ {c:'2454',n:'聯發科',t:'半導體',g:3,m:4,v:3,vol:.40},
+ {c:'3711',n:'日月光投控',t:'半導體',g:4,m:4,v:3,vol:.38},
+ {c:'3037',n:'欣興',t:'PCB/載板',g:4,m:3,v:3,vol:.50},
+ {c:'2368',n:'金像電',t:'PCB/載板',g:4,m:3,v:4,vol:.55},
+ {c:'2383',n:'台光電',t:'PCB/載板',g:5,m:4,v:4,vol:.55},
+ {c:'2059',n:'川湖',t:'AI伺服器',g:4,m:4,v:4,vol:.45}
+];
+const state={}; // code -> {price,ret6,vol,ma60gap,dd,live}
+POOL.forEach(p=>state[p.c]={g:p.g,m:p.m,v:p.v});
+const $=id=>document.getElementById(id);
+const fmt=n=>Math.round(n).toLocaleString('zh-TW');
+const pct=(x,d=1)=>(x*100).toFixed(d)+'%';
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+
+// 題材勾選
+const isLocal=location.protocol.startsWith('http')&&/^(localhost|127\.)/.test(location.hostname);
+function buildThemes(){
+ const THEMES=[...new Set(POOL.map(p=>p.t))];
+ $('themes').innerHTML='<b style="font-size:12px;color:var(--mut)">納入題材：</b>'+THEMES.map(t=>`<label><input type="checkbox" class="th" value="${t}" checked>${t}</label>`).join('');
+}
+buildThemes();
+const nm=p=>p.n+(p.w?' ★':'');
+
+function erf(x){const s=x<0?-1:1;x=Math.abs(x);const t=1/(1+0.3275911*x);
+ const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x);return s*y;}
+const Phi=z=>0.5*(1+erf(z/Math.SQRT2));
+
+// 由日K收盤算指標（約 126 個交易日 = 6 個月）
+function metrics(data){
+ const cl=data.map(d=>d[1]);const n=cl.length,w=Math.min(126,n-1);
+ const last=cl[n-1],base=cl[n-1-w];
+ const seg=cl.slice(n-1-w);
+ const rets=[];for(let i=1;i<seg.length;i++)rets.push(Math.log(seg[i]/seg[i-1]));
+ const mean=rets.reduce((a,b)=>a+b,0)/rets.length;
+ const sd=Math.sqrt(rets.reduce((a,b)=>a+(b-mean)**2,0)/(rets.length-1));
+ const ma=cl.slice(-60);const ma60=ma.reduce((a,b)=>a+b,0)/ma.length;
+ const hi=Math.max(...seg);
+ return{price:last,ret6:last/base-1,vol:sd*Math.sqrt(252),ma60gap:last/ma60-1,dd:1-last/hi,hi:hi,live:true,date:new Date(data[n-1][0]*1000).toLocaleDateString('zh-TW')};
+}
+
+// 單檔評分＋情境
+function evalStock(p){
+ const s=state[p.c];
+ const fund=((s.g/5)*0.5+(s.m/5)*0.25+((6-s.v)/5)*0.25)*100;
+ let tech=50;
+ if(s.ret6!=null){
+  const mom=clamp((s.ret6+0.3)/0.9,0,1)*100;
+  const trend=clamp((s.ma60gap+0.15)/0.40,0,1)*100;
+  const dd=clamp(1-s.dd/0.30,0,1)*100;
+  tech=mom*0.4+trend*0.3+dd*0.3;
+ }
+ const score=fund*0.65+tech*0.35;
+ const vol=s.vol||p.vol;
+ const sig6=vol*Math.sqrt(0.5);
+ const opt=parseFloat($('opt').value)||1;
+ const base=(0.03+score/100*0.30)*opt;
+ return{p,s,score,fund,tech,vol,sig6,base,bull:base+0.8*sig6,bear:base-1.2*sig6};
+}
+
+function selectedThemes(){return [...document.querySelectorAll('.th:checked')].map(e=>e.value);}
+
+function run(){
+ const th=selectedThemes();
+ const all=POOL.map(evalStock).sort((a,b)=>b.score-a.score);
+ renderPool(all);renderHigh(all);
+ const cand=all.filter(x=>th.includes(x.p.t)&&state[x.p.c].price>0);
+ const N=clamp(parseInt($('n').value)||4,1,10);
+ const warns=[];
+ const noPrice=all.filter(x=>th.includes(x.p.t)&&!(state[x.p.c].price>0));
+ if(!cand.length){$('resultCard').style.display='none';
+  $('status').innerHTML='<span class="warn">尚無股價：請先按「抓取近 6 個月真實股價」，或在下表手動填現價。</span>';return;}
+ if(noPrice.length)warns.push(`有 ${noPrice.length} 檔沒有現價未納入（${noPrice.map(x=>x.p.n).join('、')}）`);
+ const pick=cand.slice(0,N);
+ // 權重：分數 / 波動（高分低波動多配）
+ const raw=pick.map(x=>x.score/(x.sig6+0.1));const sr=raw.reduce((a,b)=>a+b,0);
+ pick.forEach((x,i)=>x.w=raw[i]/sr);
+ const target=parseFloat($('target').value)||50000;
+ const cap=parseFloat($('cap').value)||0;
+ const maxloss=(parseFloat($('maxloss').value)||0)/100;
+ const stop=(parseFloat($('stop').value)||12)/100;
+ const mu=pick.reduce((a,x)=>a+x.w*x.base,0);
+ const muBull=pick.reduce((a,x)=>a+x.w*x.bull,0);
+ const muBear=pick.reduce((a,x)=>a+x.w*x.bear,0);
+ // 組合 σ（相關係數 0.6）
+ const rho=0.6;let v=0;
+ pick.forEach((a,i)=>pick.forEach((b,j)=>{v+=a.w*b.w*a.sig6*b.sig6*(i===j?1:rho);}));
+ const sigP=Math.sqrt(v);
+ const needCap=target/mu;
+ const riskCap=maxloss>0?cap*maxloss/stop:cap; // 停損觸發時虧損不超過 maxloss*cap
+ let invest=Math.min(needCap,cap,riskCap);
+ if(needCap>cap)warns.push(`以基準情境（組合預期 ${pct(mu)}），賺 ${fmt(target)} 需要 ${fmt(needCap)} 元，超過你的總資金 ${fmt(cap)} 元。目前資金全進最多約賺 ${fmt(cap*mu)} 元。`);
+ if(invest<needCap&&riskCap<Math.min(needCap,cap))warns.push(`依「最大可承受虧損 ${pct(maxloss,0)}、停損 ${pct(stop,0)}」，單次部位上限 ${fmt(riskCap)} 元，已被風險上限壓低。`);
+ if(mu<0.08)warns.push('組合基準預期報酬偏低，現在可能不是好的進場時機。');
+ const probTarget=1-Phi((target/invest-mu)/sigP);
+ const profBase=invest*mu,profBull=invest*muBull,profBear=invest*muBear;
+ $('kpi').innerHTML=`
+  <div><small>建議總投入</small><span class="big">${fmt(invest)} 元</span></div>
+  <div><small>賺 ${fmt(target)} 元需投入（基準）</small><span class="big">${fmt(needCap)} 元</span><small>所需報酬 ${pct(target/invest)}</small></div>
+  <div><small>基準 / 樂觀 / 悲觀 損益</small><span class="up">${fmt(profBase)}</span> / <span class="up">${fmt(profBull)}</span> / <span class="${profBear<0?'dn':'up'}">${fmt(profBear)}</span></div>
+  <div><small>估計達成目標機率（粗估）</small><span class="big">${pct(clamp(probTarget,0,1),0)}</span></div>
+  <div><small>停損全觸發最大虧損</small><span class="dn">-${fmt(invest*stop)} 元</span></div>`;
+ $('warns').innerHTML=warns.map(w=>`<div class="msg">${w}</div>`).join('');
+ let h='<tr><th>代號</th><th>名稱</th><th>題材</th><th>評分</th><th>配置%</th><th>投入金額</th><th>現價</th><th>可買股數</th><th>約幾張</th><th>目標價</th><th>停損價</th><th>6月預期</th><th>悲觀/樂觀</th></tr>';
+ pick.forEach(x=>{
+  const amt=invest*x.w,pr=state[x.p.c].price,sh=Math.floor(amt/pr);
+  h+=`<tr><td>${x.p.c}</td><td>${x.p.n}</td><td>${x.p.t}</td><td><span class="sc">${x.score.toFixed(0)}</span></td><td>${pct(x.w,0)}</td><td>${fmt(amt)}</td><td>${pr.toFixed(2)}</td><td>${fmt(sh)}</td><td>${(sh/1000).toFixed(2)}</td><td class="up">${(pr*(1+x.base)).toFixed(1)}</td><td class="dn">${(pr*(1-stop)).toFixed(1)}</td><td class="up">+${pct(x.base)}</td><td><span class="${x.bear<0?'dn':'up'}">${pct(x.bear,0)}</span> / <span class="up">+${pct(x.bull,0)}</span></td></tr>`;
+ });
+ $('plan').innerHTML=h;$('resultCard').style.display='block';
+}
+
+function renderHigh(all){
+ const th=selectedThemes();
+ const target=parseFloat($('target').value)||50000;
+ const cap=parseFloat($('cap').value)||0;
+ const maxlots=parseFloat($('maxlots').value)||3;
+ const rec=(parseFloat($('recover').value)||100)/100;
+ const stop=(parseFloat($('stop').value)||12)/100;
+ const rows=[];
+ all.filter(x=>th.includes(x.p.t)).forEach(x=>{
+  const s=x.s;if(!(s.price>0)||!(s.hi>0))return;
+  const gap=(s.hi-s.price)*rec;if(gap<=0)return;
+  const lots=Math.ceil(target/(gap*1000)),capital=lots*1000*s.price;
+  rows.push({x,s,gap,lots,capital,room:s.hi/s.price-1,ok:lots<=maxlots&&capital<=cap});
+ });
+ if(!rows.length){$('high').innerHTML='<tr><td>需要「現價」與「6月高點」：按上方「抓取近 6 個月真實股價」，或在候選池表格手動填入。</td></tr>';return;}
+ rows.sort((a,b)=>(b.ok-a.ok)||(b.x.score-a.x.score));
+ let h='<tr><th>推薦</th><th>代號</th><th>名稱</th><th>評分</th><th>現價</th><th>6月高點</th><th>回高空間</th><th>每股價差</th><th>所需張數</th><th>所需資金</th><th>回高時獲利</th><th>停損價</th><th>停損虧損</th></tr>';
+ rows.forEach(r=>{
+  const p=r.x.p,s=r.s;
+  h+=`<tr><td>${r.ok?'<b class="up">✔ 推薦</b>':'<span class="sub">超出上限</span>'}</td><td>${p.c}</td><td>${nm(p)}</td><td><span class="sc">${r.x.score.toFixed(0)}</span></td><td>${s.price.toFixed(2)}</td><td>${s.hi.toFixed(2)}</td><td class="up">+${pct(r.room)}</td><td>${r.gap.toFixed(2)}</td><td><b>${r.lots}</b></td><td>${fmt(r.capital)}</td><td class="up">${fmt(r.lots*1000*r.gap)}</td><td class="dn">${(s.price*(1-stop)).toFixed(1)}</td><td class="dn">-${fmt(r.capital*stop)}</td></tr>`;
+ });
+ $('high').innerHTML=h;
+}
+
+function renderPool(all){
+ let h='<tr><th>代號</th><th>名稱</th><th>題材</th><th>評分</th><th>成長</th><th>護城河</th><th>估值風險</th><th>現價</th><th>6月高點</th><th>6月漲跌</th><th>年化波動</th><th>距60日線</th><th>賺5萬需資金(基準)</th></tr>';
+ const target=parseFloat($('target').value)||50000;
+ all.forEach(x=>{
+  const s=x.s,c=x.p.c;
+  const num=(k,min,max)=>`<input type="number" min="${min}" max="${max}" value="${s[k]}" data-c="${c}" data-k="${k}" style="width:48px">`;
+  h+=`<tr><td>${c}</td><td>${nm(x.p)}</td><td>${x.p.t}</td><td><span class="sc">${x.score.toFixed(0)}</span></td>
+  <td>${num('g',1,5)}</td><td>${num('m',1,5)}</td><td>${num('v',1,5)}</td>
+  <td><input type="number" step="0.1" value="${s.price||''}" data-c="${c}" data-k="price" placeholder="現價"></td>
+  <td><input type="number" step="0.1" value="${s.hi?s.hi.toFixed(2):''}" data-c="${c}" data-k="hi" placeholder="高點"></td>
+  <td>${s.ret6!=null?`<span class="${s.ret6>=0?'up':'dn'}">${pct(s.ret6)}</span>`:'-'}</td>
+  <td>${pct(x.vol,0)}${s.live?'':'<span class="sub">(預設)</span>'}</td>
+  <td>${s.ma60gap!=null?pct(s.ma60gap):'-'}</td>
+  <td>${x.base>0?fmt(target/x.base)+' 元':'-'}</td></tr>`;
+ });
+ $('pool').innerHTML=h;
+ $('pool').querySelectorAll('input').forEach(i=>i.addEventListener('change',()=>{
+  const v=parseFloat(i.value);state[i.dataset.c][i.dataset.k]=isNaN(v)?undefined:v;run();}));
+}
+
+async function clientHist(code){
+ const proxies=[u=>'https://corsproxy.io/?'+encodeURIComponent(u),u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u)];
+ for(const suf of ['.TW','.TWO']){
+  const url=`https://query1.finance.yahoo.com/v8/finance/chart/${code}${suf}?range=1y&interval=1d`;
+  for(const px of proxies){
+   try{
+    const r=await fetch(px(url));if(!r.ok)continue;
+    const res=(await r.json()).chart.result[0];
+    const ts=res.timestamp||[],cl=res.indicators.quote[0].close||[],data=[];
+    ts.forEach((t,i)=>{if(cl[i]!=null)data.push([t,cl[i]]);});
+    if(data.length>30)return{suffix:suf,data};
+   }catch(e){}
+  }
+ }
+ return null;
+}
+async function live(){
+ const b=$('btnLive');b.disabled=true;$('status').textContent='抓取中…（約 10~30 秒）';
+ try{
+  let j=null;
+  if(isLocal){ // 本機伺服器：證交所/櫃買官方資料，逐檔抓以顯示進度
+   j={};let k=0;
+   for(const p of POOL){
+    try{const r=await fetch('/api/hist?codes='+p.c);j[p.c]=(await r.json())[p.c];}catch(e){j[p.c]=null;}
+    $('status').textContent=`抓取中 ${++k}/${POOL.length}（首次約 2~3 分鐘，之後有快取很快）`;
+   }
+  }
+  if(!j||!Object.values(j).some(v=>v&&v.data)){ // 單檔模式（GitHub Pages）：走公共 CORS 代理
+   j={};await Promise.all(POOL.map(async p=>{j[p.c]=await clientHist(p.c);}));
+  }
+  let ok=0,last='';
+  POOL.forEach(p=>{const d=j[p.c];if(d&&d.data){Object.assign(state[p.c],metrics(d.data));ok++;last=state[p.c].date;}});
+  $('status').innerHTML=ok?`<span class="dn">已更新 ${ok}/${POOL.length} 檔，最新收盤日 ${last}</span>`:'<span class="warn">一檔都沒抓到：這台可能連不到外網，請手動填現價。</span>';
+ }catch(e){
+  $('status').innerHTML='<span class="warn">抓取失敗（'+e.message+'）。請用「開啟工具.bat」啟動，且需連外網；或手動填現價。</span>';
+ }
+ b.disabled=false;run();
+}
+$('btnLive').onclick=live;$('btnRun').onclick=run;
+['target','cap','maxloss','stop','n','opt','maxlots','recover'].forEach(id=>$(id).addEventListener('change',run));
+$('themes').addEventListener('change',run);
+(async()=>{ // 本機模式：帶入 K:\TwStock 追蹤清單（★）
+ if(isLocal){try{
+  const w=await (await fetch('/api/watch')).json();
+  w.forEach(s=>{
+   const ex=POOL.find(p=>p.c===s.code);
+   if(ex){ex.w=true;return;}
+   POOL.push({c:s.code,n:s.name,t:'追蹤清單',g:3,m:3,v:3,vol:.45,w:true});
+   state[s.code]={g:3,m:3,v:3};
+  });
+  buildThemes();
+ }catch(e){}}
+ run();renderPool(POOL.map(evalStock).sort((a,b)=>b.score-a.score));
+})();
+</script>
+</body>
+</html>
