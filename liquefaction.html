@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="液化與地基">
+<title>土壤液化與地基 — 地震實驗演示</title>
+<style>
+:root{
+  --bg:#0b1020; --bg2:#121a33; --card:#16203c; --line:#26345c;
+  --tx:#e8eeff; --dim:#93a3c9; --acc:#ffb44d; --acc2:#4dd2ff;
+  --ok:#3ddc84; --warn:#ffcc45; --bad:#ff5c5c; --danger:#ff2d55;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--tx);
+  font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+  -webkit-text-size-adjust:100%;}
+body{padding-bottom:40px}
+header{
+  padding:14px 16px 10px;background:linear-gradient(180deg,#131c38,#0b1020);
+  border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50;
+}
+h1{margin:0;font-size:19px;letter-spacing:.5px}
+h1 span{color:var(--acc)}
+.sub{color:var(--dim);font-size:12px;margin-top:3px}
+nav{display:flex;gap:6px;overflow-x:auto;padding:10px 12px 0;background:#0b1020;
+  position:sticky;top:0;z-index:40;-webkit-overflow-scrolling:touch}
+nav button{
+  flex:0 0 auto;background:var(--card);color:var(--dim);border:1px solid var(--line);
+  border-radius:10px 10px 0 0;padding:9px 14px;font-size:14px;cursor:pointer;white-space:nowrap;
+  font-family:inherit;
+}
+nav button.on{background:var(--bg2);color:var(--tx);border-bottom-color:var(--bg2);box-shadow:inset 0 2px 0 var(--acc)}
+main{padding:0 12px}
+.page{display:none;animation:fade .18s ease}
+.page.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
+.card h2{margin:0 0 8px;font-size:16px;color:var(--acc)}
+.card h3{margin:14px 0 6px;font-size:14px;color:var(--acc2)}
+p,li{line-height:1.65;font-size:14px}
+.dim{color:var(--dim)}
+.grid{display:grid;gap:12px}
+@media(min-width:900px){.grid.two{grid-template-columns:1.35fr 1fr}}
+canvas{width:100%;display:block;border-radius:10px;background:#060a18;touch-action:none}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+label.fld{display:block;margin:10px 0 2px;font-size:13px;color:var(--dim)}
+label.fld b{color:var(--tx);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--acc)}
+button.btn{
+  background:linear-gradient(180deg,#ffb44d,#f08a12);color:#231200;border:0;border-radius:10px;
+  padding:11px 16px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;flex:1 1 auto;min-width:120px;
+}
+button.btn.sec{background:#243055;color:var(--tx);border:1px solid var(--line);font-weight:500}
+button.btn:active{transform:translateY(1px)}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{
+  background:#1c2748;border:1px solid var(--line);color:var(--dim);border-radius:9px;
+  padding:9px 12px;font-size:13px;cursor:pointer;font-family:inherit;flex:1 1 auto
+}
+.seg button.on{background:#2f3f75;color:#fff;border-color:#5f7bd6}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:13px;margin-top:8px}
+.kv div:nth-child(odd){color:var(--dim)}
+.kv div:nth-child(even){text-align:right;font-variant-numeric:tabular-nums}
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700}
+.b-ok{background:rgba(61,220,132,.15);color:var(--ok);border:1px solid rgba(61,220,132,.4)}
+.b-warn{background:rgba(255,204,69,.15);color:var(--warn);border:1px solid rgba(255,204,69,.4)}
+.b-bad{background:rgba(255,92,92,.15);color:var(--bad);border:1px solid rgba(255,92,92,.45)}
+.big{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
+.note{background:#101a34;border-left:3px solid var(--acc2);padding:9px 12px;border-radius:0 8px 8px 0;
+  font-size:13px;color:#c9d6f5;margin:10px 0}
+.warnbox{background:rgba(255,45,85,.09);border-left:3px solid var(--danger)}
+ul{padding-left:20px;margin:6px 0}
+ul.tight li{margin:3px 0}
+.chk{display:flex;align-items:center;gap:8px;background:#1a2444;border:1px solid var(--line);
+  border-radius:9px;padding:9px 10px;font-size:13px;cursor:pointer}
+.chk input{width:17px;height:17px;accent-color:var(--acc)}
+.chks{display:grid;gap:7px;grid-template-columns:repeat(auto-fill,minmax(165px,1fr))}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left}
+th{background:#1b2547;color:var(--acc2);font-weight:600}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+.cards3{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.mini{background:#131d3a;border:1px solid var(--line);border-radius:10px;padding:12px}
+.mini h4{margin:0 0 6px;font-size:14px}
+.do{border-left:3px solid var(--ok)}
+.dont{border-left:3px solid var(--bad)}
+.step{display:flex;gap:10px;align-items:flex-start;margin:10px 0}
+.step .no{flex:0 0 30px;height:30px;border-radius:50%;background:var(--acc);color:#231200;
+  display:grid;place-items:center;font-weight:800}
+svg.dia{width:100%;height:auto;background:#0d1530;border-radius:10px;border:1px solid var(--line)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--dim);margin-top:6px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.scaleTable td{padding:4px 7px}
+footer{color:var(--dim);font-size:12px;text-align:center;padding:18px 14px}
+.pill{background:#1c2748;border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--dim)}
+.pill b{color:var(--acc)}
+
+/* --- 獨立頁／iPad 演示用補強 --- */
+
+html{-webkit-tap-highlight-color:transparent}
+body{-webkit-user-select:none;user-select:none;padding-bottom:calc(40px + env(safe-area-inset-bottom))}
+header{position:static}
+input[type=number]{-webkit-user-select:text;user-select:text}
+button.btn{padding:14px 18px;font-size:17px}
+.seg button{padding:12px 14px;font-size:15px}
+input[type=range]{height:30px}
+@media(min-width:1000px){.grid.two{grid-template-columns:1.5fr 1fr}}
+.top-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.top-actions button{background:#243055;color:var(--tx);border:1px solid var(--line);border-radius:9px;
+  padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit}
+</style>
+</head>
+<body>
+<header>
+  <h1>🏠 土壤液化與地基 <span>地震實驗演示</span></h1>
+  <div class="sub">液化土上的房子會怎樣？山邊土壤的擋土牆有用嗎？房子怎麼蓋比較防震？</div>
+  <div class="top-actions"><button id="btnFull">⛶ 全螢幕</button><button id="btnJump2">↓ 跳到案例二（山邊土壤）</button></div>
+</header>
+<main>
+<!-- ==================== ⑦ 液化與地基 ==================== -->
+<section class="page on" id="tab-liq">
+  <div class="grid two">
+    <div class="card">
+      <h2>地基對照實驗（左：正常土　右：液化土）</h2>
+      <canvas id="cvLiq" height="380"></canvas>
+      <div class="dim" style="font-size:12px;margin-top:6px">兩邊用<b>同樣的房子、同樣的地震</b>，只有土壤不同。換不同的蓋法再搖一次，看哪一種撐得住。</div>
+      <div class="row">
+        <button class="btn" id="btnLiqShake">⚡ 開始搖晃</button>
+        <button class="btn sec" id="btnLiqReset">↺ 復原</button>
+      </div>
+      <div class="kv" id="liqKv"></div>
+    </div>
+    <div class="card">
+      <h2>設定</h2>
+      <label class="fld">房子的蓋法</label>
+      <div class="seg" id="liqFound">
+        <button data-f="shallow" class="on">直接放（淺基礎）</button>
+        <button data-f="raft">加寬底板（筏式）</button>
+        <button data-f="pile">筷子樁（樁基礎）</button>
+      </div>
+      <div id="liqPileBox">
+        <label class="fld">筷子（樁）長度：<b id="vLiqPile">9.0</b> m　<span class="pill" id="liqPileHint"></span></label>
+        <input type="range" id="inLiqPile" min="1" max="14" value="9" step="0.5">
+      </div>
+      <label class="fld">房子重量</label>
+      <div class="seg" id="liqWeight">
+        <button data-w="1">輕（木造）</button>
+        <button data-w="2" class="on">中</button>
+        <button data-w="3">重（RC 樓房）</button>
+      </div>
+      <label class="fld">地震強度（PGA）：<b id="vLiqPga">0.35</b> g</label>
+      <input type="range" id="inLiqPga" min="0.05" max="0.6" value="0.35" step="0.01">
+      <label class="fld">液化土的鬆緊</label>
+      <div class="seg" id="liqDr">
+        <button data-d="0.3" class="on">鬆（填土、新沖積）</button>
+        <button data-d="0.5">中等</button>
+        <button data-d="0.8">緊密（壓實）</button>
+      </div>
+      <label class="fld">含水程度（地下水位）：<b id="vLiqSat">100</b> %　<span class="dim">100%＝水到地表</span></label>
+      <input type="range" id="inLiqSat" min="0" max="100" value="100" step="5">
+      <label class="fld">鬆沙層厚度：<b id="vLiqT">6</b> m（底下是堅硬地層）</label>
+      <input type="range" id="inLiqT" min="2" max="10" value="6" step="1">
+      <div id="liqVerdict" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>案例一：液化土上蓋房子（筷子樁實驗）</h2>
+    <div class="cards3">
+      <div class="mini"><h4>🧰 材料</h4>
+        <ul class="tight"><li>透明<b>抽屜收納盒</b> ×1（33.5×12×11 cm），中間用防水隔板分成左：正常土、右：液化土</li><li>細沙、礫石或黏土、水</li><li>筷子（竹籤）、橡皮筋、膠帶</li><li>小房子（紙盒＋裡面放重物）、尺、手機計時</li></ul></div>
+      <div class="mini"><h4>🏗️ 做土層</h4>
+        <ul class="tight"><li><b>硬層</b>：盒底鋪 2～3 cm 壓緊的礫石或黏土</li><li><b>正常土</b>：沙加少許水拌濕、用力壓實</li><li><b>液化土</b>：沙鬆鬆倒入，再<b>慢慢加水到剛好淹過沙面</b>，靜置 1 分鐘</li></ul></div>
+      <div class="mini"><h4>🥢 做樁基礎</h4>
+        <ul class="tight"><li>把 5～7 根筷子用橡皮筋束成一排，綁（黏）在房子底板下</li><li>往下插，<b>要穿過沙層、插到底下的硬層</b>（約 8 cm 長）</li><li>另做一組「太短、沒碰到硬層」的對照</li></ul></div>
+    </div>
+    <h3>用「抽屜收納盒」做（33.5 × 12 × 11 cm）</h3>
+    <svg class="dia" viewBox="0 0 720 230" role="img" aria-label="抽屜盒側面剖面：中間隔板分成正常土與液化土兩半，水平抽拉模擬地震">
+      <rect x="40" y="50" width="640" height="130" fill="none" stroke="#93a3c9" stroke-width="2.5"/>
+      <rect x="42" y="150" width="636" height="28" fill="#5b5f6e"/>
+      <rect x="42" y="100" width="316" height="50" fill="#bfa06a"/>
+      <rect x="362" y="100" width="316" height="50" fill="#cdaa69"/><rect x="362" y="100" width="316" height="50" fill="#3c82e6" opacity=".28"/>
+      <line x1="362" y1="100" x2="678" y2="100" stroke="#78beff" stroke-width="2" stroke-dasharray="6 4"/>
+      <rect x="357" y="62" width="6" height="116" fill="#e8eeff" opacity=".85"/>
+      <text x="360" y="56" text-anchor="middle" font-size="11" fill="#e8eeff">防水隔板</text>
+      <g id="lqH1"><rect x="170" y="62" width="44" height="30" fill="#d95b43"/><polygon points="165,62 192,42 219,62" fill="#7a2e22"/><rect x="166" y="92" width="52" height="6" fill="#9aa3bd"/></g>
+      <rect x="490" y="62" width="44" height="30" fill="#d95b43"/><polygon points="485,62 512,42 539,62" fill="#7a2e22"/><rect x="486" y="92" width="52" height="6" fill="#9aa3bd"/>
+      <g stroke="#e8c27a" stroke-width="3"><line x1="494" y1="98" x2="494" y2="156"/><line x1="503" y1="98" x2="503" y2="156"/><line x1="512" y1="98" x2="512" y2="156"/><line x1="521" y1="98" x2="521" y2="156"/><line x1="530" y1="98" x2="530" y2="156"/></g>
+      <text x="200" y="135" text-anchor="middle" font-size="12" fill="#1d1405" font-weight="700">正常土（沙壓實）</text>
+      <text x="520" y="127" text-anchor="middle" font-size="12" fill="#0b2a5c" font-weight="700">鬆沙＋水（液化土）</text>
+      <text x="200" y="170" text-anchor="middle" font-size="12" fill="#e8eeff">硬層 2 cm</text><text x="520" y="170" text-anchor="middle" font-size="12" fill="#e8eeff">硬層 2 cm</text>
+      
+      <path d="M700 205 h-60 M644 205 l9 -6 M644 205 l9 6" stroke="#ffb44d" stroke-width="3" fill="none"/>
+      <text x="360" y="212" text-anchor="middle" font-size="13" fill="#ffb44d">左手固定外框，右手把抽屜「快速拉出 2 cm 再推回」＝水平地震</text>
+    </svg>
+    <ul class="tight">
+      <li><b>一個盒子就夠</b>：中間用防水隔板（透明塑膠片、厚卡紙＋防水膠帶、矽利康封邊皆可）隔成<b>左右兩半</b>，每半約 15 × 10 cm。左半做正常土、右半做液化土，<b>同時被同一次抽拉搖到</b>，最公平。</li>
+      <li><b>尺寸分配（內高約 10 cm，實際請用尺量）</b>：硬層 2 cm → 沙層 5 cm → 水加到沙面（不要更高）→ 上方留 3 cm 以上空間，水才不會晃出來。</li>
+      <li><b>房子要小</b>：底板約 4～5 cm 見方、高 4～5 cm（紙盒或積木），裡面放硬幣或黏土加重到約 100～150 g。</li>
+      <li><b>筷子（樁）剪短</b>：C 組要<b>插到硬層</b>，長度約 8 cm（穿過 5 cm 沙層再進硬層 2～3 cm）；D 組剪成約 3 cm（只在沙層裡）。竹筷太粗可改用竹籤。</li>
+      <li><b>每次搖法要一樣</b>：用膠帶在桌面或軌道上貼兩條線，標出「拉出 2 cm」；一次來回算 1 下，每組都搖 <b>10 下</b>、節奏一致（可跟著節拍器或手機計時）。</li>
+      <li><b>每做完一次要重新做土層</b>：搖過的沙會變緊密，下一次就不容易液化了。把沙攪鬆、重新加水再做下一次，結果才公平。</li>
+      <li><b>防漏水</b>：盒子放在托盤或毛巾上；先<b>只裝水不裝沙</b>測試 5 分鐘確認不漏；用過的泥沙水不要倒進水槽，倒在花圃或垃圾袋。</li>
+    </ul>
+    <h3>步驟圖（照著做）</h3>
+    <div class="cards3" id="liqSteps">
+      <div class="mini"><h4>① 鋪硬層</h4>
+        <svg class="dia" viewBox="0 0 200 140"><rect x="30" y="20" width="140" height="105" fill="none" stroke="#93a3c9" stroke-width="2"/>
+          <rect x="32" y="95" width="136" height="28" fill="#5b5f6e"/>
+          <g fill="#8a90a4"><circle cx="50" cy="108" r="4"/><circle cx="75" cy="112" r="5"/><circle cx="102" cy="106" r="4"/><circle cx="130" cy="112" r="5"/><circle cx="152" cy="107" r="4"/></g>
+          <path d="M100 30 v38" stroke="#ffb44d" stroke-width="3"/><polygon points="92,64 108,64 100,78" fill="#ffb44d"/>
+          <text x="100" y="16" text-anchor="middle" font-size="11" fill="#e8eeff">礫石／黏土 2～3 cm</text><text x="100" y="136" text-anchor="middle" font-size="11" fill="#ffcc45">用力壓緊壓平</text></svg></div>
+      <div class="mini"><h4>② 倒鬆沙（液化土那盒）</h4>
+        <svg class="dia" viewBox="0 0 200 140"><rect x="30" y="20" width="140" height="105" fill="none" stroke="#93a3c9" stroke-width="2"/>
+          <rect x="32" y="95" width="136" height="28" fill="#5b5f6e"/>
+          <rect x="32" y="50" width="136" height="45" fill="#cdaa69"/>
+          <g fill="#7a5a28"><circle cx="50" cy="65" r="1.8"/><circle cx="80" cy="80" r="1.8"/><circle cx="110" cy="62" r="1.8"/><circle cx="140" cy="78" r="1.8"/><circle cx="95" cy="88" r="1.8"/><circle cx="155" cy="60" r="1.8"/></g>
+          <path d="M60 8 q20 -6 40 0 l-8 18 h-24 z" fill="#9aa3bd"/><g fill="#cdaa69"><circle cx="90" cy="32" r="2"/><circle cx="86" cy="40" r="2"/><circle cx="92" cy="46" r="2"/></g>
+          <text x="100" y="136" text-anchor="middle" font-size="11" fill="#ffcc45">鬆鬆倒入不要壓（正常土要壓實）</text></svg></div>
+      <div class="mini"><h4>③ 慢慢加水</h4>
+        <svg class="dia" viewBox="0 0 200 140"><rect x="30" y="20" width="140" height="105" fill="none" stroke="#93a3c9" stroke-width="2"/>
+          <rect x="32" y="95" width="136" height="28" fill="#5b5f6e"/>
+          <rect x="32" y="50" width="136" height="45" fill="#cdaa69"/>
+          <rect x="32" y="50" width="136" height="45" fill="#3c82e6" opacity=".4"/>
+          <line x1="32" y1="50" x2="168" y2="50" stroke="#78beff" stroke-width="2" stroke-dasharray="5 4"/>
+          <path d="M138 6 h22 l-4 16 h-14 z" fill="#9aa3bd"/><path d="M146 24 v20" stroke="#78beff" stroke-width="3"/><circle cx="146" cy="47" r="3" fill="#78beff"/>
+          <text x="100" y="136" text-anchor="middle" font-size="11" fill="#ffcc45">水剛好到沙面，靜置 1 分鐘</text></svg></div>
+      <div class="mini"><h4>④ 綁筷子做樁</h4>
+        <svg class="dia" viewBox="0 0 200 140"><rect x="60" y="30" width="80" height="40" fill="#d95b43"/><polygon points="55,30 100,6 145,30" fill="#7a2e22"/><rect x="55" y="70" width="90" height="7" fill="#9aa3bd"/>
+          <g stroke="#e8c27a" stroke-width="4"><line x1="68" y1="78" x2="68" y2="124"/><line x1="84" y1="78" x2="84" y2="124"/><line x1="100" y1="78" x2="100" y2="124"/><line x1="116" y1="78" x2="116" y2="124"/><line x1="132" y1="78" x2="132" y2="124"/></g>
+          <rect x="62" y="98" width="76" height="5" fill="#ff5c5c"/>
+          <text x="148" y="102" font-size="10" fill="#ff8a8a">橡皮筋</text>
+          <text x="100" y="138" text-anchor="middle" font-size="11" fill="#ffcc45">5～7 根綁緊，貼在底板下</text></svg></div>
+      <div class="mini"><h4>⑤ 把房子插下去</h4>
+        <svg class="dia" viewBox="0 0 200 140"><rect x="30" y="20" width="140" height="105" fill="none" stroke="#93a3c9" stroke-width="2"/>
+          <rect x="32" y="95" width="136" height="28" fill="#5b5f6e"/><rect x="32" y="50" width="136" height="45" fill="#cdaa69"/><rect x="32" y="50" width="136" height="45" fill="#3c82e6" opacity=".4"/>
+          <rect x="78" y="14" width="44" height="24" fill="#d95b43"/><polygon points="74,14 100,0 126,14" fill="#7a2e22"/><rect x="74" y="38" width="52" height="5" fill="#9aa3bd"/>
+          <g stroke="#e8c27a" stroke-width="3"><line x1="82" y1="43" x2="82" y2="110"/><line x1="91" y1="43" x2="91" y2="110"/><line x1="100" y1="43" x2="100" y2="110"/><line x1="109" y1="43" x2="109" y2="110"/><line x1="118" y1="43" x2="118" y2="110"/></g>
+          <text x="126" y="108" font-size="10" fill="#3ddc84">到硬層</text>
+          <text x="100" y="136" text-anchor="middle" font-size="11" fill="#ffcc45">要碰到硬層（D 組故意插短）</text></svg></div>
+      <div class="mini"><h4>⑥ 搖晃並量測</h4>
+        <svg class="dia" viewBox="0 0 200 140"><rect x="40" y="40" width="120" height="70" fill="none" stroke="#93a3c9" stroke-width="2"/>
+          <rect x="42" y="90" width="116" height="18" fill="#5b5f6e"/><rect x="42" y="62" width="116" height="28" fill="#cdaa69"/><rect x="42" y="62" width="116" height="28" fill="#3c82e6" opacity=".4"/>
+          <rect x="82" y="38" width="36" height="20" fill="#d95b43"/><polygon points="78,38 100,22 122,38" fill="#7a2e22"/>
+          <path d="M20 118 h18 M18 118 l6 -5 M18 118 l6 5" stroke="#ffb44d" stroke-width="2.5" fill="none"/><path d="M180 118 h-18 M182 118 l-6 -5 M182 118 l-6 5" stroke="#ffb44d" stroke-width="2.5" fill="none"/>
+          <path d="M170 30 v32 M165 30 h10 M165 62 h10" stroke="#3ddc84" stroke-width="2"/><text x="176" y="50" font-size="10" fill="#3ddc84">量沉</text>
+          <text x="100" y="134" text-anchor="middle" font-size="11" fill="#ffcc45">拍桌 20 下、力道一樣，量下沉 cm</text></svg></div>
+    </div>
+    <h3>盒子剖面示意圖（側面看）</h3>
+    <svg class="dia" viewBox="0 0 720 250" role="img" aria-label="三個塑膠盒的剖面：直接放、筷子插到硬層、筷子太短">
+      <defs>
+        <g id="lqBox">
+          <rect x="0" y="40" width="200" height="150" fill="none" stroke="#93a3c9" stroke-width="2"/>
+          <rect x="2" y="150" width="196" height="38" fill="#5b5f6e"/>
+          <rect x="2" y="80" width="196" height="70" fill="#cdaa69"/>
+          <rect x="2" y="80" width="196" height="70" fill="#3c82e6" opacity=".22"/>
+          <text x="36" y="172" text-anchor="middle" font-size="12" fill="#e8eeff">硬層</text>
+          <text x="36" y="112" text-anchor="middle" font-size="12" fill="#1d1405" font-weight="700">鬆沙</text><text x="36" y="128" text-anchor="middle" font-size="12" fill="#0b2a5c" font-weight="700">＋水</text>
+        </g>
+        <g id="lqHouse">
+          <rect x="-34" y="-46" width="68" height="46" fill="#d95b43"/>
+          <polygon points="-40,-46 0,-72 40,-46" fill="#7a2e22"/>
+          <rect x="-40" y="0" width="80" height="6" fill="#9aa3bd"/>
+        </g>
+      </defs>
+      <g transform="translate(20,10)"><use href="#lqBox"/>
+        <use href="#lqHouse" x="100" y="80"/>
+        <text x="100" y="236" text-anchor="middle" font-size="13" fill="#ffb44d">B　直接放 → 下沉傾斜</text></g>
+      <g transform="translate(260,10)"><use href="#lqBox"/>
+        <use href="#lqHouse" x="100" y="80"/>
+        <g stroke="#e8c27a" stroke-width="3"><line x1="72" y1="86" x2="72" y2="168"/><line x1="86" y1="86" x2="86" y2="168"/><line x1="100" y1="86" x2="100" y2="168"/><line x1="114" y1="86" x2="114" y2="168"/><line x1="128" y1="86" x2="128" y2="168"/></g>
+        <text x="100" y="236" text-anchor="middle" font-size="13" fill="#3ddc84">C　筷子插到硬層 → 穩住</text></g>
+      <g transform="translate(500,10)"><use href="#lqBox"/>
+        <use href="#lqHouse" x="100" y="80"/>
+        <g stroke="#e8c27a" stroke-width="3"><line x1="72" y1="86" x2="72" y2="130"/><line x1="86" y1="86" x2="86" y2="130"/><line x1="100" y1="86" x2="100" y2="130"/><line x1="114" y1="86" x2="114" y2="130"/><line x1="128" y1="86" x2="128" y2="130"/></g>
+        <text x="100" y="236" text-anchor="middle" font-size="13" fill="#ff5c5c">D　筷子太短 → 還是會沉</text></g>
+    </svg>
+    <div class="legend"><span><i style="background:#cdaa69"></i>沙</span><span><i style="background:#3c82e6"></i>水</span><span><i style="background:#5b5f6e"></i>硬層</span><span><i style="background:#e8c27a"></i>筷子（樁）</span></div>
+    <h3>每一組的做法與預期</h3>
+    <table>
+      <tr><th>組別</th><th>土壤</th><th>房子蓋法</th><th>你覺得會…</th></tr>
+      <tr><td>A</td><td>正常土</td><td>直接放</td><td>幾乎不動</td></tr>
+      <tr><td>B</td><td>液化土</td><td>直接放</td><td>下沉、傾斜</td></tr>
+      <tr><td>C</td><td>液化土</td><td>筷子插到硬層</td><td>比 B 穩很多</td></tr>
+      <tr><td>D</td><td>液化土</td><td>筷子太短（沒到硬層）</td><td>還是會沉 → 樁要夠長</td></tr>
+      <tr><td>E</td><td>液化土</td><td>加寬底板</td><td>比 B 好，但不如 C</td></tr>
+    </table>
+    <div class="note"><b>公平測試：</b>一次只改一個條件。房子重量、水量、搖晃方式（用手拍桌子 20 下、力道一樣）都要固定；每組做 3 次，用尺量<b>下沉幾 cm</b>、看<b>傾斜多少</b>，取平均後畫成長條圖。</div>
+    <h3>我的實驗記錄（下沉 cm）</h3>
+    <table id="liqRec">
+      <tr><th>組別</th><th>第 1 次</th><th>第 2 次</th><th>第 3 次</th><th>平均</th></tr>
+    </table>
+  </div>
+
+  <div class="card" id="case2">
+    <h2>案例二：山邊一般土壤——擋土牆有用嗎？房子怎麼蓋比較防震？</h2>
+    <div class="note">同一個抽屜盒做<b>一座小山坡</b>：底下墊一塊「岩盤」（硬泡棉或厚紙板削成斜坡），上面蓋一層 2～3 cm 的<b>一般土壤</b>（沙加少許土，微濕）。這正好對應分頁②的邊坡模型：坡度、土層厚度、下雨（含水）、地震，一起決定會不會滑。</div>
+    <svg class="dia" viewBox="0 0 720 240" role="img" aria-label="抽屜盒做的山坡剖面：岩盤斜坡、土層、坡腳擋土牆、坡肩與退縮處的房子">
+      <rect x="40" y="40" width="640" height="140" fill="none" stroke="#93a3c9" stroke-width="2.5"/>
+      <polygon points="42,178 42,95 160,95 400,170 400,178" fill="#5b5f6e"/>
+      <polygon points="42,82 160,82 400,157 400,170 160,95 42,95" fill="#b08d58"/>
+      <rect x="400" y="160" width="278" height="18" fill="#b08d58"/>
+      <g fill="#8a6a3a"><circle cx="80" cy="89" r="2"/><circle cx="140" cy="89" r="2"/><circle cx="220" cy="118" r="2"/><circle cx="300" cy="140" r="2"/><circle cx="520" cy="170" r="2"/></g>
+      <g stroke="#78beff" stroke-width="2"><line x1="100" y1="22" x2="96" y2="34"/><line x1="140" y1="18" x2="136" y2="30"/><line x1="180" y1="22" x2="176" y2="34"/><line x1="220" y1="18" x2="216" y2="30"/><line x1="260" y1="22" x2="256" y2="34"/></g>
+      <text x="200" y="14" text-anchor="middle" font-size="11" fill="#78beff">灑水＝下大雨</text>
+      <!-- 房子：退縮(H2) 與 坡肩(H1) -->
+      <g><rect x="56" y="54" width="34" height="26" fill="#d95b43"/><polygon points="52,54 73,38 94,54" fill="#7a2e22"/><rect x="52" y="80" width="42" height="4" fill="#9aa3bd"/></g>
+      <text x="73" y="104" text-anchor="middle" font-size="11" fill="#3ddc84" font-weight="700">H2 退縮</text>
+      <g><rect x="130" y="54" width="34" height="26" fill="#d95b43"/><polygon points="126,54 147,38 168,54" fill="#7a2e22"/><rect x="126" y="80" width="42" height="4" fill="#9aa3bd"/></g>
+      <text x="147" y="104" text-anchor="middle" font-size="11" fill="#ff8a8a" font-weight="700">H1 坡肩</text>
+      <!-- 擋土牆與排水 -->
+      <rect x="402" y="132" width="9" height="30" fill="#c9d0e6"/><g fill="#1d2440"><rect x="404" y="140" width="5" height="3"/><rect x="404" y="150" width="5" height="3"/></g>
+      <g fill="#9a9488"><circle cx="395" cy="146" r="3"/><circle cx="389" cy="153" r="3"/><circle cx="396" cy="156" r="3"/></g>
+      <text x="408" y="124" text-anchor="middle" font-size="11" fill="#e8eeff">擋土牆</text>
+      <g stroke="#e8c27a" stroke-width="3"><line x1="420" y1="150" x2="420" y2="178"/><line x1="430" y1="150" x2="430" y2="178"/></g>
+      <text x="440" y="146" font-size="10" fill="#e8c27a">筷子頂住牆</text>
+      <!-- 房子在坡腳平地 -->
+      <g><rect x="560" y="132" width="34" height="26" fill="#d95b43"/><polygon points="556,132 577,116 598,132" fill="#7a2e22"/><rect x="556" y="158" width="42" height="4" fill="#9aa3bd"/></g>
+      <text x="577" y="110" text-anchor="middle" font-size="11" fill="#e8eeff">坡下的房子／馬路</text>
+      <path d="M250 124 q60 10 120 24" stroke="#ff5c5c" stroke-width="2.5" fill="none" stroke-dasharray="6 4"/><polygon points="366,142 378,153 362,153" fill="#ff5c5c"/>
+      <text x="300" y="112" font-size="11" fill="#ff8a8a">土石滑下</text>
+      <text x="200" y="168" font-size="11" fill="#e8eeff">岩盤（硬泡棉斜坡）</text>
+      <path d="M690 210 h-70 M624 210 l9 -6 M624 210 l9 6" stroke="#ffb44d" stroke-width="3" fill="none"/>
+      <text x="360" y="218" text-anchor="middle" font-size="12" fill="#ffb44d">左手固定外框，右手抽拉（沿著坡的方向搖）</text>
+      <text x="360" y="234" text-anchor="middle" font-size="11" fill="#93a3c9">坡約 30°：平台 → 斜坡 → 坡腳平地；每次重做土層、灑水量與抽拉次數一致</text>
+    </svg>
+    <div class="cards3">
+      <div class="mini"><h4>🧰 材料</h4>
+        <ul class="tight"><li>抽屜收納盒（整個盒子不用隔板）</li><li>硬泡棉或厚紙板（削成斜坡＋平台當岩盤）</li><li>沙加少量土、噴水瓶、量杯</li><li>積木或厚紙板（擋土牆）、礫石少許</li><li>筷子／竹籤、小房子 ×2、尺、膠帶</li></ul></div>
+      <div class="mini"><h4>🏔️ 做山坡</h4>
+        <ul class="tight"><li>岩盤固定在盒底：左邊平台、中間斜坡約 30°、右邊坡腳平地</li><li>蓋 2～3 cm 微濕的土，輕壓（不要壓太實）</li><li>用<b>噴水瓶噴 10 下</b>當「下大雨」（每次一樣）</li></ul></div>
+      <div class="mini"><h4>📏 量什麼</h4>
+        <ul class="tight"><li><b>土石滑出距離</b>：從坡腳往右量最遠的土（cm）</li><li><b>有沒有撞到坡下的房子</b>（是／否）</li><li><b>坡上房子</b>位移、傾斜、有沒有跟著滑</li></ul></div>
+    </div>
+    <h3>兩個問題、六組對照</h3>
+    <table>
+      <tr><th>組別</th><th>驗證什麼</th><th>做法（其他條件相同）</th><th>你覺得會…</th></tr>
+      <tr><td>S1</td><td rowspan="3">擋土牆有用嗎？</td><td>坡腳<b>沒有</b>牆</td><td>土石衝到坡下房子</td></tr>
+      <tr><td>S2</td><td>坡腳放<b>擋土牆</b>（積木／厚紙板）</td><td>擋住大部分，滑出距離變短</td></tr>
+      <tr><td>S3</td><td>擋土牆＋<b>牆後鋪礫石排水</b>＋筷子頂住牆腳</td><td>牆比較不會被推倒或越過</td></tr>
+      <tr><td>H1</td><td rowspan="3">房子怎麼蓋比較防震？</td><td>房子蓋在<b>坡肩</b>邊緣、直接放</td><td>最先跟著滑、傾斜</td></tr>
+      <tr><td>H2</td><td>房子<b>往後退縮</b>（離坡肩至少 2～3 倍土層厚度）</td><td>比 H1 穩</td></tr>
+      <tr><td>H3</td><td>房子在坡肩，但<b>筷子樁插穿土層到岩盤</b></td><td>土滑了，房子仍站得住（比 H1 好）</td></tr>
+    </table>
+    <div class="note"><b>注意：</b>每次搖晃前都要<b>重做土層、重新噴水</b>。S 組要比「滑出距離」，所以坡上不放房子；H 組要比「房子位移」，所以坡腳不放牆。一次只改一個條件，每組做 3 次。</div>
+    <h3>我的實驗記錄（滑出距離／房子位移 cm）</h3>
+    <table id="liqRec2">
+      <tr><th>組別</th><th>第 1 次</th><th>第 2 次</th><th>第 3 次</th><th>平均</th></tr>
+    </table>
+    <h3>結果怎麼解釋</h3>
+    <ul class="tight">
+      <li><b>擋土牆的功能</b>：擋住滑下來的土、縮短滑出距離，保護坡下的房子和馬路。但牆<b>不是萬能</b>：土石量太大或牆太矮會被越過；牆後積水會產生水壓把牆推倒，所以真正的擋土牆要有<b>排水孔</b>和牆後碎石排水層（S3 的礫石）。</li>
+      <li><b>下雨＋地震是最危險的組合</b>：水讓土變重、也讓摩擦力變小（分頁②的「地下水位比」），再被地震一搖，安全係數 FS 就掉到 1 以下。</li>
+      <li><b>怎麼蓋比較防震</b>：① 不蓋在<b>坡肩</b>和<b>坡腳</b>，要退縮；② 基礎（樁）要<b>穿過鬆軟的表土、進到堅硬岩盤</b>；③ 做好<b>排水</b>，不要讓水積在坡裡；④ 房子<b>輕、方正、對稱</b>；⑤ 不要在填土、陡坡上亂挖亂切。</li>
+      <li>這是<b>桌上簡化模型</b>：土壤顆粒、坡度和水量跟真實山坡差很多，只能看出趨勢，不能用來決定真實的蓋房子位置。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>案例一為什麼會這樣？</h2>
+    <ul class="tight">
+      <li><b>什麼是液化</b>：沙粒之間靠互相擠壓產生摩擦力撐住房子。飽含水的鬆沙被地震一搖，沙粒想靠緊，水卻被困住，<b>水壓升高</b>、沙粒被「推開」，沙就像泥漿一樣沒有承載力。這時房子會下沉、傾斜，噴沙冒水就是「水把沙帶出地面」。</li>
+      <li><b>哪裡容易液化</b>：<b>鬆散的沙</b> + <b>地下水位淺</b> + <b>夠強、夠久的搖晃</b>，三個條件同時成立（河岸、海埔新生地、填土區）。<b>緊密的土或乾的土</b>不會。</li>
+      <li><b>為什麼筷子（樁）有用</b>：樁穿過會液化的沙層，把房子的重量<b>傳到底下堅硬地層</b>，沙層變軟也不影響。樁<b>太短、沒碰到硬層</b>就只剩沙層的摩擦力，沙一液化就沒用了。</li>
+      <li><b>其他對策</b>：把鬆沙壓密或換成礫石（地盤改良）、降低地下水位、做排水（碎石樁）、讓房子輕一點。</li>
+      <li>模型用簡化的 <b>CSR／CRR 安全係數</b>判斷液化：CSR = 0.65·(a/g)·(σᵥ/σ′ᵥ)、CRR 隨緊密度上升，FS = CRR/CSR 越小越容易液化；孔隙水壓比 r<sub>u</sub> 越接近 1，土的承載力就越接近 0。⚠ 這是<b>教學簡化模型</b>，不能用來做真實地基設計。</li>
+    </ul>
+  </div>
+</section>
+
+
+</main>
+<footer>
+  數值皆為<b>教學用簡化模型</b>（CSR／CRR 液化判斷、孔隙水壓比、承載力），用於理解物理趨勢，
+  不可作為工程設計或災害潛勢評估依據。
+</footer>
+<script>
+window.addEventListener('error', function(e){
+  document.body.dataset.jserr = (e.message||'') + ' @' + (e.lineno||'?');
+});
+</script>
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
+const G = 9.80665;
+
+function fit(cv){
+  const dpr = Math.min(2, window.devicePixelRatio||1);
+  const w = cv.clientWidth || 600;
+  // 邏輯高度只在第一次從 height 屬性讀，之後記在 dataset：
+  // cv.height 就是 height 屬性，寫回去後再讀會被 dpr 反覆放大而不斷抽動
+  if (!cv.dataset.cssH) cv.dataset.cssH = String(parseInt(cv.getAttribute('height'),10) || 360);
+  const h = +cv.dataset.cssH;
+  const bw = Math.round(w*dpr), bh = Math.round(h*dpr);
+  const ctx = cv.getContext('2d');
+  // 尺寸沒變就別重設 width/height（重設會清空 backing store 並觸發重新配置）
+  if (cv.width !== bw || cv.height !== bh){
+    cv.width = bw; cv.height = bh;
+    cv.style.height = h+'px';
+  }
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return {ctx, w, h};
+}
+
+/* =======================================================================
+   ⑦ 液化與地基
+   ======================================================================= */
+// 液化判斷：CSR = 0.65·(a/g)·(σv/σ'v)；CRR 隨相對密度 Dr 上升；FS = CRR/CSR
+// 孔隙水壓比 ru_max：FS≥1.3 不液化，FS≤0.4 完全液化；含水不足（未飽和）則不會液化
+function liqFS(pga, Dr, sat){
+  const CSR = 0.65 * pga * (1 + 0.7*clamp(sat,0,1));
+  const CRR = 0.05 + 0.4*Dr*Dr;
+  return CRR / CSR;
+}
+function liqRuMax(pga, Dr, sat){
+  const satF = clamp((sat-0.3)/0.5, 0, 1);
+  return clamp((1.3 - liqFS(pga,Dr,sat))/0.9, 0, 1) * satF;
+}
+// 承載力（以「房子重量」為單位）：土的有效應力 ∝ (1−ru)；樁穿到硬層才有端承
+function liqCapacity(found, ru, T, L){
+  const soil = 1 - ru;
+  if (found === 'raft')  return 5.0*soil + 0.6;
+  if (found === 'pile'){
+    const friction = 3.0 * soil * Math.min(L, T) / T;
+    const end = L >= T ? 6.0 : 0;
+    return friction + end + 0.6;
+  }
+  return 3.2*soil + 0.05;
+}
+// 房子反應：承載力不夠 → 下沉；底板窄、沒樁 → 傾斜較大
+function liqResponse(found, ru, W, T, L){
+  const C = liqCapacity(found, ru, T, L), r = W / C;
+  const sink = Math.min(3, r <= 1 ? 0.02*r : 0.02 + 0.9*Math.pow(r-1, 0.8));
+  const tf = found==='raft' ? 0.5 : found==='pile' ? (L>=T ? 0.35 : 0.7) : 1;
+  return {C, r, sink, tilt: Math.min(18, sink*7*tf)};
+}
+const LQ = {
+  found:'shallow', L:9, W:2, pga:0.35, Dr:0.3, sat:1, T:6,
+  t:0, shaking:false, dur:12, done:false, parts:[],
+  side:[ {ru:0,sink:0,tilt:0,ruMax:0}, {ru:0,sink:0,tilt:0,ruMax:0} ]
+};
+const LQ_SIDES = () => [ {Dr:0.8, sat:0.2}, {Dr:LQ.Dr, sat:LQ.sat} ];
+function liqEnv(t){ return t<1 ? t : t>LQ.dur-3 ? Math.max(0,(LQ.dur-t)/3) : 1; }
+function liqGround(t){ return liqEnv(t)*(Math.sin(2*Math.PI*1.4*t) + 0.5*Math.sin(2*Math.PI*2.6*t+1)); }
+function liqReset(){
+  LQ.t=0; LQ.shaking=false; LQ.done=false; LQ.parts=[];
+  LQ.side.forEach(s=>{s.ru=0;s.sink=0;s.tilt=0;s.ruMax=0;});
+  liqUi();
+}
+function stepLiq(dt){
+  if (!LQ.shaking) return;
+  LQ.t += dt;
+  const sd = LQ_SIDES();
+  LQ.side.forEach((s,i)=>{
+    s.ruMax = liqRuMax(LQ.pga, sd[i].Dr, sd[i].sat);
+    if (LQ.t < LQ.dur-1) s.ru += (s.ruMax - s.ru)*(1-Math.exp(-dt*0.35));
+    const r = liqResponse(LQ.found, s.ru, LQ.W, LQ.T, LQ.L);
+    s.sink += (Math.max(s.sink, r.sink) - s.sink)*Math.min(1, dt*3);
+    s.tilt += (Math.max(s.tilt, r.tilt) - s.tilt)*Math.min(1, dt*3);
+  });
+  // 噴沙冒水粒子
+  const s1 = LQ.side[1];
+  if (s1.ru > 0.55 && LQ.parts.length < 80 && Math.random() < s1.ru*0.6)
+    LQ.parts.push({x:Math.random(), y:0, vy:-(40+Math.random()*60), life:1});
+  LQ.parts.forEach(p=>{ p.y += p.vy*dt; p.vy += 220*dt; p.life -= dt*0.9; });
+  LQ.parts = LQ.parts.filter(p=>p.life>0);
+  if (LQ.t >= LQ.dur){ LQ.shaking=false; LQ.done=true; liqUi(); }
+}
+function liqRun(opts){                   // 無畫面跑完整模擬（測試用）
+  Object.assign(LQ, opts||{});
+  liqReset(); LQ.shaking = true;
+  while (LQ.shaking) stepLiq(0.02);
+  return LQ.side.map(s=>({ru:s.ru, sink:s.sink, tilt:s.tilt, ruMax:s.ruMax}));
+}
+
+const cvL = $('#cvLiq');
+function drawLiq(){
+  const {ctx, w, h} = fit(cvL);
+  ctx.clearRect(0,0,w,h);
+  const pw = w/2, sy = 110, sc = Math.min(17, 190/LQ.T), sandBot = sy + LQ.T*sc, bot = h-6;
+  const gx = liqGround(LQ.t) * LQ.pga * 22 * (LQ.shaking?1:0);
+  const sd = LQ_SIDES();
+  for (let i=0;i<2;i++){
+    const x0 = i*pw + 8, bw = pw - 16, s = LQ.side[i], ru = s.ru;
+    ctx.save();
+    ctx.translate(gx, 0);
+    // 硬層
+    ctx.fillStyle = '#5b5f6e'; ctx.fillRect(x0, sandBot, bw, bot-sandBot);
+    ctx.fillStyle = '#74798b';
+    for (let k=0;k<26;k++){ ctx.fillRect(x0+((k*53)%bw), sandBot+((k*31)%Math.max(8,bot-sandBot)), 6, 4); }
+    // 沙層：越液化越暗、越濕
+    const r1 = Math.round(205-70*ru), g1 = Math.round(170-30*ru), b1 = Math.round(105+30*ru);
+    ctx.fillStyle = 'rgb('+r1+','+g1+','+b1+')'; ctx.fillRect(x0, sy, bw, sandBot-sy);
+    // 水位（含水程度）
+    const wy = sy + (1 - sd[i].sat)*(sandBot-sy);
+    if (sd[i].sat > 0.02){
+      ctx.fillStyle = 'rgba(60,130,230,'+(0.22+0.2*ru)+')'; ctx.fillRect(x0, wy, bw, sandBot-wy);
+      ctx.strokeStyle = 'rgba(120,190,255,.9)'; ctx.setLineDash([5,4]);
+      ctx.beginPath(); ctx.moveTo(x0, wy); ctx.lineTo(x0+bw, wy); ctx.stroke(); ctx.setLineDash([]);
+    }
+    // 沙粒（液化時亂跳）
+    ctx.fillStyle = 'rgba(90,60,25,.55)';
+    for (let k=0;k<90;k++){
+      const px = x0 + ((k*67)%bw) + Math.sin(LQ.t*9+k)*ru*5;
+      const py = sy + 4 + ((k*41)%Math.max(10,(sandBot-sy-8))) + Math.cos(LQ.t*8+k*2)*ru*5;
+      ctx.fillRect(px, py, 3, 3);
+    }
+    // 標籤
+    ctx.fillStyle = '#e8eeff'; ctx.font = 'bold 13px sans-serif';
+    ctx.fillText(i===0 ? '正常土（緊密、乾）' : '液化土（鬆沙＋水）', x0+4, 18);
+    ctx.fillStyle = '#93a3c9'; ctx.font = '11px sans-serif';
+    ctx.fillText('硬層', x0+4, bot-6);
+    // 房子（含地基）
+    const hw = 84, hx = x0 + bw/2, baseY = sy + s.sink*sc;
+    ctx.save();
+    ctx.translate(hx, baseY); ctx.rotate(s.tilt*Math.PI/180*(i===1?1:0.6));
+    const slabW = LQ.found==='raft' ? 138 : hw;
+    if (LQ.found==='pile'){
+      const n = 5, len = LQ.L*sc;
+      ctx.strokeStyle = '#e8c27a'; ctx.lineWidth = 3;
+      for (let k=0;k<n;k++){
+        const px = -hw/2+6 + k*(hw-12)/(n-1);
+        ctx.beginPath(); ctx.moveTo(px, 4); ctx.lineTo(px, 4+len); ctx.stroke();
+      }
+    }
+    ctx.fillStyle = '#9aa3bd'; ctx.fillRect(-slabW/2, 0, slabW, 8);           // 底板
+    const hh = 40 + LQ.W*16;                                                  // 越重越高大
+    ctx.fillStyle = '#d95b43'; ctx.fillRect(-hw/2+6, -hh, hw-12, hh);
+    ctx.fillStyle = '#7a2e22';
+    ctx.beginPath(); ctx.moveTo(-hw/2, -hh); ctx.lineTo(0, -hh-26); ctx.lineTo(hw/2, -hh); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ffe9a8'; ctx.fillRect(-18, -hh+12, 14, 14); ctx.fillRect(6, -hh+12, 14, 14);
+    ctx.restore();
+    ctx.restore();
+    // 噴沙冒水
+    if (i===1 && ru>0.1){
+      ctx.fillStyle = 'rgba(95,120,150,'+Math.min(0.75,ru*0.8)+')';
+      ctx.beginPath(); ctx.ellipse(x0+bw*0.16, sy+1, 30*ru, 5, 0, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(x0+bw*0.84, sy+1, 24*ru, 4, 0, 0, 7); ctx.fill();
+      LQ.parts.forEach(p=>{
+        const px = x0 + bw*(p.x<0.5 ? 0.08+p.x*0.3 : 0.7+p.x*0.22);
+        ctx.fillStyle = 'rgba(150,170,190,'+Math.max(0,p.life)+')';
+        ctx.beginPath(); ctx.arc(px, sy+p.y, 2.5, 0, 7); ctx.fill();
+      });
+    }
+    // ru 水壓條
+    ctx.fillStyle = '#0d1530'; ctx.fillRect(x0+bw-92, 8, 86, 12);
+    ctx.fillStyle = ru>0.7 ? '#ff5c5c' : ru>0.35 ? '#ffcc45' : '#3ddc84';
+    ctx.fillRect(x0+bw-92, 8, 86*ru, 12);
+    ctx.fillStyle = '#e8eeff'; ctx.font = '10px sans-serif';
+    ctx.fillText('水壓 ru '+ru.toFixed(2), x0+bw-88, 18);
+  }
+  ctx.strokeStyle = '#26345c'; ctx.beginPath(); ctx.moveTo(pw,0); ctx.lineTo(pw,h); ctx.stroke();
+}
+function liqUi(){
+  const sd = LQ_SIDES();
+  const fs0 = liqFS(LQ.pga, sd[0].Dr, sd[0].sat), fs1 = liqFS(LQ.pga, sd[1].Dr, sd[1].sat);
+  let kv = '<div></div><div><b>正常土　／　液化土</b></div>';
+  kv += '<div>液化安全係數 FS</div><div>'+fs0.toFixed(2)+'　／　'+fs1.toFixed(2)+(fs1<1?' ⚠':'')+'</div>';
+  kv += '<div>孔隙水壓比 ru</div><div>'+LQ.side[0].ru.toFixed(2)+'　／　'+LQ.side[1].ru.toFixed(2)+'</div>';
+  kv += '<div>下沉（公分）</div><div>'+(LQ.side[0].sink*100).toFixed(0)+'　／　'+(LQ.side[1].sink*100).toFixed(0)+'</div>';
+  kv += '<div>傾斜（度）</div><div>'+LQ.side[0].tilt.toFixed(1)+'　／　'+LQ.side[1].tilt.toFixed(1)+'</div>';
+  $('#liqKv').innerHTML = kv;
+  const a = liqResponse(LQ.found, liqRuMax(LQ.pga, sd[1].Dr, sd[1].sat), LQ.W, LQ.T, LQ.L);
+  const reach = LQ.L >= LQ.T;
+  $('#liqPileBox').style.display = LQ.found==='pile' ? '' : 'none';
+  $('#liqPileHint').innerHTML = reach ? '✔ 已插到硬層' : '✘ 沒碰到硬層（需 ≥ '+LQ.T+' m）';
+  let badge, txt;
+  if (a.sink < 0.1 && a.tilt < 1.5){ badge='b-ok'; txt='這種蓋法在這個地震下撐得住'; }
+  else if (a.sink < 0.5){ badge='b-warn'; txt='會明顯下沉傾斜，需要更好的基礎'; }
+  else { badge='b-bad'; txt='會嚴重下沉、傾倒！'; }
+  $('#liqVerdict').innerHTML = '<span class="badge '+badge+'">預估：'+txt+'</span>　<span class="dim" style="font-size:12px">（液化土最終下沉約 '+(a.sink*100).toFixed(0)+' cm）</span>';
+}
+function liqBind(){
+  const seg = (sel, key, attr, num) => $$(sel+' button').forEach(b => b.onclick = () => {
+    $$(sel+' button').forEach(x=>x.classList.toggle('on', x===b));
+    LQ[key] = num ? +b.dataset[attr] : b.dataset[attr]; liqReset();
+  });
+  seg('#liqFound','found','f',false); seg('#liqWeight','W','w',true); seg('#liqDr','Dr','d',true);
+  const rng = (id,key,out,fmt) => $(id).oninput = e => {
+    LQ[key] = +e.target.value; $(out).textContent = fmt(LQ[key]); liqReset();
+  };
+  rng('#inLiqPile','L','#vLiqPile',v=>v.toFixed(1)); rng('#inLiqPga','pga','#vLiqPga',v=>v.toFixed(2));
+  $('#inLiqSat').oninput = e => { LQ.sat = +e.target.value/100; $('#vLiqSat').textContent = e.target.value; liqReset(); };
+  $('#inLiqT').oninput = e => { LQ.T = +e.target.value; $('#vLiqT').textContent = LQ.T; liqReset(); };
+  $('#btnLiqShake').onclick = () => { liqReset(); LQ.shaking = true; };
+  $('#btnLiqReset').onclick = liqReset;
+  // 實驗記錄表（輸入數字自動算平均）
+  const buildRec = (id, groups) => {
+    const rec = $(id);
+    groups.forEach(g=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>'+g+'</td>'+[0,1,2].map(()=>'<td><input type="number" min="0" step="0.1" style="width:64px"></td>').join('')+'<td class="n">—</td>';
+      tr.querySelectorAll('input').forEach(inp => inp.oninput = () => {
+        const v = [...tr.querySelectorAll('input')].map(x=>parseFloat(x.value)).filter(x=>!isNaN(x));
+        tr.lastChild.textContent = v.length ? (v.reduce((a,b)=>a+b,0)/v.length).toFixed(1) : '—';
+      });
+      rec.appendChild(tr);
+    });
+  };
+  buildRec('#liqRec', ['A 正常土・直接放','B 液化土・直接放','C 液化土・筷子到硬層','D 液化土・筷子太短','E 液化土・加寬底板']);
+  buildRec('#liqRec2', ['S1 坡腳沒有牆','S2 坡腳有擋土牆','S3 擋土牆＋排水＋筷子','H1 房子在坡肩','H2 房子退縮','H3 坡肩＋筷子樁到岩盤']);
+}
+liqBind(); liqUi();
+
+/* =======================================================================
+   獨立頁：主迴圈、縮放、全螢幕
+   ======================================================================= */
+let last = performance.now();
+function loop(now){
+  const dt = Math.min(0.05, (now-last)/1000); last = now;
+  if (LQ.shaking){ let acc = 0; while (acc < dt){ stepLiq(0.01); acc += 0.01; } liqUi(); }
+  drawLiq();
+  requestAnimationFrame(loop);
+}
+window.addEventListener('resize', drawLiq);
+window.addEventListener('orientationchange', () => setTimeout(drawLiq, 200));
+$('#btnJump2').onclick = () => $('#case2').scrollIntoView({behavior:'smooth', block:'start'});
+(function(){
+  const b = $('#btnFull'), el = document.documentElement;
+  const can = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!can){ b.style.display = 'none'; return; }          // iPhone Safari 不支援；iPad 請用「加入主畫面」
+  b.onclick = () => {
+    if (document.fullscreenElement || document.webkitFullscreenElement)
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else can.call(el);
+  };
+})();
+setTimeout(drawLiq, 40);
+requestAnimationFrame(loop);
+
+window.__LIQ = { LQ, liqFS, liqRuMax, liqCapacity, liqResponse, liqRun, stepLiq, drawLiq, liqReset };
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>
