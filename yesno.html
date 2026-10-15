@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>婚禮邀請</title>
+<title>你可以幫我按摩嗎？</title>
 <style>
   :root{
     --paper:#f6f2ea; --paper2:#efe9de; --line:#ddd5c7;
@@ -158,7 +158,7 @@
 
 <header>
   <span class="chip" id="noChip">No. 01</span>
-  <span class="org"><span class="xi">囍</span><span id="org">婚禮籌備委員會</span></span>
+  <span class="org"><span class="xi">囍</span><span id="org">肩頸舒緩委員會</span></span>
   <span class="chip" id="pageChip">01 / 05</span>
 </header>
 <div class="progress" id="progress"></div>
@@ -167,19 +167,19 @@
   <div class="seal" id="seal">意</div>
   <p class="to" id="toLine" hidden></p>
   <p class="tag" id="tag">第一題・意願確認</p>
-  <h1 id="question">你想來我的婚禮嗎？💍</h1>
-  <button id="yes" type="button">要</button>
+  <h1 id="question">你可以幫我按摩嗎？💆</h1>
+  <button id="yes" type="button">可以</button>
 </main>
 
-<button id="no" type="button">不要</button>
-<p id="taunt">再靠近一次，我就把這件事寫進致辭。</p>
+<button id="no" type="button">不想要</button>
+<p id="taunt">再靠近一次，我的肩膀就更痠了。</p>
 <div id="counter"></div>
 
 <div id="win" role="dialog" aria-modal="true">
   <div class="card">
     <div class="stamp">囍</div>
-    <h2 id="winTitle">已收到您的出席回覆</h2>
-    <p id="winText">座位已幫你留好，反悔無效。<br>婚禮見！</p>
+    <h2 id="winTitle">已收到您的按摩回覆</h2>
+    <p id="winText">按摩時段已幫你預約好，反悔無效。<br>手準備好！</p>
     <button id="again" type="button">再看一次</button>
   </div>
 </div>
@@ -192,8 +192,8 @@
   <label for="f_org">頂部抬頭</label><input id="f_org">
   <label for="f_tag">題號小字</label><input id="f_tag">
   <label for="f_q">問題</label><input id="f_q">
-  <label for="f_yes">「要」按鈕文字</label><input id="f_yes">
-  <label for="f_no">「不要」按鈕文字</label><input id="f_no">
+  <label for="f_yes">「可以」按鈕文字</label><input id="f_yes">
+  <label for="f_no">「不想要」按鈕文字</label><input id="f_no">
   <label for="f_taunts">下方小字（一行一句，每閃一次換下一句；{n} = 閃躲次數）</label><textarea id="f_taunts"></textarea>
   <label for="f_ok">成功標題</label><input id="f_ok">
   <label for="f_okt">成功內文</label><input id="f_okt">
@@ -212,25 +212,25 @@
 <script>
 // ===== 模板預設文案：直接改這裡，或用右下角 ⚙️ 產生分享連結 =====
 const DEFAULTS = {
-  org: '婚禮籌備委員會',
+  org: '肩頸舒緩委員會',
   tag: '第一題・意願確認',
-  q:   '你想來我的婚禮嗎？💍',
-  yes: '要',
-  no:  '不要',
+  q:   '你可以幫我按摩嗎？💆',
+  yes: '可以',
+  no:  '不想要',
   taunts: [
-    '再靠近一次，我就把這件事寫進致辭。',
-    '我看到了，你剛剛想按「不要」。',
-    '這段會被投影在婚宴大螢幕上。',
-    '第 {n} 次了，伴郎伴娘都在記錄。',
-    '「不要」按鈕：我只是喜帖上的裝飾。',
+    '再靠近一次，我的肩膀就更痠了。',
+    '我看到了，你剛剛想按「不想要」。',
+    '這段我會截圖存證。',
+    '第 {n} 次了，我的肩頸都在記錄。',
+    '「不想要」按鈕：我只是裝飾用的。',
     '紅色那顆比較好按，真的。',
-    '再閃下去，你就被安排坐主桌。',
+    '再閃下去，就從 10 分鐘加到 30 分鐘。',
     '好啦，你逃不掉的。'
   ],
-  ok:  '已收到您的出席回覆',
-  okt: '座位已幫你留好，反悔無效。婚禮見！'
+  ok:  '已收到您的按摩回覆',
+  okt: '按摩時段已幫你預約好，反悔無效。手準備好！'
 };
-const NO_LABELS = ['不要', '真的不要？', '再想想', '不…', '好啦', '要'];
+const NO_LABELS = ['不想要', '真的不想要？', '再想想', '不…', '好啦', '可以'];
 const SEALS = ['意', '嗯', '咦', '哼', '欸', '囍'];
 
 const $ = id => document.getElementById(id);
@@ -252,13 +252,21 @@ function store(key, fn){   // localStorage 可能被擋，失敗就當沒記過
 function report(text, beacon){
   const hook = window.INVITE_CONFIG && window.INVITE_CONFIG.webhook;
   if (!INVITEE.to || INVITEE.preview || !hook) return;
-  // 同一個人的所有通知串在同一個討論串
-  const url = hook + '&threadKey=' + encodeURIComponent('invite-' + (INVITEE.id || INVITEE.to)) +
+  // 同一個人、同一題的通知串在同一個討論串（不同題目的網址分開，不會混在一起）
+  const topic = fill(cfg.q);
+  const url = hook + '&threadKey=' + encodeURIComponent('invite-' + (INVITEE.id || INVITEE.to) + '-' + hashOf(topic)) +
               '&messageReplyOption=REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD';
+  // 每則通知都標明是哪一題的回覆，避免給錯網址時分不出來
+  text = text.replace('\n', `\n📝 題目：「${topic}」\n`);
   // text/plain 是 CORS 簡單請求，不需預檢；Chat webhook 照樣解析 JSON
   const body = JSON.stringify({ text });
   if (beacon && navigator.sendBeacon && navigator.sendBeacon(url, new Blob([body], {type: 'text/plain;charset=UTF-8'}))) return;
   fetch(url, { method: 'POST', headers: {'Content-Type': 'text/plain;charset=UTF-8'}, body, keepalive: true }).catch(() => {});
+}
+function hashOf(s){   // 題目轉短代碼當 threadKey 的一部分
+  let h = 0;
+  for (const ch of s) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+  return h.toString(36);
 }
 const tag = () => `*${INVITEE.to}*` + (INVITEE.n ? `（No.${INVITEE.n}）` : '');
 const now = () => new Date().toLocaleString('zh-TW', {hour12: false});
@@ -389,16 +397,16 @@ function win(){
   $('progress').style.width = '100%';
   $('win').classList.add('show');
   confetti();
-  const times = store('invite-yes-' + INVITEE.id, v => String((+v || 0) + 1));
-  const how = dodges === 0 ? '毫不猶豫，直接按下「要」！' : `追著「不要」閃了 ${dodges} 次後，乖乖按下「要」。`;
-  report(`💍 ${tag()} 回覆：*要*\n${how}` + (times > 1 ? `（這是第 ${times} 次按）` : '') + `\n🕒 ${now()}`);
+  const times = store('invite-yes-' + INVITEE.id + '-' + hashOf(fill(cfg.q)), v => String((+v || 0) + 1));
+  const how = dodges === 0 ? `毫不猶豫，直接按下「${cfg.yes}」！` : `追著「${cfg.no}」閃了 ${dodges} 次後，乖乖按下「${cfg.yes}」。`;
+  report(`✅ ${tag()} 回覆：*${cfg.yes}*\n${how}` + (times > 1 ? `（這是第 ${times} 次按）` : '') + `\n🕒 ${now()}`);
 }
 // 開啟就通知；沒按「要」就離開也通知一次（手機切 App 也算離開）
 let leftReported = false;
 function reportLeave(){
   if (won || leftReported) return;
   leftReported = true;
-  report(`🏃 ${tag()} 離開了頁面，還沒按「要」` + (dodges ? `（已嘗試按「不要」${dodges} 次）` : '') + `\n🕒 ${now()}`, true);
+  report(`🏃 ${tag()} 離開了頁面，還沒按「${cfg.yes}」` + (dodges ? `（已嘗試按「${cfg.no}」${dodges} 次）` : '') + `\n🕒 ${now()}`, true);
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') reportLeave(); });
 addEventListener('pagehide', reportLeave);   // 直接關分頁時有些瀏覽器不發 visibilitychange
@@ -478,7 +486,7 @@ addEventListener('resize', () => {
 render();
 placeInitial();
 if (INVITEE.to){
-  const opens = store('invite-open-' + INVITEE.id, v => String((+v || 0) + 1));
+  const opens = store('invite-open-' + INVITEE.id + '-' + hashOf(fill(cfg.q)), v => String((+v || 0) + 1));
   report(`👀 ${tag()} 打開了邀請` + (opens > 1 ? `（第 ${opens} 次）` : '') + `\n🕒 ${now()}`);
 }
 </script>
