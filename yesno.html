@@ -26,7 +26,7 @@
     background-image:repeating-linear-gradient(0deg,rgba(120,100,80,.035) 0 1px,transparent 1px 3px);
   }
 
-  /* 頂部：No. 01 ／ 囍 婚禮籌備委員會 ／ 01 / 05 */
+  /* 頂部：No. 01 ／ 拜託 婚禮籌備委員會 ／ 01 / 05 */
   header{
     position:fixed;top:0;left:0;right:0;z-index:3;
     display:flex;align-items:center;justify-content:space-between;gap:12px;
@@ -158,7 +158,7 @@
 
 <header>
   <span class="chip" id="noChip">No. 01</span>
-  <span class="org"><span class="xi">囍</span><span id="org">肩頸舒緩委員會</span></span>
+  <span class="org"><span class="xi">拜託</span><span id="org">肩頸舒緩委員會</span></span>
   <span class="chip" id="pageChip">01 / 05</span>
 </header>
 <div class="progress" id="progress"></div>
@@ -177,7 +177,7 @@
 
 <div id="win" role="dialog" aria-modal="true">
   <div class="card">
-    <div class="stamp">囍</div>
+    <div class="stamp">拜託</div>
     <h2 id="winTitle">已收到您的按摩回覆</h2>
     <p id="winText">按摩時段已幫你預約好，反悔無效。<br>手準備好！</p>
     <button id="again" type="button">再看一次</button>
@@ -231,7 +231,7 @@ const DEFAULTS = {
   okt: '按摩時段已幫你預約好，反悔無效。手準備好！'
 };
 const NO_LABELS = ['不想要', '真的不想要？', '再想想', '不…', '好啦', '可以'];
-const SEALS = ['意', '嗯', '咦', '哼', '欸', '囍'];
+const SEALS = ['意', '嗯', '咦', '哼', '欸', '拜託'];
 
 const $ = id => document.getElementById(id);
 const yesBtn = $('yes'), noBtn = $('no'), taunt = $('taunt');
