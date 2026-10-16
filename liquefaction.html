@@ -3,659 +3,870 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="液化與地基">
-<title>土壤液化與地基 — 地震實驗演示</title>
+<title>地震與地基-液化土壤的影響</title>
 <style>
 :root{
   --bg:#0b1020; --bg2:#121a33; --card:#16203c; --line:#26345c;
   --tx:#e8eeff; --dim:#93a3c9; --acc:#ffb44d; --acc2:#4dd2ff;
-  --ok:#3ddc84; --warn:#ffcc45; --bad:#ff5c5c; --danger:#ff2d55;
+  --ok:#3ddc84; --warn:#ffcc45; --bad:#ff5c5c;
+  --bp:#0f2e52; --bpline:#e8f4ff; --bpfold:#ff6b6b; --bpdim:#ffd27a; --bpflute:rgba(160,205,255,.22); --bpmark:#7ee0ff;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--tx);
-  font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,-apple-system,"Segoe UI",sans-serif;
-  -webkit-text-size-adjust:100%;}
+  font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-text-size-adjust:100%}
 body{padding-bottom:40px}
-header{
-  padding:14px 16px 10px;background:linear-gradient(180deg,#131c38,#0b1020);
-  border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50;
-}
+header{padding:14px 16px 10px;background:linear-gradient(180deg,#131c38,#0b1020);border-bottom:1px solid var(--line)}
 h1{margin:0;font-size:19px;letter-spacing:.5px}
 h1 span{color:var(--acc)}
 .sub{color:var(--dim);font-size:12px;margin-top:3px}
-nav{display:flex;gap:6px;overflow-x:auto;padding:10px 12px 0;background:#0b1020;
-  position:sticky;top:0;z-index:40;-webkit-overflow-scrolling:touch}
-nav button{
-  flex:0 0 auto;background:var(--card);color:var(--dim);border:1px solid var(--line);
-  border-radius:10px 10px 0 0;padding:9px 14px;font-size:14px;cursor:pointer;white-space:nowrap;
-  font-family:inherit;
-}
-nav button.on{background:var(--bg2);color:var(--tx);border-bottom-color:var(--bg2);box-shadow:inset 0 2px 0 var(--acc)}
-main{padding:0 12px}
-.page{display:none;animation:fade .18s ease}
+nav{display:flex;gap:6px;overflow-x:auto;padding:10px 12px 0;background:#0b1020;position:sticky;top:0;z-index:40}
+nav button{flex:0 0 auto;background:var(--card);color:var(--dim);border:1px solid var(--line);border-radius:10px 10px 0 0;
+  padding:9px 14px;font-size:14px;cursor:pointer;white-space:nowrap;font-family:inherit}
+nav button.on{background:var(--bg2);color:var(--tx);box-shadow:inset 0 2px 0 var(--acc)}
+main{padding:0 12px;max-width:1400px;margin:0 auto}
+.page{display:none}
 .page.on{display:block}
-@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
 .card h2{margin:0 0 8px;font-size:16px;color:var(--acc)}
 .card h3{margin:14px 0 6px;font-size:14px;color:var(--acc2)}
 p,li{line-height:1.65;font-size:14px}
 .dim{color:var(--dim)}
 .grid{display:grid;gap:12px}
-@media(min-width:900px){.grid.two{grid-template-columns:1.35fr 1fr}}
+@media(min-width:960px){.grid.two{grid-template-columns:1.4fr 1fr}}
 canvas{width:100%;display:block;border-radius:10px;background:#060a18;touch-action:none}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
-label.fld{display:block;margin:10px 0 2px;font-size:13px;color:var(--dim)}
-label.fld b{color:var(--tx);font-variant-numeric:tabular-nums}
-input[type=range]{width:100%;accent-color:var(--acc)}
-button.btn{
-  background:linear-gradient(180deg,#ffb44d,#f08a12);color:#231200;border:0;border-radius:10px;
-  padding:11px 16px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;flex:1 1 auto;min-width:120px;
-}
+button.btn{background:linear-gradient(180deg,#ffb44d,#f08a12);color:#231200;border:0;border-radius:10px;
+  padding:11px 16px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;flex:1 1 auto;min-width:120px}
 button.btn.sec{background:#243055;color:var(--tx);border:1px solid var(--line);font-weight:500}
-button.btn:active{transform:translateY(1px)}
 .seg{display:flex;gap:6px;flex-wrap:wrap}
-.seg button{
-  background:#1c2748;border:1px solid var(--line);color:var(--dim);border-radius:9px;
-  padding:9px 12px;font-size:13px;cursor:pointer;font-family:inherit;flex:1 1 auto
-}
+.seg button{background:#1c2748;border:1px solid var(--line);color:var(--dim);border-radius:9px;padding:9px 12px;font-size:13px;cursor:pointer;font-family:inherit;flex:1 1 auto}
 .seg button.on{background:#2f3f75;color:#fff;border-color:#5f7bd6}
+label.fld{display:block;margin:10px 0 2px;font-size:13px;color:var(--dim)}
+label.fld b{color:var(--tx)}
+input[type=range]{width:100%;accent-color:var(--acc)}
+.params{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.params label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--dim)}
+.params input,.params select{background:#0f1730;border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:7px 8px;font-size:14px;font-family:inherit;width:100%}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:13px;margin-top:8px}
 .kv div:nth-child(odd){color:var(--dim)}
 .kv div:nth-child(even){text-align:right;font-variant-numeric:tabular-nums}
-.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700}
-.b-ok{background:rgba(61,220,132,.15);color:var(--ok);border:1px solid rgba(61,220,132,.4)}
-.b-warn{background:rgba(255,204,69,.15);color:var(--warn);border:1px solid rgba(255,204,69,.4)}
-.b-bad{background:rgba(255,92,92,.15);color:var(--bad);border:1px solid rgba(255,92,92,.45)}
-.big{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
-.note{background:#101a34;border-left:3px solid var(--acc2);padding:9px 12px;border-radius:0 8px 8px 0;
-  font-size:13px;color:#c9d6f5;margin:10px 0}
-.warnbox{background:rgba(255,45,85,.09);border-left:3px solid var(--danger)}
+.note{background:#101a34;border-left:3px solid var(--acc2);padding:9px 12px;border-radius:0 8px 8px 0;font-size:13px;color:#c9d6f5;margin:10px 0}
+.warnbox{background:rgba(255,92,92,.09);border-left-color:var(--bad)}
 ul{padding-left:20px;margin:6px 0}
 ul.tight li{margin:3px 0}
-.chk{display:flex;align-items:center;gap:8px;background:#1a2444;border:1px solid var(--line);
-  border-radius:9px;padding:9px 10px;font-size:13px;cursor:pointer}
-.chk input{width:17px;height:17px;accent-color:var(--acc)}
-.chks{display:grid;gap:7px;grid-template-columns:repeat(auto-fill,minmax(165px,1fr))}
 table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
 th,td{border:1px solid var(--line);padding:6px 8px;text-align:left}
 th{background:#1b2547;color:var(--acc2);font-weight:600}
 td.n{text-align:right;font-variant-numeric:tabular-nums}
-.cards3{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.tblwrap{overflow-x:auto}
+.cards3{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .mini{background:#131d3a;border:1px solid var(--line);border-radius:10px;padding:12px}
 .mini h4{margin:0 0 6px;font-size:14px}
 .do{border-left:3px solid var(--ok)}
 .dont{border-left:3px solid var(--bad)}
-.step{display:flex;gap:10px;align-items:flex-start;margin:10px 0}
-.step .no{flex:0 0 30px;height:30px;border-radius:50%;background:var(--acc);color:#231200;
-  display:grid;place-items:center;font-weight:800}
-svg.dia{width:100%;height:auto;background:#0d1530;border-radius:10px;border:1px solid var(--line)}
-.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--dim);margin-top:6px}
-.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px}
-.scaleTable td{padding:4px 7px}
-footer{color:var(--dim);font-size:12px;text-align:center;padding:18px 14px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--dim);margin-top:6px;align-items:center}
+.legend i{display:inline-block;width:22px;height:0;border-top:2px solid;margin-right:5px;vertical-align:3px}
+.pieces{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.pc{background:var(--bp);border:1px solid #2a5b8f;border-radius:10px;padding:8px}
+.pc svg{width:100%;height:auto;max-height:300px;display:block}
+.pc .cap{font-size:12px;color:#bcd6f5;margin-top:4px;line-height:1.5}
+.grp{margin:16px 0 4px;font-size:14px;color:var(--acc);font-weight:700}
+.sheet{background:var(--bp);border:1px solid #2a5b8f;border-radius:10px;padding:8px;margin-top:8px}
+.sheet svg{width:100%;height:auto;display:block;max-height:80vh}
 .pill{background:#1c2748;border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--dim)}
 .pill b{color:var(--acc)}
-
-/* --- 獨立頁／iPad 演示用補強 --- */
-
-html{-webkit-tap-highlight-color:transparent}
-body{-webkit-user-select:none;user-select:none;padding-bottom:calc(40px + env(safe-area-inset-bottom))}
-header{position:static}
-input[type=number]{-webkit-user-select:text;user-select:text}
-button.btn{padding:14px 18px;font-size:17px}
-.seg button{padding:12px 14px;font-size:15px}
-input[type=range]{height:30px}
-@media(min-width:1000px){.grid.two{grid-template-columns:1.5fr 1fr}}
-.top-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-.top-actions button{background:#243055;color:var(--tx);border:1px solid var(--line);border-radius:9px;
-  padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit}
+svg .cut{fill:rgba(255,255,255,.04);stroke:var(--bpline);stroke-width:1.5;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+svg .fold{stroke:var(--bpfold);stroke-width:1.5;stroke-dasharray:6 4;vector-effect:non-scaling-stroke;fill:none}
+svg .flute{stroke:var(--bpflute);stroke-width:1;vector-effect:non-scaling-stroke}
+svg .dl{stroke:var(--bpdim);stroke-width:.9;vector-effect:non-scaling-stroke;fill:none}
+svg .dt{fill:var(--bpdim)}
+svg .lb{fill:var(--bpline);font-weight:700}
+svg .hole{fill:none;stroke:var(--bpline);stroke-width:1.2;vector-effect:non-scaling-stroke}
+svg .mark{fill:none;stroke:var(--bpmark);stroke-width:1.1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
+svg .mt{fill:var(--bpmark)}
+svg .fa{fill:none;stroke:var(--bpmark);stroke-width:2;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}
+svg .sh{fill:rgba(255,255,255,.03);stroke:#6f9cc9;stroke-width:1.2;vector-effect:non-scaling-stroke}
+svg text{font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif}
+.kid{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));font-size:16px;margin:6px 0 10px}
+.kid div{background:#0f2e52;border:1px solid #2a5b8f;border-radius:10px;padding:10px 12px;line-height:1.5}
+.kid i{display:inline-block;width:30px;height:0;border-top:3px solid;margin-right:8px;vertical-align:5px}
+.kar{display:inline-block;width:30px;margin-right:8px;text-align:center;font-weight:800;color:#7ee0ff;font-size:18px}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dim);margin:6px 0}
+.chk input{width:17px;height:17px;accent-color:var(--acc)}
+details.adv{margin-top:12px;background:#101a34;border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+details.adv summary{cursor:pointer;color:var(--acc2);font-size:14px;font-weight:600}
+.pc .cap{font-size:14px}
+.grp{font-size:17px}
+footer{color:var(--dim);font-size:12px;text-align:center;padding:18px 14px}
+#printArea{display:none}
+@media print{
+  @page{size:A4 portrait;margin:10mm}
+  html,body{background:#fff;color:#000;padding:0}
+  header,nav,main,footer{display:none!important}
+  #printArea{display:block}
+  .ppage{width:190mm;height:277mm;page-break-after:always;break-after:page;overflow:hidden}
+  .ppage:last-child{page-break-after:auto;break-after:auto}
+  .ppage svg{width:190mm;height:277mm;display:block}
+  .ppage svg .cut{fill:#fff;stroke:#000;stroke-width:.35mm}
+  .ppage svg .fold{stroke:#d00;stroke-width:.3mm}
+  .ppage svg .flute{stroke:#bbb;stroke-width:.15mm}
+  .ppage svg .dl{stroke:#06c;stroke-width:.15mm}
+  .ppage svg .dt{fill:#06c}
+  .ppage svg .lb{fill:#000}
+  .ppage svg .hole{stroke:#000;stroke-width:.25mm}
+  .ppage svg .mark{stroke:#080}
+  .ppage svg .mt{fill:#080}
+  .ppage svg .fa{stroke:#080;stroke-width:.5mm}
+  .ppage svg .vect{vector-effect:none}
+  .asmp{font-family:"Microsoft JhengHei","Noto Sans TC",sans-serif;color:#000}
+  .asmp .ah{font-size:16pt;font-weight:700;margin-bottom:1mm}
+  .asmp .at{font-size:22pt;font-weight:800;color:#c22;margin:1mm 0 2mm}
+  .asmp img{display:block;width:170mm;height:auto;margin:0 auto;border:.3mm solid #999;border-radius:3mm}
+  .asmp ol{font-size:13.5pt;line-height:1.55;margin:4mm 0 0;padding-left:8mm}
+  .asmp li{margin:1.2mm 0}
+}
 </style>
 </head>
 <body>
 <header>
-  <h1>🏠 土壤液化與地基 <span>地震實驗演示</span></h1>
-  <div class="sub">液化土上的房子會怎樣？山邊土壤的擋土牆有用嗎？房子怎麼蓋比較防震？</div>
-  <div class="top-actions"><button id="btnFull">⛶ 全螢幕</button><button id="btnJump2">↓ 跳到案例二（山邊土壤）</button></div>
+  <h1>🏠 液化實驗房子 <span>中空板裁切設計圖＋模擬圖</span></h1>
+  <div class="sub">配合「PET 透明掀蓋收納盒 23.5×10×17.5 cm」＋「石英砂 #3（60 目）」，延續〈土壤液化與地基〉筷子樁實驗：一個盒子配一棟房子，比較「沒有樁」和「有筷子樁」。所有尺寸可依實際量到的盒子改，圖會自動重畫。</div>
 </header>
+<nav id="nav">
+  <button data-p="pg-mat" class="on">① 材料與做法</button>
+  <button data-p="pg-cut">② 裁切設計圖</button>
+  <button data-p="pg-sim">③ 模擬圖（3D／搖晃）</button>
+  <button data-p="pg-asm">④ 房子組裝圖</button>
+</nav>
 <main>
-<!-- ==================== ⑦ 液化與地基 ==================== -->
-<section class="page on" id="tab-liq">
-  <div class="grid two">
-    <div class="card">
-      <h2>地基對照實驗（左：正常土　右：液化土）</h2>
-      <canvas id="cvLiq" height="380"></canvas>
-      <div class="dim" style="font-size:12px;margin-top:6px">兩邊用<b>同樣的房子、同樣的地震</b>，只有土壤不同。換不同的蓋法再搖一次，看哪一種撐得住。</div>
-      <div class="row">
-        <button class="btn" id="btnLiqShake">⚡ 開始搖晃</button>
-        <button class="btn sec" id="btnLiqReset">↺ 復原</button>
-      </div>
-      <div class="kv" id="liqKv"></div>
-    </div>
-    <div class="card">
-      <h2>設定</h2>
-      <label class="fld">房子的蓋法</label>
-      <div class="seg" id="liqFound">
-        <button data-f="shallow" class="on">直接放（淺基礎）</button>
-        <button data-f="raft">加寬底板（筏式）</button>
-        <button data-f="pile">筷子樁（樁基礎）</button>
-      </div>
-      <div id="liqPileBox">
-        <label class="fld">筷子（樁）長度：<b id="vLiqPile">9.0</b> m　<span class="pill" id="liqPileHint"></span></label>
-        <input type="range" id="inLiqPile" min="1" max="14" value="9" step="0.5">
-      </div>
-      <label class="fld">房子重量</label>
-      <div class="seg" id="liqWeight">
-        <button data-w="1">輕（木造）</button>
-        <button data-w="2" class="on">中</button>
-        <button data-w="3">重（RC 樓房）</button>
-      </div>
-      <label class="fld">地震強度（PGA）：<b id="vLiqPga">0.35</b> g</label>
-      <input type="range" id="inLiqPga" min="0.05" max="0.6" value="0.35" step="0.01">
-      <label class="fld">液化土的鬆緊</label>
-      <div class="seg" id="liqDr">
-        <button data-d="0.3" class="on">鬆（填土、新沖積）</button>
-        <button data-d="0.5">中等</button>
-        <button data-d="0.8">緊密（壓實）</button>
-      </div>
-      <label class="fld">含水程度（地下水位）：<b id="vLiqSat">100</b> %　<span class="dim">100%＝水到地表</span></label>
-      <input type="range" id="inLiqSat" min="0" max="100" value="100" step="5">
-      <label class="fld">鬆沙層厚度：<b id="vLiqT">6</b> m（底下是堅硬地層）</label>
-      <input type="range" id="inLiqT" min="2" max="10" value="6" step="1">
-      <div id="liqVerdict" style="margin-top:10px"></div>
-    </div>
-  </div>
 
+<!-- ============ ① 材料 ============ -->
+<section class="page on" id="pg-mat">
   <div class="card">
-    <h2>案例一：液化土上蓋房子（筷子樁實驗）</h2>
-    <div class="cards3">
-      <div class="mini"><h4>🧰 材料</h4>
-        <ul class="tight"><li>透明<b>抽屜收納盒</b> ×1（33.5×12×11 cm），中間用防水隔板分成左：正常土、右：液化土</li><li><b>石英砂</b>（約 0.1～0.5 mm，洗過）、礫石或黏土、水</li><li>筷子（竹籤）、橡皮筋、膠帶</li><li>小房子（紙盒＋裡面放重物）、尺、手機計時</li></ul></div>
-      <div class="mini"><h4>🏗️ 做土層</h4>
-        <ul class="tight"><li><b>硬層</b>：盒底鋪 2～3 cm 壓緊的礫石或黏土</li><li><b>正常土</b>：沙加少許水拌濕、用力壓實</li><li><b>液化土</b>：沙鬆鬆倒入，再<b>慢慢加水到剛好淹過沙面</b>，靜置 1 分鐘</li></ul></div>
-      <div class="mini"><h4>🥢 做樁基礎</h4>
-        <ul class="tight"><li>把 5～7 根筷子用橡皮筋束成一排，綁（黏）在房子底板下</li><li>往下插，<b>要穿過沙層、插到底下的硬層</b>（約 8 cm 長）</li><li>另做一組「太短、沒碰到硬層」的對照</li></ul></div>
-    </div>
-    <h3>沙要用哪一種？（建議：石英砂）</h3>
-    <div class="cards3">
-      <div class="mini do"><h4>✅ 石英砂（最推薦）</h4>
-        <ul class="tight"><li>顆粒乾淨、均勻、不黏，加水會完全飽和，搖了真的會液化</li><li>成分和真實砂質土壤一樣（二氧化矽）</li><li>水族店（魚缸底砂）、建材行、泳池過濾砂買得到</li><li>可重複使用，晾乾即可</li></ul></div>
-      <div class="mini"><h4>📏 怎麼挑</h4>
-        <ul class="tight"><li><b>細度約 0.1～0.5 mm（40～100 目）</b>：太粗像礫石不易液化，太細像麵粉會結塊</li><li><b>要洗過、不含泥</b>：加水變混濁就先洗到水清</li><li>選<b>未染色</b>的白色或米色砂，彩色砂可能褪色染水</li></ul></div>
-      <div class="mini dont"><h4>❌ 不適合：太空沙</h4>
-        <ul class="tight"><li>表面有防水膜，水進不去、沙不會飽和</li><li>顆粒會黏成一團，搖了不會液化</li><li>黏在筷子上，插拔阻力失真</li><li>可以拿來當<b>「黏性很強的土」</b>做延伸對照</li></ul></div>
-    </div>
-    <h3>石英砂使用小撇步</h3>
+    <h2>設計重點（一個盒子配一棟房子，做兩種房子）</h2>
     <ul class="tight">
-      <li><b>用量</b>：本抽屜盒液化那一半（約 15 × 10 cm、厚 5 cm）約需 <b>1～1.5 kg</b>；整盒兩半共約 2～3 kg。多買一點備用。</li>
-      <li><b>鬆砂（會液化）</b>：用杓子鬆鬆倒入，<b>不要壓</b>；倒完可用筷子輕輕攪一下，把壓過的地方弄鬆。</li>
-      <li><b>緊密砂（正常土對照）</b>：先加一點點水拌濕，<b>分 2～3 層倒、每層用力壓緊</b>，表面保持微濕、不要積水。</li>
-      <li><b>加水</b>：用杯子沿盒壁<b>慢慢</b>倒，水位剛好到砂面；靜置 1 分鐘讓空氣排出，砂才會真的飽和。從上面直接沖會把表面沖出坑洞。</li>
-      <li><b>先試液化</b>：正式做之前，先用手輕拍桌面或抽拉盒子 5～10 下，看砂面有沒有冒水、變軟；若<b>沒反應</b>，可能砂太粗、壓太緊或水不夠。</li>
-      <li><b>每次要重鋪</b>：搖過的砂會變緊密，要把砂攪鬆、補水到砂面再做下一次，結果才公平。</li>
-      <li><b>案例二（山坡）</b>：純石英砂沒有黏性，滑得比較快；要更像真實山坡土壤，可混入約 <b>10%</b> 的細土或黏土，再微濕。</li>
-      <li><b>收拾與粉塵</b>：乾砂倒入時粉塵多，先沾濕再倒，不要吸入。用過的砂水<b>不要倒進水槽</b>（會堵水管），先讓砂沉澱、倒掉上層水，砂晾乾可再用。</li>
-    </ul>
-    <h3>用「抽屜收納盒」做（33.5 × 12 × 11 cm）</h3>
-    <svg class="dia" viewBox="0 0 720 230" role="img" aria-label="抽屜盒側面剖面：中間隔板分成正常土與液化土兩半，水平抽拉模擬地震">
-      <rect x="40" y="50" width="640" height="130" fill="none" stroke="#93a3c9" stroke-width="2.5"/>
-      <rect x="42" y="150" width="636" height="28" fill="#5b5f6e"/>
-      <rect x="42" y="100" width="316" height="50" fill="#bfa06a"/>
-      <rect x="362" y="100" width="316" height="50" fill="#cdaa69"/><rect x="362" y="100" width="316" height="50" fill="#3c82e6" opacity=".28"/>
-      <line x1="362" y1="100" x2="678" y2="100" stroke="#78beff" stroke-width="2" stroke-dasharray="6 4"/>
-      <rect x="357" y="62" width="6" height="116" fill="#e8eeff" opacity=".85"/>
-      <text x="360" y="56" text-anchor="middle" font-size="11" fill="#e8eeff">防水隔板</text>
-      <g id="lqH1"><rect x="170" y="62" width="44" height="30" fill="#d95b43"/><polygon points="165,62 192,42 219,62" fill="#7a2e22"/><rect x="166" y="92" width="52" height="6" fill="#9aa3bd"/></g>
-      <rect x="490" y="62" width="44" height="30" fill="#d95b43"/><polygon points="485,62 512,42 539,62" fill="#7a2e22"/><rect x="486" y="92" width="52" height="6" fill="#9aa3bd"/>
-      <g stroke="#e8c27a" stroke-width="3"><line x1="494" y1="98" x2="494" y2="156"/><line x1="503" y1="98" x2="503" y2="156"/><line x1="512" y1="98" x2="512" y2="156"/><line x1="521" y1="98" x2="521" y2="156"/><line x1="530" y1="98" x2="530" y2="156"/></g>
-      <text x="200" y="135" text-anchor="middle" font-size="12" fill="#1d1405" font-weight="700">正常土（沙壓實）</text>
-      <text x="520" y="127" text-anchor="middle" font-size="12" fill="#0b2a5c" font-weight="700">鬆沙＋水（液化土）</text>
-      <text x="200" y="170" text-anchor="middle" font-size="12" fill="#e8eeff">硬層 2 cm</text><text x="520" y="170" text-anchor="middle" font-size="12" fill="#e8eeff">硬層 2 cm</text>
-      
-      <path d="M700 205 h-60 M644 205 l9 -6 M644 205 l9 6" stroke="#ffb44d" stroke-width="3" fill="none"/>
-      <text x="360" y="212" text-anchor="middle" font-size="13" fill="#ffb44d">左手固定外框，右手把抽屜「快速拉出 2 cm 再推回」＝水平地震</text>
-    </svg>
-    <ul class="tight">
-      <li><b>一個盒子就夠</b>：中間用防水隔板（透明塑膠片、厚卡紙＋防水膠帶、矽利康封邊皆可）隔成<b>左右兩半</b>，每半約 15 × 10 cm。左半做正常土、右半做液化土，<b>同時被同一次抽拉搖到</b>，最公平。</li>
-      <li><b>尺寸分配（內高約 10 cm，實際請用尺量）</b>：硬層 2 cm → 沙層 5 cm → 水加到沙面（不要更高）→ 上方留 3 cm 以上空間，水才不會晃出來。</li>
-      <li><b>房子要小</b>：底板約 4～5 cm 見方、高 4～5 cm（紙盒或積木），裡面放硬幣或黏土加重到約 100～150 g。</li>
-      <li><b>筷子（樁）剪短</b>：C 組要<b>插到硬層</b>，長度約 8 cm（穿過 5 cm 沙層再進硬層 2～3 cm）；D 組剪成約 3 cm（只在沙層裡）。竹筷太粗可改用竹籤。</li>
-      <li><b>每次搖法要一樣</b>：用膠帶在桌面或軌道上貼兩條線，標出「拉出 2 cm」；一次來回算 1 下，每組都搖 <b>10 下</b>、節奏一致（可跟著節拍器或手機計時）。</li>
-      <li><b>每做完一次要重新做土層</b>：搖過的沙會變緊密，下一次就不容易液化了。把沙攪鬆、重新加水再做下一次，結果才公平。</li>
-      <li><b>防漏水</b>：盒子放在托盤或毛巾上；先<b>只裝水不裝沙</b>測試 5 分鐘確認不漏；用過的泥沙水不要倒進水槽，倒在花圃或垃圾袋。</li>
-    </ul>
-    <h3>步驟圖（照著做）</h3>
-    <div class="cards3" id="liqSteps">
-      <div class="mini"><h4>① 鋪硬層</h4>
-        <svg class="dia" viewBox="0 0 200 140"><rect x="30" y="20" width="140" height="105" fill="none" stroke="#93a3c9" stroke-width="2"/>
-          <rect x="32" y="95" width="136" height="28" fill="#5b5f6e"/>
-          <g fill="#8a90a4"><circle cx="50" cy="108" r="4"/><circle cx="75" cy="112" r="5"/><circle cx="102" cy="106" r="4"/><circle cx="130" cy="112" r="5"/><circle cx="152" cy="107" r="4"/></g>
-          <path d="M100 30 v38" stroke="#ffb44d" stroke-width="3"/><polygon points="92,64 108,64 100,78" fill="#ffb44d"/>
-          <text x="100" y="16" text-anchor="middle" font-size="11" fill="#e8eeff">礫石／黏土 2～3 cm</text><text x="100" y="136" text-anchor="middle" font-size="11" fill="#ffcc45">用力壓緊壓平</text></svg></div>
-      <div class="mini"><h4>② 倒鬆沙（液化土那盒）</h4>
-        <svg class="dia" viewBox="0 0 200 140"><rect x="30" y="20" width="140" height="105" fill="none" stroke="#93a3c9" stroke-width="2"/>
-          <rect x="32" y="95" width="136" height="28" fill="#5b5f6e"/>
-          <rect x="32" y="50" width="136" height="45" fill="#cdaa69"/>
-          <g fill="#7a5a28"><circle cx="50" cy="65" r="1.8"/><circle cx="80" cy="80" r="1.8"/><circle cx="110" cy="62" r="1.8"/><circle cx="140" cy="78" r="1.8"/><circle cx="95" cy="88" r="1.8"/><circle cx="155" cy="60" r="1.8"/></g>
-          <path d="M60 8 q20 -6 40 0 l-8 18 h-24 z" fill="#9aa3bd"/><g fill="#cdaa69"><circle cx="90" cy="32" r="2"/><circle cx="86" cy="40" r="2"/><circle cx="92" cy="46" r="2"/></g>
-          <text x="100" y="136" text-anchor="middle" font-size="11" fill="#ffcc45">鬆鬆倒入不要壓（正常土要壓實）</text></svg></div>
-      <div class="mini"><h4>③ 慢慢加水</h4>
-        <svg class="dia" viewBox="0 0 200 140"><rect x="30" y="20" width="140" height="105" fill="none" stroke="#93a3c9" stroke-width="2"/>
-          <rect x="32" y="95" width="136" height="28" fill="#5b5f6e"/>
-          <rect x="32" y="50" width="136" height="45" fill="#cdaa69"/>
-          <rect x="32" y="50" width="136" height="45" fill="#3c82e6" opacity=".4"/>
-          <line x1="32" y1="50" x2="168" y2="50" stroke="#78beff" stroke-width="2" stroke-dasharray="5 4"/>
-          <path d="M138 6 h22 l-4 16 h-14 z" fill="#9aa3bd"/><path d="M146 24 v20" stroke="#78beff" stroke-width="3"/><circle cx="146" cy="47" r="3" fill="#78beff"/>
-          <text x="100" y="136" text-anchor="middle" font-size="11" fill="#ffcc45">水剛好到沙面，靜置 1 分鐘</text></svg></div>
-      <div class="mini"><h4>④ 綁筷子做樁</h4>
-        <svg class="dia" viewBox="0 0 200 140"><rect x="60" y="30" width="80" height="40" fill="#d95b43"/><polygon points="55,30 100,6 145,30" fill="#7a2e22"/><rect x="55" y="70" width="90" height="7" fill="#9aa3bd"/>
-          <g stroke="#e8c27a" stroke-width="4"><line x1="68" y1="78" x2="68" y2="124"/><line x1="84" y1="78" x2="84" y2="124"/><line x1="100" y1="78" x2="100" y2="124"/><line x1="116" y1="78" x2="116" y2="124"/><line x1="132" y1="78" x2="132" y2="124"/></g>
-          <rect x="62" y="98" width="76" height="5" fill="#ff5c5c"/>
-          <text x="148" y="102" font-size="10" fill="#ff8a8a">橡皮筋</text>
-          <text x="100" y="138" text-anchor="middle" font-size="11" fill="#ffcc45">5～7 根綁緊，貼在底板下</text></svg></div>
-      <div class="mini"><h4>⑤ 把房子插下去</h4>
-        <svg class="dia" viewBox="0 0 200 140"><rect x="30" y="20" width="140" height="105" fill="none" stroke="#93a3c9" stroke-width="2"/>
-          <rect x="32" y="95" width="136" height="28" fill="#5b5f6e"/><rect x="32" y="50" width="136" height="45" fill="#cdaa69"/><rect x="32" y="50" width="136" height="45" fill="#3c82e6" opacity=".4"/>
-          <rect x="78" y="14" width="44" height="24" fill="#d95b43"/><polygon points="74,14 100,0 126,14" fill="#7a2e22"/><rect x="74" y="38" width="52" height="5" fill="#9aa3bd"/>
-          <g stroke="#e8c27a" stroke-width="3"><line x1="82" y1="43" x2="82" y2="110"/><line x1="91" y1="43" x2="91" y2="110"/><line x1="100" y1="43" x2="100" y2="110"/><line x1="109" y1="43" x2="109" y2="110"/><line x1="118" y1="43" x2="118" y2="110"/></g>
-          <text x="126" y="108" font-size="10" fill="#3ddc84">到硬層</text>
-          <text x="100" y="136" text-anchor="middle" font-size="11" fill="#ffcc45">要碰到硬層（D 組故意插短）</text></svg></div>
-      <div class="mini"><h4>⑥ 搖晃並量測</h4>
-        <svg class="dia" viewBox="0 0 200 140"><rect x="40" y="40" width="120" height="70" fill="none" stroke="#93a3c9" stroke-width="2"/>
-          <rect x="42" y="90" width="116" height="18" fill="#5b5f6e"/><rect x="42" y="62" width="116" height="28" fill="#cdaa69"/><rect x="42" y="62" width="116" height="28" fill="#3c82e6" opacity=".4"/>
-          <rect x="82" y="38" width="36" height="20" fill="#d95b43"/><polygon points="78,38 100,22 122,38" fill="#7a2e22"/>
-          <path d="M20 118 h18 M18 118 l6 -5 M18 118 l6 5" stroke="#ffb44d" stroke-width="2.5" fill="none"/><path d="M180 118 h-18 M182 118 l-6 -5 M182 118 l-6 5" stroke="#ffb44d" stroke-width="2.5" fill="none"/>
-          <path d="M170 30 v32 M165 30 h10 M165 62 h10" stroke="#3ddc84" stroke-width="2"/><text x="176" y="50" font-size="10" fill="#3ddc84">量沉</text>
-          <text x="100" y="134" text-anchor="middle" font-size="11" fill="#ffcc45">拍桌 20 下、力道一樣，量下沉 cm</text></svg></div>
-    </div>
-    <h3>盒子剖面示意圖（側面看）</h3>
-    <svg class="dia" viewBox="0 0 720 250" role="img" aria-label="三個塑膠盒的剖面：直接放、筷子插到硬層、筷子太短">
-      <defs>
-        <g id="lqBox">
-          <rect x="0" y="40" width="200" height="150" fill="none" stroke="#93a3c9" stroke-width="2"/>
-          <rect x="2" y="150" width="196" height="38" fill="#5b5f6e"/>
-          <rect x="2" y="80" width="196" height="70" fill="#cdaa69"/>
-          <rect x="2" y="80" width="196" height="70" fill="#3c82e6" opacity=".22"/>
-          <text x="36" y="172" text-anchor="middle" font-size="12" fill="#e8eeff">硬層</text>
-          <text x="36" y="112" text-anchor="middle" font-size="12" fill="#1d1405" font-weight="700">鬆沙</text><text x="36" y="128" text-anchor="middle" font-size="12" fill="#0b2a5c" font-weight="700">＋水</text>
-        </g>
-        <g id="lqHouse">
-          <rect x="-34" y="-46" width="68" height="46" fill="#d95b43"/>
-          <polygon points="-40,-46 0,-72 40,-46" fill="#7a2e22"/>
-          <rect x="-40" y="0" width="80" height="6" fill="#9aa3bd"/>
-        </g>
-      </defs>
-      <g transform="translate(20,10)"><use href="#lqBox"/>
-        <use href="#lqHouse" x="100" y="80"/>
-        <text x="100" y="236" text-anchor="middle" font-size="13" fill="#ffb44d">B　直接放 → 下沉傾斜</text></g>
-      <g transform="translate(260,10)"><use href="#lqBox"/>
-        <use href="#lqHouse" x="100" y="80"/>
-        <g stroke="#e8c27a" stroke-width="3"><line x1="72" y1="86" x2="72" y2="168"/><line x1="86" y1="86" x2="86" y2="168"/><line x1="100" y1="86" x2="100" y2="168"/><line x1="114" y1="86" x2="114" y2="168"/><line x1="128" y1="86" x2="128" y2="168"/></g>
-        <text x="100" y="236" text-anchor="middle" font-size="13" fill="#3ddc84">C　筷子插到硬層 → 穩住</text></g>
-      <g transform="translate(500,10)"><use href="#lqBox"/>
-        <use href="#lqHouse" x="100" y="80"/>
-        <g stroke="#e8c27a" stroke-width="3"><line x1="72" y1="86" x2="72" y2="130"/><line x1="86" y1="86" x2="86" y2="130"/><line x1="100" y1="86" x2="100" y2="130"/><line x1="114" y1="86" x2="114" y2="130"/><line x1="128" y1="86" x2="128" y2="130"/></g>
-        <text x="100" y="236" text-anchor="middle" font-size="13" fill="#ff5c5c">D　筷子太短 → 還是會沉</text></g>
-    </svg>
-    <div class="legend"><span><i style="background:#cdaa69"></i>沙</span><span><i style="background:#3c82e6"></i>水</span><span><i style="background:#5b5f6e"></i>硬層</span><span><i style="background:#e8c27a"></i>筷子（樁）</span></div>
-    <h3>每一組的做法與預期</h3>
-    <table>
-      <tr><th>組別</th><th>土壤</th><th>房子蓋法</th><th>你覺得會…</th></tr>
-      <tr><td>A</td><td>正常土</td><td>直接放</td><td>幾乎不動</td></tr>
-      <tr><td>B</td><td>液化土</td><td>直接放</td><td>下沉、傾斜</td></tr>
-      <tr><td>C</td><td>液化土</td><td>筷子插到硬層</td><td>比 B 穩很多</td></tr>
-      <tr><td>D</td><td>液化土</td><td>筷子太短（沒到硬層）</td><td>還是會沉 → 樁要夠長</td></tr>
-      <tr><td>E</td><td>液化土</td><td>加寬底板</td><td>比 B 好，但不如 C</td></tr>
-    </table>
-    <div class="note"><b>公平測試：</b>一次只改一個條件。房子重量、水量、搖晃方式（用手拍桌子 20 下、力道一樣）都要固定；每組做 3 次，用尺量<b>下沉幾 cm</b>、看<b>傾斜多少</b>，取平均後畫成長條圖。</div>
-    <h3>我的實驗記錄（下沉 cm）</h3>
-    <table id="liqRec">
-      <tr><th>組別</th><th>第 1 次</th><th>第 2 次</th><th>第 3 次</th><th>平均</th></tr>
-    </table>
-  </div>
-
-  <div class="card" id="case2">
-    <h2>案例二：山邊一般土壤——擋土牆有用嗎？房子怎麼蓋比較防震？</h2>
-    <div class="note">同一個抽屜盒做<b>一座小山坡</b>：底下墊一塊「岩盤」（硬泡棉或厚紙板削成斜坡），上面蓋一層 2～3 cm 的<b>一般土壤</b>（沙加少許土，微濕）。這正好對應分頁②的邊坡模型：坡度、土層厚度、下雨（含水）、地震，一起決定會不會滑。</div>
-    <svg class="dia" viewBox="0 0 720 240" role="img" aria-label="抽屜盒做的山坡剖面：岩盤斜坡、土層、坡腳擋土牆、坡肩與退縮處的房子">
-      <rect x="40" y="40" width="640" height="140" fill="none" stroke="#93a3c9" stroke-width="2.5"/>
-      <polygon points="42,178 42,95 160,95 400,170 400,178" fill="#5b5f6e"/>
-      <polygon points="42,82 160,82 400,157 400,170 160,95 42,95" fill="#b08d58"/>
-      <rect x="400" y="160" width="278" height="18" fill="#b08d58"/>
-      <g fill="#8a6a3a"><circle cx="80" cy="89" r="2"/><circle cx="140" cy="89" r="2"/><circle cx="220" cy="118" r="2"/><circle cx="300" cy="140" r="2"/><circle cx="520" cy="170" r="2"/></g>
-      <g stroke="#78beff" stroke-width="2"><line x1="100" y1="22" x2="96" y2="34"/><line x1="140" y1="18" x2="136" y2="30"/><line x1="180" y1="22" x2="176" y2="34"/><line x1="220" y1="18" x2="216" y2="30"/><line x1="260" y1="22" x2="256" y2="34"/></g>
-      <text x="200" y="14" text-anchor="middle" font-size="11" fill="#78beff">灑水＝下大雨</text>
-      <!-- 房子：退縮(H2) 與 坡肩(H1) -->
-      <g><rect x="56" y="54" width="34" height="26" fill="#d95b43"/><polygon points="52,54 73,38 94,54" fill="#7a2e22"/><rect x="52" y="80" width="42" height="4" fill="#9aa3bd"/></g>
-      <text x="73" y="104" text-anchor="middle" font-size="11" fill="#3ddc84" font-weight="700">H2 退縮</text>
-      <g><rect x="130" y="54" width="34" height="26" fill="#d95b43"/><polygon points="126,54 147,38 168,54" fill="#7a2e22"/><rect x="126" y="80" width="42" height="4" fill="#9aa3bd"/></g>
-      <text x="147" y="104" text-anchor="middle" font-size="11" fill="#ff8a8a" font-weight="700">H1 坡肩</text>
-      <!-- 擋土牆與排水 -->
-      <rect x="402" y="132" width="9" height="30" fill="#c9d0e6"/><g fill="#1d2440"><rect x="404" y="140" width="5" height="3"/><rect x="404" y="150" width="5" height="3"/></g>
-      <g fill="#9a9488"><circle cx="395" cy="146" r="3"/><circle cx="389" cy="153" r="3"/><circle cx="396" cy="156" r="3"/></g>
-      <text x="408" y="124" text-anchor="middle" font-size="11" fill="#e8eeff">擋土牆</text>
-      <g stroke="#e8c27a" stroke-width="3"><line x1="420" y1="150" x2="420" y2="178"/><line x1="430" y1="150" x2="430" y2="178"/></g>
-      <text x="440" y="146" font-size="10" fill="#e8c27a">筷子頂住牆</text>
-      <!-- 房子在坡腳平地 -->
-      <g><rect x="560" y="132" width="34" height="26" fill="#d95b43"/><polygon points="556,132 577,116 598,132" fill="#7a2e22"/><rect x="556" y="158" width="42" height="4" fill="#9aa3bd"/></g>
-      <text x="577" y="110" text-anchor="middle" font-size="11" fill="#e8eeff">坡下的房子／馬路</text>
-      <path d="M250 124 q60 10 120 24" stroke="#ff5c5c" stroke-width="2.5" fill="none" stroke-dasharray="6 4"/><polygon points="366,142 378,153 362,153" fill="#ff5c5c"/>
-      <text x="300" y="112" font-size="11" fill="#ff8a8a">土石滑下</text>
-      <text x="200" y="168" font-size="11" fill="#e8eeff">岩盤（硬泡棉斜坡）</text>
-      <path d="M690 210 h-70 M624 210 l9 -6 M624 210 l9 6" stroke="#ffb44d" stroke-width="3" fill="none"/>
-      <text x="360" y="218" text-anchor="middle" font-size="12" fill="#ffb44d">左手固定外框，右手抽拉（沿著坡的方向搖）</text>
-      <text x="360" y="234" text-anchor="middle" font-size="11" fill="#93a3c9">坡約 30°：平台 → 斜坡 → 坡腳平地；每次重做土層、灑水量與抽拉次數一致</text>
-    </svg>
-    <div class="cards3">
-      <div class="mini"><h4>🧰 材料</h4>
-        <ul class="tight"><li>抽屜收納盒（整個盒子不用隔板）</li><li>硬泡棉或厚紙板（削成斜坡＋平台當岩盤）</li><li>沙加少量土、噴水瓶、量杯</li><li>積木或厚紙板（擋土牆）、礫石少許</li><li>筷子／竹籤、小房子 ×2、尺、膠帶</li></ul></div>
-      <div class="mini"><h4>🏔️ 做山坡</h4>
-        <ul class="tight"><li>岩盤固定在盒底：左邊平台、中間斜坡約 30°、右邊坡腳平地</li><li>蓋 2～3 cm 微濕的土，輕壓（不要壓太實）</li><li>用<b>噴水瓶噴 10 下</b>當「下大雨」（每次一樣）</li></ul></div>
-      <div class="mini"><h4>📏 量什麼</h4>
-        <ul class="tight"><li><b>土石滑出距離</b>：從坡腳往右量最遠的土（cm）</li><li><b>有沒有撞到坡下的房子</b>（是／否）</li><li><b>坡上房子</b>位移、傾斜、有沒有跟著滑</li></ul></div>
-    </div>
-    <h3>兩個問題、六組對照</h3>
-    <table>
-      <tr><th>組別</th><th>驗證什麼</th><th>做法（其他條件相同）</th><th>你覺得會…</th></tr>
-      <tr><td>S1</td><td rowspan="3">擋土牆有用嗎？</td><td>坡腳<b>沒有</b>牆</td><td>土石衝到坡下房子</td></tr>
-      <tr><td>S2</td><td>坡腳放<b>擋土牆</b>（積木／厚紙板）</td><td>擋住大部分，滑出距離變短</td></tr>
-      <tr><td>S3</td><td>擋土牆＋<b>牆後鋪礫石排水</b>＋筷子頂住牆腳</td><td>牆比較不會被推倒或越過</td></tr>
-      <tr><td>H1</td><td rowspan="3">房子怎麼蓋比較防震？</td><td>房子蓋在<b>坡肩</b>邊緣、直接放</td><td>最先跟著滑、傾斜</td></tr>
-      <tr><td>H2</td><td>房子<b>往後退縮</b>（離坡肩至少 2～3 倍土層厚度）</td><td>比 H1 穩</td></tr>
-      <tr><td>H3</td><td>房子在坡肩，但<b>筷子樁插穿土層到岩盤</b></td><td>土滑了，房子仍站得住（比 H1 好）</td></tr>
-    </table>
-    <div class="note"><b>注意：</b>每次搖晃前都要<b>重做土層、重新噴水</b>。S 組要比「滑出距離」，所以坡上不放房子；H 組要比「房子位移」，所以坡腳不放牆。一次只改一個條件，每組做 3 次。</div>
-    <h3>我的實驗記錄（滑出距離／房子位移 cm）</h3>
-    <table id="liqRec2">
-      <tr><th>組別</th><th>第 1 次</th><th>第 2 次</th><th>第 3 次</th><th>平均</th></tr>
-    </table>
-    <h3>結果怎麼解釋</h3>
-    <ul class="tight">
-      <li><b>擋土牆的功能</b>：擋住滑下來的土、縮短滑出距離，保護坡下的房子和馬路。但牆<b>不是萬能</b>：土石量太大或牆太矮會被越過；牆後積水會產生水壓把牆推倒，所以真正的擋土牆要有<b>排水孔</b>和牆後碎石排水層（S3 的礫石）。</li>
-      <li><b>下雨＋地震是最危險的組合</b>：水讓土變重、也讓摩擦力變小（分頁②的「地下水位比」），再被地震一搖，安全係數 FS 就掉到 1 以下。</li>
-      <li><b>怎麼蓋比較防震</b>：① 不蓋在<b>坡肩</b>和<b>坡腳</b>，要退縮；② 基礎（樁）要<b>穿過鬆軟的表土、進到堅硬岩盤</b>；③ 做好<b>排水</b>，不要讓水積在坡裡；④ 房子<b>輕、方正、對稱</b>；⑤ 不要在填土、陡坡上亂挖亂切。</li>
-      <li>這是<b>桌上簡化模型</b>：土壤顆粒、坡度和水量跟真實山坡差很多，只能看出趨勢，不能用來決定真實的蓋房子位置。</li>
+      <li><b>盒子</b>：整個 PET 掀蓋盒都做成<b>液化土</b>（底下硬層＋鬆沙＋水），<b>不用隔板</b>，房子放在正中間。搖晃方向＝盒子長邊（23.5 cm）。</li>
+      <li><b>房子兩種</b>，外型完全一樣：<b>A 沒有樁</b>（底板直接放在沙上）、<b>B 有筷子樁</b>（底板下插 <span id="mPileN">5</span> 根筷子，穿過沙層插進硬層）。</li>
+      <li><b>重量要一樣</b>：兩棟都用廚房秤加硬幣調到同一個總重（預設 <b id="mMass">120</b> g），唯一不同的只有「有沒有樁」。</li>
+      <li><b>兩組條件要一樣</b>：兩個盒子的沙層、水量、搖法都相同；只有一個盒子就輪流做，每次都要重鋪土。</li>
+      <li><b>兩個小工具讓每次都一樣</b>：①「刮板」靠在盒緣刮平，硬層、沙層每次都同樣厚；②「搖晃滑軌」限制盒子只能來回滑 <b id="mTravel">20</b> mm。</li>
     </ul>
   </div>
 
   <div class="card">
-    <h2>案例一為什麼會這樣？</h2>
-    <ul class="tight">
-      <li><b>什麼是液化</b>：沙粒之間靠互相擠壓產生摩擦力撐住房子。飽含水的鬆沙被地震一搖，沙粒想靠緊，水卻被困住，<b>水壓升高</b>、沙粒被「推開」，沙就像泥漿一樣沒有承載力。這時房子會下沉、傾斜，噴沙冒水就是「水把沙帶出地面」。</li>
-      <li><b>哪裡容易液化</b>：<b>鬆散的沙</b> + <b>地下水位淺</b> + <b>夠強、夠久的搖晃</b>，三個條件同時成立（河岸、海埔新生地、填土區）。<b>緊密的土或乾的土</b>不會。</li>
-      <li><b>為什麼筷子（樁）有用</b>：樁穿過會液化的沙層，把房子的重量<b>傳到底下堅硬地層</b>，沙層變軟也不影響。樁<b>太短、沒碰到硬層</b>就只剩沙層的摩擦力，沙一液化就沒用了。</li>
-      <li><b>其他對策</b>：把鬆沙壓密或換成礫石（地盤改良）、降低地下水位、做排水（碎石樁）、讓房子輕一點。</li>
-      <li>模型用簡化的 <b>CSR／CRR 安全係數</b>判斷液化：CSR = 0.65·(a/g)·(σᵥ/σ′ᵥ)、CRR 隨緊密度上升，FS = CRR/CSR 越小越容易液化；孔隙水壓比 r<sub>u</sub> 越接近 1，土的承載力就越接近 0。⚠ 這是<b>教學簡化模型</b>，不能用來做真實地基設計。</li>
-    </ul>
+    <h2>材料清單（數量依目前尺寸自動計算）</h2>
+    <div class="tblwrap"><table id="matTbl"></table></div>
+    <div class="note"><b>你買的石英砂 #3（60 目）適合嗎？</b> 60 目篩孔約 <b>0.25 mm</b>，落在液化最敏感的細砂範圍（0.1～0.5 mm），而且是石英、不黏，<b>很適合</b>。第一次用先洗到水清、晾乾或直接濕用。</div>
+  </div>
+
+  <div class="card">
+    <h2>中空板裁切小技巧</h2>
+    <div class="cards3">
+      <div class="mini"><h4>✂️ 實線＝切斷</h4><ul class="tight"><li>美工刀＋鐵尺，墊切割墊，分 2～3 刀切斷，不要一刀用力</li><li>先把紙模（列印 100%）用口紅膠貼在板上，沿線切</li></ul></div>
+      <div class="mini"><h4>〰️ 紅虛線＝半切後摺</h4><ul class="tight"><li>只切斷<b>表面一層</b>，<b>底下那層不要切斷</b></li><li>摺線都和<b>楞向（板內的直條孔）平行</b>，順著楞切很好摺</li><li>往「沒切的那一面」摺，切口會張開</li></ul></div>
+      <div class="mini"><h4>💧 中空板會吸水進孔裡</h4><ul class="tight"><li>碰到沙、水的邊（隔板、底板）用<b>防水膠帶或熱熔膠封住切口</b></li><li>中空板很輕又會浮，房子一定要<b>放配重</b>，不然液化時會浮起來</li></ul></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>做法步驟</h2>
+    <ol class="tight" style="padding-left:20px">
+      <li><b>量盒子</b>：量內長、內寬、內深（盒子有拔模斜度，量<b>底部</b>），填到「② 裁切設計圖」上方欄位，圖會自動更新。</li>
+      <li><b>做房子 ×2</b>：每棟 2 片 W 牆片（摺成 L 型）＋1 片 R 屋頂。兩個 L 對扣成方框，舌片黏在另一片山牆內側，屋頂摺好黏上（建議屋頂<b>一邊用膠帶當鉸鏈</b>，方便放配重）。</li>
+      <li><b>做底板</b>：A 房子用 P 底板＋K 補強方塊；B 房子用 C 樁底板＋K2 補強方塊。方塊黏在底板中央，房子方框套在方塊外圍黏死。底板切口用防水膠帶封住。</li>
+      <li><b>插筷子（B 房子）</b>：C 底板和 K2 黏好後一起鑽孔，筷子<b>細頭朝下</b>從上面穿過去，頂端和方塊齊平，熱熔膠上下各補一圈。筷子要互相平行、垂直底板。</li>
+      <li><b>配重</b>：房子放上秤，在房子裡加硬幣（10 元硬幣約 7.5 g）到兩棟總重一樣，用膠帶固定。</li>
+      <li><b>鋪土</b>：盒底鋪硬層（礫石或黏土壓實），用<b>刮板①</b>刮平；沙鬆鬆倒入不要壓，用<b>刮板②</b>刮平；沿盒壁慢慢加水到剛好淹到沙面，靜置 1 分鐘。</li>
+      <li><b>放房子</b>：A 輕輕放在沙面正中央；B 對準中央，筷子垂直往下壓，壓到<b>底板貼到沙面、筷子碰到硬層</b>。</li>
+      <li><b>搖、量</b>：盒子放進滑軌，左右推到撞擋塊算 1 下，搖 10 下，量下沉 mm、看傾斜。每組做 3 次，每次重鋪土。</li>
+    </ol>
   </div>
 </section>
 
+<!-- ============ ② 裁切設計圖 ============ -->
+<section class="page" id="pg-cut">
+  <div class="card">
+    <h2>怎麼看裁切圖（單位：公分）</h2>
+    <div class="kid">
+      <div><i style="border-color:#e8f4ff"></i><b>白色實線</b>：用美工刀切斷（請大人陪同）</div>
+      <div><i style="border-color:#ff6b6b;border-top-style:dashed"></i><b>紅色虛線</b>：輕輕劃一刀、<b>不要切斷</b>，再摺</div>
+      <div><span class="kar">↕</span><b>綠色箭頭「紋路」</b>：中空板裡面一條一條小孔的方向，零件要照箭頭方向畫</div>
+      <div><span class="kar" style="color:#ffd27a">5</span><b>黃色數字</b>：長度，單位是<b>公分</b></div>
+      <div><span class="kar">○</span><b>圓圈</b>：要挖洞（請大人幫忙）</div>
+    </div>
+    <div class="row">
+      <button class="btn" id="btnPrint">🖨 列印紙模（A4，實際大小）</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="inPrintAsm" checked> 一起列印 A、B 房子組裝圖（各 1 頁）</label>
+    <label class="chk"><input type="checkbox" id="inPrintAdv"> 列印時也印「大人幫忙做」的零件（刮板、擋塊）</label>
+    <div class="note">列印時請選<b>「實際大小／100%」</b>，不要選「調整成頁面大小」。每頁最下面有一條 10 公分的線，印出來先用尺量一下對不對。把紙模剪下來貼在中空板上，沿著線切就好。</div>
+    <details class="adv"><summary>大人：調整尺寸（mm，先量盒子再改）</summary>
+      <div class="params" id="params"></div>
+      <div id="warns"></div>
+      <div class="row"><button class="btn sec" id="btnReset">↺ 恢復預設</button></div>
+    </details>
+  </div>
 
+  <div class="card">
+    <h2>零件裁切圖</h2>
+    <div id="pieceGroups"></div>
+  </div>
+
+  <div class="card">
+    <h2>零件清單</h2>
+    <div class="tblwrap"><table id="cutTbl"></table></div>
+  </div>
+
+  <div class="card">
+    <h2>整張中空板排版圖（給大人參考）</h2>
+    <div class="dim" style="font-size:12px">零件已依楞向擺放（有摺線的零件，摺線一定跟楞向平行）。零件之間留 6 mm 給刀口。</div>
+    <div id="nestInfo" class="row"></div>
+    <div id="nestSheets"></div>
+  </div>
+</section>
+
+<!-- ============ ③ 模擬 ============ -->
+<section class="page" id="pg-sim">
+  <div class="grid two">
+    <div class="card">
+      <h2>實驗配置 3D 模擬圖</h2>
+      <canvas id="cv3d" height="460"></canvas>
+      <div class="dim" style="font-size:12px;margin-top:6px">拖曳旋轉、滾輪縮放。整盒都是液化土（鬆沙＋水），房子放在正中央。</div>
+      <div class="row">
+        <button class="btn" id="btnShake">⚡ 搖 10 下</button>
+        <button class="btn sec" id="btnSimReset">↺ 復原</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>要看哪一組</h2>
+      <div class="seg" id="segFound">
+        <button data-f="both" class="on">兩盒並排比較</button>
+        <button data-f="N">A 沒有樁</button>
+        <button data-f="Y">B 筷子樁</button>
+      </div>
+      <div class="kv" id="simKv"></div>
+      <div class="note">液化的沙像密度約 1.9 的濃泥漿。沒有樁的房子最多沉到「排開的泥漿重量＝房子重量」就停（像船浮著）；筷子樁碰到硬層，重量傳到硬層，幾乎不沉。數字是依此估算的<b>預期趨勢</b>，實際以你量的為準。</div>
+      <label class="fld">鏡頭</label>
+      <div class="seg" id="segView">
+        <button data-v="iso" class="on">斜上方</button>
+        <button data-v="front">正面</button>
+        <button data-v="top">俯視</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>側面剖面（量下沉用）</h2>
+    <canvas id="cvSec" height="360"></canvas>
+    <div class="legend" style="gap:12px">
+      <span><b style="color:#5b5f6e">■</b> 硬層</span><span><b style="color:#cdaa69">■</b> 鬆沙</span><span><b style="color:#3c82e6">■</b> 水</span><span><b style="color:#e8c27a">■</b> 筷子樁</span><span><b style="color:#f5ecd7">■</b> 中空板房子</span>
+    </div>
+  </div>
+  <div class="card">
+    <h2>實驗記錄（下沉 mm）</h2>
+    <div class="tblwrap"><table id="recTbl"></table></div>
+  </div>
+</section>
+
+<!-- ============ ④ 組裝 ============ -->
+<section class="page" id="pg-asm">
+  <div class="grid two">
+    <div class="card">
+      <h2>房子組裝爆炸圖</h2>
+      <canvas id="cvAsm" height="460"></canvas>
+      <label class="fld">展開程度：<b id="vEx">0.60</b></label>
+      <input type="range" id="inEx" min="0" max="1" step="0.01" value="0.6">
+    </div>
+    <div class="card">
+      <h2>房子種類</h2>
+      <div class="seg" id="segAsm">
+        <button data-f="N" class="on">A 沒有樁</button>
+        <button data-f="Y">B 筷子樁</button>
+      </div>
+      <h3>重量與壓力（估算）</h3>
+      <div class="tblwrap"><table id="massTbl"></table></div>
+      <div class="note">估算用中空板面密度（可在 ② 調整），熱熔膠也有重量，<b>最後一律以廚房秤為準</b>補硬幣，兩棟要一樣重。</div>
+      <h3>組裝順序</h3>
+      <ol class="tight" style="padding-left:20px">
+        <li>W 牆片沿紅虛線半切，摺成 L（山牆＋側牆）。</li>
+        <li>兩個 L 對扣成方框，舌片塗熱熔膠黏在對面山牆內側。</li>
+        <li>R 屋頂沿中線半切摺成 ∧，架在兩片山牆斜邊上；一邊黏死、一邊貼膠帶當門。</li>
+        <li>底板中央黏 K（或 K2）補強方塊；房子方框套在方塊外圍，熱熔膠黏死在底板上。</li>
+        <li>B 房子：C 底板＋K2 一起鑽孔，筷子細頭朝下穿過，頂端和方塊齊平，熱熔膠上下補一圈。</li>
+        <li>打開屋頂放硬幣配重，秤到目標總重。</li>
+      </ol>
+    </div>
+  </div>
+</section>
 </main>
-<footer>
-  數值皆為<b>教學用簡化模型</b>（CSR／CRR 液化判斷、孔隙水壓比、承載力），用於理解物理趨勢，
-  不可作為工程設計或災害潛勢評估依據。
-</footer>
-<script>
-window.addEventListener('error', function(e){
-  document.body.dataset.jserr = (e.message||'') + ' @' + (e.lineno||'?');
-});
-</script>
-<script>
-"use strict";
-const $ = s => document.querySelector(s);
-const $$ = s => Array.from(document.querySelectorAll(s));
-const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
-const G = 9.80665;
+<footer>教學用桌上模型；尺寸可依實際材料調整。預設盒內尺寸為估計值，請以實際量測為準。</footer>
+<div id="printArea"></div>
 
-function fit(cv){
-  const dpr = Math.min(2, window.devicePixelRatio||1);
-  const w = cv.clientWidth || 600;
-  // 邏輯高度只在第一次從 height 屬性讀，之後記在 dataset：
-  // cv.height 就是 height 屬性，寫回去後再讀會被 dpr 反覆放大而不斷抽動
-  if (!cv.dataset.cssH) cv.dataset.cssH = String(parseInt(cv.getAttribute('height'),10) || 360);
-  const h = +cv.dataset.cssH;
-  const bw = Math.round(w*dpr), bh = Math.round(h*dpr);
-  const ctx = cv.getContext('2d');
-  // 尺寸沒變就別重設 width/height（重設會清空 backing store 並觸發重新配置）
-  if (cv.width !== bw || cv.height !== bh){
-    cv.width = bw; cv.height = bh;
-    cv.style.height = h+'px';
-  }
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  return {ctx, w, h};
+<script>
+'use strict';
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const f1=x=>{const r=Math.round(x*10)/10;return (Object.is(r,-0)?0:r).toString();};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ---------------- 參數 ---------------- */
+const DEF={BLi:225,BWi:165,BHi:88,BLo:235,BWo:175,t:3,s:50,eh:40,rh:20,tab:10,ov:5,hard:20,sand:45,embed:10,pd:6,
+  travel:20,mass:120,gsm:500,sheetW:600,sheetH:900,sheetFlute:'v'};
+const FIELDS=[['BLi','盒內長 mm（底部）'],['BWi','盒內寬 mm（底部）'],['BHi','盒內深 mm'],['BLo','盒底外長 mm'],['BWo','盒底外寬 mm'],
+  ['t','中空板厚 mm'],['s','房子寬 mm'],['eh','牆高 mm'],['hard','硬層厚 mm'],['sand','沙層厚 mm'],['embed','筷子插入硬層 mm'],['pd','筷子粗 mm'],
+  ['mass','每棟總重 g'],['travel','搖晃行程 mm'],['gsm','中空板面密度 g/m²'],['sheetW','板材寬 mm'],['sheetH','板材長 mm'],['sheetFlute','板材楞向']];
+const PILES=[[-15,-15],[15,-15],[0,0],[-15,15],[15,15]];   // 筷子位置（相對底板中心，梅花形 5 根）
+let P={...DEF};
+try{const sv=JSON.parse(localStorage.getItem('hb2_params')||'null'); if(sv) P={...DEF,...sv};}catch(e){}
+
+function derive(){
+  const d={...P};
+  d.a=P.s-2*P.t;                 // 補強方塊（=牆內徑）
+  d.p=P.s+10;                    // 底板（四周比牆多 0.5 公分）
+  d.slope=Math.hypot(P.s/2,P.rh);
+  d.roofH=Math.ceil(2*(d.slope+P.ov)/5)*5;      // 進位到 0.5 公分，小朋友好量
+  d.pileTotal=Math.round((P.sand+P.embed+2*P.t)/5)*5; d.pileBelow=d.pileTotal-2*P.t;
+  d.hole=Math.round((P.pd+0.5)*10)/10;
+  d.surf=P.hard+P.sand;
+  d.free=P.BHi-d.surf;
+  d.Lt=P.BLo+P.travel+60; d.Wt=P.BWo+4+50;
+  return d;
 }
 
-/* =======================================================================
-   ⑦ 液化與地基
-   ======================================================================= */
-// 液化判斷：CSR = 0.65·(a/g)·(σv/σ'v)；CRR 隨相對密度 Dr 上升；FS = CRR/CSR
-// 孔隙水壓比 ru_max：FS≥1.3 不液化，FS≤0.4 完全液化；含水不足（未飽和）則不會液化
-function liqFS(pga, Dr, sat){
-  const CSR = 0.65 * pga * (1 + 0.7*clamp(sat,0,1));
-  const CRR = 0.05 + 0.4*Dr*Dr;
-  return CRR / CSR;
-}
-function liqRuMax(pga, Dr, sat){
-  const satF = clamp((sat-0.3)/0.5, 0, 1);
-  return clamp((1.3 - liqFS(pga,Dr,sat))/0.9, 0, 1) * satF;
-}
-// 承載力（以「房子重量」為單位）：土的有效應力 ∝ (1−ru)；樁穿到硬層才有端承
-function liqCapacity(found, ru, T, L){
-  const soil = 1 - ru;
-  if (found === 'raft')  return 5.0*soil + 0.6;
-  if (found === 'pile'){
-    const friction = 3.0 * soil * Math.min(L, T) / T;
-    const end = L >= T ? 6.0 : 0;
-    return friction + end + 0.6;
-  }
-  return 3.2*soil + 0.05;
-}
-// 房子反應：承載力不夠 → 下沉；底板窄、沒樁 → 傾斜較大
-function liqResponse(found, ru, W, T, L){
-  const C = liqCapacity(found, ru, T, L), r = W / C;
-  const sink = Math.min(3, r <= 1 ? 0.02*r : 0.02 + 0.9*Math.pow(r-1, 0.8));
-  const tf = found==='raft' ? 0.5 : found==='pile' ? (L>=T ? 0.35 : 0.7) : 1;
-  return {C, r, sink, tilt: Math.min(18, sink*7*tf)};
-}
-const LQ = {
-  found:'shallow', L:9, W:2, pga:0.35, Dr:0.3, sat:1, T:6,
-  t:0, shaking:false, dur:12, done:false, parts:[],
-  side:[ {ru:0,sink:0,tilt:0,ruMax:0}, {ru:0,sink:0,tilt:0,ruMax:0} ]
-};
-const LQ_SIDES = () => [ {Dr:0.8, sat:0.2}, {Dr:LQ.Dr, sat:LQ.sat} ];
-function liqEnv(t){ return t<1 ? t : t>LQ.dur-3 ? Math.max(0,(LQ.dur-t)/3) : 1; }
-function liqGround(t){ return liqEnv(t)*(Math.sin(2*Math.PI*1.4*t) + 0.5*Math.sin(2*Math.PI*2.6*t+1)); }
-function liqReset(){
-  LQ.t=0; LQ.shaking=false; LQ.done=false; LQ.parts=[];
-  LQ.side.forEach(s=>{s.ru=0;s.sink=0;s.tilt=0;s.ruMax=0;});
-  liqUi();
-}
-function stepLiq(dt){
-  if (!LQ.shaking) return;
-  LQ.t += dt;
-  const sd = LQ_SIDES();
-  LQ.side.forEach((s,i)=>{
-    s.ruMax = liqRuMax(LQ.pga, sd[i].Dr, sd[i].sat);
-    if (LQ.t < LQ.dur-1) s.ru += (s.ruMax - s.ru)*(1-Math.exp(-dt*0.35));
-    const r = liqResponse(LQ.found, s.ru, LQ.W, LQ.T, LQ.L);
-    s.sink += (Math.max(s.sink, r.sink) - s.sink)*Math.min(1, dt*3);
-    s.tilt += (Math.max(s.tilt, r.tilt) - s.tilt)*Math.min(1, dt*3);
+/* ---------------- 零件定義（座標 mm，y 向下，外框都在 0..w,0..h） ---------------- */
+function rect(w,h){return [[0,0],[w,0],[w,h],[0,h]];}
+function pieces(d){
+  const s=d.s,eh=d.eh,rh=d.rh,tab=d.tab,H=eh+rh,L=[],hr=d.hole/2;
+  L.push({id:'W',grp:'房子（A、B 兩棟都一樣）',name:'牆壁',qty:4,w:2*s+tab,h:H,flute:'v',fa:[s/2,rh+eh*.5],
+    outline:[[0,rh],[s/2,0],[s,rh],[2*s,rh],[2*s+tab,rh+3],[2*s+tab,H-3],[2*s,H],[0,H]],
+    folds:[[s,rh,s,H],[2*s,rh,2*s,H]],
+    dims:[[0,H,s,H,1],[s,H,2*s,H,1],[0,0,0,H,-1],[2*s+tab,rh,2*s+tab,H,1]],
+    texts:[[1.5*s,rh+eh*.45,'側牆'],[2*s+tab/2+.5,rh+eh*.5,'黏']],
+    note:'紅虛線輕輕劃一刀（<b>不要切斷</b>），往後摺成 L 形。兩片 L 合起來就是一棟房子的 4 面牆，所以 2 棟要做 4 片。'});
+  L.push({id:'R',grp:'房子（A、B 兩棟都一樣）',name:'屋頂',qty:2,w:s+2*d.ov,h:d.roofH,flute:'h',fa:[(s+2*d.ov)/2,d.roofH*.25],
+    outline:rect(s+2*d.ov,d.roofH),folds:[[0,d.roofH/2,s+2*d.ov,d.roofH/2]],
+    dims:[[0,d.roofH,s+2*d.ov,d.roofH,1],[s+2*d.ov,0,s+2*d.ov,d.roofH,1]],texts:[[(s+2*d.ov)/2,d.roofH*.75,'中間摺']],
+    note:'中間的紅虛線輕輕劃一刀，摺成「∧」蓋在牆上。每棟 1 片。'});
+  L.push({id:'P',grp:'A 房子（沒有樁）',name:'A 的底板',qty:1,w:d.p,h:d.p,flute:'any',outline:rect(d.p,d.p),
+    marks:[{r:[(d.p-s)/2,(d.p-s)/2,s,s]}],dims:[[0,d.p,d.p,d.p,1],[d.p,0,d.p,d.p,1]],texts:[[d.p/2,d.p/2+2,'牆放這裡']],
+    note:'綠虛線是牆壁要放的位置。'});
+  L.push({id:'K',grp:'A 房子（沒有樁）',name:'A 的小方塊',qty:1,w:d.a,h:d.a,flute:'any',outline:rect(d.a,d.a),
+    dims:[[0,d.a,d.a,d.a,1],[d.a,0,d.a,d.a,1]],note:'黏在底板正中間，牆壁剛好圍住它，房子才不會歪。'});
+  const ch=PILES.map(([x,z])=>[d.p/2+x,d.p/2+z,hr]);
+  L.push({id:'C',grp:'B 房子（筷子樁）',name:'B 的底板（5 個洞）',qty:1,w:d.p,h:d.p,flute:'any',outline:rect(d.p,d.p),holes:ch,
+    dims:[[0,d.p,d.p,d.p,1],[d.p,0,d.p,d.p,1],[0,d.p,d.p/2-15,d.p,2.3],[d.p/2-15,d.p,d.p/2+15,d.p,2.3]],
+    note:'圓圈是筷子的洞（請大人幫忙鑽，或用竹籤先戳再慢慢擴大）。'});
+  const kh=PILES.map(([x,z])=>[d.a/2+x,d.a/2+z,hr]);
+  L.push({id:'K2',grp:'B 房子（筷子樁）',name:'B 的小方塊（5 個洞）',qty:1,w:d.a,h:d.a,flute:'any',outline:rect(d.a,d.a),holes:kh,
+    dims:[[0,d.a,d.a,d.a,1],[d.a,0,d.a,d.a,1]],note:'先不要挖洞！黏在 B 底板正中間，再從底板的洞戳過來，洞就會對齊。'});
+  const sw=d.BWo+30, tw=d.BWi-4;
+  [['S1','刮板①（刮硬層）',d.BHi-d.hard],['S2','刮板②（刮沙層）',d.BHi-d.surf]].forEach(([id,nm,dep])=>{
+    const x0=(sw-tw)/2,x1=x0+tw;
+    L.push({id,grp:'adv',name:nm,qty:1,w:sw,h:25+dep,flute:'h',
+      outline:[[0,0],[sw,0],[sw,25],[x1,25],[x1,25+dep],[x0,25+dep],[x0,25],[0,25]],
+      dims:[[0,25+dep,sw,25+dep,2.2],[x0,25+dep,x1,25+dep,1],[sw,25,sw,25+dep,1],[sw,0,sw,25,1]],
+      texts:[[sw/2,13,'肩靠盒緣'],[sw/2,25+dep/2,'↓ 刮到'+(id==='S1'?'硬層':'沙')+'面']],
+      note:'兩肩架在盒子前後緣上，沿長邊從一頭推到另一頭，'+(id==='S1'?'硬層刮成 '+d.hard:'沙面刮到 '+d.surf)+' mm（從盒底算）。兩個盒子共用。'});
   });
-  // 噴沙冒水粒子
-  const s1 = LQ.side[1];
-  if (s1.ru > 0.55 && LQ.parts.length < 80 && Math.random() < s1.ru*0.6)
-    LQ.parts.push({x:Math.random(), y:0, vy:-(40+Math.random()*60), life:1});
-  LQ.parts.forEach(p=>{ p.y += p.vy*dt; p.vy += 220*dt; p.life -= dt*0.9; });
-  LQ.parts = LQ.parts.filter(p=>p.life>0);
-  if (LQ.t >= LQ.dur){ LQ.shaking=false; LQ.done=true; liqUi(); }
-}
-function liqRun(opts){                   // 無畫面跑完整模擬（測試用）
-  Object.assign(LQ, opts||{});
-  liqReset(); LQ.shaking = true;
-  while (LQ.shaking) stepLiq(0.02);
-  return LQ.side.map(s=>({ru:s.ru, sink:s.sink, tilt:s.tilt, ruMax:s.ruMax}));
+  const Lt=d.Lt,Wt=d.Wt,gi=25,si=(Lt-(d.BLo+d.travel))/2;
+  L.push({id:'T',grp:'adv',name:'滑軌底座',qty:1,w:Lt,h:Wt,flute:'any',outline:rect(Lt,Wt),big:true,
+    marks:[{r:[0,gi-15,Lt,15]},{r:[0,gi+d.BWo+4,Lt,15]},{r:[si-15,gi,15,d.BWo+4]},{r:[Lt-si,gi,15,d.BWo+4]},
+      {r:[si,gi+2,d.BLo,d.BWo],t:'盒子（靠左擋塊）'},{l:[si+d.BLo+d.travel,gi,si+d.BLo+d.travel,gi+d.BWo+4]}],
+    dims:[[0,Wt,Lt,Wt,1],[Lt,0,Lt,Wt,1],[si,gi+d.BWo+4,si+d.BLo+d.travel,gi+d.BWo+4,-1.4],[0,gi,0,gi+d.BWo+4,-1]],
+    note:'G 導軌黏前後兩條、F 擋塊黏左右兩條（虛線位置），擋塊內距＝盒長＋行程 '+d.travel+' mm。'});
+  L.push({id:'G',grp:'adv',name:'導軌（摺成 L）',qty:2,w:Lt,h:30,flute:'h',outline:rect(Lt,30),folds:[[0,15,Lt,15]],big:true,
+    dims:[[0,30,Lt,30,1],[Lt,0,Lt,15,1],[Lt,0,Lt,30,2.2]],note:'一半黏在底座，一半立起來擋住盒子側邊。'});
+  L.push({id:'F',grp:'adv',name:'擋塊（摺成 L）',qty:2,w:d.BWo+4,h:30,flute:'h',outline:rect(d.BWo+4,30),folds:[[0,15,d.BWo+4,15]],
+    dims:[[0,30,d.BWo+4,30,1],[d.BWo+4,0,d.BWo+4,30,1]],note:'盒子撞到擋塊＝1 個行程，來回算 1 下。'});
+  return L;
 }
 
-const cvL = $('#cvLiq');
-function drawLiq(){
-  const {ctx, w, h} = fit(cvL);
-  ctx.clearRect(0,0,w,h);
-  const pw = w/2, sy = 110, sc = Math.min(17, 190/LQ.T), sandBot = sy + LQ.T*sc, bot = h-6;
-  const gx = liqGround(LQ.t) * LQ.pga * 22 * (LQ.shaking?1:0);
-  const sd = LQ_SIDES();
-  for (let i=0;i<2;i++){
-    const x0 = i*pw + 8, bw = pw - 16, s = LQ.side[i], ru = s.ru;
-    ctx.save();
-    ctx.translate(gx, 0);
-    // 硬層
-    ctx.fillStyle = '#5b5f6e'; ctx.fillRect(x0, sandBot, bw, bot-sandBot);
-    ctx.fillStyle = '#74798b';
-    for (let k=0;k<26;k++){ ctx.fillRect(x0+((k*53)%bw), sandBot+((k*31)%Math.max(8,bot-sandBot)), 6, 4); }
-    // 沙層：越液化越暗、越濕
-    const r1 = Math.round(205-70*ru), g1 = Math.round(170-30*ru), b1 = Math.round(105+30*ru);
-    ctx.fillStyle = 'rgb('+r1+','+g1+','+b1+')'; ctx.fillRect(x0, sy, bw, sandBot-sy);
-    // 水位（含水程度）
-    const wy = sy + (1 - sd[i].sat)*(sandBot-sy);
-    if (sd[i].sat > 0.02){
-      ctx.fillStyle = 'rgba(60,130,230,'+(0.22+0.2*ru)+')'; ctx.fillRect(x0, wy, bw, sandBot-wy);
-      ctx.strokeStyle = 'rgba(120,190,255,.9)'; ctx.setLineDash([5,4]);
-      ctx.beginPath(); ctx.moveTo(x0, wy); ctx.lineTo(x0+bw, wy); ctx.stroke(); ctx.setLineDash([]);
-    }
-    // 沙粒（液化時亂跳）
-    ctx.fillStyle = 'rgba(90,60,25,.55)';
-    for (let k=0;k<90;k++){
-      const px = x0 + ((k*67)%bw) + Math.sin(LQ.t*9+k)*ru*5;
-      const py = sy + 4 + ((k*41)%Math.max(10,(sandBot-sy-8))) + Math.cos(LQ.t*8+k*2)*ru*5;
-      ctx.fillRect(px, py, 3, 3);
-    }
-    // 標籤
-    ctx.fillStyle = '#e8eeff'; ctx.font = 'bold 13px sans-serif';
-    ctx.fillText(i===0 ? '正常土（緊密、乾）' : '液化土（鬆沙＋水）', x0+4, 18);
-    ctx.fillStyle = '#93a3c9'; ctx.font = '11px sans-serif';
-    ctx.fillText('硬層', x0+4, bot-6);
-    // 房子（含地基）
-    const hw = 84, hx = x0 + bw/2, baseY = sy + s.sink*sc;
-    ctx.save();
-    ctx.translate(hx, baseY); ctx.rotate(s.tilt*Math.PI/180*(i===1?1:0.6));
-    const slabW = LQ.found==='raft' ? 138 : hw;
-    if (LQ.found==='pile'){
-      const n = 5, len = LQ.L*sc;
-      ctx.strokeStyle = '#e8c27a'; ctx.lineWidth = 3;
-      for (let k=0;k<n;k++){
-        const px = -hw/2+6 + k*(hw-12)/(n-1);
-        ctx.beginPath(); ctx.moveTo(px, 4); ctx.lineTo(px, 4+len); ctx.stroke();
+/* ---------------- 零件 SVG ---------------- */
+let clipN=0;
+function pieceGroup(p,fs,opt={}){
+  const parts=[],bb=[0,0,p.w,p.h];
+  const ext=(x,y)=>{bb[0]=Math.min(bb[0],x);bb[1]=Math.min(bb[1],y);bb[2]=Math.max(bb[2],x);bb[3]=Math.max(bb[3],y);};
+  const pts=p.outline.map(q=>q.map(f1).join(',')).join(' ');
+  const cid='cp'+(clipN++);
+  parts.push(`<clipPath id="${cid}"><polygon points="${pts}"/></clipPath>`);
+  parts.push(`<polygon class="cut" points="${pts}"/>`);
+  if(p.flute!=='any'&&opt.dims===false){
+    let fl='';const step=4;
+    if(p.flute==='v') for(let x=step;x<p.w;x+=step) fl+=`M${f1(x)} 0V${f1(p.h)}`;
+    else for(let y=step;y<p.h;y+=step) fl+=`M0 ${f1(y)}H${f1(p.w)}`;
+    parts.push(`<path class="flute" clip-path="url(#${cid})" d="${fl}"/>`);
+  }
+  (p.marks||[]).forEach(m=>{
+    if(m.r) parts.push(`<rect class="mark" x="${f1(m.r[0])}" y="${f1(m.r[1])}" width="${f1(m.r[2])}" height="${f1(m.r[3])}"/>`);
+    if(m.l) parts.push(`<line class="mark" x1="${f1(m.l[0])}" y1="${f1(m.l[1])}" x2="${f1(m.l[2])}" y2="${f1(m.l[3])}"/>`);
+    if(m.t&&opt.dims!==false){const x=m.r?m.r[0]+m.r[2]/2:(m.l[0]+m.l[2])/2,y=m.r?m.r[1]+m.r[3]/2+fs*.35:m.l[1]-fs*.35;
+      parts.push(`<text class="mt" x="${f1(x)}" y="${f1(y)}" font-size="${f1(fs*.85)}" text-anchor="middle">${m.t}</text>`);}
+  });
+  (p.folds||[]).forEach(l=>parts.push(`<line class="fold" x1="${f1(l[0])}" y1="${f1(l[1])}" x2="${f1(l[2])}" y2="${f1(l[3])}"/>`));
+  (p.holes||[]).forEach(h=>parts.push(`<circle class="hole" cx="${f1(h[0])}" cy="${f1(h[1])}" r="${f1(h[2]||1.6)}"/><path class="hole" d="M${f1(h[0]-(h[2]||1.6)-1.5)} ${f1(h[1])}h${f1(2*(h[2]||1.6)+3)}M${f1(h[0])} ${f1(h[1]-(h[2]||1.6)-1.5)}v${f1(2*(h[2]||1.6)+3)}"/>`));
+  if(opt.dims!==false){
+    (p.texts||[]).forEach(t=>parts.push(`<text class="mt" x="${f1(t[0])}" y="${f1(t[1])}" font-size="${f1(fs*.85)}" text-anchor="middle">${t[2]}</text>`));
+    (p.dims||[]).forEach(([x1,y1,x2,y2,k])=>{
+      const off=k*fs*1.7, hz=Math.abs(y1-y2)<1e-6, len=hz?Math.abs(x2-x1):Math.abs(y2-y1), tx=f1(len/10)+(len>=fs*5.2?" 公分":"");
+      if(hz){const y=y1+off;ext(x1,y+(off<0?-fs:fs*.4));ext(x2,y);
+        parts.push(`<path class="dl" d="M${f1(x1)} ${f1(y1)}V${f1(y+Math.sign(off)*fs*.3)}M${f1(x2)} ${f1(y2)}V${f1(y+Math.sign(off)*fs*.3)}M${f1(x1)} ${f1(y)}H${f1(x2)}M${f1(x1)} ${f1(y-fs*.3)}l${f1(fs*.6)} ${f1(fs*.6)}M${f1(x2-fs*.6)} ${f1(y-fs*.3)}l${f1(fs*.6)} ${f1(fs*.6)}"/>`);
+        parts.push(`<text class="dt" x="${f1((x1+x2)/2)}" y="${f1(y-fs*.25)}" font-size="${f1(fs)}" text-anchor="middle">${tx}</text>`);
+      }else{const x=x1+off;ext(x-fs*1.4,y1);ext(x+fs*.4,y2);
+        parts.push(`<path class="dl" d="M${f1(x1)} ${f1(y1)}H${f1(x+Math.sign(off)*fs*.3)}M${f1(x2)} ${f1(y2)}H${f1(x+Math.sign(off)*fs*.3)}M${f1(x)} ${f1(y1)}V${f1(y2)}M${f1(x-fs*.3)} ${f1(y1+fs*.3)}l${f1(fs*.6)} ${f1(-fs*.6)}M${f1(x-fs*.3)} ${f1(y2+fs*.3)}l${f1(fs*.6)} ${f1(-fs*.6)}"/>`);
+        const cx=x-fs*.3,cy=(y1+y2)/2;
+        parts.push(`<text class="dt" x="${f1(cx)}" y="${f1(cy)}" font-size="${f1(fs)}" text-anchor="middle" transform="rotate(-90 ${f1(cx)} ${f1(cy)})">${tx}</text>`);
       }
-    }
-    ctx.fillStyle = '#9aa3bd'; ctx.fillRect(-slabW/2, 0, slabW, 8);           // 底板
-    const hh = 40 + LQ.W*16;                                                  // 越重越高大
-    ctx.fillStyle = '#d95b43'; ctx.fillRect(-hw/2+6, -hh, hw-12, hh);
-    ctx.fillStyle = '#7a2e22';
-    ctx.beginPath(); ctx.moveTo(-hw/2, -hh); ctx.lineTo(0, -hh-26); ctx.lineTo(hw/2, -hh); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#ffe9a8'; ctx.fillRect(-18, -hh+12, 14, 14); ctx.fillRect(6, -hh+12, 14, 14);
-    ctx.restore();
-    ctx.restore();
-    // 噴沙冒水
-    if (i===1 && ru>0.1){
-      ctx.fillStyle = 'rgba(95,120,150,'+Math.min(0.75,ru*0.8)+')';
-      ctx.beginPath(); ctx.ellipse(x0+bw*0.16, sy+1, 30*ru, 5, 0, 0, 7); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(x0+bw*0.84, sy+1, 24*ru, 4, 0, 0, 7); ctx.fill();
-      LQ.parts.forEach(p=>{
-        const px = x0 + bw*(p.x<0.5 ? 0.08+p.x*0.3 : 0.7+p.x*0.22);
-        ctx.fillStyle = 'rgba(150,170,190,'+Math.max(0,p.life)+')';
-        ctx.beginPath(); ctx.arc(px, sy+p.y, 2.5, 0, 7); ctx.fill();
-      });
-    }
-    // ru 水壓條
-    ctx.fillStyle = '#0d1530'; ctx.fillRect(x0+bw-92, 8, 86, 12);
-    ctx.fillStyle = ru>0.7 ? '#ff5c5c' : ru>0.35 ? '#ffcc45' : '#3ddc84';
-    ctx.fillRect(x0+bw-92, 8, 86*ru, 12);
-    ctx.fillStyle = '#e8eeff'; ctx.font = '10px sans-serif';
-    ctx.fillText('水壓 ru '+ru.toFixed(2), x0+bw-88, 18);
+    });
+    const lbl=`${p.id}　${p.name}　做 ${p.qty} 片`;
+    parts.push(`<text class="lb" x="0" y="${f1(-fs*.7)}" font-size="${f1(fs*1.1)}">${lbl}</text>`);
+    ext(0,-fs*1.9); ext(Math.min(lbl.length*fs*1.05, 1e4),0);
+    if(p.flute!=='any'){                          // 紋路箭頭：中空板裡小孔的方向
+      const [ax,ay]=p.fa||[p.w/2,p.h/2],al=Math.min(p.flute==='v'?p.h:p.w,60)*.25,hd=Math.min(fs*.6,al*.4);
+      const d=p.flute==='v'?`M${f1(ax)} ${f1(ay-al)}V${f1(ay+al)}M${f1(ax-hd)} ${f1(ay-al+hd)}L${f1(ax)} ${f1(ay-al)}L${f1(ax+hd)} ${f1(ay-al+hd)}M${f1(ax-hd)} ${f1(ay+al-hd)}L${f1(ax)} ${f1(ay+al)}L${f1(ax+hd)} ${f1(ay+al-hd)}`
+                          :`M${f1(ax-al)} ${f1(ay)}H${f1(ax+al)}M${f1(ax-al+hd)} ${f1(ay-hd)}L${f1(ax-al)} ${f1(ay)}L${f1(ax-al+hd)} ${f1(ay+hd)}M${f1(ax+al-hd)} ${f1(ay-hd)}L${f1(ax+al)} ${f1(ay)}L${f1(ax+al-hd)} ${f1(ay+hd)}`;
+      parts.push(`<path class="fa" d="${d}"/><text class="mt" x="${f1(p.flute==='v'?ax+hd+fs*.3:ax)}" y="${f1(p.flute==='v'?ay+fs*.3:ay-hd-fs*.3)}" font-size="${f1(fs*.7)}" text-anchor="${p.flute==='v'?'start':'middle'}">紋路</text>`);}
+  }else{
+    const fsz=Math.min(fs,p.h*.45,p.w*.3);
+    parts.push(`<text class="lb" x="${f1(p.w/2)}" y="${f1(p.h/2+fsz*.35)}" font-size="${f1(fsz)}" text-anchor="middle">${p.id}</text>`);
   }
-  ctx.strokeStyle = '#26345c'; ctx.beginPath(); ctx.moveTo(pw,0); ctx.lineTo(pw,h); ctx.stroke();
+  return {svg:parts.join(''),bb};
 }
-function liqUi(){
-  const sd = LQ_SIDES();
-  const fs0 = liqFS(LQ.pga, sd[0].Dr, sd[0].sat), fs1 = liqFS(LQ.pga, sd[1].Dr, sd[1].sat);
-  let kv = '<div></div><div><b>正常土　／　液化土</b></div>';
-  kv += '<div>液化安全係數 FS</div><div>'+fs0.toFixed(2)+'　／　'+fs1.toFixed(2)+(fs1<1?' ⚠':'')+'</div>';
-  kv += '<div>孔隙水壓比 ru</div><div>'+LQ.side[0].ru.toFixed(2)+'　／　'+LQ.side[1].ru.toFixed(2)+'</div>';
-  kv += '<div>下沉（公分）</div><div>'+(LQ.side[0].sink*100).toFixed(0)+'　／　'+(LQ.side[1].sink*100).toFixed(0)+'</div>';
-  kv += '<div>傾斜（度）</div><div>'+LQ.side[0].tilt.toFixed(1)+'　／　'+LQ.side[1].tilt.toFixed(1)+'</div>';
-  $('#liqKv').innerHTML = kv;
-  const a = liqResponse(LQ.found, liqRuMax(LQ.pga, sd[1].Dr, sd[1].sat), LQ.W, LQ.T, LQ.L);
-  const reach = LQ.L >= LQ.T;
-  $('#liqPileBox').style.display = LQ.found==='pile' ? '' : 'none';
-  $('#liqPileHint').innerHTML = reach ? '✔ 已插到硬層' : '✘ 沒碰到硬層（需 ≥ '+LQ.T+' m）';
-  let badge, txt;
-  if (a.sink < 0.1 && a.tilt < 1.5){ badge='b-ok'; txt='這種蓋法在這個地震下撐得住'; }
-  else if (a.sink < 0.5){ badge='b-warn'; txt='會明顯下沉傾斜，需要更好的基礎'; }
-  else { badge='b-bad'; txt='會嚴重下沉、傾倒！'; }
-  $('#liqVerdict').innerHTML = '<span class="badge '+badge+'">預估：'+txt+'</span>　<span class="dim" style="font-size:12px">（液化土最終下沉約 '+(a.sink*100).toFixed(0)+' cm）</span>';
+function placeG(g,X,Y,rot){
+  const [x0,y0,x1,y1]=g.bb;
+  return rot?`<g transform="translate(${f1(X+(y1-y0))},${f1(Y)}) rotate(90) translate(${f1(-x0)},${f1(-y0)})">${g.svg}</g>`
+            :`<g transform="translate(${f1(X-x0)},${f1(Y-y0)})">${g.svg}</g>`;
 }
-function liqBind(){
-  const seg = (sel, key, attr, num) => $$(sel+' button').forEach(b => b.onclick = () => {
-    $$(sel+' button').forEach(x=>x.classList.toggle('on', x===b));
-    LQ[key] = num ? +b.dataset[attr] : b.dataset[attr]; liqReset();
-  });
-  seg('#liqFound','found','f',false); seg('#liqWeight','W','w',true); seg('#liqDr','Dr','d',true);
-  const rng = (id,key,out,fmt) => $(id).oninput = e => {
-    LQ[key] = +e.target.value; $(out).textContent = fmt(LQ[key]); liqReset();
+
+/* ---------------- 畫面：裁切 ---------------- */
+function buildParams(){
+  $('#params').innerHTML=FIELDS.map(([k,n])=>k==='sheetFlute'
+    ?`<label>${n}<select data-k="${k}"><option value="v">沿長邊（直）</option><option value="h">沿寬邊（橫）</option></select></label>`
+    :`<label>${n}<input type="number" step="any" data-k="${k}" value="${P[k]}"></label>`).join('');
+  $('#params select').value=P.sheetFlute;
+  $$('#params [data-k]').forEach(el=>el.addEventListener('change',()=>{
+    const k=el.dataset.k; if(k==='sheetFlute') P[k]=el.value; else {const v=parseFloat(el.value); if(isFinite(v)&&v>0) P[k]=v; else el.value=P[k];}
+    try{localStorage.setItem('hb2_params',JSON.stringify(P));}catch(e){}
+    rebuild();
+  }));
+}
+$('#btnReset').onclick=()=>{P={...DEF};try{localStorage.removeItem('hb2_params');}catch(e){} buildParams();rebuild();};
+$('#btnPrint').onclick=()=>window.print();
+$('#inPrintAdv').onchange=$('#inPrintAsm').onchange=()=>{const d=derive();buildPrint(d,pieces(d));};
+
+function warnings(d){
+  const w=[];
+  if(d.free<20) w.push('沙面上方只剩 '+f1(d.free)+' mm，搖晃時水可能晃出來，建議 ≥ 20 mm（減少沙層或硬層）。');
+  if(d.p>Math.min(d.BLi,d.BWi)-60) w.push('房子底板 '+d.p+' mm 離盒壁太近（建議四周至少留 30 mm），邊界會影響結果。');
+  if(d.pileTotal>200) w.push('筷子要 '+f1(d.pileTotal)+' mm，一般免洗筷約 200 mm 不夠長。');
+  if(d.hard<15) w.push('硬層太薄，筷子插不穩，建議 ≥ 15 mm。');
+  if(d.sand<30) w.push('沙層太薄，液化效果不明顯，建議 ≥ 35 mm。');
+  return w;
+}
+
+function rebuild(){
+  const d=derive(), L=pieces(d);
+  $('#mMass').textContent=d.mass;$('#mPileN').textContent=PILES.length; $('#mTravel').textContent=d.travel;
+  const w=warnings(d);
+  $('#warns').innerHTML=w.length?`<div class="note warnbox">⚠ ${w.join('<br>⚠ ')}</div>`:'';
+  // 零件卡片
+  const groups={};L.forEach(p=>(groups[p.grp]=groups[p.grp]||[]).push(p));
+  let html='';
+  const card=p=>{
+    const fs=clamp(Math.max(p.w,p.h)/14,4,14);
+    const pg=pieceGroup(p,fs),[x0,y0,x1,y1]=pg.bb,pad=fs*.8;
+    const vb=[x0-pad,y0-pad,x1-x0+2*pad,y1-y0+2*pad].map(f1).join(' ');
+    return `<div class="pc"><svg viewBox="${vb}">${pg.svg}</svg><div class="cap">${p.note||''}${p.big?'<br><b style="color:#ffd27a">比 A4 大，請直接在板上量畫。</b>':''}</div></div>`;
   };
-  rng('#inLiqPile','L','#vLiqPile',v=>v.toFixed(1)); rng('#inLiqPga','pga','#vLiqPga',v=>v.toFixed(2));
-  $('#inLiqSat').oninput = e => { LQ.sat = +e.target.value/100; $('#vLiqSat').textContent = e.target.value; liqReset(); };
-  $('#inLiqT').oninput = e => { LQ.T = +e.target.value; $('#vLiqT').textContent = LQ.T; liqReset(); };
-  $('#btnLiqShake').onclick = () => { liqReset(); LQ.shaking = true; };
-  $('#btnLiqReset').onclick = liqReset;
-  // 實驗記錄表（輸入數字自動算平均）
-  const buildRec = (id, groups) => {
-    const rec = $(id);
-    groups.forEach(g=>{
-      const tr = document.createElement('tr');
-      tr.innerHTML = '<td>'+g+'</td>'+[0,1,2].map(()=>'<td><input type="number" min="0" step="0.1" style="width:64px"></td>').join('')+'<td class="n">—</td>';
-      tr.querySelectorAll('input').forEach(inp => inp.oninput = () => {
-        const v = [...tr.querySelectorAll('input')].map(x=>parseFloat(x.value)).filter(x=>!isNaN(x));
-        tr.lastChild.textContent = v.length ? (v.reduce((a,b)=>a+b,0)/v.length).toFixed(1) : '—';
-      });
-      rec.appendChild(tr);
+  for(const g in groups){ if(g==='adv')continue;
+    html+=`<div class="grp">${g}</div><div class="pieces">${groups[g].map(card).join('')}</div>`;
+  }
+  if(groups.adv) html+=`<details class="adv"><summary>大人幫忙做（可以不做）：刮板讓沙每次一樣厚、滑軌讓每次搖一樣遠</summary><div class="pieces" style="margin-top:8px">${groups.adv.map(card).join('')}</div></details>`;
+  $('#pieceGroups').innerHTML=html;
+  // 零件清單
+  $('#cutTbl').innerHTML='<tr><th>代號</th><th>零件</th><th>大小（公分）</th><th>做幾片</th><th>紋路</th><th>摺線</th></tr>'+
+    L.map(p=>`<tr><td><b>${p.id}</b></td><td>${p.grp==='adv'?'（大人）':''}${p.name}</td><td class="n">${f1(p.w/10)} × ${f1(p.h/10)}</td><td class="n">${p.qty}</td><td>${p.flute==='v'?'↕ 直':p.flute==='h'?'↔ 橫':'不拘'}</td><td>${p.folds?p.folds.length+' 條':'—'}</td></tr>`).join('')+
+    `<tr><td><b>樁</b></td><td>免洗筷（B 房子，細頭朝下）</td><td class="n">剪成 ${f1(d.pileTotal/10)} 公分</td><td class="n">5 根</td><td>—</td><td>—</td></tr>`;
+  buildNest(d,L); buildPrint(d,L); buildMaterials(d,L); buildMass(d,L); buildRec();
+  SIM.reset(); draw3D(); drawSec(); drawAsm();
+}
+
+/* ---------------- 排版（依楞向） ---------------- */
+function packShelf(items,W,H,gap){
+  const bins=[];let cur=null;
+  const newBin=()=>{cur={items:[],x:gap,y:gap,sh:0};bins.push(cur);};
+  newBin();
+  items.forEach(it=>{
+    if(cur.x+it.w+gap>W){cur.x=gap;cur.y+=cur.sh+gap;cur.sh=0;}
+    if(cur.y+it.h+gap>H){newBin();}
+    if(it.w+2*gap>W||it.h+2*gap>H){it.oversize=true;}
+    cur.items.push({...it,X:cur.x,Y:cur.y}); cur.x+=it.w+gap; cur.sh=Math.max(cur.sh,it.h);
+  });
+  return bins;
+}
+function buildNest(d,L){
+  const W=d.sheetW,H=d.sheetH,gap=6,items=[];
+  L.forEach(p=>{for(let i=0;i<p.qty;i++){
+    let rot;
+    if(p.flute==='any') rot=p.h>p.w; else rot=(p.flute!==d.sheetFlute);
+    items.push({p,rot,w:rot?p.h:p.w,h:rot?p.w:p.h});
+  }});
+  items.sort((a,b)=>b.h-a.h||b.w-a.w);
+  const bins=packShelf(items,W,H,gap);
+  let area=0;L.forEach(p=>area+=polyArea(p.outline)*p.qty);
+  $('#nestInfo').innerHTML=`<span class="pill">板材 <b>${W}×${H}</b> mm</span><span class="pill">需要 <b>${bins.length}</b> 張</span><span class="pill">零件總面積 <b>${f1(area/1e4)}</b> cm²（利用率 ${f1(area/(W*H*bins.length)*100)}%）</span>`+
+    (items.some(i=>i.w+2*gap>W||i.h+2*gap>H)?'<span class="pill" style="color:#ff8a8a">有零件比板材還大</span>':'');
+  $('#nestSheets').innerHTML=bins.map((b,bi)=>{
+    const fs=Math.max(W,H)/45;
+    let fl='';const st=12;
+    if(d.sheetFlute==='v') for(let x=st;x<W;x+=st) fl+=`M${x} 0V${H}`; else for(let y=st;y<H;y+=st) fl+=`M0 ${y}H${W}`;
+    const g=b.items.map(it=>{const pg=pieceGroup(it.p,fs,{dims:false});return placeG(pg,it.X,it.Y,it.rot);}).join('');
+    return `<div class="sheet"><div class="dim" style="font-size:12px;margin-bottom:4px">第 ${bi+1} 張（淡線＝楞向）</div><svg viewBox="${-fs} ${-fs} ${W+2*fs} ${H+2*fs}"><rect class="sh" x="0" y="0" width="${W}" height="${H}"/><path class="flute" d="${fl}"/>${g}</svg></div>`;
+  }).join('');
+}
+function polyArea(o){let a=0;for(let i=0;i<o.length;i++){const p=o[i],q=o[(i+1)%o.length];a+=p[0]*q[1]-q[0]*p[1];}return Math.abs(a)/2;}
+
+/* ---------------- 列印 1:1 ---------------- */
+function buildPrint(d,L){
+  const PW=190,PH=277,top=16,bot=PH-22,fs=5,gap=5,items=[],adv=$('#inPrintAdv').checked;
+  L.filter(p=>!p.big&&(adv||p.grp!=='adv')).forEach(p=>{
+    const g=pieceGroup(p,fs);const w=g.bb[2]-g.bb[0],h=g.bb[3]-g.bb[1];
+    const rot=w>PW-4&&h<=PW-4;
+    items.push({g,rot,w:rot?h:w,h:rot?w:h});
+  });
+  items.sort((a,b)=>b.h-a.h);
+  const pages=[];let cur=null;
+  const np=()=>{cur={items:[],x:2,y:top,sh:0};pages.push(cur);};np();
+  items.forEach(it=>{
+    if(cur.x+it.w>PW-2){cur.x=2;cur.y+=cur.sh+gap+2;cur.sh=0;}
+    if(cur.y+it.h>bot){np();}
+    cur.items.push({...it,X:cur.x,Y:cur.y});cur.x+=it.w+gap+2;cur.sh=Math.max(cur.sh,it.h);
+  });
+  const asm=$('#inPrintAsm').checked, total=pages.length+(asm?2:0);
+  $('#printArea').innerHTML=pages.map((pg,i)=>`<div class="ppage"><svg viewBox="0 0 ${PW} ${PH}" width="${PW}mm" height="${PH}mm">
+    <text class="lb" x="0" y="6.5" font-size="5.5">液化實驗房子　紙模（第 ${i+1}/${total} 頁）</text>
+    <text class="dt" x="0" y="12.5" font-size="3.6">黑線：切斷　紅虛線：劃一刀不要切斷再摺　綠箭頭：紋路方向　數字單位：公分</text>
+    ${pg.items.map(it=>placeG(it.g,it.X,it.Y,it.rot)).join('')}
+    <path class="cut vect" d="M0 ${PH-8}H100M0 ${PH-10}V${PH-6}M100 ${PH-10}V${PH-6}${[10,20,30,40,50,60,70,80,90].map(x=>`M${x} ${PH-9}V${PH-7}`).join('')}"/>
+    <text class="lb" x="104" y="${PH-7}" font-size="3">← 這條線要剛好 10 公分（不對就用「實際大小」重印）</text>
+  </svg></div>`).join('')+(asm?['N','Y'].map((f,i)=>asmPage(d,L,f,pages.length+i+1,total)).join(''):'');
+}
+
+/* ---------------- 列印：房子組裝圖（A、B 各一頁） ---------------- */
+function asmPage(d,L,f,no,total){
+  const m=configMass(d,L,f),coins=clamp(Math.round(m.ballast/7.5),0,24),E=1;
+  const cv=document.createElement('canvas');cv.width=1500;cv.height=1250;
+  const lo=f==='Y'?d.pileTotal+60:25, hi=d.eh+d.rh+2*d.t+105;
+  const cam={yaw:-0.35,pitch:0.45,zoom:1,bg:'#ffffff',k:Math.min(cv.width/((d.s+70)*2.3),cv.height/((hi+lo)*1.2)),c:[0,(hi-lo)/2,0]};
+  const hf=houseFaces(d,f,E,coins);
+  const pj=render3D(cv,cam,{piles:hf.piles,obj:hf.body});
+  const ctx=cv.getContext('2d'),s=d.s,t=d.t;
+  // 零件標籤（引線＋名稱）
+  const lab=(p,txt,side)=>{const [x,y]=pj(p),lx=side<0?x-260:x+260;
+    ctx.strokeStyle='#333';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(lx-side*10,y);ctx.stroke();
+    ctx.fillStyle='#d23';ctx.beginPath();ctx.arc(x,y,7,0,7);ctx.fill();
+    ctx.font='bold 44px "Microsoft JhengHei",sans-serif';ctx.fillStyle='#111';ctx.textAlign=side<0?'right':'left';ctx.textBaseline='middle';ctx.fillText(txt,lx,y);};
+  lab([s*.25,t+d.eh+d.rh*.4+85*E,0],'R 屋頂',1);
+  lab([28*E+s/2,t+d.eh*.5+30*E,28*E],'W 牆壁',1);
+  lab([-28*E-s/2+t,t+d.eh+d.rh*.15+30*E,-28*E],'W 牆壁',-1);
+  lab([0,2*t+coins*2+20*E,0],'硬幣 '+coins+' 枚',-1);
+  lab([d.a/2,2*t-15*E,d.a/2],(f==='Y'?'K2':'K')+' 小方塊',1);
+  lab([-d.p/2,t/2-25*E,d.p/2],(f==='Y'?'C':'P')+' 底板',-1);
+  if(f==='Y') lab([15,2*t-d.pileTotal/2-60*E,15],'筷子 ×5（6 公分）',1);
+  const img=cv.toDataURL('image/png');
+  const steps=f==='Y'?[
+    'W 牆壁沿紅虛線輕輕劃一刀（不要切斷），摺成 L 形，做 2 片。',
+    '兩片 L 對起來圍成四方形，「黏」的小片塗熱熔膠，黏在另一片山牆的內側。',
+    'K2 小方塊黏在 C 底板正中間。請大人從底板的 5 個洞往上鑽，穿過小方塊。',
+    '5 根筷子各剪 '+f1(d.pileTotal/10)+' 公分，<b>細頭朝下</b>，從上面插進洞，頂端和小方塊一樣平，上下用熱熔膠固定。筷子要直直的、互相平行。',
+    '牆壁套住小方塊，用熱熔膠黏在底板上。',
+    '放約 '+coins+' 枚 10 元硬幣在房子裡，用膠帶固定。放上秤，調到總重 <b>'+d.mass+' g</b>（和 A 一樣重）。',
+    'R 屋頂中間輕劃一刀摺成「∧」，蓋在山牆上：一邊黏死、一邊貼膠帶（可以打開調硬幣）。'
+  ]:[
+    'W 牆壁沿紅虛線輕輕劃一刀（不要切斷），摺成 L 形，做 2 片。',
+    '兩片 L 對起來圍成四方形，「黏」的小片塗熱熔膠，黏在另一片山牆的內側。',
+    'K 小方塊黏在 P 底板正中間（綠虛線框的中央）。',
+    '牆壁套住小方塊，用熱熔膠黏在底板上。底板四邊貼防水膠帶。',
+    '放約 '+coins+' 枚 10 元硬幣在房子裡，用膠帶固定。放上秤，調到總重 <b>'+d.mass+' g</b>（和 B 一樣重）。',
+    'R 屋頂中間輕劃一刀摺成「∧」，蓋在山牆上：一邊黏死、一邊貼膠帶（可以打開調硬幣）。'
+  ];
+  return `<div class="ppage asmp"><div class="ah">液化實驗房子　組裝圖（第 ${no}/${total} 頁）</div>
+    <div class="at">${f==='Y'?'B 房子：有筷子樁':'A 房子：沒有樁'}</div>
+    <img src="${img}" alt="">
+    <ol>${steps.map(x=>`<li>${x}</li>`).join('')}</ol></div>`;
+}
+
+/* ---------------- 材料表 ---------------- */
+function buildMaterials(d,L){
+  const sandV=d.BLi*d.BWi*d.sand/1000, hardV=d.BLi*d.BWi*d.hard/1000, water=sandV*0.4;
+  let area=0;L.forEach(p=>area+=polyArea(p.outline)*p.qty);
+  const rows=[
+    ['PET 透明掀蓋收納盒 23.5×10×17.5 cm','1～2 個','一盒配一棟房子；只有 1 盒就輪流做。盒內約 '+d.BLi+'×'+d.BWi+'×'+d.BHi+' mm（請實測）；搖晃時蓋子打開'],
+    ['石英砂 #3（60 目，≈0.25 mm）','每盒約 '+f1(sandV*1.55/1000)+' kg','沙層 '+d.sand+' mm、'+f1(sandV)+' cm³（乾鬆密度約 1.5～1.6）；兩盒就加倍，多備 0.5 kg'],
+    ['硬層：細礫石或黏土（或壓實的濕沙）','每盒約 '+f1(hardV*1.7/1000)+' kg',d.hard+' mm 厚，要壓到筷子插不太進去'],
+    ['水','每盒約 '+Math.round(water/10)*10+' mL','沿盒壁慢慢加到剛好淹沙面'],
+    ['中空板 '+d.t+' mm',''+d.sheetW+'×'+d.sheetH+' mm ×1','零件總面積約 '+f1(area/1e4)+' cm²；顏色不拘'],
+    ['免洗筷（竹筷）','5 根（多備幾根）','B 房子用，每根剪成 '+f1(d.pileTotal/10)+' 公分；細頭朝下；粗約 '+d.pd+' mm（實際量一下改 ② 的欄位）'],
+    ['10 元硬幣（配重）','約 30 枚','每枚約 7.5 g；或黏土、螺帽'],
+    ['熱熔膠槍、防水膠帶（PVC）','各 1','封中空板切口、固定筷子'],
+    ['美工刀、鐵尺、切割墊、Ø'+d.hole+' 鑽頭（或錐子＋圓銼）','各 1','半切摺線要小心不要切穿'],
+    ['廚房秤、直尺、手機計時／節拍器','各 1','秤配重、量下沉 mm、統一搖晃節奏'],
+  ];
+  $('#matTbl').innerHTML='<tr><th>材料</th><th>數量</th><th>說明</th></tr>'+rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('');
+}
+
+/* ---------------- 重量 ---------------- */
+function configMass(d,L,f){
+  const by={};L.forEach(p=>by[p.id]=p);
+  const g=a=>a/1e6*d.gsm;
+  const body=2*g(polyArea(by.W.outline))+g(polyArea(by.R.outline));
+  let base=g(d.p*d.p)+g(d.a*d.a);
+  if(f==='Y') base+=PILES.length*d.pileTotal*(Math.PI*(d.pd/2)**2*0.7/1000);   // 竹 ≈0.7 g/cm³
+  const area=d.p*d.p, ballast=d.mass-body-base;
+  return {body,base,ballast,area,press:d.mass/1000*9.81/(area/1e6)};
+}
+function buildMass(d,L){
+  const names={N:'A 沒有樁',Y:'B 筷子樁'};
+  $('#massTbl').innerHTML='<tr><th>房子</th><th>本體 g</th><th>底板(+樁) g</th><th>配重 g</th><th>≈硬幣</th><th>接地壓力</th></tr>'+
+    ['N','Y'].map(k=>{const m=configMass(d,L,k);
+      return `<tr><td>${names[k]}</td><td class="n">${f1(m.body)}</td><td class="n">${f1(m.base)}</td><td class="n">${f1(m.ballast)}</td><td class="n">${Math.round(m.ballast/7.5)} 枚</td><td class="n">${Math.round(m.press)} Pa</td></tr>`;}).join('');
+}
+
+/* ---------------- 記錄表 ---------------- */
+function buildRec(){
+  let rec={};try{rec=JSON.parse(localStorage.getItem('hb2_rec')||'{}');}catch(e){}
+  const G=[['A','N','沒有樁（直接放）'],['B','Y','筷子樁（插到硬層）']];
+  $('#recTbl').innerHTML='<tr><th>組別</th><th>第 1 次</th><th>第 2 次</th><th>第 3 次</th><th>平均</th><th>模擬預期</th></tr>'+
+    G.map(([k,f,n])=>`<tr><td><b>${k}</b> ${n}</td>${[0,1,2].map(i=>`<td><input data-r="${k}${i}" type="number" step="0.5" value="${rec[k+i]??''}" style="width:70px;background:#0f1730;border:1px solid var(--line);color:var(--tx);border-radius:6px;padding:4px"></td>`).join('')}<td class="n" id="avg${k}">—</td><td class="n">${f1(SIM.target(f).sink)} mm</td></tr>`).join('');
+  const upd=()=>{G.forEach(([k])=>{const v=[0,1,2].map(i=>parseFloat($(`[data-r="${k}${i}"]`).value)).filter(isFinite);
+    $('#avg'+k).textContent=v.length?f1(v.reduce((a,b)=>a+b,0)/v.length):'—';});};
+  $$('#recTbl input').forEach(el=>el.addEventListener('input',()=>{rec[el.dataset.r]=el.value;try{localStorage.setItem('hb2_rec',JSON.stringify(rec));}catch(e){} upd();}));
+  upd();
+}
+
+/* ================= 3D 引擎（自寫、離線可用） ================= */
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]], add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]], mul=(a,k)=>[a[0]*k,a[1]*k,a[2]*k];
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+function boxF(x0,y0,z0,x1,y1,z1,col,ln){
+  const v=[[x0,y0,z0],[x1,y0,z0],[x1,y1,z0],[x0,y1,z0],[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]];
+  return [[0,1,2,3],[4,5,6,7],[0,1,5,4],[3,2,6,7],[0,3,7,4],[1,2,6,5]].map(ix=>({pts:ix.map(i=>v[i]),col,ln}));
+}
+function extrudeF(poly,O,U,V,N,th,col,ln){
+  const P0=poly.map(([u,v])=>add(O,add(mul(U,u),mul(V,v)))), P1=P0.map(p=>add(p,mul(N,th)));
+  const F=[{pts:P0,col,ln},{pts:P1,col,ln}];
+  for(let i=0;i<P0.length;i++){const j=(i+1)%P0.length;F.push({pts:[P0[i],P0[j],P1[j],P1[i]],col,ln});}
+  return F;
+}
+function xf(F,fn){F.forEach(f=>f.pts=f.pts.map(fn));return F;}
+function rotZ(a,cx,cy){const c=Math.cos(a),s=Math.sin(a);return p=>{const x=p[0]-cx,y=p[1]-cy;return [cx+x*c-y*s,cy+x*s+y*c,p[2]];};}
+function render3D(cv,cam,layers){
+  const ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  if(cam.bg){ctx.fillStyle=cam.bg;ctx.fillRect(0,0,W,H);}
+  else{const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0c1530');g.addColorStop(1,'#060a18');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
+  const cy=Math.cos(cam.yaw),sy=Math.sin(cam.yaw),cp=Math.cos(cam.pitch),sp=Math.sin(cam.pitch),k=cam.k*cam.zoom;
+  const tr=p=>{const x=p[0]-cam.c[0],y=p[1]-cam.c[1],z=p[2]-cam.c[2];const x1=x*cy-z*sy,z1=x*sy+z*cy;const y2=y*cp-z1*sp,z2=y*sp+z1*cp;return [x1,y2,z2];};
+  const Lg=[-.35,.75,.55],ll=Math.hypot(...Lg),Ld=Lg.map(v=>v/ll);
+  const drawList=list=>{
+    list.forEach(f=>{f.r=f.pts.map(tr);f.d=f.r.reduce((a,p)=>a+p[2],0)/f.r.length;});
+    list.sort((a,b)=>a.d-b.d);
+    list.forEach(f=>{
+      let n=cross(sub(f.r[1],f.r[0]),sub(f.r[2],f.r[0]));const nl=Math.hypot(...n)||1;n=n.map(v=>v/nl);if(n[2]<0)n=n.map(v=>-v);
+      const sh=.55+.45*Math.max(0,n[0]*Ld[0]+n[1]*Ld[1]+n[2]*Ld[2]);
+      const [r,gg,b,a]=f.col;
+      ctx.beginPath();f.r.forEach((p,i)=>{const X=W/2+p[0]*k,Y=H/2-p[1]*k;i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);});ctx.closePath();
+      if(a>0){ctx.fillStyle=`rgba(${r*sh|0},${gg*sh|0},${b*sh|0},${a})`;ctx.fill();}
+      if(f.ln){ctx.strokeStyle=f.ln;ctx.lineWidth=f.lw||1;ctx.stroke();}
     });
   };
-  buildRec('#liqRec', ['A 正常土・直接放','B 液化土・直接放','C 液化土・筷子到硬層','D 液化土・筷子太短','E 液化土・加寬底板']);
-  buildRec('#liqRec2', ['S1 坡腳沒有牆','S2 坡腳有擋土牆','S3 擋土牆＋排水＋筷子','H1 房子在坡肩','H2 房子退縮','H3 坡肩＋筷子樁到岩盤']);
+  // shell 依深度分前後
+  const shell=layers.shell||[];
+  shell.forEach(f=>{f.r=f.pts.map(tr);f.d=f.r.reduce((a,p)=>a+p[2],0)/f.r.length;});
+  const far=f=>f.floor||f.d<tr(f.cen||cam.c)[2];
+  drawList(shell.filter(far));
+  ['piles','soil','obj'].forEach(n=>layers[n]&&drawList(layers[n]));
+  drawList(shell.filter(f=>!far(f)));
+  return p=>{const r=tr(p);return [W/2+r[0]*k,H/2-r[1]*k];};
 }
-liqBind(); liqUi();
+function attachOrbit(cv,cam,redraw){
+  let drag=null;
+  cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,yaw:cam.yaw,pitch:cam.pitch};cv.setPointerCapture(e.pointerId);});
+  cv.addEventListener('pointermove',e=>{if(!drag)return;cam.yaw=drag.yaw+(e.clientX-drag.x)*.01;cam.pitch=clamp(drag.pitch+(e.clientY-drag.y)*.01,-0.2,1.5);redraw();});
+  cv.addEventListener('pointerup',()=>drag=null);cv.addEventListener('pointercancel',()=>drag=null);
+  cv.addEventListener('wheel',e=>{e.preventDefault();cam.zoom=clamp(cam.zoom*(e.deltaY<0?1.1:1/1.1),.4,4);redraw();},{passive:false});
+}
+function fitCanvas(cv){
+  if(!cv.dataset.h)cv.dataset.h=cv.getAttribute('height');
+  const r=cv.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1);
+  const cssW=r.width||600,cssH=Math.round(+cv.dataset.h*Math.min(1,cssW/600));
+  cv.width=Math.round(cssW*dpr);cv.height=Math.round(cssH*dpr);cv.style.height=cssH+'px';return dpr;
+}
 
-/* =======================================================================
-   獨立頁：主迴圈、縮放、全螢幕
-   ======================================================================= */
-let last = performance.now();
-function loop(now){
-  const dt = Math.min(0.05, (now-last)/1000); last = now;
-  if (LQ.shaking){ let acc = 0; while (acc < dt){ stepLiq(0.01); acc += 0.01; } liqUi(); }
-  drawLiq();
-  requestAnimationFrame(loop);
+/* ---------------- 房子 3D ---------------- */
+const COL={plate:[150,175,210,1],loc:[110,135,180,1],wall:[245,236,215,1],roof:[222,92,70,1],pile:[226,196,140,1],coin:[214,178,60,1]};
+function octPoly(r){const o=[];for(let j=0;j<8;j++){const an=(j+.5)/8*Math.PI*2;o.push([r*Math.cos(an),r*Math.sin(an)]);}return o;}
+function houseFaces(d,found,E,coins){
+  E=E||0;const s=d.s,t=d.t,eh=d.eh,rh=d.rh,ov=d.ov,a=d.a,Pz=d.p,out={piles:[],body:[]};
+  const off=(F,o)=>xf(F,p=>add(p,o));
+  out.body.push(...off(boxF(-Pz/2,0,-Pz/2,Pz/2,t,Pz/2,COL.plate,'rgba(0,0,0,.25)'),[0,-25*E,0]));
+  out.body.push(...off(boxF(-a/2,t,-a/2,a/2,2*t,a/2,COL.loc,'rgba(0,0,0,.25)'),[0,-15*E,0]));
+  if(found==='Y'){
+    const len=d.pileTotal,oc=octPoly(d.pd/2);
+    PILES.forEach(([gx,gz])=>out.piles.push(...off(extrudeF(oc,[gx,2*t-len,gz],[1,0,0],[0,0,1],[0,1,0],len,COL.pile,'rgba(90,60,20,.35)'),[0,-60*E,0])));
+  }
+  const gable=[[-s/2,0],[s/2,0],[s/2,eh],[0,eh+rh],[-s/2,eh]];
+  const L1=[...extrudeF(gable,[0,t,s/2-t],[1,0,0],[0,1,0],[0,0,1],t,COL.wall,'rgba(0,0,0,.3)'),...boxF(s/2-t,t,-s/2+t,s/2,t+eh,s/2-t,COL.wall,'rgba(0,0,0,.3)')];
+  const L2=[...extrudeF(gable,[0,t,-s/2],[1,0,0],[0,1,0],[0,0,1],t,COL.wall,'rgba(0,0,0,.3)'),...boxF(-s/2,t,-s/2+t,-s/2+t,t+eh,s/2-t,COL.wall,'rgba(0,0,0,.3)')];
+  out.body.push(...off(L1,[28*E,30*E,28*E]),...off(L2,[-28*E,30*E,-28*E]));
+  const Ls=d.slope,ridge=[0,t+eh+rh,0],rp=[[0,-s/2-ov],[Ls+ov,-s/2-ov],[Ls+ov,s/2+ov],[0,s/2+ov]];
+  [1,-1].forEach(sg=>{
+    const U=[sg*(s/2)/Ls,-rh/Ls,0],N=[sg*rh/Ls,(s/2)/Ls,0];
+    out.body.push(...off(extrudeF(rp,ridge,U,[0,0,1],N,t,COL.roof,'rgba(0,0,0,.3)'),[sg*14*E,85*E,0]));
+  });
+  const n=coins||0,oc=octPoly(13);
+  for(let i=0;i<n;i++)
+    out.body.push(...off(extrudeF(oc,[0,2*t+i*2,0],[1,0,0],[0,0,1],[0,1,0],2,i%2?COL.coin:[200,165,55,1],'rgba(80,60,0,.4)'),[0,20*E,0]));
+  return out;
 }
-window.addEventListener('resize', drawLiq);
-window.addEventListener('orientationchange', () => setTimeout(drawLiq, 200));
-$('#btnJump2').onclick = () => $('#case2').scrollIntoView({behavior:'smooth', block:'start'});
-(function(){
-  const b = $('#btnFull'), el = document.documentElement;
-  const can = el.requestFullscreen || el.webkitRequestFullscreen;
-  if (!can){ b.style.display = 'none'; return; }          // iPhone Safari 不支援；iPad 請用「加入主畫面」
-  b.onclick = () => {
-    if (document.fullscreenElement || document.webkitFullscreenElement)
-      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-    else can.call(el);
+
+/* ---------------- 模擬狀態 ---------------- */
+const FOUNDN={N:'A 沒有樁',Y:'B 筷子樁'};
+const SIM={found:'both',running:false,t:0,dur:6,dx:0,ru:0,sink:{N:0,Y:0},tilt:{N:0,Y:0},
+  target(k){
+    if(k==='Y')return{sink:1,tilt:.5};
+    const d=derive(),m=configMass(d,pieces(d),'N');
+    const buoy=d.mass/(1.9*m.area/100)*10*.9;           // mm：排開泥漿重＝房子重
+    return{sink:Math.min(buoy,d.sand*.8),tilt:7};
+  },
+  reset(){this.running=false;this.t=0;this.dx=0;this.ru=0;this.sink={N:0,Y:0};this.tilt={N:0,Y:0};},
+  step(dt){
+    if(!this.running)return;
+    this.t=Math.min(this.dur,this.t+dt);const f=this.t/this.dur,d=derive();
+    this.dx=f<1?d.travel/2*Math.sin(2*Math.PI*10*f):0;
+    this.ru=Math.min(1,f*2.2);
+    const sm=x=>x<=0?0:x>=1?1:x*x*(3-2*x), q=sm((f-.12)/.88);
+    ['N','Y'].forEach(k=>{const tg=this.target(k);this.sink[k]=tg.sink*q;this.tilt[k]=tg.tilt*q;});
+    if(this.t>=this.dur)this.running=false;
+  }
+};
+const simBoxes=d=>SIM.found==='both'?[{f:'N',x0:0},{f:'Y',x0:d.BLi+70}]:[{f:SIM.found,x0:0}];
+
+/* ---------------- 3D 實驗配置 ---------------- */
+const cv3=$('#cv3d'),cam3={yaw:-0.55,pitch:0.5,zoom:1,k:1,c:[0,0,0]};
+function draw3D(){
+  if(!$('#pg-sim').classList.contains('on'))return;
+  const d=derive(),dpr=fitCanvas(cv3),bx=simBoxes(d);
+  const L=d.BLi,W=d.BWi,H=d.BHi,dx=SIM.dx,span=bx[bx.length-1].x0+L;
+  cam3.c=[span/2,H*.55,W/2];cam3.k=Math.min(cv3.width,cv3.height*1.5)/(span*1.35+L*.25);
+  const lay={shell:[],soil:[],piles:[],obj:[]},wet=SIM.ru;
+  bx.forEach(({f,x0})=>{
+    const cen=[x0+L/2+dx,H/2,W/2],pet='rgba(190,220,255,.55)';
+    [0,1,2,3,4].forEach(i=>{let pts;
+      if(i===0)pts=[[0,0,0],[L,0,0],[L,0,W],[0,0,W]];
+      else if(i<3){const z=i===1?0:W;pts=[[0,0,z],[L,0,z],[L,H,z],[0,H,z]];}
+      else{const x=i===3?0:L;pts=[[x,0,0],[x,0,W],[x,H,W],[x,H,0]];}
+      lay.shell.push({pts:pts.map(p=>[p[0]+x0,p[1],p[2]]),col:[200,225,255,i===0?.10:.07],ln:pet,floor:i===0,cen});
+    });
+    lay.shell.push({pts:[[x0,H,0],[x0+L,H,0],[x0+L,H+W*.97,-W*.26],[x0,H+W*.97,-W*.26]],col:[200,225,255,.05],ln:'rgba(190,220,255,.3)',cen});
+    lay.soil.push(...boxF(x0,0,0,x0+L,d.hard,W,[91,95,110,1],'rgba(0,0,0,.25)'));
+    lay.soil.push(...boxF(x0,d.hard,0,x0+L,d.surf,W,[205-40*wet,170-35*wet,105-10*wet,.62],'rgba(0,0,0,.15)'));
+    const wl=d.surf+2*wet+.3;
+    lay.soil.push({pts:[[x0,wl,0],[x0+L,wl,0],[x0+L,wl,W],[x0,wl,W]],col:[60,130,230,.30+.2*wet],ln:'rgba(120,190,255,.5)'});
+    const hf=houseFaces(d,f,0,0),y0=d.surf-SIM.sink[f],a=SIM.tilt[f]*Math.PI/180,R=rotZ(-a,0,0);
+    const M=p=>{const q=R(p);return [q[0]+x0+L/2,q[1]+y0,q[2]+W/2];};
+    lay.piles.push(...xf(hf.piles,M));lay.obj.push(...xf(hf.body,M));
+  });
+  Object.values(lay).forEach(F=>F.forEach(f=>f.pts=f.pts.map(p=>[p[0]+dx,p[1],p[2]])));
+  render3D(cv3,cam3,lay);
+  const ctx=cv3.getContext('2d');ctx.font=`${13*dpr}px sans-serif`;ctx.fillStyle='#ffd27a';
+  ctx.fillText(SIM.found==='both'?'左盒：A 沒有樁　　右盒：B 筷子樁':'整盒液化土＋'+FOUNDN[SIM.found],10*dpr,20*dpr);
+  if(SIM.running){ctx.fillStyle='#ffb44d';ctx.fillText('搖晃中… '+Math.min(10,Math.floor(SIM.t/SIM.dur*10)+1)+' / 10 下',10*dpr,38*dpr);}
+  updKv();
+}
+function updKv(){
+  const d=derive();
+  $('#simKv').innerHTML=['N','Y'].map(k=>`<div>${FOUNDN[k]} 下沉</div><div><b>${f1(SIM.sink[k])}</b> mm（預期 ${f1(SIM.target(k).sink)}）　傾斜 ${f1(SIM.tilt[k])}°</div>`).join('')+
+  `<div>孔隙水壓比 rᵤ</div><div>${SIM.ru.toFixed(2)}</div><div>沙層厚</div><div>${d.sand} mm</div><div>筷子底下露出／插入硬層</div><div>${f1(d.pileBelow)} ／ ${d.embed} mm</div>`;
+}
+attachOrbit(cv3,cam3,draw3D);
+$$('#segView button').forEach(b=>b.onclick=()=>{$$('#segView button').forEach(x=>x.classList.toggle('on',x===b));
+  const v=b.dataset.v;Object.assign(cam3,v==='front'?{yaw:0,pitch:0.08,zoom:1}:v==='top'?{yaw:0,pitch:1.45,zoom:1}:{yaw:-0.55,pitch:0.5,zoom:1});draw3D();});
+$$('#segFound button').forEach(b=>b.onclick=()=>{$$('#segFound button').forEach(x=>x.classList.toggle('on',x===b));SIM.found=b.dataset.f;SIM.reset();draw3D();drawSec();});
+$('#btnShake').onclick=()=>{SIM.reset();SIM.running=true;last=performance.now();requestAnimationFrame(loop);};
+$('#btnSimReset').onclick=()=>{SIM.reset();draw3D();drawSec();};
+let last=0;
+function loop(ts){const dt=Math.min(.05,(ts-last)/1000);last=ts;SIM.step(dt);draw3D();drawSec();if(SIM.running)requestAnimationFrame(loop);}
+
+/* ---------------- 2D 剖面 ---------------- */
+const cvS=$('#cvSec');
+function drawSec(){
+  if(!$('#pg-sim').classList.contains('on'))return;
+  const d=derive(),dpr=fitCanvas(cvS),ctx=cvS.getContext('2d'),W=cvS.width,Hc=cvS.height,bx=simBoxes(d);
+  ctx.fillStyle='#060a18';ctx.fillRect(0,0,W,Hc);
+  const span=bx[bx.length-1].x0+d.BLi,topRoom=d.eh+d.rh+2*d.t+14;
+  const k=Math.min((W-110*dpr)/span,(Hc-60*dpr)/(d.BHi+Math.max(0,topRoom-d.free)));
+  const ox=40*dpr+SIM.dx*k, oy=Hc-30*dpr, X=x=>ox+x*k, Y=y=>oy-y*k;
+  const house=(found,cx,sink,tilt)=>{
+    const P=d.p, y0=d.surf-sink;
+    ctx.save();ctx.translate(X(cx),Y(y0));ctx.rotate(tilt*Math.PI/180);ctx.scale(k,-k);
+    ctx.lineWidth=1/k*dpr;
+    if(found==='Y'){ctx.fillStyle='#e2c48c';[-15,0,15].forEach(g=>ctx.fillRect(g-d.pd/2,2*d.t-d.pileTotal,d.pd,d.pileTotal));}
+    ctx.fillStyle='#9aa3bd';ctx.fillRect(-P/2,0,P,d.t);
+    ctx.fillStyle='#f5ecd7';ctx.strokeStyle='#3a3020';ctx.beginPath();
+    ctx.moveTo(-d.s/2,d.t);ctx.lineTo(d.s/2,d.t);ctx.lineTo(d.s/2,d.t+d.eh);ctx.lineTo(0,d.t+d.eh+d.rh);ctx.lineTo(-d.s/2,d.t+d.eh);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.strokeStyle='#de5c46';ctx.lineWidth=d.t;ctx.lineCap='round';const ux=(d.s/2)/d.slope,uy=d.rh/d.slope,Lr=d.slope+d.ov,ry=d.t+d.eh+d.rh+d.t/2;
+    ctx.beginPath();ctx.moveTo(-ux*Lr,ry-uy*Lr);ctx.lineTo(0,ry);ctx.lineTo(ux*Lr,ry-uy*Lr);ctx.stroke();
+    ctx.restore();
   };
-})();
-setTimeout(drawLiq, 40);
-requestAnimationFrame(loop);
+  const dimV=(x,y1,y2,t)=>{ctx.strokeStyle='#ffd27a';ctx.lineWidth=1*dpr;ctx.beginPath();ctx.moveTo(x,Y(y1));ctx.lineTo(x,Y(y2));ctx.stroke();
+    [y1,y2].forEach(y=>{ctx.beginPath();ctx.moveTo(x-4*dpr,Y(y));ctx.lineTo(x+4*dpr,Y(y));ctx.stroke();});
+    ctx.fillStyle='#ffd27a';ctx.textAlign='left';ctx.fillText(t,x+6*dpr,(Y(y1)+Y(y2))/2+4*dpr);ctx.textAlign='center';};
+  bx.forEach(({f,x0})=>{
+    const L=d.BLi,wl=d.surf+2*SIM.ru;
+    ctx.fillStyle='#5b5f6e';ctx.fillRect(X(x0),Y(d.hard),L*k,d.hard*k);
+    ctx.fillStyle='#cdaa69';ctx.fillRect(X(x0),Y(d.surf),L*k,d.sand*k);
+    ctx.fillStyle=`rgba(60,130,230,${.25+.25*SIM.ru})`;ctx.fillRect(X(x0),Y(wl),L*k,(wl-d.hard)*k);
+    ctx.strokeStyle='#78beff';ctx.setLineDash([6*dpr,4*dpr]);ctx.lineWidth=1.5*dpr;ctx.beginPath();ctx.moveTo(X(x0),Y(wl));ctx.lineTo(X(x0+L),Y(wl));ctx.stroke();ctx.setLineDash([]);
+    if(SIM.ru>.5){ctx.fillStyle='rgba(205,170,105,.8)';for(let i=0;i<8;i++){const x=x0+(i+.5)*L/8+Math.sin(SIM.t*7+i)*3;if(Math.abs(x-x0-L/2)<d.p*.7)continue;ctx.beginPath();ctx.ellipse(X(x),Y(wl),3*dpr,1.6*dpr*(1+Math.sin(SIM.t*9+i*2)),0,0,7);ctx.fill();}}
+    ctx.strokeStyle='#93a3c9';ctx.lineWidth=2.5*dpr;ctx.strokeRect(X(x0),Y(d.BHi),L*k,d.BHi*k);
+    house(f,x0+L/2,SIM.sink[f],SIM.tilt[f]);
+    ctx.font=`${12*dpr}px sans-serif`;ctx.textAlign='center';
+    ctx.fillStyle='#e8eeff';ctx.fillText('硬層 '+d.hard,X(x0+L*.2),Y(d.hard/2)+4*dpr);
+    ctx.fillStyle='#0b2a5c';ctx.fillText('鬆沙＋水 '+d.sand,X(x0+L*.2),Y(d.hard+d.sand/2)+4*dpr);
+    const xd=X(x0+L)+10*dpr;dimV(xd,0,d.hard,d.hard+'');dimV(xd,d.hard,d.surf,d.sand+'');dimV(xd,d.surf,d.BHi,f1(d.free));
+    ctx.font=`bold ${13*dpr}px sans-serif`;ctx.fillStyle=SIM.sink[f]>5?'#ff5c5c':'#3ddc84';
+    ctx.fillText(FOUNDN[f]+'　下沉 '+f1(SIM.sink[f])+' mm　傾斜 '+f1(SIM.tilt[f])+'°',X(x0+L/2),Y(d.surf+d.eh+d.rh+d.t*2+10));
+  });
+  ctx.strokeStyle='#ffb44d';ctx.lineWidth=2.5*dpr;const ay=Hc-10*dpr,ax=W/2;ctx.beginPath();ctx.moveTo(ax-60*dpr,ay);ctx.lineTo(ax+60*dpr,ay);
+  ctx.moveTo(ax-52*dpr,ay-6*dpr);ctx.lineTo(ax-60*dpr,ay);ctx.lineTo(ax-52*dpr,ay+6*dpr);ctx.moveTo(ax+52*dpr,ay-6*dpr);ctx.lineTo(ax+60*dpr,ay);ctx.lineTo(ax+52*dpr,ay+6*dpr);ctx.stroke();
+  ctx.fillStyle='#ffb44d';ctx.font=`${11*dpr}px sans-serif`;ctx.fillText('左右推 ±'+f1(d.travel/2)+' mm（撞擋塊）× 10 下',ax,ay-9*dpr);
+}
 
-window.__LIQ = { LQ, liqFS, liqRuMax, liqCapacity, liqResponse, liqRun, stepLiq, drawLiq, liqReset };
-document.body.dataset.ready = '1';
+/* ---------------- 組裝爆炸圖 ---------------- */
+const cvA=$('#cvAsm'),camA={yaw:-0.35,pitch:0.45,zoom:1,k:1,c:[0,40,0]};let asmF='N';
+function drawAsm(){
+  if(!$('#pg-asm').classList.contains('on'))return;
+  const d=derive(),L=pieces(d),dpr=fitCanvas(cvA),E=+$('#inEx').value;
+  const m=configMass(d,L,asmF);
+  const hf=houseFaces(d,asmF,E,clamp(Math.round(m.ballast/7.5),0,24));
+  const lo=asmF==='Y'?d.pileTotal+60*E:25*E, hi=d.eh+d.rh+2*d.t+85*E+20;
+  camA.k=Math.min(cvA.width/((d.s+70)*1.8),cvA.height/((hi+lo)*1.25));camA.c=[0,(hi-lo)/2,0];
+  render3D(cvA,camA,{piles:hf.piles,obj:hf.body});
+  const ctx=cvA.getContext('2d');ctx.font=`${12*dpr}px sans-serif`;ctx.fillStyle='#ffd27a';
+  ctx.fillText('R 屋頂 ×1　W 牆片 ×2（L 型）　'+(asmF==='Y'?'K2 補強方塊　C 樁底板＋5 根筷子':'K 補強方塊　P 底板'),10*dpr,20*dpr);
+  ctx.fillStyle='#e8eeff';ctx.fillText('配重約 '+Math.round(m.ballast/7.5)+' 枚 10 元硬幣（'+f1(m.ballast)+' g）',10*dpr,38*dpr);
+}
+attachOrbit(cvA,camA,drawAsm);
+$('#inEx').oninput=e=>{$('#vEx').textContent=(+e.target.value).toFixed(2);drawAsm();};
+$$('#segAsm button').forEach(b=>b.onclick=()=>{$$('#segAsm button').forEach(x=>x.classList.toggle('on',x===b));asmF=b.dataset.f;drawAsm();});
+
+/* ---------------- 分頁 ---------------- */
+$$('#nav button').forEach(b=>b.onclick=()=>{
+  $$('#nav button').forEach(x=>x.classList.toggle('on',x===b));
+  $$('.page').forEach(p=>p.classList.toggle('on',p.id===b.dataset.p));
+  draw3D();drawSec();drawAsm();
+});
+window.addEventListener('resize',()=>{draw3D();drawSec();drawAsm();});
+const hashTab=location.hash.slice(1);if(hashTab){const b=$(`#nav button[data-p="${hashTab}"]`);if(b)b.click();}
+
+buildParams();rebuild();
 </script>
 </body>
 </html>
