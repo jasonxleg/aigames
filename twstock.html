@@ -36,6 +36,24 @@ th{color:var(--mut);font-weight:600;position:sticky;top:0;background:var(--card)
 .msg{padding:8px 10px;border-radius:6px;margin:6px 0;background:#2b2440;border-left:3px solid var(--warn)}
 .disc{font-size:12px;color:var(--mut);border-left:3px solid var(--up);padding-left:10px}
 td input{width:78px;text-align:right;padding:3px 5px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.tabs button{background:#24304d;color:var(--tx);font-weight:600}
+.tabs button.on{background:var(--ac);color:#04121c}
+.pane{display:none}.pane.on{display:block}
+.pane textarea,#aiPrompt{width:100%;background:#0f1626;color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:7px;font:13px/1.5 Consolas,"Microsoft JhengHei",monospace}
+canvas.ch{width:100%;height:260px;background:#0f1626;border:1px solid var(--line);border-radius:8px;margin:6px 0}
+.steps{margin:6px 0;padding:0;list-style:none}
+.steps li{padding:6px 8px;border-left:3px solid var(--line);margin:4px 0;background:#0f1626;border-radius:4px}
+.steps li.p{border-color:var(--up)}.steps li.m{border-color:var(--dn)}
+.verdict{display:inline-block;padding:4px 14px;border-radius:14px;font-size:18px;font-weight:700;margin:6px 0}
+.v-buy{background:#4a1c2b;color:var(--up)}.v-sell{background:#0c3b31;color:var(--dn)}.v-hold{background:#3d3520;color:var(--warn)}
+.aiout{margin-top:10px;padding:12px;background:#0f1626;border:1px solid var(--line);border-radius:8px;white-space:pre-wrap;display:none}
+.aiout h4{margin:8px 0 4px;color:var(--ac)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.row label{display:inline-block}
+.row input,.row select{width:auto}
+h3{font-size:14px;margin:12px 0 6px;color:var(--warn)}
+.note{font-size:12px;color:var(--mut)}
 </style>
 </head>
 <body>
@@ -93,6 +111,81 @@ td input{width:78px;text-align:right;padding:3px 5px}
   <div class="tbl"><table id="pool"></table></div>
 </div>
 
+<div class="card" id="aiCard">
+  <h2>⑤ AI 交易分析師：6 種分析（工具先用真實日K算出數字，再組成提示詞，可複製到任何 AI 或直接送 Gemini）</h2>
+  <div class="grid" style="margin-bottom:10px">
+    <div><label>分析標的（第 2~4 種用）</label><select id="aiCode"></select></div>
+    <div><label>Gemini API Key（選填，只存在這台瀏覽器）</label><input id="gkey" type="password" placeholder="AIza…"></div>
+    <div><label>Gemini 模型</label><select id="gmodel"><option>gemini-3-flash-preview</option><option>gemini-3-flash</option><option>gemini-2.5-pro</option><option>gemini-2.5-flash</option></select></div>
+  </div>
+  <div class="tabs" id="aiTabs">
+    <button data-t="1">1. 交易點子產生器</button>
+    <button data-t="2">2. 自動化技術分析師</button>
+    <button data-t="3">3. 新聞轉交易策略</button>
+    <button data-t="4">4. 策略回測分析師</button>
+    <button data-t="5">5. 投資組合風險管理</button>
+    <button data-t="6">6. 交易日誌分析師</button>
+  </div>
+
+  <div class="pane" id="p1">
+    <div class="note">快速整理值得進一步研究的市場機會：從勾選題材的候選股中，依「題材評分＋技術面判斷＋風險報酬比」挑出前 5 名。進場＝現價、目標＝上方第一個 ≥5% 的壓力區、停損＝支撐下緣再 2%（不超過①的停損%）。</div>
+    <div id="o1"></div>
+  </div>
+
+  <div class="pane" id="p2">
+    <div class="note">用日線與週線拆解趨勢與關鍵價位。支撐/壓力＝波段高低點（前後 5 根K棒內的極值）聚合成區間；趨勢線＝近 60 日對數回歸＋最近兩個波段低點連線。</div>
+    <canvas class="ch" id="c2"></canvas>
+    <div id="o2"></div>
+  </div>
+
+  <div class="pane" id="p3">
+    <div class="note">把最新消息換成可研究的市場影響。工具能算的是「預期價格波動區間」和「股價是否已提前反應」；消息本身請貼上，或用 Gemini（gemini-3-flash-preview 會自動上網搜尋最新新聞）。</div>
+    <div class="row"><label>公司／產業</label><input id="n3subj" style="min-width:260px" placeholder="例：奇鋐（3017）／AI 散熱產業"></div>
+    <textarea id="n3news" rows="4" placeholder="（選填）貼上新聞標題或內文；留白時 Gemini 會自行搜尋"></textarea>
+    <div id="o3"></div>
+  </div>
+
+  <div class="pane" id="p4">
+    <div class="note">用數據檢查策略是否真的具有優勢：只做多、收盤價成交、含手續費 0.1425%×2 與證交稅 0.3%。</div>
+    <div class="row">
+      <label>策略 <select id="bt_st"><option value="ma">均線交叉</option><option value="rsi">RSI 超賣反彈</option><option value="div">RSI 背離</option><option value="brk">突破 N 日高</option></select></label>
+      <label><span id="bt_la">快線</span> <input id="bt_a" type="number" value="5" style="width:60px"></label>
+      <label><span id="bt_lb">慢線</span> <input id="bt_b" type="number" value="20" style="width:60px"></label>
+      <label>期間 <select id="bt_per"><option value="63">近 3 個月</option><option value="126">近 6 個月</option><option value="252" selected>近 12 個月</option><option value="9999">全部資料</option></select></label>
+      <label>停損% <input id="bt_stop" type="number" value="0" style="width:60px" title="0＝不設停損"></label>
+      <label><input id="bt_cost" type="checkbox" checked> 計入交易成本</label>
+      <button id="bt_all" class="g">全部候選股跑一次</button>
+    </div>
+    <canvas class="ch" id="c4"></canvas>
+    <div id="o4"></div>
+  </div>
+
+  <div class="pane" id="p5">
+    <div class="note">找出過度集中與不易察覺的關聯風險。每行「代號 比例%」或「代號 金額」，可加一行「現金 20%」。非候選池的代號在本機版會自動抓歷史。</div>
+    <div class="row">
+      <button id="pf_fill" class="g">帶入②的建議方案</button>
+      <label>組合總值（元） <input id="pf_total" type="number" value="500000" style="width:110px"></label>
+      <label>風險承受度 <select id="pf_tol"><option value="0">保守</option><option value="1" selected>穩健</option><option value="2">積極</option></select></label>
+    </div>
+    <textarea id="pf_in" rows="5" placeholder="3017 30%
+2330 40%
+2382 20%
+現金 10%"></textarea>
+    <div id="o5"></div>
+  </div>
+
+  <div class="pane" id="p6">
+    <div class="note">從最近的交易紀錄找出重複犯的錯。每行一筆：「代號 進場日 進場價 出場日 出場價 股數 [備註]」，空白或逗號分隔，例：<code>3017 2026/08/04 1450 2026/08/20 1380 200 追新聞</code></div>
+    <div class="row"><button id="jr_demo" class="g">填入範例（用真實股價產生）</button><label>停損紀律% <input id="jr_stop" type="number" value="8" style="width:60px"></label></div>
+    <textarea id="jr_in" rows="8"></textarea>
+    <div id="o6"></div>
+  </div>
+
+  <details style="margin-top:10px"><summary class="sub" style="cursor:pointer">📝 提示詞（已帶入上面算出的數據，可自行修改）</summary><textarea id="aiPrompt" rows="12" style="margin-top:6px"></textarea></details>
+  <div class="row"><button id="aiCopy">📋 複製提示詞</button><button id="aiSend">✨ 送 Gemini 分析</button><span id="aiStat" class="sub"></span></div>
+  <div id="aiOut" class="aiout"></div>
+</div>
+
 <div class="card disc">
   ⚠ 本工具為個人試算輔助，不是投資建議。「預期漲幅」由題材評分＋近半年動能依簡單公式推估，情境（樂觀/基準/悲觀）是假設而非預測；股價可能與估算完全不同，包含大幅虧損。
   上表的成長/護城河/估值分數是依公開產業認知給的主觀初值，請自行更新。AI／散熱族群近年漲幅大、波動大，宜用閒錢、分批、設停損。
@@ -126,7 +219,8 @@ const POOL=[
  {c:'2383',n:'台光電',t:'PCB/載板',g:5,m:4,v:4,vol:.55},
  {c:'2059',n:'川湖',t:'AI伺服器',g:4,m:4,v:4,vol:.45}
 ];
-const state={}; // code -> {price,ret6,vol,ma60gap,dd,live}
+const state={}; // code -> {price,ret6,vol,ma60gap,dd,live,series}
+let BENCH=null; // 0050 日K，當大盤 β 基準
 POOL.forEach(p=>state[p.c]={g:p.g,m:p.m,v:p.v});
 const $=id=>document.getElementById(id);
 const fmt=n=>Math.round(n).toLocaleString('zh-TW');
@@ -156,7 +250,7 @@ function metrics(data){
  const sd=Math.sqrt(rets.reduce((a,b)=>a+(b-mean)**2,0)/(rets.length-1));
  const ma=cl.slice(-60);const ma60=ma.reduce((a,b)=>a+b,0)/ma.length;
  const hi=Math.max(...seg);
- return{price:last,ret6:last/base-1,vol:sd*Math.sqrt(252),ma60gap:last/ma60-1,dd:1-last/hi,hi:hi,live:true,date:new Date(data[n-1][0]*1000).toLocaleDateString('zh-TW')};
+ return{price:last,ret6:last/base-1,vol:sd*Math.sqrt(252),ma60gap:last/ma60-1,dd:1-last/hi,hi:hi,live:true,series:data,date:new Date(data[n-1][0]*1000).toLocaleDateString('zh-TW')};
 }
 
 // 單檔評分＋情境
@@ -188,6 +282,7 @@ function run(){
  const N=clamp(parseInt($('n').value)||4,1,10);
  const warns=[];
  const noPrice=all.filter(x=>th.includes(x.p.t)&&!(state[x.p.c].price>0));
+ refreshAI();
  if(!cand.length){$('resultCard').style.display='none';
   $('status').innerHTML='<span class="warn">尚無股價：請先按「抓取近 6 個月真實股價」，或在下表手動填現價。</span>';return;}
  
@@ -230,6 +325,7 @@ function run(){
  $('warns').innerHTML=warns.map(w=>`<div class="msg">${w}</div>`).join('');
  $('plan').innerHTML=h;
  $('plan').querySelectorAll('input').forEach(i=>i.addEventListener('change',()=>{const v=parseFloat(i.value);state[i.dataset.c].price=isNaN(v)?undefined:v;run();}));$('resultCard').style.display='block';
+ LAST_PICK=pick.map(x=>({c:x.p.c,w:x.w}));LAST_INVEST=invest;
 }
 
 function renderHigh(all){
@@ -311,6 +407,7 @@ async function clientHist(code){
 function applyData(d,src){
  let n=0;
  for(const c in d.stocks){if(state[c]){Object.assign(state[c],d.stocks[c]);n++;}}
+ if(d.bench)BENCH=d.bench;
  $('status').innerHTML=`<span class="dn">已匯入 ${n} 檔（${src}），資料日 ${d.date}，含 6 個月歷史</span>`;
  run();return n;
 }
@@ -322,8 +419,8 @@ async function loadDataFile(){ // 同源資料檔（與 twstock.html 同資料�
 }
 function buildPayload(){
  const stocks={};let last='';
- POOL.forEach(p=>{const s=state[p.c];if(s.live){stocks[p.c]={price:s.price,ret6:s.ret6,vol:s.vol,ma60gap:s.ma60gap,dd:s.dd,hi:s.hi,live:true,date:s.date};last=s.date;}});
- return last?{date:last,stocks}:null;
+ POOL.forEach(p=>{const s=state[p.c];if(s.live){stocks[p.c]={price:s.price,ret6:s.ret6,vol:s.vol,ma60gap:s.ma60gap,dd:s.dd,hi:s.hi,live:true,date:s.date,series:s.series};last=s.date;}});
+ return last?{date:last,stocks,bench:BENCH}:null;
 }
 function exportData(){
  const d=buildPayload();
@@ -373,6 +470,7 @@ async function live(){
     try{const r=await fetch('/api/hist?codes='+p.c);j[p.c]=(await r.json())[p.c];}catch(e){j[p.c]=null;}
     $('status').textContent=`抓取中 ${++k}/${POOL.length}（首次約 2~3 分鐘，之後有快取很快）`;
    }
+   try{const r=await fetch('/api/hist?codes=0050');const b=(await r.json())['0050'];if(b&&b.data)BENCH=b.data;}catch(e){} // 大盤代理：元大台灣50
    let ok=0,last='';
    POOL.forEach(p=>{const d=j[p.c];if(d&&d.data){Object.assign(state[p.c],metrics(d.data));ok++;last=state[p.c].date;}});
    let saved='';
@@ -401,6 +499,566 @@ $('btnLive').onclick=live;$('btnExport').onclick=exportData;$('btnPick').onclick
 $('fileInput').onchange=async e=>{const fl=e.target.files[0];if(fl){applyData(JSON.parse(await fl.text()),fl.name);$('fileName').textContent='📄 '+fl.name;}};$('btnApply').onclick=applyPaste;$('btnRun').onclick=run;
 ['target','cap','maxloss','stop','n','opt','maxlots','recover'].forEach(id=>$(id).addEventListener('change',run));
 $('themes').addEventListener('change',run);
+/* ================= ⑤ AI 交易分析師 ================= */
+let LAST_PICK=[],LAST_INVEST=0,AI_TAB=1;
+const EXTRA={};               // 不在候選池的代號（組合/日誌用）：本機版臨時抓
+const AI_OUT={};              // 各分頁的 Gemini 回覆
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const f2=v=>v==null||isNaN(v)?'-':(+v).toFixed(2);
+const sgn=x=>(x>=0?'+':'')+pct(x);
+const nameOf=c=>{const p=POOL.find(p=>p.c===c);return p?p.n:c;};
+const pOf=c=>POOL.find(p=>p.c===c);
+const seriesOf=c=>(state[c]&&state[c].series)||(EXTRA[c]&&EXTRA[c].series)||null;
+const toBars=d=>d.map(r=>({t:r[0],c:r[1],o:r[2]??r[1],h:r[3]??r[1],l:r[4]??r[1]}));
+const dayKey=t=>Math.floor((t+8*3600)/86400);        // 台北日：TWSE(UTC 0點) 與 Yahoo(09:00) 時間戳對齊
+const dstr=t=>new Date(t*1000).toLocaleDateString('zh-TW');
+async function ensureSeries(c){
+ if(seriesOf(c)||EXTRA[c])return seriesOf(c);
+ if(!isLocal){EXTRA[c]={series:null};return null;}
+ try{const j=await (await fetch('/api/hist?codes='+c)).json();EXTRA[c]={series:j[c]&&j[c].data||null};}catch(e){EXTRA[c]={series:null};}
+ return seriesOf(c);
+}
+
+// ---- 指標 ----
+function SMA(a,n){const o=Array(a.length).fill(null);let s=0;for(let i=0;i<a.length;i++){s+=a[i];if(i>=n)s-=a[i-n];if(i>=n-1)o[i]=s/n;}return o;}
+function EMA(a,n){const k=2/(n+1),o=[];let e=null;a.forEach(v=>{e=e==null?v:v*k+e*(1-k);o.push(e);});return o;}
+function RSI(a,n=14){const o=Array(a.length).fill(null);let g=0,l=0;
+ for(let i=1;i<a.length;i++){const d=a[i]-a[i-1],up=Math.max(d,0),dn=Math.max(-d,0);
+  if(i<=n){g+=up;l+=dn;if(i<n)continue;g/=n;l/=n;}else{g=(g*(n-1)+up)/n;l=(l*(n-1)+dn)/n;}
+  o[i]=l===0?100:100-100/(1+g/l);}
+ return o;}
+function MACD(a){const e1=EMA(a,12),e2=EMA(a,26),dif=e1.map((v,i)=>v-e2[i]),dea=EMA(dif,9);return{dif,dea,hist:dif.map((v,i)=>v-dea[i])};}
+function weekly(B){const W=[];let k=null;
+ B.forEach(b=>{const d=dayKey(b.t),wk=d-((d+3)%7);
+  if(wk!==k){k=wk;W.push({t:b.t,o:b.o,h:b.h,l:b.l,c:b.c});}else{const w=W[W.length-1];w.h=Math.max(w.h,b.h);w.l=Math.min(w.l,b.l);w.c=b.c;w.t=b.t;}});
+ return W;}
+function pivots(B,k){const H=[],L=[];
+ for(let i=k;i<B.length-k;i++){let hi=true,lo=true;
+  for(let j=i-k;j<=i+k;j++){if(B[j].h>B[i].h)hi=false;if(B[j].l<B[i].l)lo=false;}
+  if(hi)H.push({i,v:B[i].h});if(lo)L.push({i,v:B[i].l});}
+ return{H,L};}
+function srLevels(B,price,k=5){
+ const pv=pivots(B,k),L=[...pv.H,...pv.L].map(p=>p.v).sort((a,b)=>a-b),C=[];
+ L.forEach(v=>{const c=C[C.length-1];if(c&&v<=c.v*1.015){c.s+=v;c.n++;c.v=c.s/c.n;c.hi=v;}else C.push({v,s:v,n:1,lo:v,hi:v});});
+ return{sup:C.filter(c=>c.v<price*0.995).sort((a,b)=>b.v-a.v).slice(0,3),
+        res:C.filter(c=>c.v>price*1.005).sort((a,b)=>a.v-b.v).slice(0,3)};}
+function linreg(y){const n=y.length,ly=y.map(Math.log);let sx=0,sy=0,sxx=0,sxy=0;
+ ly.forEach((v,i)=>{sx+=i;sy+=v;sxx+=i*i;sxy+=i*v;});
+ const b=(n*sxy-sx*sy)/(n*sxx-sx*sx),a=(sy-b*sx)/n;
+ const m=sy/n;let ssr=0,sst=0;ly.forEach((v,i)=>{ssr+=(v-(a+b*i))**2;sst+=(v-m)**2;});
+ return{a,b,r2:sst?1-ssr/sst:0,at:i=>Math.exp(a+b*i),month:Math.exp(b*21)-1};}
+const zone=c=>c?(c.lo===c.hi?f2(c.v):f2(c.lo)+'~'+f2(c.hi))+(c.n>1?`（碰 ${c.n} 次）`:''):'—';
+
+// ---- 技術分析（日線＋週線）----
+function TA(c){
+ const d=seriesOf(c);if(!d||d.length<60)return null;
+ const B=toBars(d),cl=B.map(b=>b.c),n=cl.length,price=cl[n-1];
+ const M5=SMA(cl,5),M20=SMA(cl,20),M60=SMA(cl,60),M120=SMA(cl,120);
+ const ma5=M5[n-1],ma20=M20[n-1],ma60=M60[n-1],ma120=M120[n-1];
+ const R=RSI(cl),rsi=R[n-1],rsi5=R[n-6],M=MACD(cl),hist=M.hist[n-1],hist3=M.hist[n-4];
+ const W=weekly(B),wc=W.map(w=>w.c),wn=wc.length,WM10=SMA(wc,10),WM20=SMA(wc,20);
+ const wma10=WM10[wn-1],wma20=WM20[wn-1],wrsi=RSI(wc)[wn-1];
+ const sr=srLevels(B,price,5),wsr=srLevels(W,price,2);
+ const seg=cl.slice(-60),reg=linreg(seg);
+ const pv=pivots(B,5);let upLine=null,dnLine=null;
+ const l2=pv.L.slice(-2),h2=pv.H.slice(-2);
+ if(l2.length===2&&l2[1].v>l2[0].v){const s=(l2[1].v-l2[0].v)/(l2[1].i-l2[0].i);upLine={v:l2[1].v+s*(n-1-l2[1].i),from:dstr(B[l2[0].i].t),to:dstr(B[l2[1].i].t)};}
+ if(h2.length===2&&h2[1].v<h2[0].v){const s=(h2[1].v-h2[0].v)/(h2[1].i-h2[0].i);dnLine={v:h2[1].v+s*(n-1-h2[1].i),from:dstr(B[h2[0].i].t),to:dstr(B[h2[1].i].t)};}
+ const sup1=sr.sup[0],res1=sr.res[0];
+ const rr=sup1&&res1?(res1.v-price)/(price-sup1.v):null;
+ const steps=[];const st=(v,name,text,short)=>steps.push({v,name,text,short});
+ // 1 週線
+ if(wma10&&wma20){
+  if(price>wma10&&wma10>wma20)st(1,'週線趨勢',`週收 ${f2(price)} 站上 10 週線 ${f2(wma10)}，且 10 週線 > 20 週線 ${f2(wma20)}：中期多頭排列。`,'週線多頭');
+  else if(price<wma10&&wma10<wma20)st(-1,'週線趨勢',`週收 ${f2(price)} 跌破 10 週線 ${f2(wma10)}，10 週線 < 20 週線 ${f2(wma20)}：中期空頭排列。`,'週線空頭');
+  else st(0,'週線趨勢',`週線糾結（現價 ${f2(price)}、10 週 ${f2(wma10)}、20 週 ${f2(wma20)}），中期方向未定。`,'週線盤整');
+ }else st(0,'週線趨勢','週線資料不足 20 週，略過。','');
+ // 2 日線均線
+ if(price>ma20&&ma20>ma60)st(1,'日線均線',`現價 > 20 日線 ${f2(ma20)} > 60 日線 ${f2(ma60)}，短中期多頭排列${M20[n-6]<ma20?'，且 20 日線上彎':''}。`,'站上 20/60 日線');
+ else if(price<ma20&&ma20<ma60)st(-1,'日線均線',`現價 < 20 日線 ${f2(ma20)} < 60 日線 ${f2(ma60)}，空頭排列。`,'跌破均線');
+ else st(0,'日線均線',`現價 ${f2(price)} 介於 20 日線 ${f2(ma20)} 與 60 日線 ${f2(ma60)} 之間，整理中。`,'');
+ // 3 趨勢線
+ const mo=reg.month;
+ if(mo>0.02&&reg.r2>0.5)st(1,'趨勢線',`近 60 日回歸線每月 ${sgn(mo)}（R² ${reg.r2.toFixed(2)}，趨勢明確向上）${upLine?`；上升支撐線（${upLine.from}→${upLine.to} 低點連線）今日約 ${f2(upLine.v)}`:''}。`,'上升趨勢明確');
+ else if(mo<-0.02&&reg.r2>0.5)st(-1,'趨勢線',`近 60 日回歸線每月 ${sgn(mo)}（R² ${reg.r2.toFixed(2)}，下降趨勢）${dnLine?`；下降壓力線（${dnLine.from}→${dnLine.to} 高點連線）今日約 ${f2(dnLine.v)}`:''}。`,'下降趨勢');
+ else st(0,'趨勢線',`近 60 日回歸線每月 ${sgn(mo)}（R² ${reg.r2.toFixed(2)}），趨勢不明顯。`,'');
+ // 4 RSI
+ if(rsi>75)st(0,'RSI 動能',`RSI(14)=${rsi.toFixed(0)} 過熱（>75），追價風險高，宜等拉回。`,'');
+ else if(rsi<30)st(0,'RSI 動能',`RSI(14)=${rsi.toFixed(0)} 超賣，可能反彈，但要等止跌訊號。`,'');
+ else if(rsi>=50&&rsi>rsi5)st(1,'RSI 動能',`RSI(14) 由 ${rsi5.toFixed(0)} 升到 ${rsi.toFixed(0)}，站在 50 之上且上升，買盤占優。`,'RSI 走強');
+ else if(rsi<50&&rsi<rsi5)st(-1,'RSI 動能',`RSI(14) 由 ${rsi5.toFixed(0)} 降到 ${rsi.toFixed(0)}，跌破 50 且下降，賣壓占優。`,'RSI 轉弱');
+ else st(0,'RSI 動能',`RSI(14)=${rsi.toFixed(0)}（5 日前 ${rsi5.toFixed(0)}），動能中性。`,'');
+ // 5 MACD
+ if(hist>0&&hist>hist3)st(1,'MACD',`MACD 柱狀體 ${hist.toFixed(2)} 為正且放大，多方動能增強。`,'MACD 翻多');
+ else if(hist<0&&hist<hist3)st(-1,'MACD',`MACD 柱狀體 ${hist.toFixed(2)} 為負且擴大，空方動能增強。`,'MACD 翻空');
+ else st(0,'MACD',`MACD 柱狀體 ${hist.toFixed(2)}（3 日前 ${hist3.toFixed(2)}）${hist>0?'為正但縮小，漲勢減速':'為負但收斂，跌勢減緩'}。`,'');
+ // 6 位置／風報比
+ if(rr!=null){
+  if(rr>=2)st(1,'價位／風報比',`下方支撐 ${zone(sup1)}、上方壓力 ${zone(res1)}，風險報酬比 ${rr.toFixed(1)} : 1，位置有利。`,'支撐壓力間位置有利');
+  else if(rr<1)st(-1,'價位／風報比',`離壓力 ${zone(res1)} 近、離支撐 ${zone(sup1)} 遠，風險報酬比只有 ${rr.toFixed(1)} : 1。`,'');
+  else st(0,'價位／風報比',`支撐 ${zone(sup1)}、壓力 ${zone(res1)}，風險報酬比 ${rr.toFixed(1)} : 1，普通。`,'');
+ }else st(res1?0:1,'價位／風報比',res1?`下方無明顯支撐（近期新低），上方壓力 ${zone(res1)}。`:`上方沒有壓力（區間新高），下方支撐 ${zone(sup1)}。`,res1?'':'創新高無壓');
+ const total=steps.reduce((a,s)=>a+s.v,0);
+ const verdict=total>=3?'買進':total<=-2?'賣出':'觀望';
+ return{c,B,cl,n,price,ma5,ma20,ma60,ma120,M20,M60,rsi,rsi5,hist,hist3,dif:M.dif[n-1],dea:M.dea[n-1],wma10,wma20,wrsi,sr,wsr,reg,upLine,dnLine,sup1,res1,rr,steps,total,verdict,date:dstr(B[n-1].t)};
+}
+
+// ---- 畫圖 ----
+function drawChart(cv,lines,hl){
+ const dpr=window.devicePixelRatio||1,W=cv.clientWidth||800,H=cv.clientHeight||260;
+ cv.width=W*dpr;cv.height=H*dpr;const g=cv.getContext('2d');g.scale(dpr,dpr);g.clearRect(0,0,W,H);
+ const vals=[...lines.flatMap(s=>s.d.filter(v=>v!=null&&isFinite(v))),...(hl||[]).map(h=>h.v)];if(!vals.length)return;
+ let mn=Math.min(...vals),mx=Math.max(...vals);const pd=(mx-mn)*0.06||1;mn-=pd;mx+=pd;
+ const n=lines[0].d.length,L=6,Rm=60,T=20,Bm=8,x=i=>L+(W-L-Rm)*i/Math.max(1,n-1),y=v=>T+(H-T-Bm)*(1-(v-mn)/(mx-mn));
+ g.font='11px Microsoft JhengHei';g.strokeStyle='#2a3550';g.fillStyle='#8b97b3';g.lineWidth=1;
+ for(let k=0;k<=4;k++){const v=mn+(mx-mn)*k/4,yy=y(v);g.beginPath();g.moveTo(L,yy);g.lineTo(W-Rm,yy);g.stroke();g.fillText(v.toFixed(v<10?2:1),W-Rm+4,yy+4);}
+ (hl||[]).forEach(h=>{g.setLineDash([5,4]);g.strokeStyle=h.c;g.beginPath();g.moveTo(L,y(h.v));g.lineTo(W-Rm,y(h.v));g.stroke();g.setLineDash([]);g.fillStyle=h.c;g.fillText(h.label,W-Rm+4,y(h.v)-4);});
+ let lx=L+4;
+ lines.forEach(s=>{g.strokeStyle=s.c;g.lineWidth=s.w||1.3;g.beginPath();let on=false;
+  s.d.forEach((v,i)=>{if(v==null||!isFinite(v)){on=false;return;}if(!on){g.moveTo(x(i),y(v));on=true;}else g.lineTo(x(i),y(v));});g.stroke();
+  if(s.label){g.fillStyle=s.c;g.fillText('━ '+s.label,lx,13);lx+=g.measureText('━ '+s.label).width+12;}});
+}
+
+// ---- 1 交易點子 ----
+function ideaRows(){
+ const th=selectedThemes(),stop=(parseFloat($('stop').value)||12)/100,rows=[];
+ POOL.filter(p=>th.includes(p.t)).forEach(p=>{
+  const a=TA(p.c);if(!a)return;const x=evalStock(p),entry=a.price;
+  const res=a.sr.res.find(r=>r.v>=entry*1.05);
+  const target=res?res.v:entry*(1+Math.max(x.base,0.08));
+  let sl=entry*(1-stop);if(a.sup1&&a.sup1.lo*0.98>sl)sl=a.sup1.lo*0.98;
+  const rr=(target-entry)/(entry-sl);
+  const rank=x.score*0.5+(a.total+6)/12*100*0.3+clamp(rr/3,0,1)*100*0.2;
+  const s=x.s,lv=['','低','偏低','中','高','很高'];
+  const fund=`成長性${lv[s.g]}、護城河${lv[s.m]}、估值風險${lv[s.v]}`;
+  const tech=a.steps.filter(t=>t.v>0).map(t=>t.short).filter(Boolean);
+  const risk=a.steps.filter(t=>t.v<0).map(t=>t.name).concat(a.rsi>75?['RSI 過熱']:[]);
+  rows.push({p,x,a,entry,pull:a.sup1?a.sup1.v:null,target,tgtSrc:res?'壓力區':'模型預期',sl,rr,rank,fund,tech,risk});
+ });
+ return rows.sort((a,b)=>b.rank-a.rank).slice(0,5);
+}
+function renderIdeas(){
+ const th=selectedThemes(),rows=ideaRows();
+ const subj=th.length?th.join('、')+' 產業':'股票';
+ let h='';
+ if(!rows.length)h='<div class="msg">需要日K資料：請先按上方「抓取近 6 個月真實股價」（或匯入資料檔），才能算支撐壓力與風報比。下方提示詞仍可直接複製給 AI。</div>';
+ else{
+  h='<div class="tbl"><table><tr><th>#</th><th>標的</th><th>判斷</th><th>參考進場</th><th>回檔掛單</th><th>目標價</th><th>停損價</th><th>風報比</th><th>成立原因</th></tr>';
+  rows.forEach((r,i)=>{h+=`<tr><td>${i+1}</td><td>${r.p.c} ${nm(r.p)}<div class="note">${r.p.t}・評分 ${r.x.score.toFixed(0)}</div></td><td>${vbadge(r.a.verdict)}</td><td>${f2(r.entry)}</td><td>${r.pull?f2(r.pull):'—'}</td><td class="up">${f2(r.target)}<div class="note">${r.tgtSrc} ${sgn(r.target/r.entry-1)}</div></td><td class="dn">${f2(r.sl)}<div class="note">${sgn(r.sl/r.entry-1)}</div></td><td><b class="${r.rr>=2?'up':r.rr<1?'dn':''}">${r.rr.toFixed(1)}</b></td><td style="text-align:left;white-space:normal;min-width:240px">技術：${r.tech.join('、')||'無明顯強勢訊號'}<br>基本：${r.fund}${r.risk.length?`<br><span class="warn">留意：${r.risk.join('、')}</span>`:''}</td></tr>`;});
+  h+='</table></div><div class="note">「高機率」不存在保證：排序＝題材評分 50% ＋ 技術判斷 30% ＋ 風報比 20%。資料日 '+rows[0].a.date+'。</div>';
+ }
+ $('o1').innerHTML=h;
+ let pr=`請掃描今日市場，針對【${subj}】找出 5 個高機率交易機會。\n每個機會請提供：\n→ 參考進場價\n→ 目標價與停損價\n→ 風險報酬比\n→ 根據技術面與基本面，說明這個交易機會成立的原因。`;
+ if(rows.length){pr+=`\n\n---\n以下是我用工具從證交所/櫃買日K算出的初步候選（資料日 ${rows[0].a.date}），請驗證、補充基本面與最新消息，不同意可以換掉：\n`;
+  rows.forEach((r,i)=>pr+=`${i+1}. ${r.p.c} ${r.p.n}（${r.p.t}）現價 ${f2(r.entry)}，目標 ${f2(r.target)}，停損 ${f2(r.sl)}，風報比 ${r.rr.toFixed(1)}，技術判斷「${r.a.verdict}」；${r.tech.join('、')||'無強勢訊號'}；${r.fund}\n`);}
+ return pr;
+}
+const vbadge=v=>`<span class="verdict ${v==='買進'?'v-buy':v==='賣出'?'v-sell':'v-hold'}" style="font-size:13px;margin:0">${v}</span>`;
+
+// ---- 2 技術分析 ----
+function renderTA(){
+ const c=$('aiCode').value,a=TA(c),N=`${nameOf(c)}（${c}）`;
+ let pr=`請使用日線圖與週線圖分析【${N}】，並依序整理：\n→ 支撐與壓力區間\n→ 主要趨勢線\n→ 關鍵移動平均線\n→ 動能指標的變化\n最後提供「買進／觀望／賣出」的判斷流程，並逐步說明理由。`;
+ if(!a){$('o2').innerHTML='<div class="msg">這檔還沒有日K資料（至少 60 個交易日）：請先抓取股價或匯入資料檔。</div>';drawChart($('c2'),[{d:[]}]);return pr;}
+ const K=Math.min(160,a.n),sl=arr=>arr.slice(-K);
+ const hl=[...a.sr.sup.slice(0,2).map((s,i)=>({v:s.v,c:'#06d6a0',label:'支撐'+(i+1)})),...a.sr.res.slice(0,2).map((s,i)=>({v:s.v,c:'#ef476f',label:'壓力'+(i+1)}))];
+ const regLine=sl(a.cl).map((_,i)=>{const j=i-(K-60);return j>=0?a.reg.at(j):null;});
+ drawChart($('c2'),[{d:sl(a.cl),c:'#e6ebf5',w:1.6,label:'收盤'},{d:sl(a.M20),c:'#ffd166',label:'MA20'},{d:sl(a.M60),c:'#4cc9f0',label:'MA60'},{d:regLine,c:'#c77dff',label:'60日趨勢線'}],hl);
+ const vcls=a.verdict==='買進'?'v-buy':a.verdict==='賣出'?'v-sell':'v-hold';
+ let h=`<div class="kpi">
+  <div><small>現價（${a.date}）</small><span class="big">${f2(a.price)}</span></div>
+  <div><small>日線 支撐區間</small>${a.sr.sup.map(zone).join('<br>')||'—'}</div>
+  <div><small>日線 壓力區間</small>${a.sr.res.map(zone).join('<br>')||'— 區間新高'}</div>
+  <div><small>週線 支撐／壓力</small>${zone(a.wsr.sup[0])} ／ ${zone(a.wsr.res[0])}</div>
+  <div><small>均線 5/20/60/120 日</small>${[a.ma5,a.ma20,a.ma60,a.ma120].map(f2).join(' / ')}<br><small>10/20 週：${f2(a.wma10)} / ${f2(a.wma20)}</small></div>
+  <div><small>動能</small>RSI ${a.rsi.toFixed(0)}（週 ${a.wrsi?a.wrsi.toFixed(0):'-'}）<br>MACD DIF ${a.dif.toFixed(2)} / DEA ${a.dea.toFixed(2)}</div>
+ </div><h3>判斷流程（每步 +1 偏多、0 中性、−1 偏空；總分 ≥3 買進、≤−2 賣出、其餘觀望）</h3><ol class="steps">`;
+ a.steps.forEach(s=>h+=`<li class="${s.v>0?'p':s.v<0?'m':''}"><b>${s.name}</b>（${s.v>0?'+1':s.v<0?'−1':'0'}）：${s.text}</li>`);
+ const stop=(parseFloat($('stop').value)||12)/100;
+ const slv=a.sup1?Math.max(a.sup1.lo*0.98,a.price*(1-stop)):a.price*(1-stop);
+ const act=a.verdict==='買進'?`分批進場：第一批現價附近，第二批回測 20 日線 ${f2(a.ma20)}${a.sup1?' 或支撐 '+f2(a.sup1.v):''}；停損 ${f2(slv)}；目標 ${a.res1?f2(a.res1.v)+'（第一壓力）':'沿 10 日線移動停利'}。`
+  :a.verdict==='賣出'?`持有者考慮減碼／出場；跌破 ${a.sup1?f2(a.sup1.lo):'前低'} 確認轉弱。空手者不接刀，等重新站回 20 日線 ${f2(a.ma20)} 再評估。`
+  :`等待訊號：站上 ${a.res1?f2(a.res1.v)+' 壓力':'前高'} 且 MACD 翻正再進，或回測 ${a.sup1?f2(a.sup1.v)+' 支撐':'20 日線'} 不破時小量試單。`;
+ h+=`</ol><div>總分 <b>${a.total>0?'+':''}${a.total}</b> → <span class="verdict ${vcls}">${a.verdict}</span></div><div class="msg">${act}</div>`;
+ $('o2').innerHTML=h;
+ pr+=`\n\n---\n我的工具算出的數據（證交所/櫃買日K，資料日 ${a.date}，現價 ${f2(a.price)}）：\n`+
+  `・日線支撐：${a.sr.sup.map(zone).join('、')||'無'}；日線壓力：${a.sr.res.map(zone).join('、')||'無（區間新高）'}\n`+
+  `・週線支撐：${a.wsr.sup.map(zone).join('、')||'無'}；週線壓力：${a.wsr.res.map(zone).join('、')||'無'}\n`+
+  `・均線：MA5 ${f2(a.ma5)}、MA20 ${f2(a.ma20)}、MA60 ${f2(a.ma60)}、MA120 ${f2(a.ma120)}、10週 ${f2(a.wma10)}、20週 ${f2(a.wma20)}\n`+
+  `・60 日回歸趨勢：每月 ${sgn(a.reg.month)}（R² ${a.reg.r2.toFixed(2)}）${a.upLine?`；上升支撐線今日 ${f2(a.upLine.v)}`:''}${a.dnLine?`；下降壓力線今日 ${f2(a.dnLine.v)}`:''}\n`+
+  `・RSI(14) ${a.rsi5.toFixed(0)}→${a.rsi.toFixed(0)}、週 RSI ${a.wrsi?a.wrsi.toFixed(0):'-'}；MACD 柱 ${a.hist3.toFixed(2)}→${a.hist.toFixed(2)}\n`+
+  `・工具的規則化判斷：${a.verdict}（總分 ${a.total}）。請檢查這個判斷，並補上成交量與籌碼面的觀點。`;
+ return pr;
+}
+
+// ---- 3 新聞轉策略 ----
+function renderNews(){
+ const c=$('aiCode').value,p=pOf(c),s=state[c]||{};
+ if(!$('n3subj').dataset.edited)$('n3subj').value=`${nameOf(c)}（${c}）${p?'／'+p.t+'產業':''}`;
+ const subj=$('n3subj').value.trim()||nameOf(c),news=$('n3news').value.trim();
+ let pr=`請整理【${subj}】的最新消息，並分析它可能帶來的交易影響。\n請提供：\n→ 短期與長期可能影響\n→ 預期價格波動區間\n→ 市場可能已反映與尚未反映的因素\n→ 可考慮的部位配置方向，以及判斷失效的條件。`;
+ const d=seriesOf(c);let h='';
+ if(d&&d.length>25){
+  const cl=d.map(r=>r[1]),n=cl.length,price=cl[n-1];
+  const lr=cl.slice(-127).map((v,i,a)=>i?Math.log(v/a[i-1]):0).slice(1);
+  const m=lr.reduce((a,b)=>a+b,0)/lr.length,vol=Math.sqrt(lr.reduce((a,b)=>a+(b-m)**2,0)/(lr.length-1)*252);
+  const band=[[5,'1 週'],[21,'1 個月'],[63,'3 個月']].map(([k,l])=>{const sg=vol*Math.sqrt(k/252);return{l,lo1:price*Math.exp(-sg),hi1:price*Math.exp(sg),lo2:price*Math.exp(-2*sg),hi2:price*Math.exp(2*sg)};});
+  const mv=k=>{const r=cl[n-1]/cl[n-1-k]-1;return{r,z:Math.log(1+r)/(vol*Math.sqrt(k/252))};};
+  const m5=mv(5),m20=mv(20),hi=Math.max(...cl.slice(-126));
+  const priced=z=>Math.abs(z)>=1.5?`<b class="${z>0?'up':'dn'}">已大幅反應</b>（${Math.abs(z).toFixed(1)} 倍標準差）`:Math.abs(z)>=0.8?'部分反應':'尚未明顯反應';
+  h=`<div class="kpi"><div><small>現價（${dstr(d[n-1][0])}）</small><span class="big">${f2(price)}</span><small>年化波動 ${pct(vol,0)}</small></div>
+   <div><small>近 5 日</small><span class="${m5.r>=0?'up':'dn'}">${sgn(m5.r)}</span><small>${priced(m5.z)}</small></div>
+   <div><small>近 20 日</small><span class="${m20.r>=0?'up':'dn'}">${sgn(m20.r)}</span><small>${priced(m20.z)}</small></div>
+   <div><small>距 6 個月高點</small>${sgn(price/hi-1)}</div></div>
+   <h3>預期價格波動區間（以歷史波動推算，非預測方向）</h3><div class="tbl"><table><tr><th>期間</th><th>約 68% 機率區間</th><th>約 95% 機率區間</th></tr>${band.map(b=>`<tr><td>${b.l}</td><td>${f2(b.lo1)} ~ ${f2(b.hi1)}</td><td>${f2(b.lo2)} ~ ${f2(b.hi2)}</td></tr>`).join('')}</table></div>
+   <div class="note">判讀：消息出來前股價若已大漲／大跌超過 1.5 倍標準差，代表市場多半已提前反映（利多出盡、利空測底的機會變大）；若股價幾乎沒動，消息可能尚未被定價。</div>`;
+  pr+=`\n\n---\n股價數據（證交所/櫃買日K，資料日 ${dstr(d[n-1][0])}）：現價 ${f2(price)}，年化波動 ${pct(vol,0)}，近 5 日 ${sgn(m5.r)}（${m5.z.toFixed(1)}σ）、近 20 日 ${sgn(m20.r)}（${m20.z.toFixed(1)}σ），距 6 個月高點 ${sgn(price/hi-1)}。\n歷史波動推算的 68% 區間：1 週 ${f2(band[0].lo1)}~${f2(band[0].hi1)}、1 個月 ${f2(band[1].lo1)}~${f2(band[1].hi1)}、3 個月 ${f2(band[2].lo1)}~${f2(band[2].hi1)}。請以此判斷消息是否已被定價。`;
+ }else h='<div class="msg">這檔還沒有日K，無法算波動區間；提示詞仍可使用。</div>';
+ if(news)pr+=`\n\n我看到的消息：\n${news}`;
+ else pr+='\n\n（請先搜尋並列出近兩週的重要新聞與日期、來源，再進行分析。）';
+ $('o3').innerHTML=h;return pr;
+}
+
+// ---- 4 回測 ----
+const BT_LAB={ma:['快線','慢線',5,20],rsi:['買進 RSI<','賣出 RSI>',30,70],div:['回看天數','出場 RSI>',20,70],brk:['突破 N 日高','跌破 M 日低',20,10]};
+const BT_NAME={ma:'均線交叉',rsi:'RSI 超賣反彈',div:'RSI 背離',brk:'突破 N 日高'};
+function btDesc(st,a,b){return st==='ma'?`${a} 日均線上穿 ${b} 日均線買進、下穿賣出`:st==='rsi'?`RSI(14) 由下往上穿越 ${a} 買進、到 ${b} 以上賣出`:st==='div'?`${a} 日內股價創新低但 RSI 沒創新低（底背離）買進、RSI 到 ${b} 以上或頂背離賣出`:`收盤突破前 ${a} 日最高買進、跌破前 ${b} 日最低賣出`;}
+function signals(cl,st,a,b){
+ const n=cl.length,en=Array(n).fill(false),ex=Array(n).fill(false);
+ if(st==='ma'){const F=SMA(cl,a),S=SMA(cl,b);for(let i=1;i<n;i++){if(F[i-1]==null||S[i-1]==null)continue;if(F[i-1]<=S[i-1]&&F[i]>S[i])en[i]=true;if(F[i-1]>=S[i-1]&&F[i]<S[i])ex[i]=true;}}
+ else if(st==='rsi'){const R=RSI(cl);for(let i=1;i<n;i++){if(R[i-1]==null)continue;if(R[i-1]<a&&R[i]>=a)en[i]=true;if(R[i]>=b)ex[i]=true;}}
+ else if(st==='div'){const R=RSI(cl);
+  for(let i=a+15;i<n;i++){let mi=i-a,ma=i-a;for(let j=i-a;j<i;j++){if(cl[j]<cl[mi])mi=j;if(cl[j]>cl[ma])ma=j;}
+   if(cl[i]<cl[mi]&&R[i]>R[mi]+2&&R[i]<45)en[i]=true;
+   if(R[i]>=b||(cl[i]>cl[ma]&&R[i]<R[ma]-2&&R[i]>55))ex[i]=true;}}
+ else{for(let i=Math.max(a,b);i<n;i++){let hi=-1/0,lo=1/0;for(let j=i-a;j<i;j++)hi=Math.max(hi,cl[j]);for(let j=i-b;j<i;j++)lo=Math.min(lo,cl[j]);if(cl[i]>hi)en[i]=true;if(cl[i]<lo)ex[i]=true;}}
+ return{en,ex};
+}
+function backtest(B,st,a,b,o){
+ const cl=B.map(x=>x.c),n=cl.length,s0=Math.max(1,n-o.days),sg=signals(cl,st,a,b),M60=SMA(cl,60);
+ const cost=o.cost?{buy:0.001425,sell:0.001425+0.003}:{buy:0,sell:0};
+ let pos=null,cash=1,peak=1,mdd=0;const tr=[],eq=[];
+ for(let i=s0;i<n;i++){
+  if(pos){const r=cl[i]/pos.p-1;
+   if((o.stop&&r<=-o.stop)||sg.ex[i]||i===n-1){
+    const net=(cl[i]*(1-cost.sell))/(pos.p*(1+cost.buy))-1;cash*=1+net;
+    tr.push({in:B[pos.i].t,out:B[i].t,p1:pos.p,p2:cl[i],ret:net,days:i-pos.i,open:i===n-1&&!sg.ex[i]&&!(o.stop&&r<=-o.stop)});pos=null;}}
+  else if(sg.en[i]&&i<n-1&&(!o.filter||(M60[i]!=null&&cl[i]>M60[i])))pos={p:cl[i],i};
+  const v=pos?cash*cl[i]/pos.p:cash;eq.push(v);peak=Math.max(peak,v);mdd=Math.max(mdd,1-v/peak);
+ }
+ const w=tr.filter(t=>t.ret>0),l=tr.filter(t=>t.ret<=0);
+ const gw=w.reduce((x,t)=>x+t.ret,0),gl=-l.reduce((x,t)=>x+t.ret,0);
+ return{tr,eq,n:tr.length,win:tr.length?w.length/tr.length:0,pf:gl>0?gw/gl:(gw>0?Infinity:0),mdd,total:cash-1,avg:tr.length?tr.reduce((x,t)=>x+t.ret,0)/tr.length:0,
+  avgW:w.length?gw/w.length:0,avgL:l.length?-gl/l.length:0,bh:cl[n-1]/cl[s0]-1,from:B[s0].t,to:B[n-1].t,bhEq:cl.slice(s0).map(v=>v/cl[s0])};
+}
+const pfs=x=>x===Infinity?'∞':x.toFixed(2);
+const BT_GRID={ma:[[5,20],[5,60],[10,20],[10,60],[20,60],[5,10],[10,30],[20,120]],rsi:[[25,60],[25,70],[30,60],[30,70],[30,80],[35,65],[35,75],[40,70]],div:[[10,65],[15,70],[20,70],[30,70],[20,60],[30,75]],brk:[[10,5],[20,10],[40,20],[60,20],[20,20],[55,20]]};
+function btOpts(){return{days:+$('bt_per').value,stop:(parseFloat($('bt_stop').value)||0)/100,cost:$('bt_cost').checked};}
+function renderBT(){
+ const c=$('aiCode').value,st=$('bt_st').value,a=+$('bt_a').value,b=+$('bt_b').value,o=btOpts(),d=seriesOf(c),N=`${nameOf(c)}（${c}）`;
+ const perTxt=$('bt_per').selectedOptions[0].text.replace('近 ','').replace('全部資料','可取得的全部期間');
+ let pr=`請針對【${BT_NAME[st]}策略（${btDesc(st,a,b)}）】在【${N}】過去【${perTxt}】的表現進行回測。\n請呈現：\n→ 勝率\n→ 獲利因子\n→ 最大回撤\n→ 交易次數與平均報酬\n最後提出可提高策略優勢的具體改進方向。`;
+ if(!d||d.length<80){$('o4').innerHTML='<div class="msg">這檔還沒有足夠日K（至少 80 個交易日）：請先抓取股價。</div>';drawChart($('c4'),[{d:[]}]);return pr;}
+ const B=toBars(d),r=backtest(B,st,a,b,o);
+ drawChart($('c4'),[{d:r.eq,c:'#4cc9f0',w:1.8,label:'策略淨值'},{d:r.bhEq,c:'#8b97b3',label:'買進持有'}],[{v:1,c:'#2a3550',label:'1.00'}]);
+ // 改進方向：參數掃描＋加濾網＋加停損
+ const grid=BT_GRID[st].map(([x,y])=>({x,y,r:backtest(B,st,x,y,o)})).filter(g=>g.r.n>=2).sort((p,q)=>q.r.total-p.r.total).slice(0,3);
+ const rF=backtest(B,st,a,b,{...o,filter:true}),rS=backtest(B,st,a,b,{...o,stop:o.stop||0.08});
+ const tips=[];
+ if(r.n<10)tips.push(`交易只有 ${r.n} 筆，樣本太少、結果很可能是運氣：拉長期間、或按「全部候選股跑一次」看整體。`);
+ if(r.total<r.bh)tips.push(`策略報酬 ${sgn(r.total)} 輸給買進持有 ${sgn(r.bh)}：在這檔多頭股上頻繁進出反而少賺，策略較適合盤整股，或只在 60 日線下方才啟用。`);
+ if(rF.n&&rF.total>r.total+0.01)tips.push(`加「收盤在 60 日線上方才進場」趨勢濾網：報酬 ${sgn(r.total)} → ${sgn(rF.total)}、勝率 ${pct(r.win,0)} → ${pct(rF.win,0)}、最大回撤 ${pct(r.mdd)} → ${pct(rF.mdd)}。`);
+ if(!o.stop&&rS.mdd<r.mdd-0.01)tips.push(`加 8% 停損：最大回撤 ${pct(r.mdd)} → ${pct(rS.mdd)}（報酬 ${sgn(r.total)} → ${sgn(rS.total)}）。`);
+ if(r.n&&r.avgL&&Math.abs(r.avgW/r.avgL)<1)tips.push(`平均獲利 ${sgn(r.avgW)} 小於平均虧損 ${sgn(r.avgL)}（賺小賠大）：出場太早或停損太慢，試著改用移動停利（跌破 10 日線才出）。`);
+ if(r.n&&r.win<0.4&&r.pf>1.3)tips.push('勝率低但獲利因子 > 1.3，屬「少數大賺撐全場」的順勢型策略，重點是嚴守紀律別在連虧時放棄。');
+ if(grid[0]&&(grid[0].x!==a||grid[0].y!==b)&&grid[0].r.total>r.total)tips.push(`參數掃描最佳為 ${BT_LAB[st][0]} ${grid[0].x}／${BT_LAB[st][1]} ${grid[0].y}（報酬 ${sgn(grid[0].r.total)}），但這是「事後挑最好的」，要用別檔或別段期間再驗證，避免過度擬合。`);
+ if(!tips.length)tips.push('目前參數表現穩定；可用其他候選股驗證是否同樣有效（按「全部候選股跑一次」）。');
+ let h=`<div class="kpi"><div><small>勝率</small><span class="big">${pct(r.win,0)}</span><small>${dstr(r.from)} ~ ${dstr(r.to)}</small></div>
+  <div><small>獲利因子（總賺÷總賠）</small><span class="big ${r.pf>=1?'up':'dn'}">${pfs(r.pf)}</span></div>
+  <div><small>最大回撤</small><span class="big dn">-${pct(r.mdd)}</span></div>
+  <div><small>交易次數／平均每筆</small><span class="big">${r.n}</span> 筆／<span class="${r.avg>=0?'up':'dn'}">${sgn(r.avg)}</span></div>
+  <div><small>策略總報酬 vs 買進持有</small><span class="${r.total>=0?'up':'dn'}">${sgn(r.total)}</span> vs <span class="${r.bh>=0?'up':'dn'}">${sgn(r.bh)}</span></div></div>
+  <h3>具體改進方向</h3><ul>${tips.map(t=>`<li>${t}</li>`).join('')}</ul>`;
+ if(grid.length)h+=`<h3>參數掃描前 3 名（僅供參考）</h3><div class="tbl"><table><tr><th>${BT_LAB[st][0]}</th><th>${BT_LAB[st][1]}</th><th>交易數</th><th>勝率</th><th>獲利因子</th><th>最大回撤</th><th>總報酬</th></tr>${grid.map(g=>`<tr><td>${g.x}</td><td>${g.y}</td><td>${g.r.n}</td><td>${pct(g.r.win,0)}</td><td>${pfs(g.r.pf)}</td><td>-${pct(g.r.mdd)}</td><td>${sgn(g.r.total)}</td></tr>`).join('')}</table></div>`;
+ if(r.n)h+=`<details><summary class="sub" style="cursor:pointer">逐筆交易（${r.n}）</summary><div class="tbl"><table><tr><th>進場</th><th>出場</th><th>進價</th><th>出價</th><th>天數</th><th>報酬</th></tr>${r.tr.map(t=>`<tr><td>${dstr(t.in)}</td><td>${dstr(t.out)}${t.open?'（未平倉）':''}</td><td>${f2(t.p1)}</td><td>${f2(t.p2)}</td><td>${t.days}</td><td class="${t.ret>=0?'up':'dn'}">${sgn(t.ret)}</td></tr>`).join('')}</table></div></details>`;
+ h+='<div id="o4all"></div>';
+ $('o4').innerHTML=h;
+ pr+=`\n\n---\n我已用證交所/櫃買日K實際回測（${dstr(r.from)}~${dstr(r.to)}，收盤價成交、只做多${o.cost?'、含手續費與證交稅':''}${o.stop?'、停損 '+pct(o.stop,0):''}）：\n`+
+  `勝率 ${pct(r.win,0)}、獲利因子 ${pfs(r.pf)}、最大回撤 -${pct(r.mdd)}、交易 ${r.n} 筆、平均每筆 ${sgn(r.avg)}、平均賺 ${sgn(r.avgW)}／平均賠 ${sgn(r.avgL)}、總報酬 ${sgn(r.total)}（同期買進持有 ${sgn(r.bh)}）。\n`+
+  `加 60 日線濾網：總報酬 ${sgn(rF.total)}、勝率 ${pct(rF.win,0)}；加 8% 停損：最大回撤 -${pct(rS.mdd)}。\n`+
+  (grid.length?`參數掃描前 3：${grid.map(g=>`${g.x}/${g.y} → ${sgn(g.r.total)}（${g.r.n} 筆）`).join('；')}。\n`:'')+
+  '請解讀這些數字是否代表真正的優勢（考慮樣本數與過度擬合），並提出改進方向。';
+ return pr;
+}
+function btAll(){
+ const st=$('bt_st').value,a=+$('bt_a').value,b=+$('bt_b').value,o=btOpts(),rows=[];
+ POOL.forEach(p=>{const d=seriesOf(p.c);if(d&&d.length>=80)rows.push({p,r:backtest(toBars(d),st,a,b,o)});});
+ if(!rows.length){$('o4all').innerHTML='<div class="msg">沒有任何候選股有日K資料。</div>';return;}
+ rows.sort((x,y)=>y.r.total-x.r.total);
+ const T=rows.reduce((s,x)=>{s.n+=x.r.n;s.w+=x.r.win*x.r.n;s.beat+=x.r.total>x.r.bh?1:0;return s;},{n:0,w:0,beat:0});
+ $('o4all').innerHTML=`<h3>${BT_NAME[st]}（${a}/${b}）× ${rows.length} 檔：合計 ${T.n} 筆，整體勝率 ${pct(T.n?T.w/T.n:0,0)}，${T.beat} 檔贏過買進持有</h3><div class="tbl"><table><tr><th>代號</th><th>名稱</th><th>交易數</th><th>勝率</th><th>獲利因子</th><th>最大回撤</th><th>策略報酬</th><th>買進持有</th></tr>${rows.map(x=>`<tr><td>${x.p.c}</td><td>${x.p.n}</td><td>${x.r.n}</td><td>${pct(x.r.win,0)}</td><td>${pfs(x.r.pf)}</td><td>-${pct(x.r.mdd)}</td><td class="${x.r.total>=0?'up':'dn'}">${sgn(x.r.total)}</td><td>${sgn(x.r.bh)}</td></tr>`).join('')}</table></div>`;
+}
+
+// ---- 5 投資組合 ----
+const TOL=[{n:'保守',vol:.15,cap:.20,tcap:.35,loss:.08},{n:'穩健',vol:.22,cap:.30,tcap:.50,loss:.12},{n:'積極',vol:.32,cap:.40,tcap:.70,loss:.18}];
+function parsePF(){
+ const H=[];let cash=0;
+ $('pf_in').value.split(/\n/).forEach(l=>{const m=l.match(/(\d{4,6}|現金|cash)\D*?([\d,]+(?:\.\d+)?)\s*(%?)/i);if(!m)return;
+  const v=parseFloat(m[2].replace(/,/g,''));if(!(v>0))return;
+  if(/現金|cash/i.test(m[1]))cash+=v;else{const e=H.find(h=>h.c===m[1]);if(e)e.v+=v;else H.push({c:m[1],v});}});
+ const sum=H.reduce((a,h)=>a+h.v,0)+cash;if(!sum)return null;
+ const asAmt=sum>100.5;
+ if(asAmt&&!$('pf_total').dataset.edited)$('pf_total').value=Math.round(sum);
+ H.forEach(h=>h.w=h.v/sum);
+ return{H,cash:cash/sum,asAmt};
+}
+async function renderPF(){
+ const tol=TOL[+$('pf_tol').value],total=parseFloat($('pf_total').value)||0;
+ if(!$('pf_in').value.trim()&&LAST_PICK.length)fillPF();
+ const P=parsePF();
+ const lines=P?P.H.map(h=>`${h.c}${nameOf(h.c)!==h.c?' '+nameOf(h.c):''} ${pct(h.w,1)}`).join('、')+(P.cash?`、現金 ${pct(P.cash,1)}`:''):'（請輸入）';
+ let pr=`請分析我的投資組合：【${lines}】。\n請找出：\n→ 組合中的弱點\n→ 過度曝險的部位\n→ 標的之間隱藏的相關性\n再依照我的風險承受度（${tol.n}）提出再平衡方案，並提供可因應市場下跌 20% 的避險策略。`;
+ if(!P||!P.H.length){$('o5').innerHTML='<div class="msg">請在上方輸入持股，或按「帶入②的建議方案」。</div>';return pr;}
+ const miss=[];
+ for(const h of P.H){if(!seriesOf(h.c)){$('o5').innerHTML=`<div class="note">抓取 ${h.c} 歷史中…</div>`;await ensureSeries(h.c);}if(!seriesOf(h.c))miss.push(h.c);}
+ const H=P.H.filter(h=>!miss.includes(h.c));
+ if(H.length<1){$('o5').innerHTML='<div class="msg">輸入的代號都沒有日K資料：請先抓取股價（候選池外的代號需本機版）。</div>';return pr;}
+ // 對齊日期（近 250 個共同交易日）
+ const maps=H.map(h=>new Map(seriesOf(h.c).map(r=>[dayKey(r[0]),r[1]])));
+ const keys=[...maps[0].keys()].filter(k=>maps.every(m=>m.has(k))).sort((a,b)=>a-b).slice(-250);
+ if(keys.length<30){$('o5').innerHTML='<div class="msg">持股之間共同交易日太少，無法計算相關性。</div>';return pr;}
+ const R=maps.map(m=>keys.slice(1).map((k,i)=>Math.log(m.get(k)/m.get(keys[i]))));
+ const T=R[0].length,mean=R.map(r=>r.reduce((a,b)=>a+b,0)/T);
+ const cov=R.map((a,i)=>R.map((b,j)=>a.reduce((s,v,t)=>s+(v-mean[i])*(b[t]-mean[j]),0)/(T-1)*252));
+ const vol=cov.map((r,i)=>Math.sqrt(r[i])),corr=cov.map((r,i)=>r.map((v,j)=>v/(vol[i]*vol[j])));
+ // 大盤：0050，沒有就用候選池等權平均當代理
+ let mkt=null,mktName='0050';
+ if(BENCH){const bm=new Map(BENCH.map(r=>[dayKey(r[0]),r[1]]));if(keys.every(k=>bm.has(k)))mkt=keys.slice(1).map((k,i)=>Math.log(bm.get(k)/bm.get(keys[i])));}
+ if(!mkt){mktName='候選池等權平均（未取得 0050）';const pm=POOL.map(p=>seriesOf(p.c)).filter(Boolean).map(s=>new Map(s.map(r=>[dayKey(r[0]),r[1]])));
+  mkt=keys.slice(1).map((k,i)=>{let s=0,c=0;pm.forEach(m=>{if(m.has(k)&&m.has(keys[i])){s+=Math.log(m.get(k)/m.get(keys[i]));c++;}});return c?s/c:0;});}
+ const mm=mkt.reduce((a,b)=>a+b,0)/T,mv=mkt.reduce((a,b)=>a+(b-mm)**2,0)/(T-1);
+ const beta=R.map((r,i)=>r.reduce((s,v,t)=>s+(v-mean[i])*(mkt[t]-mm),0)/(T-1)/mv);
+ const eqw=H.reduce((a,h)=>a+h.w,0)+miss.reduce((a,c)=>a+P.H.find(h=>h.c===c).w,0);
+ const w=H.map(h=>h.w);
+ const pvar=(ws)=>ws.reduce((s,a,i)=>s+ws.reduce((t,b,j)=>t+a*b*cov[i][j],0),0);
+ const sigP=Math.sqrt(pvar(w));
+ const rc=w.map((a,i)=>a*w.reduce((t,b,j)=>t+b*cov[i][j],0)/(sigP*sigP||1));
+ const theme=c=>(pOf(c)||{t:'其他'}).t;
+ const TH={};H.forEach((h,i)=>{TH[theme(h.c)]=(TH[theme(h.c)]||0)+w[i];});
+ // 弱點／過度曝險／隱藏相關
+ const weak=[],over=[],hid=[];
+ if(sigP>tol.vol)weak.push(`組合年化波動 ${pct(sigP,0)}，高於「${tol.n}」上限 ${pct(tol.vol,0)}。`);
+ H.forEach((h,i)=>{const s=state[h.c]||{};if(s.ma60gap!=null&&s.ma60gap<0)weak.push(`${h.c} ${nameOf(h.c)} 股價在 60 日線下方 ${pct(-s.ma60gap)}，屬弱勢持股。`);
+  if(w[i]>tol.cap)over.push(`${h.c} ${nameOf(h.c)} 占 ${pct(w[i],0)}，超過單檔上限 ${pct(tol.cap,0)}。`);
+  if(rc[i]>w[i]*1.4&&rc[i]>0.2)over.push(`${h.c} ${nameOf(h.c)} 資金只占 ${pct(w[i],0)}，風險卻貢獻 ${pct(rc[i],0)}（波動 ${pct(vol[i],0)}、β ${beta[i].toFixed(2)}）。`);});
+ Object.entries(TH).forEach(([t,v])=>{if(v>tol.tcap)over.push(`「${t}」題材合計 ${pct(v,0)}，超過題材上限 ${pct(tol.tcap,0)}。`);});
+ const wb=w.reduce((s,a,i)=>s+a*beta[i],0);
+ if(wb>1.2)weak.push(`組合 β ${wb.toFixed(2)}：大盤跌 10%，組合約跌 ${pct(wb*0.1,0)}，放大市場風險。`);
+ if(P.cash<0.05)weak.push('幾乎沒有現金部位，下跌時沒有加碼或調整的彈性。');
+ let pairs=0,cs=0;
+ for(let i=0;i<H.length;i++)for(let j=i+1;j<H.length;j++){pairs++;cs+=corr[i][j];
+  if(corr[i][j]>=0.6)hid.push(`${nameOf(H[i].c)} × ${nameOf(H[j].c)} 相關係數 ${corr[i][j].toFixed(2)}${theme(H[i].c)!==theme(H[j].c)?`（看似不同題材「${theme(H[i].c)}／${theme(H[j].c)}」，實際同漲同跌）`:'（同題材，等於重複押注）'}`);}
+ const avgC=pairs?cs/pairs:0;
+ if(avgC>0.5)weak.push(`持股平均相關係數 ${avgC.toFixed(2)}，分散效果有限：${H.length} 檔的風險接近只買 ${Math.max(1,(1/(avgC+(1-avgC)/H.length))).toFixed(1)} 檔。`);
+ // 再平衡：反波動配置 → 單檔/題材上限 → 波動上限（多的放現金）
+ let nw=vol.map(v=>1/v);const sn=nw.reduce((a,b)=>a+b,0);nw=nw.map(v=>v/sn*eqw);
+ for(let it=0;it<30;it++){let ex=0;
+  nw=nw.map(v=>{if(v>tol.cap){ex+=v-tol.cap;return tol.cap;}return v;});
+  const ts={};H.forEach((h,i)=>ts[theme(h.c)]=(ts[theme(h.c)]||0)+nw[i]);
+  Object.entries(ts).forEach(([t,s])=>{if(s>tol.tcap){const k=tol.tcap/s;H.forEach((h,i)=>{if(theme(h.c)===t){ex+=nw[i]*(1-k);nw[i]*=k;}});ts[t]=tol.tcap;}});
+  if(ex<1e-6)break;
+  const el=H.map((h,i)=>nw[i]<tol.cap-1e-9&&ts[theme(h.c)]<tol.tcap-1e-9);const base=H.reduce((s,h,i)=>s+(el[i]?1/vol[i]:0),0);
+  if(!base)break;H.forEach((h,i)=>{if(el[i])nw[i]+=ex*(1/vol[i])/base;});}
+ let sigN=Math.sqrt(pvar(nw));
+ if(sigN>tol.vol){const k=tol.vol/sigN;nw=nw.map(v=>v*k);sigN=tol.vol;}
+ const cashN=1-nw.reduce((a,b)=>a+b,0);
+ // 大盤跌 20%
+ const L0=total*wb*0.2,wbN=nw.reduce((s,a,i)=>s+a*beta[i],0),L1=total*wbN*0.2,lim=total*tol.loss;
+ const hedge=Math.max(0,(L1-lim)/0.2);
+ const ccell=v=>{const a=Math.abs(v),col=v>=0?`rgba(239,71,111,${a*0.7})`:`rgba(6,214,160,${a*0.7})`;return`<td style="background:${col};text-align:center">${v.toFixed(2)}</td>`;};
+ let h=`<div class="kpi"><div><small>組合年化波動</small><span class="big">${pct(sigP,0)}</span><small>${tol.n}上限 ${pct(tol.vol,0)}</small></div>
+  <div><small>組合 β（對 ${mktName}）</small><span class="big">${wb.toFixed(2)}</span></div>
+  <div><small>平均相關係數</small><span class="big">${avgC.toFixed(2)}</span></div>
+  <div><small>大盤跌 20% 估計損失</small><span class="big dn">-${fmt(L0)}</span><small>${tol.n}可承受 -${fmt(lim)}</small></div></div>`;
+ if(miss.length)h+=`<div class="msg">${miss.join('、')} 沒有日K資料，未納入計算。</div>`;
+ h+=`<h3>組合中的弱點</h3><ul>${(weak.length?weak:['未發現明顯弱點。']).map(t=>`<li>${t}</li>`).join('')}</ul>
+  <h3>過度曝險的部位</h3><ul>${(over.length?over:['沒有超過上限的部位。']).map(t=>`<li>${t}</li>`).join('')}</ul>
+  <h3>標的之間隱藏的相關性</h3><ul>${(hid.length?hid:['沒有相關係數 ≥ 0.6 的組合。']).map(t=>`<li>${t}</li>`).join('')}</ul>
+  <div class="tbl"><table><tr><th>相關係數</th>${H.map(x=>`<th style="text-align:center">${nameOf(x.c)}</th>`).join('')}</tr>${H.map((x,i)=>`<tr><td>${nameOf(x.c)}</td>${corr[i].map(ccell).join('')}</tr>`).join('')}</table></div>
+  <h3>再平衡方案（${tol.n}：單檔 ≤${pct(tol.cap,0)}、題材 ≤${pct(tol.tcap,0)}、波動 ≤${pct(tol.vol,0)}；依波動反比配置）</h3>
+  <div class="tbl"><table><tr><th>代號</th><th>名稱</th><th>題材</th><th>年化波動</th><th>β</th><th>風險貢獻</th><th>目前</th><th>建議</th><th>建議金額</th><th>調整</th></tr>
+  ${H.map((x,i)=>`<tr><td>${x.c}</td><td>${nameOf(x.c)}</td><td>${theme(x.c)}</td><td>${pct(vol[i],0)}</td><td>${beta[i].toFixed(2)}</td><td>${pct(rc[i],0)}</td><td>${pct(w[i],0)}</td><td><b>${pct(nw[i],0)}</b></td><td>${fmt(total*nw[i])}</td><td class="${nw[i]>=w[i]?'up':'dn'}">${nw[i]>=w[i]?'+':''}${fmt(total*(nw[i]-w[i]))}</td></tr>`).join('')}
+  <tr><td>現金</td><td></td><td></td><td></td><td></td><td></td><td>${pct(P.cash,0)}</td><td><b>${pct(cashN,0)}</b></td><td>${fmt(total*cashN)}</td><td></td></tr></table></div>
+  <div class="note">再平衡後：年化波動 ${pct(sigP,0)} → ${pct(sigN,0)}、β ${wb.toFixed(2)} → ${wbN.toFixed(2)}。</div>
+  <h3>因應大盤下跌 20% 的避險策略</h3><ul>
+  <li>目前組合估計損失 <b class="dn">-${fmt(L0)}</b>，再平衡後 <b class="dn">-${fmt(L1)}</b>，你的「${tol.n}」可承受上限 -${fmt(lim)}（總值 ${pct(tol.loss,0)}）。</li>
+  ${hedge>0?`<li>還差 ${fmt(L1-lim)}：可買約 <b>${fmt(hedge)} 元</b>的 00632R（元大台灣50反1）。大盤跌 20% 時約賺 ${fmt(hedge*0.2)}，抵銷超出部分。反向 ETF 每日重設、長抱會耗損，只適合短期（1~3 個月）避險。</li>`:'<li>再平衡後的損失已在承受範圍內，不一定要另外避險。</li>'}
+  <li>替代做法：把 β 最高的 ${H.map((x,i)=>({x,b:beta[i]})).sort((a,b)=>b.b-a.b).slice(0,2).map(o=>nameOf(o.x.c)).join('、')} 先減碼，換成現金或低 β 標的（例如高股息 ETF）。</li>
+  <li>每檔都設好停損（①的停損 ${$('stop').value}%）；大盤收盤跌破季線（60 日線）時，先把持股降到 ${pct(Math.max(0.3,1-tol.loss*3),0)} 以下。</li></ul>
+  <div class="note">β、相關係數用近 ${keys.length} 個共同交易日計算；極端行情時相關性會升高，實際跌幅可能比估計大。</div>`;
+ $('o5').innerHTML=h;
+ pr+=`\n\n---\n我的工具算出的數據（近 ${keys.length} 個交易日）：組合年化波動 ${pct(sigP,0)}、β ${wb.toFixed(2)}（對 ${mktName}）、平均相關係數 ${avgC.toFixed(2)}。\n`+
+  H.map((x,i)=>`・${x.c} ${nameOf(x.c)}（${theme(x.c)}）配置 ${pct(w[i],0)}、年化波動 ${pct(vol[i],0)}、β ${beta[i].toFixed(2)}、風險貢獻 ${pct(rc[i],0)}`).join('\n')+
+  (hid.length?`\n高相關：${hid.join('；')}`:'')+
+  `\n組合總值 ${fmt(total)} 元；估計大盤跌 20% 損失 ${fmt(L0)} 元，我能承受 ${fmt(lim)} 元。\n工具的初步再平衡：${H.map((x,i)=>`${nameOf(x.c)} ${pct(nw[i],0)}`).join('、')}、現金 ${pct(cashN,0)}。請評估並改良。`;
+ return pr;
+}
+function fillPF(){
+ if(!LAST_PICK.length){$('pf_in').value='';return;}
+ $('pf_in').value=LAST_PICK.map(x=>`${x.c} ${(x.w*100).toFixed(1)}%`).join('\n');
+ if(LAST_INVEST>0){$('pf_total').value=Math.round(LAST_INVEST);$('pf_total').dataset.edited='';}
+}
+
+// ---- 6 交易日誌 ----
+function pDate(s){let m=String(s).match(/^(\d{2,4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);if(!m)return null;let y=+m[1];if(y<1911)y+=1911;return Date.UTC(y,+m[2]-1,+m[3])/1000;}
+function parseJournal(){
+ const T=[],bad=[];
+ $('jr_in').value.split(/\n/).forEach((l,ln)=>{const t=l.trim().split(/[\s,，\t]+/);if(!t[0])return;
+  if(t.length<6||!/^\d{4,6}$/.test(t[0])){bad.push(ln+1);return;}
+  const d1=pDate(t[1]),d2=pDate(t[3]),p1=+t[2].replace(/,/g,''),p2=+t[4].replace(/,/g,''),q=+t[5].replace(/,/g,'');
+  if(!d1||!d2||!(p1>0)||!(p2>0)||!(q>0)){bad.push(ln+1);return;}
+  const pnl=(p2*(1-0.001425-0.003)-p1*(1+0.001425))*q;
+  T.push({c:t[0],d1,d2,p1,p2,q,note:t.slice(6).join(' '),ret:p2/p1-1,pnl,days:Math.round((d2-d1)/86400)});});
+ T.sort((a,b)=>a.d1-b.d1);return{T,bad};
+}
+function demoJournal(){
+ const cs=POOL.map(p=>p.c).filter(c=>seriesOf(c)&&seriesOf(c).length>120);
+ let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+ const notes=['看新聞','突破','回檔買','朋友推薦','追高','攤平','停損','停利',''];
+ const L=[];
+ if(cs.length){for(let k=0;k<20;k++){const c=cs[Math.floor(rnd()*cs.length)],d=seriesOf(c),n=d.length;
+   const i=n-120+Math.floor(rnd()*95),hold=2+Math.floor(rnd()*(rnd()<0.5?6:18)),j=Math.min(n-1,i+hold);
+   L.push(`${c} ${dstr(d[i][0])} ${f2(d[i][1])} ${dstr(d[j][0])} ${f2(d[j][1])} ${(1+Math.floor(rnd()*5))*100} ${notes[Math.floor(rnd()*notes.length)]}`);}}
+ else L.push('3017 2026/07/01 1200 2026/07/10 1260 200 突破','2330 2026/07/03 1100 2026/07/30 1010 100 攤平','3324 2026/07/31 900 2026/08/01 870 100 追高');
+ $('jr_in').value=L.join('\n');refreshAI();
+}
+async function renderJournal(){
+ const stop=(parseFloat($('jr_stop').value)||8)/100,{T,bad}=parseJournal();
+ const raw=$('jr_in').value.trim();
+ let pr=`請檢視我最近 ${T.length||20} 筆交易：【${raw?'見下方紀錄':'貼上包含進場、出場與結果的紀錄'}】。\n請分析：\n→ 反覆出現的錯誤\n→ 錯過的機會\n→ 可能影響決策的行為偏誤\n最後依照我的交易紀錄，制定 3 條可立即執行的個人化規則，幫助我提升交易一致性。`;
+ if(raw)pr+=`\n\n交易紀錄（代號 進場日 進場價 出場日 出場價 股數 備註）：\n${raw}`;
+ if(!T.length){$('o6').innerHTML=`<div class="msg">${raw?'讀不到有效的交易（第 '+bad.join(',')+' 行格式不對）':'請貼上交易紀錄，或按「填入範例」。'}</div>`;return pr;}
+ for(const c of new Set(T.map(t=>t.c)))if(!seriesOf(c))await ensureSeries(c);
+ const W=T.filter(t=>t.pnl>0),L=T.filter(t=>t.pnl<=0);
+ const avg=(a,f)=>a.length?a.reduce((s,t)=>s+f(t),0)/a.length:0;
+ const aw=avg(W,t=>t.ret),al=avg(L,t=>t.ret),hw=avg(W,t=>t.days),hl=avg(L,t=>t.days);
+ const payoff=al?aw/-al:Infinity,exp=avg(T,t=>t.ret),tot=T.reduce((s,t)=>s+t.pnl,0);
+ let cl=0,maxCL=0;T.slice().sort((a,b)=>a.d2-b.d2).forEach(t=>{cl=t.pnl<=0?cl+1:0;maxCL=Math.max(maxCL,cl);});
+ const flag=new Map(T.map(t=>[t,[]]));const issue=[];const miss=[];
+ const add=(key,title,list,detail,bias,rule,sev)=>{if(list.length){issue.push({key,title,list,detail,bias,rule,sev:sev*list.length});list.forEach(t=>flag.get(t)&&flag.get(t).push(title));}};
+ add('stop','未守停損',L.filter(t=>t.ret<-stop),`${L.filter(t=>t.ret<-stop).length} 筆虧損超過 ${pct(stop,0)}，最大一筆 ${sgn(Math.min(...T.map(t=>t.ret)))}`,'損失趨避（不願認賠）',
+  `進場當下就掛停損單：跌破進場價 −${pct(stop,0)}（或支撐下緣）收盤即出，不移動、不取消。`,3);
+ if(L.length>=2&&W.length&&hl>hw*1.3)add('disp','抱虧砍賺',L.filter(t=>t.days>hw),`虧損單平均抱 ${hl.toFixed(0)} 天、獲利單只抱 ${hw.toFixed(0)} 天`,'處分效應',
+  `虧損單最長持有 ${Math.max(3,Math.round(hw))} 天；期限到仍未回到成本就出場。`,2);
+ if(W.length&&L.length&&payoff<1)add('payoff','小賺大賠',W.filter(t=>t.ret<-al),`平均賺 ${sgn(aw)}、平均賠 ${sgn(al)}，賺賠比 ${payoff.toFixed(2)}`,'急於落袋（確定性偏誤）',
+  `獲利單先出一半，另一半用 10 日線移動停利；目標至少 ${pct(Math.max(-al*2,0.06),0)} 才全出。`,2);
+ const rev=[];T.forEach(t=>{if(L.some(x=>x!==t&&t.d1>=x.d2&&t.d1-x.d2<=2*86400))rev.push(t);});
+ add('rev','虧損後立刻再進場',rev,`${rev.length} 筆在虧損出場 2 天內又進場，這些單勝率 ${pct(rev.length?rev.filter(t=>t.pnl>0).length/rev.length:0,0)}`,'報復性交易（情緒）',
+  '虧損出場後 48 小時內不開新倉，先寫一句檢討再交易。',2);
+ const chase=[];T.forEach(t=>{const d=seriesOf(t.c);if(!d)return;const i=d.findIndex(r=>dayKey(r[0])>=dayKey(t.d1));if(i<20)return;
+  const hi=Math.max(...d.slice(i-20,i).map(r=>r[1]));if(t.p1>=hi*0.97)chase.push(t);});
+ add('chase','追高進場',chase,`${chase.length} 筆在接近 20 日高點時買進，勝率 ${pct(chase.length?chase.filter(t=>t.pnl>0).length/chase.length:0,0)}（全部 ${pct(W.length/T.length,0)}）`,'追高從眾（FOMO）',
+  '距離 20 日高點 3% 以內不追；只在回測 20 日線不破、或突破後隔日站穩才進場。',chase.filter(t=>t.pnl<=0).length>chase.length/2?2:1);
+ const avgd=[];T.forEach(t=>{if(T.some(x=>x!==t&&x.c===t.c&&t.d1>x.d1&&t.d1<x.d2&&t.p1<x.p1))avgd.push(t);});
+ add('avg','向下攤平',avgd,`${avgd.length} 筆在同檔虧損時再低價加碼`,'沉沒成本／錨定成本價','虧損中的部位禁止加碼；只在已獲利 5% 以上時才加碼。',2);
+ const per={};T.forEach(t=>per[t.c]=(per[t.c]||0)+1);const top=Object.entries(per).sort((a,b)=>b[1]-a[1])[0];
+ if(T.length>=8&&top[1]/T.length>0.4)add('conc','集中操作單一檔',T.filter(t=>t.c===top[0]),`${top[0]} ${nameOf(top[0])} 占 ${top[1]}/${T.length} 筆`,'熟悉偏誤／過度自信','同一檔一個月最多進出 2 次，其餘時間只觀察。',1);
+ const span=(T[T.length-1].d2-T[0].d1)/86400/7;
+ if(span>0&&T.length/span>3)add('over','交易過度頻繁',T.filter(t=>t.days<=2),`平均每週 ${(T.length/span).toFixed(1)} 筆，持有 ≤2 天的有 ${T.filter(t=>t.days<=2).length} 筆`,'過度交易（過度自信）','每週最多 2 筆新倉；下單前寫下進場理由、停損、目標，缺一不下單。',1);
+ // 錯過的機會
+ T.forEach(t=>{const d=seriesOf(t.c);if(!d)return;const i=d.findIndex(r=>dayKey(r[0])>dayKey(t.d2));if(i<0)return;
+  const nx=d.slice(i,i+20).map(r=>r[1]);if(!nx.length)return;const mx=Math.max(...nx);
+  if(t.pnl>0&&mx>=t.p2*1.1)miss.push({t,txt:`${t.c} ${nameOf(t.c)} ${dstr(t.d2)} 以 ${f2(t.p2)} 獲利出場，之後 20 日內最高 ${f2(mx)}（再漲 ${sgn(mx/t.p2-1)}）——賣太早`});
+  if(t.pnl<=0&&mx>=t.p1*1.03)miss.push({t,txt:`${t.c} ${nameOf(t.c)} ${dstr(t.d2)} 停損 ${f2(t.p2)} 後 20 日內漲回 ${f2(mx)}（高於成本 ${f2(t.p1)}）——停損點可能設太緊或位置不對`});});
+ const early=miss.filter(m=>m.t.pnl>0).length;
+ if(early>=2)add('early','獲利單賣太早',miss.filter(m=>m.t.pnl>0).map(m=>m.t),`${early} 筆獲利出場後 20 日內又漲 10% 以上`,'急於落袋（處分效應）','獲利單先出一半，另一半跌破 10 日線才出場。',1);
+ const tradedCodes=new Set(T.map(t=>t.c)),t0=T[0].d1,t1=T[T.length-1].d2;
+ const movers=POOL.map(p=>{const d=seriesOf(p.c);if(!d)return null;const a=d.find(r=>r[0]>=t0),b=[...d].reverse().find(r=>r[0]<=t1);return a&&b?{p,r:b[1]/a[1]-1}:null;}).filter(Boolean).filter(x=>!tradedCodes.has(x.p.c)).sort((a,b)=>b.r-a.r).slice(0,3).filter(x=>x.r>0.15);
+ issue.sort((a,b)=>b.sev-a.sev);
+ const rules=issue.slice(0,3).map(i=>i.rule);
+ const DEF=['單筆最大虧損 = 總資金 1%：股數 = 總資金×1% ÷（進場價−停損價）。','每筆交易進場前寫下：進場理由、停損價、目標價，缺一不下單。','每週固定檢討一次交易日誌，連虧 3 筆就暫停一週、只用模擬單。'];
+ for(const d of DEF){if(rules.length>=3)break;if(!rules.includes(d))rules.push(d);}
+ let h=`<div class="kpi"><div><small>交易筆數／勝率</small><span class="big">${T.length}</span> 筆／${pct(W.length/T.length,0)}</div>
+  <div><small>平均賺／平均賠（賺賠比）</small><span class="up">${sgn(aw)}</span> / <span class="dn">${sgn(al)}</span>（${payoff===Infinity?'∞':payoff.toFixed(2)}）</div>
+  <div><small>每筆期望值／總損益（扣費稅）</small><span class="${exp>=0?'up':'dn'}">${sgn(exp)}</span> / <span class="${tot>=0?'up':'dn'}">${fmt(tot)} 元</span></div>
+  <div><small>持有天數 獲利／虧損</small>${hw.toFixed(1)} / ${hl.toFixed(1)} 天<small>最長連虧 ${maxCL} 筆</small></div></div>`;
+ if(bad.length)h+=`<div class="msg">第 ${bad.join(',')} 行格式不對，已略過。</div>`;
+ h+=`<h3>反覆出現的錯誤</h3><ul>${issue.length?issue.map(i=>`<li><b>${i.title}</b>：${i.detail}</li>`).join(''):'<li>沒有偵測到明顯的重複錯誤。</li>'}</ul>
+  <h3>錯過的機會</h3><ul>${miss.length||movers.length?miss.slice(0,6).map(m=>`<li>${m.txt}</li>`).join('')+movers.map(x=>`<li>同期候選池 ${x.p.c} ${x.p.n} 漲 ${sgn(x.r)}，你沒有操作。</li>`).join(''):'<li>沒有日K可比對，或出場後沒有明顯錯過的漲幅。</li>'}</ul>
+  <h3>可能影響決策的行為偏誤</h3><ul>${issue.length?[...new Set(issue.map(i=>i.bias))].map(b=>`<li>${b}：${issue.filter(i=>i.bias===b).map(i=>i.title).join('、')}</li>`).join(''):'<li>—</li>'}</ul>
+  <h3>3 條可立即執行的個人化規則</h3><ol class="steps">${rules.map(r=>`<li class="p">${r}</li>`).join('')}</ol>
+  <details><summary class="sub" style="cursor:pointer">逐筆檢視</summary><div class="tbl"><table><tr><th>代號</th><th>名稱</th><th>進場</th><th>出場</th><th>天數</th><th>報酬</th><th>損益</th><th>標記</th><th>備註</th></tr>
+  ${T.map(t=>`<tr><td>${t.c}</td><td>${nameOf(t.c)}</td><td>${dstr(t.d1)} ${f2(t.p1)}</td><td>${dstr(t.d2)} ${f2(t.p2)}</td><td>${t.days}</td><td class="${t.ret>=0?'up':'dn'}">${sgn(t.ret)}</td><td class="${t.pnl>=0?'up':'dn'}">${fmt(t.pnl)}</td><td class="warn" style="text-align:left">${[...new Set(flag.get(t))].join('、')}</td><td style="text-align:left">${esc(t.note)}</td></tr>`).join('')}</table></div></details>`;
+ $('o6').innerHTML=h;
+ pr+=`\n\n---\n我的工具統計：${T.length} 筆、勝率 ${pct(W.length/T.length,0)}、平均賺 ${sgn(aw)}／平均賠 ${sgn(al)}、賺賠比 ${payoff===Infinity?'∞':payoff.toFixed(2)}、獲利單平均抱 ${hw.toFixed(1)} 天／虧損單 ${hl.toFixed(1)} 天、最長連虧 ${maxCL} 筆、總損益 ${fmt(tot)} 元。\n`+
+  (issue.length?'偵測到：'+issue.map(i=>`${i.title}（${i.detail}）`).join('；')+'\n':'')+
+  (miss.length?'出場後走勢：'+miss.slice(0,5).map(m=>m.txt).join('；')+'\n':'')+
+  '請在這個基礎上深入分析，規則要具體到可以照做（有數字）。';
+ return pr;
+}
+
+// ---- 分頁／提示詞／Gemini ----
+const RENDER={1:renderIdeas,2:renderTA,3:renderNews,4:renderBT,5:renderPF,6:renderJournal};
+let aiSeq=0;
+async function refreshAI(){
+ const t=AI_TAB,seq=++aiSeq;
+ try{const pr=await RENDER[t]();if(seq===aiSeq)$('aiPrompt').value=pr;}
+ catch(e){$('o'+t).innerHTML='<div class="msg">計算失敗：'+esc(e.message)+'</div>';console.error(e);}
+ const o=$('aiOut');o.innerHTML=AI_OUT[t]||'';o.style.display=AI_OUT[t]?'block':'none';
+}
+function setTab(t){AI_TAB=+t;document.querySelectorAll('#aiTabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==t));
+ document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id==='p'+t));
+ try{localStorage.setItem('aiTab',t);}catch(e){}
+ refreshAI();}
+function buildAiCodes(){
+ const cur=$('aiCode').value||(()=>{try{return localStorage.getItem('aiCode')}catch(e){return null}})()||'3017';
+ $('aiCode').innerHTML=POOL.map(p=>`<option value="${p.c}">${p.c} ${nm(p)}（${p.t}）</option>`).join('');
+ if(POOL.some(p=>p.c===cur))$('aiCode').value=cur;
+}
+function setBtLabels(){const L=BT_LAB[$('bt_st').value];$('bt_la').textContent=L[0];$('bt_lb').textContent=L[1];$('bt_a').value=L[2];$('bt_b').value=L[3];}
+const mdHtml=t=>esc(t).replace(/^#{1,4}\s*(.+)$/gm,'<h4>$1</h4>').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/^\s*[\*\-]\s+/gm,'• ');
+const GEM_VER={'gemini-3-flash-preview':'v1beta'}; // 其餘在 v1
+async function sendGemini(){
+ const key=$('gkey').value.trim();
+ if(!key){$('aiStat').innerHTML='<span class="warn">請先填 Gemini API Key（或按「複製提示詞」貼到任何 AI）。</span>';return;}
+ const model=$('gmodel').value,ver=GEM_VER[model]||'v1',t=AI_TAB;
+ const body={contents:[{role:'user',parts:[{text:$('aiPrompt').value+'\n\n請用繁體中文回答，條列清楚。最後提醒這不是投資建議。'}]}]};
+ if(ver==='v1beta'&&(t===1||t===3))body.tools=[{google_search:{}}]; // 需要最新市場/新聞時開啟搜尋
+ $('aiSend').disabled=true;$('aiStat').textContent='Gemini 分析中…（約 10~60 秒）';
+ const call=b=>fetch(`https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
+ try{
+  let r=await call(body),j=await r.json();
+  if(!r.ok&&body.tools){delete body.tools;r=await call(body);j=await r.json();}
+  if(!r.ok)throw new Error(j.error&&j.error.message||('HTTP '+r.status));
+  const txt=((j.candidates&&j.candidates[0].content&&j.candidates[0].content.parts)||[]).map(p=>p.text||'').join('');
+  AI_OUT[t]=mdHtml(txt||'（沒有回覆內容）');$('aiStat').textContent='完成（'+model+'）';
+  if(AI_TAB===t){$('aiOut').innerHTML=AI_OUT[t];$('aiOut').style.display='block';}
+ }catch(e){$('aiStat').innerHTML='<span class="warn">Gemini 失敗：'+esc(e.message)+'。這台若是內網連不到 Google，請改用「複製提示詞」。</span>';}
+ $('aiSend').disabled=false;
+}
+async function copyPrompt(){
+ const v=$('aiPrompt').value;
+ try{await navigator.clipboard.writeText(v);}catch(e){const ta=$('aiPrompt');ta.closest('details').open=true;ta.select();document.execCommand('copy');}
+ $('aiStat').textContent='已複製提示詞，可貼到 ChatGPT／Gemini／Claude。';
+}
+$('aiTabs').addEventListener('click',e=>{if(e.target.dataset.t)setTab(e.target.dataset.t);});
+$('aiCode').addEventListener('change',()=>{try{localStorage.setItem('aiCode',$('aiCode').value);}catch(e){}$('n3subj').dataset.edited='';refreshAI();});
+$('n3subj').addEventListener('input',()=>{$('n3subj').dataset.edited='1';refreshAI();});
+$('n3news').addEventListener('change',refreshAI);
+$('bt_st').addEventListener('change',()=>{setBtLabels();refreshAI();});
+['bt_a','bt_b','bt_per','bt_stop','bt_cost','pf_tol','jr_stop'].forEach(id=>$(id).addEventListener('change',refreshAI));
+$('pf_total').addEventListener('change',()=>{$('pf_total').dataset.edited='1';refreshAI();});
+$('pf_in').addEventListener('change',refreshAI);$('jr_in').addEventListener('change',refreshAI);
+$('bt_all').onclick=btAll;$('pf_fill').onclick=()=>{fillPF();refreshAI();};$('jr_demo').onclick=demoJournal;
+$('aiCopy').onclick=copyPrompt;$('aiSend').onclick=sendGemini;
+try{$('gkey').value=localStorage.getItem('gemKey')||'';const m=localStorage.getItem('gemModel');if(m)$('gmodel').value=m;}catch(e){}
+$('gkey').addEventListener('change',()=>{try{localStorage.setItem('gemKey',$('gkey').value.trim());}catch(e){}});
+$('gmodel').addEventListener('change',()=>{try{localStorage.setItem('gemModel',$('gmodel').value);}catch(e){}});
+buildAiCodes();
+try{const t=+localStorage.getItem('aiTab');if(t>=1&&t<=6)AI_TAB=t;}catch(e){}
+document.querySelectorAll('#aiTabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==AI_TAB));
+document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id==='p'+AI_TAB));
+
 (async()=>{ // 本機模式：帶入 K:\TwStock 追蹤清單（★）
  if(isLocal){try{
   const w=await (await fetch('/api/watch')).json();
@@ -418,6 +1076,7 @@ $('themes').addEventListener('change',run);
   if(hd){try{done=await importFromHandle(hd,false);if(!done)$('fileName').textContent='📄 '+hd.name+'（按「▶ 執行匯入」授權讀取）';}catch(e){}}
   if(!done)await loadDataFile();
  }
+ buildAiCodes();
  run();renderPool(POOL.map(evalStock).sort((a,b)=>b.score-a.score));
 })();
 </script>
