@@ -55,7 +55,16 @@ textarea{min-height:90px;resize:vertical;font-family:Consolas,monospace;font-siz
 .tierbtn.maybe{background:var(--maybe-bg);color:var(--maybe)}
 .tierbtn.no{background:var(--no-bg);color:var(--no)}
 .tierbtn.on{border-color:currentColor}
-.tools{display:grid;grid-template-columns:2fr 1fr auto;gap:8px;margin-top:12px}
+.tools{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;margin-top:12px;align-items:center}
+.tools2{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:8px;align-items:center}
+.tools2 select{width:auto}
+input[type=number]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:5px 8px}
+.pay{color:var(--yes);font-weight:600}
+.chk{display:flex;gap:6px;align-items:center;white-space:nowrap;font-size:14px;cursor:pointer}
+.srclist{display:grid;gap:4px;margin:0 0 10px;font-size:13.5px}
+.srclist label{display:block;cursor:pointer}
+.srclist small{color:var(--sub)}
+.src{font-size:12px;padding:1px 7px;border-radius:999px;background:var(--chip);color:var(--sub);margin-right:4px;white-space:nowrap}
 .list{list-style:none;margin:0;padding:0}
 .job{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0;box-shadow:var(--shadow)}
 .job.yes{border-left-color:var(--yes)}.job.maybe{border-left-color:var(--maybe)}.job.no{border-left-color:var(--no)}
@@ -81,6 +90,7 @@ code{background:var(--chip);padding:1px 5px;border-radius:4px;font-size:12.5px;o
 footer{color:var(--sub);font-size:12.5px;padding:10px 0 30px}
 @media (max-width:640px){
   .tools{grid-template-columns:1fr}
+  .tools2 select{width:100%}
   .job .top{flex-direction:column}
   h1{font-size:20px}
 }
@@ -89,31 +99,49 @@ footer{color:var(--sub);font-size:12.5px;padding:10px 0 30px}
 <body>
 <div class="wrap">
 <header>
-  <h1>🇹🇼 台灣遠端職缺篩選 <small>for gamesjobs.co.uk</small></h1>
-  <p class="lead">把 gamesJobs 上的英國遊戲職缺逐筆判斷：<b>人留在台灣能不能做</b>。判斷依據是職缺文字裡的遠端、地區、時區、合約型態等線索，每一筆都會列出理由。</p>
+  <h1>🌏 台灣遠端職缺篩選 <small>英國 gamesJobs · 台灣 104 · 美／澳／星 全球遠端職缺站</small></h1>
+  <p class="lead">把英國、台灣、美國、澳洲、新加坡等地的職缺放在一起逐筆判斷：<b>人留在台灣能不能做</b>。判斷依據是職缺的應徵地區限制、遠端、時區、合約型態等線索，每一筆都會列出理由。</p>
 </header>
 
 <section class="panel" id="loadPanel">
-  <h2>① 載入職缺資料</h2>
+  <h2>① 載入職缺資料 <span class="note">（不同來源可以分次載入，會合併在一起；同一來源再載一次會換成新的）</span></h2>
   <div class="steps">
     <div class="step">
       <b>A. 一鍵抓取</b>
-      <p>直接向網站要完整清單（data/jobs.json）。若被瀏覽器的跨網域限制擋下，改用 B 或 C。</p>
-      <button class="primary" id="fetchBtn">🌐 一鍵抓取全部職缺</button>
+      <div class="srclist" id="srcList">
+        <label><input type="checkbox" value="remotive" checked> <span class="src">全球</span>Remotive <small>全球遠端，多為美國公司，標明可應徵地區</small></label>
+        <label><input type="checkbox" value="jobicy" checked> <span class="src">全球</span>Jobicy <small>全球遠端＋亞太(APAC)區</small></label>
+        <label><input type="checkbox" value="himalayas" checked> <span class="src">全球</span>Himalayas <small>全球遠端，列出開放的國家</small></label>
+        <label><input type="checkbox" value="gamesjobs"> <span class="src">英國</span>gamesJobs <small>英國遊戲職缺，常被瀏覽器擋，擋了改用 B/C</small></label>
+      </div>
+      <button class="primary" id="fetchBtn">🌐 抓取勾選的來源</button>
+      <p class="note" style="margin-top:8px">台灣 104、澳洲 SEEK、新加坡 MyCareersFuture 不讓別的網站直接抓，請用書籤小工具或 B/C。</p>
       <div id="bmBox" hidden style="margin-top:10px">
-        <p><b>書籤小工具（放上網後可用，真正一鍵）</b>：把這顆按鈕拖到書籤列 →
-          到 <a href="https://gamesjobs.co.uk/" target="_blank" rel="noopener">gamesjobs.co.uk</a> 點書籤，職缺會自動送進這裡。</p>
+        <p><strong>書籤小工具（放上網後可用）</strong>：把這顆按鈕拖到書籤列，再到下列網站點書籤，資料會自動送進這裡：</p>
         <a class="btn" id="bmLink" href="#">⭐ 送到台灣遠端篩選</a>
+        <p class="note" style="margin-top:6px">
+          • <a href="https://gamesjobs.co.uk/" target="_blank" rel="noopener">gamesjobs.co.uk</a>：抓完整清單<br>
+          • 104 搜尋頁：照網址上的關鍵字抓（最多 10 頁）。網址有勾「遠端工作」才只抓遠端：
+            <a href="https://www.104.com.tw/jobs/search/?keyword=%E9%81%8A%E6%88%B2&remoteWork=1" target="_blank" rel="noopener">遊戲・遠端</a> /
+            <a href="https://www.104.com.tw/jobs/search/?keyword=%E9%81%8A%E6%88%B2" target="_blank" rel="noopener">遊戲・全部</a><br>
+          • SEEK、MyCareersFuture 或其他職缺網站的<strong>單一職缺頁</strong>：抓該頁的結構化資料</p>
       </div>
     </div>
     <div class="step">
       <b>B. 存檔後拖進來（最穩）</b>
-      <p>開 <a href="https://gamesjobs.co.uk/data/jobs.json" target="_blank" rel="noopener">jobs.json</a> → <code>Ctrl+S</code> 存檔 → 拖到下面。也收網頁 .html、RSS <a href="https://gamesjobs.co.uk/feed.xml" target="_blank" rel="noopener">feed.xml</a>。</p>
+      <p>開資料網址 → <code>Ctrl+S</code> 存檔 → 拖到下面。可以一次拖多個檔案：<br>
+        英國 <a href="https://gamesjobs.co.uk/data/jobs.json" target="_blank" rel="noopener">gamesJobs jobs.json</a>、
+        台灣 104 遊戲職缺 <a href="https://www.104.com.tw/jobs/search/list?ro=0&kwop=7&keyword=%E9%81%8A%E6%88%B2&remoteWork=1&order=15&asc=0&mode=s&page=1" target="_blank" rel="noopener">遠端</a> /
+        <a href="https://www.104.com.tw/jobs/search/list?ro=0&kwop=7&keyword=%E9%81%8A%E6%88%B2&order=15&asc=0&mode=s&page=1" target="_blank" rel="noopener">全部</a>（顯示錯誤就改用書籤）、
+        全球 <a href="https://remotive.com/api/remote-jobs?search=game" target="_blank" rel="noopener">Remotive</a>、
+        <a href="https://jobicy.com/api/v2/remote-jobs?count=100&tag=game" target="_blank" rel="noopener">Jobicy</a>、
+        <a href="https://himalayas.app/jobs/api/search?q=game" target="_blank" rel="noopener">Himalayas</a>。
+        也收職缺網頁 .html、RSS。</p>
       <div class="drop" id="drop">📂 拖曳檔案到這裡，或點此選檔<input type="file" id="file" accept=".json,.html,.htm,.xml,.txt" hidden multiple></div>
     </div>
     <div class="step">
       <b>C. 直接貼上</b>
-      <p>在 jobs.json 或網頁原始碼按 <code>Ctrl+A</code>、<code>Ctrl+C</code>，貼進來。</p>
+      <p>在上面任一個資料網址或網頁原始碼按 <code>Ctrl+A</code>、<code>Ctrl+C</code>，貼進來。</p>
       <textarea id="paste" placeholder="貼上 JSON / HTML / RSS…"></textarea>
       <div class="row" style="margin-top:6px"><button id="pasteBtn">📋 分析貼上內容</button></div>
     </div>
@@ -126,13 +154,25 @@ footer{color:var(--sub);font-size:12.5px;padding:10px 0 30px}
   <div class="summary">
     <button class="tierbtn yes on" data-tier="yes"><span class="n" id="cYes">0</span>✅ 可以（全球 / 亞洲 / 台灣）</button>
     <button class="tierbtn maybe on" data-tier="maybe"><span class="n" id="cMaybe">0</span>🤔 待確認（遠端但沒寫地區）</button>
-    <button class="tierbtn no" data-tier="no"><span class="n" id="cNo">0</span>❌ 不行（限英國 / 進辦公室）</button>
+    <button class="tierbtn no" data-tier="no"><span class="n" id="cNo">0</span>❌ 不行（限當地居住 / 進辦公室）</button>
   </div>
   <div class="tools">
-    <input type="text" id="q" placeholder="搜尋職稱、工作室、地點、部門（例：programmer、Keywords）">
+    <input type="text" id="q" placeholder="搜尋職稱、公司、地點、部門（例：programmer、Unity）">
+    <select id="srcSel"><option value="">所有來源</option></select>
     <select id="dept"><option value="">所有部門</option></select>
-    <button id="csvBtn">⬇ 匯出 CSV</button>
+    <div class="row"><button id="csvBtn">⬇ 匯出 CSV</button><button id="clearBtn" title="清掉所有已載入的職缺">🗑 清空</button></div>
   </div>
+  <div class="tools2">
+    <select id="modeSel" title="工作型態">
+      <option value="">🏠🏢 遠端＋非遠端</option>
+      <option value="remote" selected>🏠 只要遠端</option>
+      <option value="office">🏢 只要非遠端（進辦公室／混合）</option>
+    </select>
+    <label class="chk">💰 期望月薪 ≥ NT$ <input type="number" id="minPay" min="0" step="5000" placeholder="例 80000" style="width:120px"></label>
+    <label class="chk"><input type="checkbox" id="payUnknown" checked> 沒寫薪資的也顯示</label>
+    <label class="chk" title="Remotive / Jobicy / Himalayas 等綜合職缺站只顯示遊戲相關職缺"><input type="checkbox" id="gameOnly" checked> 🎮 只看遊戲相關</label>
+  </div>
+  <p class="note" style="margin:6px 0 0">💱 薪資換算成「約當月薪新台幣」比較，匯率是概略值：<span id="fxNote"></span>。年薪÷12、時薪×160、日薪×21.75；有範圍時取上限比較。</p>
   <p class="note" id="showing"></p>
   <ol class="list" id="list"></ol>
 </section>
@@ -150,15 +190,16 @@ footer{color:var(--sub);font-size:12.5px;padding:10px 0 30px}
 <details class="panel">
   <summary>判斷規則與執行紀錄</summary>
   <div class="note" style="margin-top:8px">
-    <p><b>✅ 可以</b>：寫明 worldwide / anywhere / globally remote / any time zone、APAC / Asia / GMT+8，或地點就在台灣。</p>
-    <p><b>🤔 待確認</b>：有 remote 字樣但沒限制地區。排序時加分：自由接案/外包（海外承包較常見）、需要中文；扣分：實習/應屆、同時寫 hybrid、地點只寫英國。</p>
-    <p><b>❌ 不行</b>：Remote (UK)、UK-based、right to work in the UK、限 EMEA/歐洲/美洲，或完全沒有遠端字樣（等於要進辦公室）。</p>
+    <p><b>✅ 可以</b>：寫明 worldwide / anywhere / globally remote / any time zone、APAC / Asia / GMT+8，應徵地區清單含台灣或亞洲，或地點就在台灣（104 等）。</p>
+    <p><b>🤔 待確認</b>：有遠端字樣但沒限制地區。排序時加分：自由接案/外包、需要中文、地點在新加坡/澳洲/日本等時區相近處；扣分：實習/應屆、同時寫 hybrid、地點只寫英國。</p>
+    <p><b>❌ 不行</b>：應徵地區清單不含台灣（例如 Remotive 的「USA Only」、Himalayas 的國家清單）、Remote (UK/US/Australia/Singapore)、需要當地工作權/公民/PR、限 EMEA/歐洲/美洲，或完全沒有遠端字樣（等於要進辦公室）。</p>
+    <p>🎮 只看遊戲相關：只套用在 Remotive / Jobicy / Himalayas 這類綜合職缺站；gamesJobs、104 搜尋結果全部顯示。</p>
     <p>remote play / remote config 這類技術名詞不算遠端。列表通常沒有完整職缺說明；看到「待確認」可以點「貼內文重判」，把原文貼進來再判一次。</p>
   </div>
   <div id="logbox"></div>
 </details>
 
-<footer>資料來源 gamesjobs.co.uk；本工具只在你的瀏覽器裡分析，不會上傳職缺資料（除非你主動使用 AI 複判）。</footer>
+<footer>資料來源 gamesjobs.co.uk、104.com.tw、Remotive、Jobicy、Himalayas 等，連結都指回原站；本工具只在你的瀏覽器裡分析，不會上傳職缺資料（除非你主動使用 AI 複判）。</footer>
 </div>
 
 <script>
@@ -180,6 +221,76 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const stripTags = s => String(s ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
 function store(k, v){ try{ localStorage.setItem(k, v); return true; }catch(e){ return false; } }
 function load(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+
+/* ===================== 職缺來源 ===================== */
+// allRemote：整站都是遠端職缺；general：綜合職缺站（套用「只看遊戲相關」）
+const SOURCES = {
+  gamesjobs: { label: 'gamesJobs',       flag: '英國', host: /(^|\.)gamesjobs\.co\.uk$/ },
+  tw104:     { label: '104人力銀行',      flag: '台灣', host: /(^|\.)104\.com\.tw$/ },
+  remotive:  { label: 'Remotive',        flag: '全球', host: /(^|\.)remotive\.com$/, allRemote: true, general: true },
+  jobicy:    { label: 'Jobicy',          flag: '全球', host: /(^|\.)jobicy\.com$/, allRemote: true, general: true },
+  himalayas: { label: 'Himalayas',       flag: '全球', host: /(^|\.)himalayas\.app$/, allRemote: true, general: true },
+  seek:      { label: 'SEEK',            flag: '澳洲', host: /(^|\.)seek\.com\.au$/, general: true },
+  mcf:       { label: 'MyCareersFuture', flag: '新加坡', host: /(^|\.)mycareersfuture\.gov\.sg$/, general: true },
+  other:     { label: '其他',            flag: '其他' }
+};
+function detectSource(url){
+  try { const h = new URL(url).hostname; for (const [k, s] of Object.entries(SOURCES)) if (s.host && s.host.test(h)) return k; } catch (e) {}
+  return 'other';
+}
+const srcName = k => { const s = SOURCES[k] || SOURCES.other; return s === SOURCES.other ? s.label : `${s.flag}・${s.label}`; };
+
+/* ===================== 薪資換算：任意幣別/週期 → 約當月薪新台幣 ===================== */
+const FX = { TWD: 1, USD: 32, GBP: 41, EUR: 35, AUD: 21, SGD: 24, CAD: 23, NZD: 19, HKD: 4.1, JPY: 0.21, CNY: 4.4 };   // 概略匯率
+function detectCurrency(s){
+  if (/NT\$|TWD|新台幣|台幣|元/i.test(s)) return 'TWD';
+  if (/[年月時日]薪/.test(s) && !/[$£€¥]|USD|GBP|EUR|AUD|SGD/i.test(s)) return 'TWD';   // 中文寫法又沒標幣別 → 當台幣
+  if (/US\$|USD/i.test(s)) return 'USD';                 // 先判，免得 "US$" 被當成 S$
+  if (/\bC\$|CA\$|CAD/i.test(s)) return 'CAD';
+  if (/\bA\$|AU\$|AUD/i.test(s)) return 'AUD';
+  if (/\bS\$|SGD/i.test(s)) return 'SGD';
+  if (/NZ\$|NZD/i.test(s)) return 'NZD';
+  if (/HK\$|HKD/i.test(s)) return 'HKD';
+  if (/£|GBP/i.test(s)) return 'GBP';
+  if (/€|EUR/i.test(s)) return 'EUR';
+  if (/¥|JPY|円/i.test(s)) return /CNY|RMB|人民幣/i.test(s) ? 'CNY' : 'JPY';
+  if (/CNY|RMB|人民幣/i.test(s)) return 'CNY';
+  if (/\$|USD/i.test(s)) return 'USD';
+  return '';
+}
+// 回傳 { lo, hi, cur, per }（lo/hi 已換成月薪 TWD），看不懂就回傳 null
+function parsePay(text, defCur){
+  const s = String(text || '');
+  if (!s || /面議|negotiable|competitive|doe\b|depending on experience/i.test(s) && !/\d{3}/.test(s)) return null;
+  const nums = [];
+  s.replace(/(\d[\d,]*(?:\.\d+)?)\s*(k\b|K\b|萬)?/g, (_, n, u) => {
+    let v = parseFloat(n.replace(/,/g, ''));
+    if (u === 'k' || u === 'K') v *= 1e3; else if (u === '萬') v *= 1e4;
+    if (v >= 5) nums.push(v);
+    return _;
+  });
+  if (!nums.length) return null;
+  const cur = detectCurrency(s) || defCur || 'USD';
+  let lo = Math.min(...nums), hi = Math.max(...nums);
+  let per = '';
+  if (/hour|hourly|\/\s*hr\b|per hr|時薪|小時/i.test(s)) per = 'hour';
+  else if (/\bday\b|daily|per day|日薪|\/\s*day/i.test(s)) per = 'day';
+  else if (/week|weekly|週薪/i.test(s)) per = 'week';
+  else if (/month|monthly|\bpcm\b|\/\s*mo\b|月薪|每月/i.test(s)) per = 'month';
+  else if (/year|annum|annual|yearly|\bp\.?a\.?\b|年薪/i.test(s)) per = 'year';
+  else if (cur === 'TWD') per = hi >= 300000 ? 'year' : 'month';           // 台灣習慣寫月薪
+  else {
+    // 沒寫週期：換成美金看量級猜（≥1.5 萬美金當年薪、<200 當時薪、其餘當月薪）
+    const usd = hi * (FX[cur] || 1) / FX.USD;
+    per = usd >= 15000 ? 'year' : usd < 200 ? 'hour' : 'month';
+  }
+  const mult = { hour: 160, day: 21.75, week: 4.33, month: 1, year: 1 / 12 }[per];
+  const rate = FX[cur] || 1;
+  return { lo: Math.round(lo * mult * rate), hi: Math.round(hi * mult * rate), cur, per };
+}
+const rangeK = (a, b) => a === b ? fmtK(b) : fmtK(a) + '–' + fmtK(b);
+const fmtPay = p => p ? `≈月 NT$${rangeK(p.lo, p.hi)}（年 NT$${rangeK(p.lo * 12, p.hi * 12)}）` : '';
+const fmtK = n => n >= 10000 ? (n / 10000).toFixed(n >= 100000 ? 0 : 1).replace(/\.0$/, '') + ' 萬' : n.toLocaleString();
 
 /* ===================== 解析：任意格式 → 統一職缺物件 ===================== */
 // 把任意值攤成文字：陣列接起來、物件優先拿 name/title 之類
@@ -215,38 +326,51 @@ function allValues(v, out = [], depth = 0){
   else if (v && typeof v === 'object') Object.values(v).forEach(x => allValues(x, out, depth + 1));
   return out;
 }
-function absUrl(u){
+function absUrl(u, base = SITE){
   if (!u) return '';
   u = String(u);
   if (/^https?:\/\//i.test(u)) return u;
   if (u.startsWith('//')) return 'https:' + u;
-  if (u.startsWith('/')) return SITE + u;
-  if (/^jobs\//.test(u)) return SITE + '/' + u;
+  if (u.startsWith('/')) return base + u;
+  if (/^jobs\//.test(u)) return base + '/' + u;
   return u;
 }
 
 function normalize(raw){
   if (!raw || typeof raw !== 'object') return null;
   const isLd = String(raw['@type'] || '').toLowerCase() === 'jobposting';
-  const title = stripTags(toText(pick(raw, ['title','jobTitle','position','name','role'])));
+  const title = stripTags(toText(pick(raw, ['title','jobTitle','jobName','position','name','role'])));
   if (!title) return null;
-  const company = stripTags(toText(pick(raw, ['company','companyName','studio','studioName','employer','organization','org','hiringOrganization'])));
-  let location = toText(pick(raw, ['location','locations','locationName','loc','city','place','jobLocation','office','offices']));
+  const company = stripTags(toText(pick(raw, ['company','companyName','company_name','custName','coName','studio','studioName','employer','organization','org','hiringOrganization'])));
+  let location = toText(pick(raw, ['location','locations','locationName','loc','city','place','jobLocation','jobAddrNoDesc','office','offices']));
   const country = toText(pick(raw, ['country','countries','region']));
   if (country && !location.toLowerCase().includes(country.toLowerCase())) location = [location, country].filter(Boolean).join(', ');
   const remoteRaw = pick(raw, ['remote','isRemote','is_remote','workplaceType','workplace','workplace_type','remoteType','remoteStatus','jobLocationType','workMode','work_type','locationType']);
-  const applicantLoc = toText(pick(raw, ['applicantLocationRequirements','applicantLocation','eligibleCountries']));
-  const dept = stripTags(toText(pick(raw, ['department','dept','discipline','category','categories','team','function','occupationalCategory'])));
-  const type = stripTags(toText(pick(raw, ['employmentType','employment_type','jobType','contractType','contract','commitment','type','schedule'])));
-  const salary = stripTags(toText(pick(raw, ['salary','salaryText','pay','compensation','baseSalary'])));
-  const date = toText(pick(raw, ['postedAt','posted','datePosted','date','published','publishedAt','createdAt','firstSeen','updatedAt']));
-  const desc = stripTags(toText(pick(raw, ['description','descriptionPlain','descriptionText','summary','snippet','content','body','text','excerpt'])));
-  let url = absUrl(toText(pick(raw, ['url','link','href','permalink','pageUrl','page'])));
+  // Remotive candidate_required_location / Himalayas locationRestrictions / Jobicy jobGeo 都是「可應徵地區」
+  const applicantLoc = toText(pick(raw, ['applicantLocationRequirements','applicantLocation','eligibleCountries','candidate_required_location','locationRestrictions','jobGeo']));
+  const dept = stripTags(toText(pick(raw, ['department','dept','discipline','category','categories','jobIndustry','team','function','occupationalCategory'])));
+  const type = stripTags(toText(pick(raw, ['employmentType','employment_type','jobType','job_type','contractType','contract','commitment','type','schedule']))).replace(/_/g, '-');
+  const tags = stripTags(toText(pick(raw, ['tags','skills','jobTags'])));
+  let salary = stripTags(toText(pick(raw, ['salary','salaryText','salaryDesc','pay','compensation','baseSalary'])));
+  const curRaw = toText(pick(raw, ['salaryCurrency','currency']));
+  if (!salary){
+    // Jobicy salaryMin/Max、Himalayas minSalary/maxSalary：數字欄位自己組字串
+    const lo = pick(raw, ['salaryMin','minSalary','annualSalaryMin']), hi = pick(raw, ['salaryMax','maxSalary','annualSalaryMax']);
+    if (lo || hi){
+      const per = toText(pick(raw, ['salaryPeriod'])) || 'yearly';
+      salary = [lo, hi].filter(Boolean).map(n => Number(n).toLocaleString('en-US')).join(' – ') + ` ${curRaw || 'USD'} / ${per}`;
+    }
+  }
+  const date = toText(pick(raw, ['postedAt','posted','datePosted','date','published','publishedAt','publication_date','pubDate','createdAt','appearDate','firstSeen','updatedAt']));
+  const desc = stripTags(toText(pick(raw, ['description','jobDescription','descriptionPlain','descriptionText','summary','snippet','content','body','text','excerpt','jobExcerpt'])));
+  let linkV = pick(raw, ['url','link','href','permalink','pageUrl','page']);
+  if (linkV && typeof linkV === 'object' && !Array.isArray(linkV)) linkV = linkV.job || linkV.url || linkV.href || '';   // 104：link.job
+  let url = absUrl(toText(linkV));
   const slug = toText(pick(raw, ['slug','path']));
   if (!url && slug) url = absUrl(slug.includes('/') ? slug : `/jobs/${slug.replace(/\.html$/,'')}.html`);
-  const applyUrl = absUrl(toText(pick(raw, ['applyUrl','apply_url','applicationUrl','sourceUrl','source_url','originalUrl','externalUrl','absolute_url','hostedUrl'])));
+  const applyUrl = absUrl(toText(pick(raw, ['applyUrl','apply_url','applicationUrl','applicationLink','sourceUrl','source_url','originalUrl','externalUrl','absolute_url','hostedUrl'])));
   return {
-    title, company, location: stripTags(location), dept, type, salary, date, desc, url: url || applyUrl, applyUrl,
+    title, company, location: stripTags(location), dept, type, salary, salaryCur: curRaw, tags, date, desc, url: url || applyUrl, applyUrl,
     remoteRaw, applicantLoc, isLd,
     extra: allValues(raw).map(stripTags).join(' \n ').slice(0, 20000),
     userText: ''
@@ -256,7 +380,7 @@ function normalize(raw){
 // 在 JSON 裡找「最像職缺清單」的陣列
 function findJobArray(obj){
   let best = null, bestScore = 0;
-  const looksJob = o => o && typeof o === 'object' && !Array.isArray(o) && pick(o, ['title','jobTitle','position','name','role']) !== undefined;
+  const looksJob = o => o && typeof o === 'object' && !Array.isArray(o) && pick(o, ['title','jobTitle','jobName','position','name','role']) !== undefined;
   (function walk(v, depth){
     if (depth > 5 || v == null || typeof v !== 'object') return;
     if (Array.isArray(v)){
@@ -295,17 +419,17 @@ function parseJsonText(text){
   return arr.map(normalize).filter(Boolean);
 }
 
-function parseHtml(text){
+function parseHtml(text, base = SITE){
   log('1-HTML', '開始解析 HTML，長度', text.length);
   const doc = new DOMParser().parseFromString(text, 'text/html');
   const jobs = [];
   // 1) 網頁裡的 JSON-LD
   doc.querySelectorAll('script[type="application/ld+json"]').forEach(s => {
-    try { collectJobPostings(JSON.parse(s.textContent)).forEach(j => { const n = normalize(j); if (n) jobs.push(n); }); } catch {}
+    try { collectJobPostings(JSON.parse(s.textContent)).forEach(j => { const n = normalize(j); if (n){ if (!/^https?:/.test(n.url)) n.url = absUrl(n.url, base); jobs.push(n); } }); } catch {}
   });
   log('1-HTML', 'JSON-LD JobPosting 筆數', jobs.length);
-  // 2) gamesJobs 列表卡片：<li><a class="title">…<span class="meta">…<span class="company">
-  const cards = doc.querySelectorAll('li');
+  // 2) gamesJobs 列表卡片：<li><a class="title">…<span class="meta">…<span class="company">（別的網站的 li 多半是選單，不套用）
+  const cards = base === SITE ? doc.querySelectorAll('li') : [];
   let cardCount = 0;
   cards.forEach(li => {
     const a = li.querySelector('a.title') || li.querySelector('a[href*="/jobs/"]');
@@ -314,7 +438,7 @@ function parseHtml(text){
     const pills = [...li.querySelectorAll('.pill')].map(p => p.textContent.trim());
     jobs.push({
       title: a.textContent.trim(), company: q('.company'), location: q('.meta'),
-      dept: q('.type-tag'), type: pills.filter(p => !/[£$€]/.test(p)).join(' / '), salary: pills.filter(p => /[£$€]/.test(p)).join(' / '),
+      dept: q('.type-tag'), type: pills.filter(p => !/[£$€]/.test(p)).join(' / '), salary: pills.filter(p => /[£$€]/.test(p)).join(' / '), tags: '', salaryCur: '',
       date: '', desc: '', url: absUrl(a.getAttribute('href')), applyUrl: '', remoteRaw: undefined, applicantLoc: '', isLd: false,
       extra: li.textContent.replace(/\s+/g, ' ').trim(), userText: ''
     });
@@ -326,8 +450,8 @@ function parseHtml(text){
     const h1 = doc.querySelector('h1');
     if (h1){
       const body = (doc.querySelector('main') || doc.body).textContent.replace(/\s+/g, ' ').trim();
-      jobs.push({ title: h1.textContent.trim(), company: '', location: '', dept: '', type: '', salary: '', date: '', desc: body.slice(0, 20000),
-        url: absUrl(doc.querySelector('link[rel=canonical]')?.getAttribute('href') || ''), applyUrl: '', remoteRaw: undefined, applicantLoc: '', isLd: false, extra: '', userText: '' });
+      jobs.push({ title: h1.textContent.trim(), company: '', location: '', dept: '', type: '', salary: '', tags: '', salaryCur: '', date: '', desc: body.slice(0, 20000),
+        url: absUrl(doc.querySelector('link[rel=canonical]')?.getAttribute('href') || '', base) || (base !== SITE ? base : ''), applyUrl: '', remoteRaw: undefined, applicantLoc: '', isLd: false, extra: '', userText: '' });
       log('1-HTML', '當作單一職缺頁處理', h1.textContent.trim());
     }
   }
@@ -344,34 +468,43 @@ function parseRss(text){
     const link = g(it, 'link') || it.getElementsByTagName('link')[0]?.getAttribute('href') || '';
     const desc = stripTags(g(it, 'description') || g(it, 'summary') || g(it, 'content'));
     const cats = [...it.getElementsByTagName('category')].map(c => c.textContent.trim()).join(' / ');
-    return { title: stripTags(g(it, 'title')), company: '', location: '', dept: cats, type: '', salary: '', date: g(it, 'pubDate') || g(it, 'updated'),
+    return { title: stripTags(g(it, 'title')), company: '', location: '', dept: cats, type: '', salary: '', tags: '', salaryCur: '', date: g(it, 'pubDate') || g(it, 'updated'),
       desc, url: absUrl(link), applyUrl: '', remoteRaw: undefined, applicantLoc: '', isLd: false, extra: '', userText: '' };
   }).filter(j => j.title);
   log('1-RSS', '項目筆數', jobs.length);
   return jobs;
 }
 
-function parseAny(text){
+function parseAny(text, base){
   const t = text.replace(/^﻿/, '').trim();
   if (!t) throw new Error('內容是空的');
   if (t[0] === '{' || t[0] === '[') return parseJsonText(t);
   const head = t.slice(0, 3000);
   if (/^<\?xml|<rss[\s>]|<feed[\s>]/i.test(head) && !/<html/i.test(head)) return parseRss(t);
-  if (/<html|<!doctype|<li[\s>]|<ol[\s>]|<a\s/i.test(head)) return parseHtml(t);
-  throw new Error('看不出是 JSON、HTML 還是 RSS，請確認貼的是 jobs.json 或網頁原始碼');
+  if (/<html|<!doctype|<li[\s>]|<ol[\s>]|<a\s/i.test(head)) return parseHtml(t, base);
+  throw new Error('看不出是 JSON、HTML 還是 RSS，請確認貼的是職缺資料（JSON）或網頁原始碼');
 }
 
 /* ===================== 判斷：人在台灣能不能遠端 ===================== */
 const SEP = String.raw`[\s\-–—(),:/|]*`;
 const UKW = String.raw`(?:uk|u\.k\.|united kingdom|gb|great britain|england|scotland|wales|northern ireland|britain)`;
+const ZH_TW = '台灣|臺灣|台北|臺北|新北|桃園|台中|臺中|台南|臺南|高雄|新竹|基隆|嘉義|宜蘭|花蓮|台東|臺東|屏東|苗栗|彰化|南投|雲林|澎湖|金門';
+const LIVE = String.raw`(based|located|resid\w*|living|live)`;
 const RX = {
-  taiwan:   /\b(taiwan|taipei|kaohsiung|taichung|hsinchu)\b|台灣|臺灣/i,
+  taiwan:   new RegExp(String.raw`\b(taiwan|taipei|kaohsiung|taichung|tainan|taoyuan|hsinchu)\b|${ZH_TW}`, 'i'),
+  remoteZh: /遠端|遠距|居家(工作|辦公|上班)|在家(工作|上班)/,
+  // 限澳洲/紐西蘭、限新加坡：時區跟台灣近，但通常要當地工作權
+  anz:      new RegExp(String.raw`remote${SEP}(australia|aus|anz|new zealand|nz)\b|\b(australia|anz|new zealand)${SEP}remote\b|\baustralian (work(ing)? rights|citizens?(hip)?|permanent residen\w*)|\b(right|eligib\w*|authori[sz]ed|permission) to work in (australia|new zealand)|\b${LIVE} in (australia|new zealand)\b|\bwithin (australia|new zealand)\b|\b(aest|aedt|nzst) (time ?zone|hours)\b|澳洲(公民|永久居民|工作權)`, 'i'),
+  sg:       new RegExp(String.raw`remote${SEP}singapore\b|\bsingapore${SEP}remote\b|\bsingapore(an)? (citizens?|prs?|permanent residents?)\b|\b(right|eligib\w*|authori[sz]ed|permission) to work in singapore|\b${LIVE} in singapore\b|\bwithin singapore\b|新加坡(公民|永久居民)`, 'i'),
+  // "US" 要分大小寫，不然 "join us - remote" 會被當成限美國
+  usCS:     new RegExp(String.raw`\b(US|USA|U\.S\.)${SEP}(remote|Remote|REMOTE|only|Only|ONLY)\b|\b(remote|Remote|REMOTE)${SEP}(US|USA)\b|\b(US|USA)[- ]based\b|\bUS citizens?(hip)?\b`),
+  nearTz:   /\b(singapore|australia|sydney|melbourne|brisbane|perth|adelaide|new zealand|auckland|japan|tokyo|osaka|korea|seoul|hong kong|philippines|manila|malaysia|kuala lumpur|vietnam|hanoi|thailand|bangkok|indonesia|jakarta|shanghai|shenzhen)\b|新加坡|澳洲|日本|韓國|香港|馬來西亞|菲律賓/i,
   global:   new RegExp(String.raw`\b(work(ing)? from anywhere|anywhere in the world|world[- ]?wide|global(ly)?[- ]remote|remote${SEP}(global|worldwide|anywhere|international)\b|fully distributed|any ?time ?zones?|all time ?zones|location[- ](agnostic|independent)|open to (international|global|overseas) (applicants|candidates)|regardless of (your )?location|from any country|international remote)`, 'i'),
   asia:     /\b(apac|asia[- ]?pacific|asia|east asia|gmt ?\+ ?8|utc ?\+ ?8)\b/i,
   remote:   /\b(fully[- ]remote|100% remote|remote[- ](first|friendly|working|work|role|position|job|opportunity|option|based|ok)|work(ing)? remotely|work(ing)? from home|wfh|home[- ](based|working)|telecommute|remote(?![- ]?(play|config|configuration|desktop|control|server|access|render|rendering|debug|debugging|team members?|controlled|sensing|procedure|calls?)\b))\b/i,
   ukOnly:   new RegExp(String.raw`remote${SEP}${UKW}\b|\b${UKW}${SEP}remote\b|\buk[- ](based|remote|only|residents?|hours|time ?zone)\b|\b(based|located|resident|residing|living|live) (in|within) the (uk|united kingdom)\b|\bwithin the (uk|united kingdom)\b|right to work in the (uk|united kingdom)|(eligible|authori[sz]ed|permission) to work in the (uk|united kingdom)|must (be|live|reside)[^.]{0,40}\b(uk|united kingdom)\b|\b(gmt|bst) (working )?hours\b`, 'i'),
   emea:     new RegExp(String.raw`remote${SEP}(emea|europe|eu)\b|\b(emea|europe|eu)${SEP}remote\b|\bwithin (europe|the eu|emea)\b|\beuropean time ?zones?\b|\b(cet|cest)\b`, 'i'),
-  americas: new RegExp(String.raw`remote${SEP}(us|usa|united states|canada|north america|americas|latam)\b|\b(us|usa|canada|north america)${SEP}remote\b|\bwithin the (us|united states)\b|\b(pst|est|cst) (time ?zone|hours)\b`, 'i'),
+  americas: new RegExp(String.raw`remote${SEP}(united states|canada|north america|americas|latam)\b|\b(united states|canada|north america)${SEP}(remote|only)\b|\bwithin the (us|united states)\b|\b${LIVE} in the (us|usa|united states)\b|\b(authori[sz]ed|eligible|right) to work in the (us|u\.s\.|united states)|\b(pst|est|cst) (time ?zone|hours)\b`, 'i'),
   hybrid:   /\b(hybrid|on[- ]?site|in[- ]office|office[- ]based|in[- ]studio|studio[- ]based|\d+ days? (a|per) week (in|at) (the )?(office|studio))\b/i,
   relocate: /\b(relocation|relocate)\b/i,
   freelance:/\b(freelance|freelancer|independent contractor|contractor|self[- ]employed|b2b|per[- ]project|vendor)\b/i,
@@ -396,15 +529,30 @@ function classify(job){
 
   const has = rx => rx.test(full);
   const m = rx => (full.match(rx) || [''])[0].trim();
-  const remote = flagRemote || has(RX.remote);
-  if (!flagRemote && remote) add(`寫到「${m(RX.remote)}」`, 'p');
+  const remoteEn = has(RX.remote), remoteZh = has(RX.remoteZh);
+  const remote = flagRemote || remoteEn || remoteZh;
+  if (!flagRemote && remote) add(`寫到「${remoteEn ? m(RX.remote) : m(RX.remoteZh)}」`, 'p');
+
+  // 結構化的「可應徵地區」（Remotive / Himalayas / Jobicy / JSON-LD）：清單不含台灣或亞洲就是不行
+  const al = String(job.applicantLoc || '').trim();
+  let alGlobal = false, alAsia = false, alBlock = false;
+  if (al){
+    if (/\b(worldwide|anywhere|global|international)\b|全球|不限/i.test(al)) alGlobal = true;
+    else if (RX.taiwan.test(al) || /\b(apac|asia|asia[- ]pacific|east asia)\b|亞洲|亞太/i.test(al)) alAsia = true;
+    else alBlock = true;
+  }
+  if (alGlobal || alAsia) add(`可應徵地區：「${al}」`, 'p');
+  if (alBlock) add(`限定應徵地區：「${al}」（不含台灣）`, 'n');
 
   const taiwan = has(RX.taiwan);
-  const global = has(RX.global);
-  const asia = remote && has(RX.asia);
-  const ukOnly = has(RX.ukOnly) || /\b(united kingdom|uk|gb)\b/i.test(job.applicantLoc);
+  const global = alGlobal || has(RX.global);
+  const asia = alAsia || (remote && has(RX.asia));
+  const ukOnly = has(RX.ukOnly);
   const emea = has(RX.emea);
-  const americas = has(RX.americas);
+  const americas = has(RX.americas) || RX.usCS.test(full);
+  const anz = has(RX.anz);
+  const sg = has(RX.sg);
+  const nearTz = remote && RX.nearTz.test([job.location, al].join(' '));
   const hybrid = has(RX.hybrid);
   const relocate = has(RX.relocate);
   const freelance = has(RX.freelance);
@@ -413,11 +561,14 @@ function classify(job){
   const locOnlyUK = RX.locUK.test(job.location) && !/remote|anywhere|worldwide|global/i.test(job.location);
 
   if (taiwan) add(`提到台灣：「${m(RX.taiwan)}」`, 'p');
-  if (global) add(`全球遠端：「${m(RX.global)}」`, 'p');
-  if (asia)   add(`亞洲時區/地區：「${m(RX.asia)}」`, 'p');
-  if (ukOnly) add(`限英國：「${m(RX.ukOnly) || job.applicantLoc}」`, 'n');
+  if (global && !alGlobal) add(`全球遠端：「${m(RX.global)}」`, 'p');
+  if (asia && !alAsia) add(`亞洲時區/地區：「${m(RX.asia)}」`, 'p');
+  if (ukOnly) add(`限英國：「${m(RX.ukOnly)}」`, 'n');
   if (emea)   add(`限歐洲/EMEA：「${m(RX.emea)}」`, 'n');
-  if (americas) add(`限美洲：「${m(RX.americas)}」`, 'n');
+  if (americas) add(`限美洲：「${m(RX.americas) || m(RX.usCS)}」`, 'n');
+  if (anz)    add(`限澳洲/紐西蘭：「${m(RX.anz)}」`, 'n');
+  if (sg)     add(`限新加坡：「${m(RX.sg)}」`, 'n');
+  if (nearTz && !asia) add(`時區相近：「${([job.location, al].join(' ').match(RX.nearTz) || [''])[0]}」`, 'p');
   if (hybrid) add(`需進辦公室：「${m(RX.hybrid)}」`, 'n');
   if (relocate) add('提到搬遷（通常要到當地）', 'n');
   if (freelance) add(`自由接案/外包：「${m(RX.freelance)}」`, 'm');
@@ -425,24 +576,36 @@ function classify(job){
   if (intern) add('實習/應屆職缺（多半要在當地）', 'n');
 
   const strongYes = taiwan || global || asia;
-  const regionBlock = ukOnly || emea || americas;
+  const regionBlock = ukOnly || emea || americas || anz || sg;
+  // 工作型態：給「只要遠端／只要非遠端」篩選用
+  const mode = remote && !flagOnsite ? 'remote' : 'office';
   let tier, score = 0;
 
-  if (strongYes && !(regionBlock && !taiwan && !global)){
+  if (alBlock){
+    tier = 'no'; score = -6;
+  } else if (strongYes && !(regionBlock && !taiwan && !global)){
     tier = 'yes';
-    score = 10 + (taiwan ? 5 : 0) + (global ? 3 : 0) + (asia ? 2 : 0) + (chinese ? 2 : 0) - (hybrid ? 2 : 0);
+    score = 10 + (taiwan ? 5 : 0) + (global ? 3 : 0) + (asia ? 2 : 0) + (chinese ? 2 : 0) - (hybrid ? 2 : 0) - (mode === 'office' ? 4 : 0);
+    if (taiwan && mode === 'office') add('台灣在地職缺，沒寫遠端（可能要進公司）', 'm');
   } else if (regionBlock){
     tier = 'no'; score = -5;
   } else if (remote && !flagOnsite){
     tier = 'maybe';
-    score = 5 + (freelance ? 2 : 0) + (chinese ? 2 : 0) - (intern ? 2 : 0) - (hybrid ? 2 : 0) - (relocate ? 1 : 0) - (locOnlyUK ? 1 : 0);
+    score = 5 + (freelance ? 2 : 0) + (chinese ? 2 : 0) + (nearTz ? 2 : 0) - (intern ? 2 : 0) - (hybrid ? 2 : 0) - (relocate ? 1 : 0) - (locOnlyUK ? 1 : 0);
     if (locOnlyUK) add('地點只寫英國，可能要英國居住', 'm');
     if (!job.desc && !job.userText) add('列表沒有完整說明，建議點原文確認', 'm');
   } else {
     tier = 'no'; score = -10;
-    if (!hybrid && !flagOnsite) add('沒有任何遠端字樣（預設要進辦公室）', 'n');
+    if (!hybrid && !flagOnsite) add('沒有任何遠端字樣（預設要到當地上班）', 'n');
   }
-  return { tier, score, reasons };
+  return { tier, score, reasons, mode };
+}
+
+// 🎮 遊戲相關：只對綜合職缺站有意義（gamesJobs 本來就全是遊戲業）
+const RX_GAME = /\b(games?|gaming|gamedev|video ?games?|unity(3d)?|unreal|ue[45]|godot|esports?|playtest\w*|level design\w*|gameplay|live ?ops)\b|遊戲|電競|手遊/i;
+function isGameJob(j){
+  const hay = [j.title, j.company, j.dept, j.tags, j.desc].join(' ').replace(/game[- ]?chang\w*|gamif\w*/gi, '');
+  return RX_GAME.test(hay);
 }
 
 /* ===================== 狀態 & 畫面 ===================== */
@@ -454,70 +617,120 @@ const TIER_RANK = { yes: 0, maybe: 1, no: 2 };
 
 function finalTier(j){ return j.ai ? j.ai.verdict : j.cls.tier; }
 
-function setJobs(jobs, src){
+// 補上來源、遠端站旗標、換算薪資；分類
+function prepJob(j, forceSrc){
+  j.source = forceSrc || j.source || detectSource(j.url || j.applyUrl);
+  if (SOURCES[j.source]?.allRemote && j.remoteRaw === undefined) j.remoteRaw = true;
+  j.tags = j.tags || '';
+  const defCur = j.salaryCur || (j.source === 'tw104' ? 'TWD' : j.source === 'gamesjobs' ? 'GBP' : j.source === 'seek' ? 'AUD' : j.source === 'mcf' ? 'SGD' : '');
+  j.pay = parsePay(j.salary, defCur);
+  j.cls = classify(j);
+  j.ai = null;
+  return j;
+}
+
+// 合併載入：同一來源整批換新，其他來源保留
+function setJobs(jobs, src, forceSrc){
   log(2, `開始判斷，共 ${jobs.length} 筆，來源：${src}`);
+  jobs.forEach(j => prepJob(j, forceSrc));
+  const incoming = new Set(jobs.map(j => j.source));
+  const kept = JOBS.filter(j => !incoming.has(j.source));
+  log(2, `本次來源：${[...incoming].map(srcName).join('、')}；保留其他來源 ${kept.length} 筆`);
   // 用網址（沒網址就用職稱+公司）去重
-  const seen = new Set();
-  JOBS = [];
+  const seen = new Set(kept.map(jobKey));
+  JOBS = kept;
   for (const j of jobs){
-    const key = (j.url || (j.title + '|' + j.company)).toLowerCase();
+    const key = jobKey(j);
     if (seen.has(key)) continue;
     seen.add(key);
-    j.cls = classify(j);
-    j.ai = null;
     JOBS.push(j);
   }
   SRC = src;
   const c = countTiers();
-  log(2, `去重後 ${JOBS.length} 筆；可以=${c.yes} 待確認=${c.maybe} 不行=${c.no}`);
-  // 記住最後一次的資料（太大就算了）
-  const saved = store('gjr:last', JSON.stringify({ src, at: Date.now(), jobs: JOBS.map(({ cls, ai, ...rest }) => rest) }));
+  log(2, `合併後 ${JOBS.length} 筆；可以=${c.yes} 待確認=${c.maybe} 不行=${c.no}`);
+  saveJobs();
+  afterChange();
+}
+const jobKey = j => (j.url || (j.title + '|' + j.company)).toLowerCase();
+
+// 記住資料（太大就把內文截短再試）
+function saveJobs(){
+  const pack = cut => JSON.stringify({ src: SRC, at: Date.now(), jobs: JOBS.map(({ cls, ai, pay, ...rest }) =>
+    cut ? { ...rest, desc: rest.desc.slice(0, cut), extra: rest.extra.slice(0, cut) } : rest) });
+  let saved = store('gjr:last', pack(0));
+  if (!saved) saved = store('gjr:last', pack(3000));
+  if (!saved) saved = store('gjr:last', pack(600));
   log(2, saved ? '已存到瀏覽器，下次打開自動載入' : '資料太大或無法存，下次需重新載入');
-  fillDept();
-  $('resultPanel').hidden = false;
+}
+
+function afterChange(){
+  fillSelect('dept', '所有部門', JOBS.map(j => j.dept));
+  fillSelect('srcSel', '所有來源', JOBS.map(j => j.source), k => `${srcName(k)}（${JOBS.filter(j => j.source === k).length}）`);
+  $('resultPanel').hidden = !JOBS.length;
   $('aiBtn').disabled = !JOBS.length;
   render();
 }
 
-function countTiers(){
+function countTiers(list = JOBS){
   const c = { yes: 0, maybe: 0, no: 0 };
-  JOBS.forEach(j => c[finalTier(j)]++);
+  list.forEach(j => c[finalTier(j)]++);
   return c;
 }
 
-function fillDept(){
-  const depts = [...new Set(JOBS.map(j => j.dept).filter(Boolean))].sort();
-  const sel = $('dept');
+function fillSelect(id, allLabel, values, labelOf = v => v){
+  const vals = [...new Set(values.filter(Boolean))].sort();
+  const sel = $(id);
   const keep = sel.value;
-  sel.innerHTML = '<option value="">所有部門</option>' + depts.map(d => `<option>${esc(d)}</option>`).join('');
-  if (depts.includes(keep)) sel.value = keep;
+  sel.innerHTML = `<option value="">${allLabel}</option>` + vals.map(v => `<option value="${esc(v)}">${esc(labelOf(v))}</option>`).join('');
+  if (vals.includes(keep)) sel.value = keep;
+}
+
+// 薪資篩選：有寫薪資的取上限比；沒寫的看勾選
+function payOk(j, min){
+  if (!min) return true;
+  if (!j.pay) return $('payUnknown').checked;
+  return j.pay.hi >= min;
+}
+
+// 分類以外的條件（來源、型態、薪資、遊戲、部門、搜尋）；分類方塊的數字也用它算
+function filteredJobs(){
+  const q = $('q').value.trim().toLowerCase();
+  const terms = q ? q.split(/\s+/) : [];
+  const dept = $('dept').value, src = $('srcSel').value, mode = $('modeSel').value;
+  const gameOnly = $('gameOnly').checked;
+  const min = Math.max(0, parseInt($('minPay').value, 10) || 0);
+  return JOBS
+    .filter(j => !src || j.source === src)
+    .filter(j => !mode || j.cls.mode === mode)
+    .filter(j => !gameOnly || !SOURCES[j.source]?.general || isGameJob(j))
+    .filter(j => payOk(j, min))
+    .filter(j => !dept || j.dept === dept)
+    .filter(j => { const hay = [j.title, j.company, j.location, j.dept, j.type, j.tags].join(' ').toLowerCase(); return terms.every(t => hay.includes(t)); });
 }
 
 function visibleJobs(){
-  const q = $('q').value.trim().toLowerCase();
-  const terms = q ? q.split(/\s+/) : [];
-  const dept = $('dept').value;
-  return JOBS
+  return filteredJobs()
     .filter(j => activeTiers.has(finalTier(j)))
-    .filter(j => !dept || j.dept === dept)
-    .filter(j => { const hay = [j.title, j.company, j.location, j.dept, j.type].join(' ').toLowerCase(); return terms.every(t => hay.includes(t)); })
-    .sort((a, b) => TIER_RANK[finalTier(a)] - TIER_RANK[finalTier(b)] || b.cls.score - a.cls.score || a.title.localeCompare(b.title));
+    .sort((a, b) => TIER_RANK[finalTier(a)] - TIER_RANK[finalTier(b)] || b.cls.score - a.cls.score || (b.pay?.hi || 0) - (a.pay?.hi || 0) || a.title.localeCompare(b.title));
 }
 
 function render(){
-  const c = countTiers();
+  const base = filteredJobs();
+  const c = countTiers(base);
   $('cYes').textContent = c.yes; $('cMaybe').textContent = c.maybe; $('cNo').textContent = c.no;
   document.querySelectorAll('.tierbtn').forEach(b => b.classList.toggle('on', activeTiers.has(b.dataset.tier)));
-  $('srcNote').textContent = `（${SRC}，共 ${JOBS.length} 筆）`;
+  const bySrc = Object.keys(SOURCES).map(k => [k, JOBS.filter(j => j.source === k).length]).filter(x => x[1]);
+  $('srcNote').textContent = `（${bySrc.map(([k, n]) => `${srcName(k)} ${n}`).join('、')}，共 ${JOBS.length} 筆）`;
   const list = visibleJobs();
-  $('showing').textContent = `顯示 ${list.length} 筆`;
+  $('showing').textContent = `符合條件 ${base.length} 筆，顯示 ${list.length} 筆` + (base.length < JOBS.length ? `（另有 ${JOBS.length - base.length} 筆被來源／型態／薪資／遊戲／搜尋條件篩掉）` : '');
   const ol = $('list');
   if (!list.length){ ol.innerHTML = `<li class="empty">${JOBS.length ? '這個篩選條件下沒有職缺。點上方的分類方塊可切換顯示。' : '還沒有資料'}</li>`; return; }
   const MAX = 400;
   ol.innerHTML = list.slice(0, MAX).map(j => {
     const i = JOBS.indexOf(j);
     const t = finalTier(j);
-    const meta = [j.company, j.location, j.dept, j.type, j.salary].filter(Boolean).map(esc).join(' · ');
+    const meta = `<span class="src">${esc(srcName(j.source))}</span>` + [j.company, j.location, j.dept, j.type, j.salary].filter(Boolean).map(esc).join(' · ')
+      + (j.pay ? ` <span class="pay">→ ${esc(fmtPay(j.pay))}</span>` : '');
     const reasons = j.cls.reasons.map(r => `<span class="r ${r.k}">${esc(r.t)}</span>`).join('');
     const ai = j.ai ? `<div class="ai">🤖 AI：${TIER_LABEL[j.ai.verdict]}｜${esc(j.ai.reason)}</div>` : '';
     return `<li class="job ${t}" data-i="${i}">
@@ -540,14 +753,21 @@ function render(){
 /* ===================== 載入流程 ===================== */
 function showMsg(id, kind, html){ const el = $(id); el.className = `msg show ${kind}`; el.innerHTML = html; }
 
-function ingest(text, src){
+// 載入後的摘要：每個來源各幾筆、幾筆可以
+function loadedSummary(jobs){
+  return [...new Set(jobs.map(j => j.source))].map(k => {
+    const mine = JOBS.filter(j => j.source === k), c = countTiers(mine);
+    return `${srcName(k)} ${mine.length} 筆（✅ ${c.yes}、🤔 ${c.maybe}）`;
+  }).join('<br>');
+}
+
+function ingest(text, src, base){
   try {
-    const jobs = parseAny(text);
+    const jobs = parseAny(text, base);
     if (!jobs.length) throw new Error('沒有找到任何職缺。若貼的是網頁，請確認是列表頁或職缺頁的原始碼。');
     setJobs(jobs, src);
-    const c = countTiers();
-    showMsg('loadMsg', 'ok', `讀到 ${JOBS.length} 筆職缺：✅ ${c.yes} 筆可以、🤔 ${c.maybe} 筆待確認。`
-      + (src.includes('HTML') && JOBS.length < 60 ? '<br>⚠ 網頁原始碼只含第一頁約 30 筆，要全部職缺請改用 jobs.json。' : ''));
+    showMsg('loadMsg', 'ok', `讀到職缺：<br>${loadedSummary(jobs)}`
+      + (src.includes('HTML') && jobs.length < 60 && jobs[0].source === 'gamesjobs' ? '<br>⚠ 網頁原始碼只含第一頁約 30 筆，要全部職缺請改用 jobs.json。' : ''));
     $('resultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (e){
     log('錯誤', e.message);
@@ -555,21 +775,58 @@ function ingest(text, src){
   }
 }
 
+async function getText(url){
+  log(1, '抓取', url);
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const t = await res.text();
+  log(1, `抓取成功 ${(t.length / 1024).toFixed(0)} KB`, url);
+  return t;
+}
+// 多個網址，至少一個成功就算成功
+async function someTexts(urls){
+  const r = await Promise.allSettled(urls.map(getText));
+  const ok = r.filter(x => x.status === 'fulfilled').map(x => x.value);
+  if (!ok.length) throw r[0].reason;
+  return ok;
+}
+// 每個來源要抓哪些網址（全部都回傳 JSON；遊戲以外的職缺由「只看遊戲相關」過濾）
+const FETCHERS = {
+  gamesjobs: () => someTexts([SITE + '/data/jobs.json']),
+  remotive:  () => someTexts(['https://remotive.com/api/remote-jobs?search=game']),   // 官方限制每分鐘 2 次，別連按
+  jobicy:    () => someTexts(['https://jobicy.com/api/v2/remote-jobs?count=100&tag=game', 'https://jobicy.com/api/v2/remote-jobs?count=100&geo=apac']),
+  himalayas: () => someTexts([1, 2, 3].map(p => `https://himalayas.app/jobs/api/search?q=game&page=${p}`))
+};
+
 $('fetchBtn').onclick = async () => {
+  const keys = [...document.querySelectorAll('#srcList input:checked')].map(c => c.value);
+  if (!keys.length){ showMsg('loadMsg', 'err', '請至少勾一個來源'); return; }
   const btn = $('fetchBtn');
   btn.disabled = true; btn.textContent = '抓取中…';
-  log(1, '一鍵抓取', SITE + '/data/jobs.json');
+  showMsg('loadMsg', 'info', `🌐 抓取中：${keys.map(srcName).join('、')}…`);
+  const lines = [];
   try {
-    const res = await fetch(SITE + '/data/jobs.json', { cache: 'no-store' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const text = await res.text();
-    log(1, '抓取成功，位元組', text.length);
-    ingest(text, '線上 jobs.json');
-  } catch (e){
-    log(1, '抓取失敗', e.message);
-    showMsg('loadMsg', 'info', `⚠ 瀏覽器擋下了直接抓取（${esc(e.message)}），這是網站沒開跨網域權限，不是你的問題。<br>
-      請改用：開 <a href="${SITE}/data/jobs.json" target="_blank" rel="noopener">jobs.json</a> → <code>Ctrl+S</code> 存檔 → 拖進「B」；或 <code>Ctrl+A</code>、<code>Ctrl+C</code> 後貼到「C」。`);
-  } finally { btn.disabled = false; btn.textContent = '🌐 一鍵抓取全部職缺'; }
+    const results = await Promise.allSettled(keys.map(k => FETCHERS[k]()));
+    for (let i = 0; i < keys.length; i++){
+      const k = keys[i], r = results[i];
+      if (r.status === 'rejected'){
+        log(1, `${SOURCES[k].label} 抓取失敗`, r.reason.message);
+        lines.push(`⚠ ${srcName(k)}：瀏覽器擋下或網站沒回應（${esc(r.reason.message)}）→ 改用 B 存檔拖進來或 C 貼上`);
+        continue;
+      }
+      let jobs = [];
+      try { r.value.forEach(t => jobs.push(...parseAny(t))); }
+      catch (e){ lines.push(`⚠ ${srcName(k)}：格式看不懂（${esc(e.message)}）`); continue; }
+      if (!jobs.length){ lines.push(`⚠ ${srcName(k)}：沒有回傳職缺`); continue; }
+      setJobs(jobs, `一鍵抓取 ${SOURCES[k].label}`, k);
+      const mine = JOBS.filter(j => j.source === k), c = countTiers(mine);
+      const game = SOURCES[k].general ? `，遊戲相關 ${mine.filter(isGameJob).length}` : '';
+      lines.push(`✅ ${srcName(k)}：${mine.length} 筆${game}（可以 ${c.yes}、待確認 ${c.maybe}）`);
+    }
+    const anyOk = lines.some(l => l.startsWith('✅'));
+    showMsg('loadMsg', anyOk ? 'ok' : 'info', lines.join('<br>'));
+    if (anyOk) $('resultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } finally { btn.disabled = false; btn.textContent = '🌐 抓取勾選的來源'; }
 };
 
 $('pasteBtn').onclick = () => { log(1, '分析貼上內容'); ingest($('paste').value, '貼上的內容'); };
@@ -583,8 +840,7 @@ async function readFiles(files){
   }
   if (!all.length){ showMsg('loadMsg', 'err', '❌ 檔案裡沒有找到職缺'); return; }
   setJobs(all, files.length === 1 ? `檔案 ${files[0].name}${/\.html?$/i.test(files[0].name) ? '（HTML）' : ''}` : `${files.length} 個檔案`);
-  const c = countTiers();
-  showMsg('loadMsg', 'ok', `讀到 ${JOBS.length} 筆職缺：✅ ${c.yes} 筆可以、🤔 ${c.maybe} 筆待確認。`);
+  showMsg('loadMsg', 'ok', `讀到職缺：<br>${loadedSummary(all)}`);
   $('resultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 const drop = $('drop');
@@ -605,6 +861,28 @@ document.querySelectorAll('.tierbtn').forEach(b => b.onclick = () => {
 });
 $('q').oninput = render;
 $('dept').onchange = render;
+$('srcSel').onchange = render;
+$('minPay').oninput = render;
+// 篩選偏好記在瀏覽器（型態、薪資、遊戲）
+const PREF_IDS = ['modeSel', 'minPay', 'payUnknown', 'gameOnly'];
+function savePrefs(){ store('gjr:prefs', JSON.stringify(Object.fromEntries(PREF_IDS.map(id => [id, $(id).type === 'checkbox' ? $(id).checked : $(id).value])))); }
+try {
+  const p = JSON.parse(load('gjr:prefs') || '{}');
+  PREF_IDS.forEach(id => { if (p[id] !== undefined){ if ($(id).type === 'checkbox') $(id).checked = p[id]; else $(id).value = p[id]; } });
+} catch (e) {}
+PREF_IDS.forEach(id => $(id).addEventListener('change', () => { savePrefs(); log(3, `篩選 ${id} =`, $(id).type === 'checkbox' ? $(id).checked : $(id).value); render(); }));
+$('minPay').addEventListener('input', savePrefs);
+// 選「非遠端」時，不在台灣的辦公室職缺都會判「不行」，自動把「不行」也打開，不然幾乎看不到東西
+$('modeSel').addEventListener('change', () => { if ($('modeSel').value === 'office'){ activeTiers.add('no'); render(); } });
+$('clearBtn').onclick = () => {
+  if (!confirm(`清掉全部 ${JOBS.length} 筆已載入的職缺？`)) return;
+  JOBS = []; SRC = '';
+  try { localStorage.removeItem('gjr:last'); } catch (e) {}
+  log(3, '已清空資料');
+  afterChange();
+  showMsg('loadMsg', 'info', '已清空，請重新載入資料');
+};
+$('fxNote').textContent = Object.entries(FX).filter(([k]) => k !== 'TWD').map(([k, v]) => `1 ${k}≈${v}`).join('、');
 
 $('list').addEventListener('click', e => {
   const btn = e.target.closest('button[data-act]');
@@ -623,13 +901,14 @@ $('list').addEventListener('click', e => {
 });
 
 $('csvBtn').onclick = () => {
-  const rows = [['判斷', '分數', '職稱', '工作室', '地點', '部門', '型態', '薪資', '理由', 'AI 判讀', '職缺頁', '原始徵才頁']];
-  visibleJobs().forEach(j => rows.push([TIER_LABEL[finalTier(j)], j.cls.score, j.title, j.company, j.location, j.dept, j.type, j.salary,
+  const rows = [['判斷', '分數', '來源', '遠端', '職稱', '公司', '地點', '可應徵地區', '部門', '型態', '薪資(原文)', '約當月薪 NT$ 下限', '約當月薪 NT$ 上限', '理由', 'AI 判讀', '職缺頁', '原始徵才頁']];
+  visibleJobs().forEach(j => rows.push([TIER_LABEL[finalTier(j)], j.cls.score, SOURCES[j.source]?.label || j.source, j.cls.mode === 'remote' ? '遠端' : '非遠端',
+    j.title, j.company, j.location, j.applicantLoc, j.dept, j.type, j.salary, j.pay ? j.pay.lo : '', j.pay ? j.pay.hi : '',
     j.cls.reasons.map(r => r.t).join('；'), j.ai ? j.ai.reason : '', j.url, j.applyUrl]));
   const csv = '﻿' + rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-  a.download = `gamesjobs-台灣遠端-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `台灣遠端職缺-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   log(4, '匯出 CSV 筆數', rows.length - 1);
 };
@@ -676,8 +955,8 @@ $('aiBtn').onclick = async () => {
   const key = $('gkey').value.trim();
   if (!key){ showMsg('aiMsg', 'err', '請先填 Gemini API Key'); return; }
   store('gjr:gkey', key);
-  const targets = JOBS.filter(j => j.cls.tier === 'maybe');
-  if (!targets.length){ showMsg('aiMsg', 'info', '目前沒有「待確認」的職缺'); return; }
+  const targets = filteredJobs().filter(j => j.cls.tier === 'maybe');   // 只判目前篩選條件下看得到的
+  if (!targets.length){ showMsg('aiMsg', 'info', '目前篩選條件下沒有「待確認」的職缺'); return; }
   const btn = $('aiBtn'); btn.disabled = true;
   const BATCH = 20;
   let done = 0, changed = 0;
@@ -686,13 +965,13 @@ $('aiBtn').onclick = async () => {
     for (let s = 0; s < targets.length; s += BATCH){
       const chunk = targets.slice(s, s + BATCH);
       showMsg('aiMsg', 'info', `🤖 AI 判讀中… ${done}/${targets.length}`);
-      const items = chunk.map((j, k) => ({ id: k, title: j.title, company: j.company, location: j.location, type: j.type,
+      const items = chunk.map((j, k) => ({ id: k, title: j.title, company: j.company, location: j.location, applicantLocation: j.applicantLoc, type: j.type,
         text: (j.userText || j.desc || j.extra).slice(0, 1500) }));
       const prompt = `你是遊戲產業求職顧問。使用者人在台灣（UTC+8），想找「人留在台灣就能遠端工作」的職缺，以海外約聘或自由接案方式也可以。
-以下是英國遊戲公司的職缺。請逐筆判斷：
-- "yes"：明確接受英國以外、或全球/亞洲遠端，台灣可以做
+以下職缺來自英國、美國、澳洲、新加坡、台灣等地的公司。請逐筆判斷：
+- "yes"：明確接受台灣、亞洲或全球遠端，台灣可以做
 - "maybe"：有遠端但沒寫清楚地區限制
-- "no"：限英國/歐洲居住、要求英國工作權、或需要進辦公室
+- "no"：限特定國家居住（英國/美國/澳洲/新加坡/歐洲等）、要求當地工作權或公民身分、或需要進辦公室
 只輸出 JSON 陣列，格式 [{"id":0,"verdict":"yes|maybe|no","reason":"繁體中文一句話理由"}]，不要其他文字。
 職缺：
 ${JSON.stringify(items)}`;
@@ -716,25 +995,36 @@ ${JSON.stringify(items)}`;
   } finally { btn.disabled = false; render(); }
 };
 
-/* ===================== 書籤小工具：在 gamesjobs.co.uk 同源抓 jobs.json 再 postMessage 過來 ===================== */
+/* ===================== 書籤小工具：在職缺網站同源抓資料，再 postMessage 過來 ===================== */
+// gamesjobs.co.uk → data/jobs.json；104 → 搜尋 API（照網址上的關鍵字與遠端條件，最多 10 頁）；其他網站 → 整頁 HTML（解析 JSON-LD）
 // 只有工具放在 http(s) 上才可用（https 網頁不能開 file:// 視窗）
 if (/^https?:$/.test(location.protocol)){
   const toolUrl = location.href.split(/[?#]/)[0];
-  const code = `(()=>{if(location.hostname!=='gamesjobs.co.uk'){alert('請先打開 gamesjobs.co.uk 再點這個書籤');return}`
+  const code = `(async()=>{const h=location.hostname;`
     + `const w=window.open(${JSON.stringify(toolUrl)},'_blank');if(!w){alert('請允許彈出視窗');return}`
-    + `let t=null,ready=false;const send=()=>{if(t!==null&&ready)w.postMessage({type:'gjr-jobs',text:t,src:'書籤抓取 jobs.json'},'*')};`
+    + `let t=null,ready=false,src='';const send=()=>{if(t!==null&&ready)w.postMessage({type:'gjr-jobs',text:t,src:src,base:location.origin},'*')};`
     + `addEventListener('message',e=>{if(e.source===w&&e.data==='gjr-ready'){ready=true;send()}});`
-    + `fetch('/data/jobs.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(x=>{t=x;send()}).catch(e=>alert('抓取失敗：'+e.message))})()`;
+    + `try{`
+    + `if(/(^|\\.)gamesjobs\\.co\\.uk$/.test(h)){const r=await fetch('/data/jobs.json',{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);t=await r.text();src='書籤 gamesJobs jobs.json'}`
+    + `else if(/(^|\\.)104\\.com\\.tw$/.test(h)){const q=new URLSearchParams(location.search),k=q.get('keyword')||'遊戲',rw=q.get('remoteWork');const all=[];`
+    +   `for(let p=1;p<=10;p++){const r=await fetch('/jobs/search/list?ro=0&kwop=7&keyword='+encodeURIComponent(k)+(rw?'&remoteWork='+encodeURIComponent(rw):'')+'&order=15&asc=0&mode=s&page='+p,{headers:{Accept:'application/json'}});`
+    +   `if(!r.ok)break;const j=await r.json();const d=j.data||{};const a=Array.isArray(d)?d:(d.list||[]);all.push(...a);if(!a.length||p>=(d.totalPage||1))break}`
+    +   `if(!all.length)throw new Error('104 沒有回傳職缺（可能 API 改版），請改用存檔方式');t=JSON.stringify({jobs:all});src='書籤 104「'+k+'」'+(rw?'遠端':'全部')}`
+    + `else{t=document.documentElement.outerHTML;src='書籤 '+h+' 頁面'}`
+    + `}catch(e){alert('抓取失敗：'+e.message);w.close();return}send()})()`;
   $('bmLink').href = 'javascript:' + encodeURIComponent(code);
-  $('bmLink').onclick = e => { e.preventDefault(); alert('請把這顆按鈕「拖」到書籤列，再到 gamesjobs.co.uk 點它。'); };
+  $('bmLink').onclick = e => { e.preventDefault(); alert('請把這顆按鈕「拖」到書籤列，再到 gamesjobs.co.uk、104 搜尋頁或職缺頁點它。'); };
   $('bmBox').hidden = false;
 }
 window.addEventListener('message', e => {
-  if (e.origin !== SITE || !e.data || e.data.type !== 'gjr-jobs' || typeof e.data.text !== 'string') return;
-  log(1, '收到書籤送來的資料，位元組', e.data.text.length);
-  ingest(e.data.text, e.data.src || '書籤抓取');
+  if (!e.data || e.data.type !== 'gjr-jobs' || typeof e.data.text !== 'string') return;
+  // 只收「開啟這個分頁的那個書籤頁面」送來的資料
+  if (e.source !== window.opener && e.origin !== SITE) return;
+  const base = /^https:\/\/[\w.-]+$/.test(e.data.base || '') ? e.data.base : SITE;
+  log(1, `收到書籤送來的資料（${e.origin}），位元組`, e.data.text.length);
+  ingest(e.data.text, e.data.src || '書籤抓取', base);
 });
-if (window.opener){ try { window.opener.postMessage('gjr-ready', SITE); log(1, '已通知書籤：工具就緒'); } catch (e) {} }
+if (window.opener){ try { window.opener.postMessage('gjr-ready', '*'); log(1, '已通知書籤：工具就緒'); } catch (e) {} }
 
 /* ===================== 啟動：載入上次資料 ===================== */
 (function boot(){
@@ -744,14 +1034,214 @@ if (window.opener){ try { window.opener.postMessage('gjr-ready', SITE); log(1, '
     try {
       const d = JSON.parse(last);
       if (d.jobs && d.jobs.length){
-        setJobs(d.jobs, `${d.src}・上次載入 ${new Date(d.at).toLocaleString()}`);
-        showMsg('loadMsg', 'info', `已自動載入上次的 ${JOBS.length} 筆資料。網站每天更新，建議重新抓一次最新的。`);
+        d.jobs.forEach(j => prepJob(j));
+        JOBS = d.jobs; SRC = `上次載入 ${new Date(d.at).toLocaleString()}`;
+        afterChange();
+        log(0, `載入上次資料 ${JOBS.length} 筆`);
+        showMsg('loadMsg', 'info', `已自動載入上次的 ${JOBS.length} 筆資料（${new Date(d.at).toLocaleString()}）。網站每天更新，建議重新抓一次最新的。`);
       }
     } catch (e){ log(0, '上次資料讀取失敗', e.message); }
   }
-  if (/[?&]selftest/.test(location.search)){
-    const s = document.createElement('script'); s.src = 'test/selftest.js'; document.body.appendChild(s);
-  }
+})();
+</script>
+<script>
+if (/[?&]selftest/.test(location.search))
+// 自我測試：網址加 ?selftest 才執行，結果寫進 #selftest-result（給 headless --dump-dom 讀）
+(function(){
+  const results = [];
+  const ok = (name, cond, info) => results.push({ name, pass: !!cond, info: cond ? '' : JSON.stringify(info) });
+  const J = (o) => Object.assign({ title: 'Programmer', company: 'X', location: '', dept: '', type: '', salary: '', date: '', desc: '', url: '', applyUrl: '', remoteRaw: undefined, applicantLoc: '', isLd: false, extra: '', userText: '' }, o);
+  const tier = o => classify(J(o)).tier;
+
+  // ---- 判斷規則 ----
+  ok('辦公室職缺→不行', tier({ location: 'Malvern, GB' }) === 'no', tier({ location: 'Malvern, GB' }));
+  ok('Remote (UK)→不行', tier({ location: 'Remote (UK)' }) === 'no');
+  ok('UK Remote→不行', tier({ location: 'United Kingdom - Remote' }) === 'no');
+  ok('right to work in UK→不行', tier({ location: 'Remote', desc: 'You must have the right to work in the UK.' }) === 'no');
+  ok('Remote EMEA→不行', tier({ location: 'Remote - EMEA' }) === 'no');
+  ok('Remote US→不行', tier({ location: 'Remote, US' }) === 'no');
+  ok('純 Remote→待確認', tier({ location: 'Remote' }) === 'maybe', classify(J({ location: 'Remote' })));
+  ok('remote flag true→待確認', tier({ location: 'London', remoteRaw: true }) === 'maybe');
+  ok('remote flag false→不行', tier({ location: 'London', remoteRaw: false }) === 'no');
+  ok('Remote Worldwide→可以', tier({ location: 'Remote - Worldwide' }) === 'yes');
+  ok('work from anywhere→可以', tier({ desc: 'This role is fully remote, work from anywhere.' }) === 'yes');
+  ok('Remote APAC→可以', tier({ location: 'Remote', desc: 'Candidates in APAC welcome' }) === 'yes');
+  ok('台北→可以', tier({ location: 'Taipei, Taiwan' }) === 'yes');
+  ok('remote play 不算遠端', tier({ title: 'Remote Play Engineer', location: 'London' }) === 'no');
+  ok('remote config 不算遠端', tier({ desc: 'experience with remote config systems', location: 'Leeds' }) === 'no');
+  ok('hybrid→不行', tier({ location: 'London (Hybrid)' }) === 'no');
+  ok('全球 + UK 字樣仍可以（全球優先）', tier({ location: 'Remote - Worldwide', desc: 'our UK-based team' }) === 'yes');
+  ok('APAC 但限 UK→不行', tier({ location: 'Remote (UK)', desc: 'we sell in APAC markets' }) === 'no');
+  const fr = classify(J({ title: 'Freelance Translator (Traditional Chinese)', location: 'Remote' }));
+  const plain = classify(J({ location: 'Remote' }));
+  ok('自由接案+中文 排序加分', fr.tier === 'maybe' && fr.score > plain.score, [fr, plain]);
+  ok('JSON-LD applicantLocation UK→不行', tier({ remoteRaw: 'TELECOMMUTE', applicantLoc: 'United Kingdom' }) === 'no');
+  ok('JSON-LD TELECOMMUTE→待確認', tier({ remoteRaw: 'TELECOMMUTE' }) === 'maybe');
+
+  // ---- 解析 ----
+  const html = `<!doctype html><html><body><ol id="results-list">
+  <li class="dept-engineering"><div class="card-main"><div class="row1"><a class="title" href="/jobs/airship-interactive-programmer-1pjr0xd.html">Programmer</a></div>
+  <div class="row2"><span class="meta">Malvern, GB</span><span class="dot">·</span><span class="type-tag dept-engineering">Engineering</span><span class="dot">·</span><span class="pill">Full-time</span></div></div>
+  <span class="company">Airship Interactive</span></li>
+  <li class="dept-business-operations"><div class="card-main"><div class="row1"><a class="title" href="/jobs/the-pokemon-company-international-project-manager.html">Project Manager</a></div>
+  <div class="row2"><span class="meta">London, England, United Kingdom</span><span class="type-tag">Business &amp; Operations</span><span class="pill pill-salary">£54,100</span></div></div>
+  <span class="company">The Pokemon Company International</span></li>
+  <li><div class="card-main"><a class="title" href="/jobs/keywords-x.html">Freelance Localisation Tester (Traditional Chinese)</a><span class="meta">Remote</span><span class="pill">Contract</span></div><span class="company">Keywords Studios</span></li>
+  </ol><nav><a href="/browse/england.html">Jobs in England</a></nav></body></html>`;
+  const h = parseAny(html);
+  ok('HTML 卡片數=3（導覽連結不算）', h.length === 3, h.length);
+  ok('HTML 欄位正確', h[0].company === 'Airship Interactive' && h[0].location === 'Malvern, GB' && h[0].dept === 'Engineering' && h[0].type === 'Full-time', h[0]);
+  ok('HTML 網址補成絕對', h[0].url === 'https://gamesjobs.co.uk/jobs/airship-interactive-programmer-1pjr0xd.html', h[0].url);
+  ok('HTML 薪資分開', h[1].salary === '£54,100' && h[1].type === '', h[1]);
+  ok('HTML Keywords→待確認', classify(h[2]).tier === 'maybe');
+
+  const json1 = JSON.stringify({ updated: '2026-10-22', jobs: [
+    { title: 'Senior Programmer', company: { name: 'CIG' }, location: ['Manchester', 'Remote (UK)'], remote: true, slug: 'cig-senior-programmer-abc', department: 'Engineering' },
+    { title: 'Community Manager', company: 'Studio Y', location: 'Remote', remote: true, url: '/jobs/y.html', description: '<p>Work from <b>anywhere</b> in the world.</p>' },
+    { title: 'Artist', company: 'Studio Z', location: 'Leeds', remote: false }
+  ] });
+  const j1 = parseAny(json1);
+  ok('JSON 找到 3 筆', j1.length === 3, j1.length);
+  ok('JSON 公司物件取 name', j1[0].company === 'CIG', j1[0].company);
+  ok('JSON slug 組網址', j1[0].url === 'https://gamesjobs.co.uk/jobs/cig-senior-programmer-abc.html', j1[0].url);
+  ok('JSON 陣列地點 UK remote→不行', classify(j1[0]).tier === 'no', classify(j1[0]));
+  ok('JSON 描述 HTML 去標籤→可以', classify(j1[1]).tier === 'yes', [j1[1].desc, classify(j1[1])]);
+  ok('JSON remote:false→不行', classify(j1[2]).tier === 'no');
+  ok('key 名 remote 不會被當成文字', !/\bremote\b/i.test(j1[2].extra), j1[2].extra);
+
+  const ld = `<html><head><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"JobPosting","title":"Narrative Designer","hiringOrganization":{"@type":"Organization","name":"Studio Q"},"jobLocationType":"TELECOMMUTE","applicantLocationRequirements":{"@type":"Country","name":"United Kingdom"},"jobLocation":{"@type":"Place","address":{"addressLocality":"Brighton","addressCountry":"GB"}},"url":"https://gamesjobs.co.uk/jobs/q.html"}]}<\/script></head><body><h1>Narrative Designer</h1></body></html>`;
+  const l = parseAny(ld);
+  ok('JSON-LD 解析 1 筆', l.length === 1 && l[0].company === 'Studio Q', l);
+  ok('JSON-LD 地點組字串', /Brighton/.test(l[0].location), l[0] && l[0].location);
+  ok('JSON-LD 限英國→不行', l[0] && classify(l[0]).tier === 'no', l[0] && classify(l[0]));
+
+  const rss = `<?xml version="1.0"?><rss version="2.0"><channel><title>gamesJobs</title>
+  <item><title>Remote Audio Designer — Studio R</title><link>https://gamesjobs.co.uk/jobs/r.html</link><description>Fully remote, any time zone.</description><category>Audio</category></item>
+  <item><title>QA Tester — Studio S</title><link>https://gamesjobs.co.uk/jobs/s.html</link><description>Derby office</description></item></channel></rss>`;
+  const r = parseAny(rss);
+  ok('RSS 2 筆', r.length === 2, r.length);
+  ok('RSS 全球遠端→可以', classify(r[0]).tier === 'yes', classify(r[0]));
+  ok('RSS 辦公室→不行', classify(r[1]).tier === 'no');
+
+  // ---- 其他地區限制 ----
+  ok('Remote (Australia)→不行', tier({ location: 'Remote (Australia)' }) === 'no');
+  ok('需澳洲工作權→不行', tier({ location: 'Remote', desc: 'Applicants must have Australian working rights.' }) === 'no');
+  ok('Singapore citizens/PR→不行', tier({ location: 'Remote', desc: 'Open to Singapore citizens and PRs only.' }) === 'no');
+  ok('US-based→不行', tier({ location: 'Remote', desc: 'This is a US-based remote role.' }) === 'no');
+  ok('authorized to work in the US→不行', tier({ location: 'Remote', desc: 'Must be authorized to work in the United States.' }) === 'no');
+  ok('"join us - remote" 不算限美國', tier({ location: 'Remote', desc: 'Come join us - remote first studio' }) === 'maybe', classify(J({ location: 'Remote', desc: 'Come join us - remote first studio' })));
+  const syd = classify(J({ location: 'Remote - Sydney office' })), plain2 = classify(J({ location: 'Remote' }));
+  ok('雪梨遠端無限制→待確認且時區加分', syd.tier === 'maybe' && syd.score > plain2.score, [syd, plain2]);
+  ok('應徵地區 USA Only→不行（就算內文寫 worldwide）', tier({ remoteRaw: true, applicantLoc: 'USA Only', desc: 'players worldwide love our games' }) === 'no');
+  ok('應徵地區含 Taiwan→可以', tier({ remoteRaw: true, applicantLoc: 'Japan / Taiwan / Korea' }) === 'yes');
+  ok('應徵地區 APAC→可以', tier({ remoteRaw: true, applicantLoc: 'APAC' }) === 'yes');
+  ok('中文「遠端工作」算遠端', classify(J({ location: '日本', tags: '遠端工作', extra: '遠端工作' })).mode === 'remote');
+  ok('台灣辦公室→可以但標非遠端', (c => c.tier === 'yes' && c.mode === 'office')(classify(J({ location: '台北市信義區' }))));
+
+  // ---- 你貼的四種來源格式 ----
+  const remotiveTxt = JSON.stringify({ '0-legal-notice': 'https://remotive.com/api/remote-jobs/allocations', 'job-count': 2, jobs: [
+    { id: 1, url: 'https://remotive.com/remote-jobs/software-dev/unity-dev-1', title: 'Unity Game Developer', company_name: 'Acme Games', category: 'Software Development', tags: ['unity', 'c#'], job_type: 'full_time', publication_date: '2026-03-28T10:00:00', candidate_required_location: 'Worldwide', salary: '$100,000 - $130,000', description: '<p>Build mobile games.</p>' },
+    { id: 2, url: 'https://remotive.com/remote-jobs/software-dev/backend-2', title: 'Senior Backend Engineer', company_name: 'Acme Inc.', category: 'Software Development', tags: ['python'], job_type: 'full_time', candidate_required_location: 'USA Only', salary: '', description: '<p>APIs</p>' }] });
+  const rm = parseAny(remotiveTxt).map(j => prepJob(j));
+  ok('Remotive 2 筆、來源辨識', rm.length === 2 && rm[0].source === 'remotive', rm.map(j => j.source));
+  ok('Remotive Worldwide→可以', rm[0].cls.tier === 'yes', rm[0].cls);
+  ok('Remotive USA Only→不行', rm[1].cls.tier === 'no', rm[1].cls);
+  ok('Remotive 公司/型態', rm[0].company === 'Acme Games' && rm[0].type === 'full-time', [rm[0].company, rm[0].type]);
+  ok('Remotive 年薪 USD→月 NT$', rm[0].pay && rm[0].pay.per === 'year' && rm[0].pay.hi === Math.round(130000 / 12 * FX.USD), rm[0].pay);
+  ok('遊戲相關判斷', isGameJob(rm[0]) && !isGameJob(rm[1]));
+
+  const jobicyTxt = JSON.stringify({ apiVersion: '2.0', success: true, jobCount: 2, jobs: [
+    { id: 98765, url: 'https://jobicy.com/jobs/98765-senior-dev', jobSlug: 'senior-dev', jobTitle: 'Senior Frontend Developer', companyName: 'TechCorp', jobIndustry: ['Engineering'], jobType: ['full-time'], jobGeo: 'USA', jobLevel: 'Senior', jobExcerpt: 'Short', jobDescription: '<p>Full</p>', pubDate: '2026-03-29T12:00:00+00:00', salaryMin: 90000, salaryMax: 120000, salaryCurrency: 'USD', salaryPeriod: 'yearly' },
+    { id: 98766, url: 'https://jobicy.com/jobs/98766-game-artist', jobTitle: 'Game Artist', companyName: 'Pixel', jobIndustry: ['Design'], jobType: ['contract'], jobGeo: 'APAC', jobDescription: '<p>Art for games</p>', salaryMin: 4000, salaryMax: 6000, salaryCurrency: 'SGD', salaryPeriod: 'monthly' }] });
+  const jb = parseAny(jobicyTxt).map(j => prepJob(j));
+  ok('Jobicy 2 筆、來源辨識', jb.length === 2 && jb[0].source === 'jobicy' && jb[0].title === 'Senior Frontend Developer', jb);
+  ok('Jobicy jobGeo USA→不行', jb[0].cls.tier === 'no', jb[0].cls);
+  ok('Jobicy jobGeo APAC→可以', jb[1].cls.tier === 'yes', jb[1].cls);
+  ok('Jobicy 月薪 SGD 換算', jb[1].pay && jb[1].pay.per === 'month' && jb[1].pay.hi === 6000 * FX.SGD, jb[1].pay);
+
+  const himaTxt = JSON.stringify({ count: 2, total: 5000, jobs: [
+    { title: 'Full Stack Engineer', companyName: 'RemoteCo', applicationLink: 'https://himalayas.app/jobs/full-stack-engineer', pubDate: 1774771200, categories: ['Software Engineering'], jobType: 'Full-time', locationRestrictions: ['Worldwide'], seniority: ['Senior'], minSalary: 110000, maxSalary: 150000, currency: 'USD', description: '<p>x</p>' },
+    { title: 'Gameplay Programmer', companyName: 'Fox Games', applicationLink: 'https://himalayas.app/jobs/gameplay', categories: ['Game Development'], jobType: 'Full-time', locationRestrictions: ['Australia', 'New Zealand'], description: '<p>Unreal</p>' }] });
+  const hm = parseAny(himaTxt).map(j => prepJob(j));
+  ok('Himalayas 2 筆、網址取 applicationLink', hm.length === 2 && hm[0].url === 'https://himalayas.app/jobs/full-stack-engineer' && hm[0].source === 'himalayas', hm);
+  ok('Himalayas Worldwide→可以', hm[0].cls.tier === 'yes', hm[0].cls);
+  ok('Himalayas 限澳紐→不行', hm[1].cls.tier === 'no', hm[1].cls);
+  ok('Himalayas 薪資組字串並換算', hm[0].pay && hm[0].pay.hi === Math.round(150000 / 12 * FX.USD), [hm[0].salary, hm[0].pay]);
+
+  const t104 = JSON.stringify({ status: 200, data: { totalCount: 2, totalPage: 1, pageNo: 1, list: [
+    { jobNo: '89sn1', jobName: '全端開發工程師', custNo: '12345678', custName: '科技股份有限公司', coName: '科技股份有限公司', jobAddrNoDesc: '台北市信義區', jobAddress: '信義路五段', optionReset: { salaryLow: '50000', salaryHigh: '80000' }, salaryDesc: '月薪 50,000~80,000元', periodDesc: '經歷不拘', eduDesc: '專科以上', link: { applyAnalyze: 'https://www.104.com.tw/job/89sn1?jobsource=checkc', cust: 'https://www.104.com.tw/company/12345678', job: 'https://www.104.com.tw/job/89sn1' }, tags: ['遠端工作', '彈性工時'] },
+    { jobNo: 'x2', jobName: '遊戲企劃', custName: '遊戲公司', jobAddrNoDesc: '高雄市前鎮區', salaryDesc: '待遇面議', link: { job: '//www.104.com.tw/job/x2' }, tags: [] }] } });
+  const tw = parseAny(t104).map(j => prepJob(j));
+  ok('104 2 筆、欄位', tw.length === 2 && tw[0].title === '全端開發工程師' && tw[0].company === '科技股份有限公司' && tw[0].location === '台北市信義區', tw[0]);
+  ok('104 網址取 link.job、補 https', tw[0].url === 'https://www.104.com.tw/job/89sn1' && tw[1].url === 'https://www.104.com.tw/job/x2' && tw[0].source === 'tw104', [tw[0].url, tw[1].url]);
+  ok('104 遠端工作→可以且遠端', tw[0].cls.tier === 'yes' && tw[0].cls.mode === 'remote', tw[0].cls);
+  ok('104 沒寫遠端→可以但非遠端', tw[1].cls.tier === 'yes' && tw[1].cls.mode === 'office', tw[1].cls);
+  ok('104 月薪台幣', tw[0].pay && tw[0].pay.lo === 50000 && tw[0].pay.hi === 80000 && tw[0].pay.cur === 'TWD', tw[0].pay);
+  ok('待遇面議→沒薪資', tw[1].pay === null, tw[1].pay);
+
+  // ---- 薪資換算 ----
+  ok('£54,100 當年薪 GBP', (p => p && p.per === 'year' && p.cur === 'GBP')(parsePay('£54,100')), parsePay('£54,100'));
+  ok('$40/hr 時薪', (p => p && p.per === 'hour' && p.hi === 40 * 160 * FX.USD)(parsePay('$40/hr')), parsePay('$40/hr'));
+  ok('£45k 年薪', (p => p && p.hi === Math.round(45000 / 12 * FX.GBP))(parsePay('Up to £45k')), parsePay('Up to £45k'));
+  ok('US$ 不會被當成新幣', (p => p && p.cur === 'USD')(parsePay('US$5,000 / month')), parsePay('US$5,000 / month'));
+  ok('A$120,000 澳幣',(p => p && p.cur === 'AUD')(parsePay('A$100,000 - A$120,000')));
+  ok('年薪 120 萬', (p => p && p.per === 'year' && p.hi === 100000)(parsePay('年薪 120萬')), parsePay('年薪 120萬'));
+  ok('「5 months contract」不會被當成薪資數字亂乘', (p => !p || p.hi < 1e6)(parsePay('£300 per day, 5 months')), parsePay('£300 per day, 5 months'));
+
+  // ---- 畫面流程：餵資料 → 渲染 → 篩選 → 重判 ----
+  $('modeSel').value = 'remote'; $('minPay').value = ''; $('gameOnly').checked = true; $('payUnknown').checked = true;
+  setJobs(j1.concat(h), '自我測試');
+  ok('畫面有渲染卡片', document.querySelectorAll('#list .job').length === countTiers().yes + countTiers().maybe, document.querySelectorAll('#list .job').length);
+  document.querySelector('.tierbtn.no').click();
+  const remoteN = JOBS.filter(j => j.cls.mode === 'remote').length;
+  ok('只要遠端：點「不行」後顯示全部遠端職缺', document.querySelectorAll('#list .job').length === remoteN, [document.querySelectorAll('#list .job').length, remoteN]);
+  $('modeSel').value = 'office'; $('modeSel').dispatchEvent(new Event('change'));
+  ok('只要非遠端', document.querySelectorAll('#list .job').length === JOBS.length - remoteN && remoteN > 0);
+  $('modeSel').value = ''; $('modeSel').dispatchEvent(new Event('change'));
+  ok('遠端＋非遠端：全部顯示', document.querySelectorAll('#list .job').length === JOBS.length);
+
+  // 合併其他來源：gamesJobs 保留、Remotive 加進來；遊戲篩選只套用在 Remotive
+  const before = JOBS.length;
+  setJobs(parseAny(remotiveTxt), '測試 Remotive');
+  ok('合併來源不會蓋掉 gamesJobs', JOBS.length === before + 2, [before, JOBS.length]);
+  ok('來源選單有 Remotive', [...$('srcSel').options].some(o => o.value === 'remotive'));
+  ok('只看遊戲：Remotive 非遊戲職缺被藏起來', document.querySelectorAll('#list .job').length === before + 1, document.querySelectorAll('#list .job').length);
+  $('minPay').value = '200000'; $('minPay').oninput();
+  ok('期望月薪 20 萬：只剩有寫且達標 + 沒寫薪資的', visibleJobs().every(j => !j.pay || j.pay.hi >= 200000) && visibleJobs().some(j => j.source === 'remotive'), visibleJobs().map(j => [j.title, j.pay]));
+  $('payUnknown').checked = false; $('payUnknown').dispatchEvent(new Event('change'));
+  ok('不顯示沒寫薪資的', visibleJobs().length === 1 && visibleJobs()[0].title === 'Unity Game Developer', visibleJobs().map(j => j.title));
+  ok('卡片顯示台幣換算', /NT\$/.test(document.querySelector('#list .job .pay')?.textContent || ''), document.querySelector('#list .job')?.innerHTML.slice(0, 300));
+  $('minPay').value = ''; $('payUnknown').checked = true; $('payUnknown').dispatchEvent(new Event('change'));
+  setJobs(parseAny(remotiveTxt).slice(0, 1), '測試 Remotive 再載');
+  ok('同來源再載一次會換新', JOBS.filter(j => j.source === 'remotive').length === 1 && JOBS.length === before + 1, JOBS.length);
+  JOBS = JOBS.filter(j => j.source !== 'remotive'); afterChange();
+  $('q').value = 'keywords'; $('q').oninput();
+  ok('搜尋 keywords 剩 1 筆', document.querySelectorAll('#list .job').length === 1);
+  const li = document.querySelector('#list .job');
+  li.querySelector('[data-act=recheck]').click();
+  li.querySelector('.recheck textarea').value = 'Open to applicants worldwide, fully remote.';
+  li.querySelector('[data-act=redo]').click();
+  ok('貼內文重判→可以', document.querySelector('#list .job .badge').classList.contains('yes'), document.querySelector('#list .job .badge').className);
+  let parseErr = '';
+  try { parseAny('hello world'); } catch (e){ parseErr = e.message; }
+  ok('亂貼文字會給清楚錯誤', /JSON|HTML|RSS/.test(parseErr), parseErr);
+
+  // ---- 書籤小工具（只在 http/https 才出現）----
+  if (/^https?:$/.test(location.protocol)){
+    ok('線上版顯示書籤按鈕', !$('bmBox').hidden);
+    const href = $('bmLink').getAttribute('href');
+    let compiled = false, err = '';
+    try { new Function(decodeURIComponent(href.replace(/^javascript:/, ''))); compiled = true; } catch (e){ err = e.message; }
+    ok('書籤程式碼可編譯', compiled, err);
+    ok('書籤指向工具本身', decodeURIComponent(href).includes(location.href.split(/[?#]/)[0]), href.slice(0, 200));
+  } else ok('本機版隱藏書籤按鈕', $('bmBox').hidden);
+
+  const pass = results.filter(x => x.pass).length;
+  const out = document.createElement('pre');
+  out.id = 'selftest-result';
+  out.textContent = `SELFTEST ${pass}/${results.length}\n` + results.filter(x => !x.pass).map(x => `FAIL ${x.name} ${x.info}`).join('\n');
+  document.body.appendChild(out);
+  try { localStorage.removeItem('gjr:last'); localStorage.removeItem('gjr:prefs'); } catch (e) {}
 })();
 </script>
 </body>
