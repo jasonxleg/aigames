@@ -64,6 +64,9 @@ input[type=number]{font:inherit;color:var(--ink);background:var(--bg);border:1px
 .srclist{display:grid;gap:4px;margin:0 0 10px;font-size:13.5px}
 .srclist label{display:block;cursor:pointer}
 .srclist small{color:var(--sub)}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin:2px 0 8px}
+.tabs button{font-size:13px;padding:4px 10px;border-radius:999px}
+.tabs button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
 .src{font-size:12px;padding:1px 7px;border-radius:999px;background:var(--chip);color:var(--sub);margin-right:4px;white-space:nowrap}
 .list{list-style:none;margin:0;padding:0}
 .job{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0;box-shadow:var(--shadow)}
@@ -99,8 +102,8 @@ footer{color:var(--sub);font-size:12.5px;padding:10px 0 30px}
 <body>
 <div class="wrap">
 <header>
-  <h1>🌏 台灣遠端職缺篩選 <small>英國 gamesJobs · 台灣 104 · 美／澳／星 全球遠端職缺站</small></h1>
-  <p class="lead">把英國、台灣、美國、澳洲、新加坡等地的職缺放在一起逐筆判斷：<b>人留在台灣能不能做</b>。判斷依據是職缺的應徵地區限制、遠端、時區、合約型態等線索，每一筆都會列出理由。</p>
+  <h1>🌏 台灣遠端職缺篩選 <small>全球遠端站 · 英國 · 台灣 · 澳洲 · 新加坡 · 西班牙 · 荷蘭 · 加拿大</small></h1>
+  <p class="lead">把英國、台灣、美國、澳洲、新加坡、西班牙、荷蘭、加拿大等地的職缺放在一起逐筆判斷：<b>人留在台灣能不能做</b>。判斷依據是職缺的應徵地區限制、遠端、時區、合約型態等線索，每一筆都會列出理由。</p>
 </header>
 
 <section class="panel" id="loadPanel">
@@ -115,7 +118,7 @@ footer{color:var(--sub);font-size:12.5px;padding:10px 0 30px}
         <label><input type="checkbox" value="gamesjobs"> <span class="src">英國</span>gamesJobs <small>英國遊戲職缺，常被瀏覽器擋，擋了改用 B/C</small></label>
       </div>
       <button class="primary" id="fetchBtn">🌐 抓取勾選的來源</button>
-      <p class="note" style="margin-top:8px">台灣 104、澳洲 SEEK、新加坡 MyCareersFuture 不讓別的網站直接抓，請用書籤小工具或 B/C。</p>
+      <p class="note" style="margin-top:8px">台灣 104、澳洲 SEEK、新加坡 MyCareersFuture、西班牙／荷蘭／加拿大（LinkedIn）請用 <b style="display:inline">D 區</b>（不讓別的網站直接抓）。</p>
       <div id="bmBox" hidden style="margin-top:10px">
         <p><strong>書籤小工具（放上網後可用）</strong>：把這顆按鈕拖到書籤列，再到下列網站點書籤，資料會自動送進這裡：</p>
         <a class="btn" id="bmLink" href="#">⭐ 送到台灣遠端篩選</a>
@@ -124,7 +127,8 @@ footer{color:var(--sub);font-size:12.5px;padding:10px 0 30px}
           • 104 搜尋頁：照網址上的關鍵字抓（最多 10 頁）。網址有勾「遠端工作」才只抓遠端：
             <a href="https://www.104.com.tw/jobs/search/?keyword=%E9%81%8A%E6%88%B2&remoteWork=1" target="_blank" rel="noopener">遊戲・遠端</a> /
             <a href="https://www.104.com.tw/jobs/search/?keyword=%E9%81%8A%E6%88%B2" target="_blank" rel="noopener">遊戲・全部</a><br>
-          • SEEK、MyCareersFuture 或其他職缺網站的<strong>單一職缺頁</strong>：抓該頁的結構化資料</p>
+          • SEEK 搜尋結果頁、MyCareersFuture 搜尋頁：照網址上的關鍵字抓（最多 5 頁）<br>
+          • 其他職缺網站的<strong>單一職缺頁</strong>：抓該頁的結構化資料</p>
       </div>
     </div>
     <div class="step">
@@ -144,6 +148,35 @@ footer{color:var(--sub);font-size:12.5px;padding:10px 0 30px}
       <p>在上面任一個資料網址或網頁原始碼按 <code>Ctrl+A</code>、<code>Ctrl+C</code>，貼進來。</p>
       <textarea id="paste" placeholder="貼上 JSON / HTML / RSS…"></textarea>
       <div class="row" style="margin-top:6px"><button id="pasteBtn">📋 分析貼上內容</button></div>
+    </div>
+    <div class="step" id="tw104Step">
+      <b>D. 各國在地職缺網站</b>
+      <div class="tabs" id="localTabs">
+        <button data-site="tw104" class="on">台灣 104</button>
+        <button data-site="seek">澳洲 SEEK</button>
+        <button data-site="mcf">新加坡 MCF</button>
+        <button data-site="es">西班牙</button>
+        <button data-site="nl">荷蘭</button>
+        <button data-site="ca">加拿大</button>
+      </div>
+      <p id="localIntro">這些網站不讓別的網站直接抓，照下面三步做（本機版也能用）：</p>
+      <div class="row">
+        <input type="text" id="kw104" value="遊戲" placeholder="關鍵字" style="flex:1 1 90px;width:auto">
+        <label class="chk" id="remote104Box"><input type="checkbox" id="remote104" checked> 只要遠端</label>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <label class="chk">第 <input type="number" id="page104" value="1" min="1" style="width:60px"> 頁</label>
+        <button class="primary" id="open104">① 開資料頁</button>
+      </div>
+      <p class="note" style="margin:6px 0">② 在開出來的頁面按 <code>Ctrl+A</code>、<code>Ctrl+C</code>　③ 貼到下面按「加入」。<br>
+        加入後會自動跳到下一頁，再按 ① 就能繼續累加；改回第 1 頁會重新開始。</p>
+      <textarea id="paste104" placeholder="貼上資料頁的內容（一大串 JSON）…" style="min-height:60px"></textarea>
+      <div class="row" style="margin-top:6px">
+        <button class="primary" id="add104">③ 加入職缺</button>
+        <a class="btn" id="old104" href="#" target="_blank" rel="noopener" title="資料頁顯示錯誤時試這個">換舊版資料頁</a>
+        <a class="btn" id="search104" href="#" target="_blank" rel="noopener">開搜尋頁</a>
+      </div>
+      <p class="note" style="margin-top:6px" id="localHint"></p>
     </div>
   </div>
   <div class="msg" id="loadMsg"></div>
@@ -230,8 +263,13 @@ const SOURCES = {
   remotive:  { label: 'Remotive',        flag: '全球', host: /(^|\.)remotive\.com$/, allRemote: true, general: true },
   jobicy:    { label: 'Jobicy',          flag: '全球', host: /(^|\.)jobicy\.com$/, allRemote: true, general: true },
   himalayas: { label: 'Himalayas',       flag: '全球', host: /(^|\.)himalayas\.app$/, allRemote: true, general: true },
-  seek:      { label: 'SEEK',            flag: '澳洲', host: /(^|\.)seek\.com\.au$/, general: true },
-  mcf:       { label: 'MyCareersFuture', flag: '新加坡', host: /(^|\.)mycareersfuture\.gov\.sg$/, general: true },
+  seek:      { label: 'SEEK',            flag: '澳洲', host: /(^|\.)seek\.com\.au$/, general: true, local: true },
+  mcf:       { label: 'MyCareersFuture', flag: '新加坡', host: /(^|\.)mycareersfuture\.gov\.sg$/, general: true, local: true },
+  // LinkedIn 依國家分開，同一國再載一次才會換新；書籤/貼上抓到的 LinkedIn 歸「各國」
+  li_es:     { label: 'LinkedIn',        flag: '西班牙', general: true, local: true },
+  li_nl:     { label: 'LinkedIn',        flag: '荷蘭', general: true, local: true },
+  li_ca:     { label: 'LinkedIn',        flag: '加拿大', general: true, local: true },
+  linkedin:  { label: 'LinkedIn',        flag: '各國', host: /(^|\.)linkedin\.com$/, general: true, local: true },
   other:     { label: '其他',            flag: '其他' }
 };
 function detectSource(url){
@@ -255,7 +293,7 @@ function detectCurrency(s){
   if (/€|EUR/i.test(s)) return 'EUR';
   if (/¥|JPY|円/i.test(s)) return /CNY|RMB|人民幣/i.test(s) ? 'CNY' : 'JPY';
   if (/CNY|RMB|人民幣/i.test(s)) return 'CNY';
-  if (/\$|USD/i.test(s)) return 'USD';
+  if (/\$/.test(s)) return '$';                          // 只寫 $：交給 parsePay 依來源決定（SEEK 的 $ 是澳幣）
   return '';
 }
 // 回傳 { lo, hi, cur, per }（lo/hi 已換成月薪 TWD），看不懂就回傳 null
@@ -270,7 +308,8 @@ function parsePay(text, defCur){
     return _;
   });
   if (!nums.length) return null;
-  const cur = detectCurrency(s) || defCur || 'USD';
+  let cur = detectCurrency(s) || defCur || 'USD';
+  if (cur === '$') cur = ['AUD', 'CAD', 'SGD', 'NZD', 'HKD'].includes(defCur) ? defCur : 'USD';
   let lo = Math.min(...nums), hi = Math.max(...nums);
   let per = '';
   if (/hour|hourly|\/\s*hr\b|per hr|時薪|小時/i.test(s)) per = 'hour';
@@ -300,7 +339,7 @@ function toText(v){
   if (typeof v === 'number' || typeof v === 'boolean') return String(v);
   if (Array.isArray(v)) return v.map(toText).filter(Boolean).join(' / ');
   if (typeof v === 'object'){
-    for (const k of ['name','title','label','text','value','displayName','city']) if (typeof v[k] === 'string' && v[k]) return v[k];
+    for (const k of ['name','title','label','text','value','displayName','displayText','city']) if (typeof v[k] === 'string' && v[k]) return v[k];
     if (v.address) return toText(v.address);
     const parts = ['addressLocality','addressRegion','addressCountry'].map(k => toText(v[k])).filter(Boolean);
     if (parts.length) return parts.join(', ');
@@ -341,37 +380,48 @@ function normalize(raw){
   const isLd = String(raw['@type'] || '').toLowerCase() === 'jobposting';
   const title = stripTags(toText(pick(raw, ['title','jobTitle','jobName','position','name','role'])));
   if (!title) return null;
-  const company = stripTags(toText(pick(raw, ['company','companyName','company_name','custName','coName','studio','studioName','employer','organization','org','hiringOrganization'])));
-  let location = toText(pick(raw, ['location','locations','locationName','loc','city','place','jobLocation','jobAddrNoDesc','office','offices']));
+  // SEEK advertiser.description、MyCareersFuture postedCompany.name
+  const company = stripTags(raw.advertiser && typeof raw.advertiser === 'object' && raw.advertiser.description ? raw.advertiser.description
+    : toText(pick(raw, ['company','companyName','company_name','custName','coName','postedCompany','studio','studioName','employer','organization','org','hiringOrganization'])));
+  let location = toText(pick(raw, ['location','locations','locationName','loc','city','place','jobLocation','jobAddrNoDesc','office','offices','address']));
   const country = toText(pick(raw, ['country','countries','region']));
   if (country && !location.toLowerCase().includes(country.toLowerCase())) location = [location, country].filter(Boolean).join(', ');
-  const remoteRaw = pick(raw, ['remote','isRemote','is_remote','workplaceType','workplace','workplace_type','remoteType','remoteStatus','jobLocationType','workMode','work_type','locationType']);
+  const remoteRaw = pick(raw, ['remote','isRemote','is_remote','remoteWorkType','workplaceType','workplace','workplace_type','remoteType','remoteStatus','jobLocationType','workMode','work_type','locationType','workArrangements','workArrangement']);
   // Remotive candidate_required_location / Himalayas locationRestrictions / Jobicy jobGeo 都是「可應徵地區」
   const applicantLoc = toText(pick(raw, ['applicantLocationRequirements','applicantLocation','eligibleCountries','candidate_required_location','locationRestrictions','jobGeo']));
   const dept = stripTags(toText(pick(raw, ['department','dept','discipline','category','categories','jobIndustry','team','function','occupationalCategory'])));
   const type = stripTags(toText(pick(raw, ['employmentType','employment_type','jobType','job_type','contractType','contract','commitment','type','schedule']))).replace(/_/g, '-');
   const tags = stripTags(toText(pick(raw, ['tags','skills','jobTags'])));
-  let salary = stripTags(toText(pick(raw, ['salary','salaryText','salaryDesc','pay','compensation','baseSalary'])));
+  const salObj = raw.salary && typeof raw.salary === 'object' && !Array.isArray(raw.salary) ? raw.salary : null;   // MyCareersFuture：{minimum, maximum, type:{salaryType}}
+  let salary = salObj ? '' : stripTags(toText(pick(raw, ['salary','salaryText','salaryDesc','salaryLabel','pay','compensation','baseSalary'])));
+  if (!salary && salObj && (salObj.minimum || salObj.maximum))
+    salary = `S$${[salObj.minimum, salObj.maximum].filter(Boolean).map(n => Number(n).toLocaleString('en-US')).join(' – ')} / ${toText(salObj.type && salObj.type.salaryType) || 'Monthly'}`;
+  if (!salary) salary = stripTags(toText(pick(raw, ['salaryLabel'])));
   const curRaw = toText(pick(raw, ['salaryCurrency','currency']));
   if (!salary){
     // Jobicy salaryMin/Max、Himalayas minSalary/maxSalary：數字欄位自己組字串
     const lo = pick(raw, ['salaryMin','minSalary','annualSalaryMin']), hi = pick(raw, ['salaryMax','maxSalary','annualSalaryMax']);
+    // 104 新版 API：salaryLow/salaryHigh（台幣，High=9999999 代表「以上」，兩個都 0 是面議）
+    const lo104 = Number(pick(raw, ['salaryLow']) || 0), hi104 = Number(pick(raw, ['salaryHigh']) || 0);
     if (lo || hi){
       const per = toText(pick(raw, ['salaryPeriod'])) || 'yearly';
       salary = [lo, hi].filter(Boolean).map(n => Number(n).toLocaleString('en-US')).join(' – ') + ` ${curRaw || 'USD'} / ${per}`;
+    } else if (lo104 || (hi104 && hi104 < 9999999)){
+      salary = `NT$${[lo104, hi104 < 9999999 ? hi104 : 0].filter(Boolean).map(n => n.toLocaleString('en-US')).join(' – ')}${hi104 >= 9999999 ? ' 以上' : ''}`;
     }
   }
   const date = toText(pick(raw, ['postedAt','posted','datePosted','date','published','publishedAt','publication_date','pubDate','createdAt','appearDate','firstSeen','updatedAt']));
-  const desc = stripTags(toText(pick(raw, ['description','jobDescription','descriptionPlain','descriptionText','summary','snippet','content','body','text','excerpt','jobExcerpt'])));
+  const desc = stripTags(toText(pick(raw, ['description','jobDescription','descriptionPlain','descriptionText','summary','snippet','content','body','text','excerpt','jobExcerpt','teaser'])));
   let linkV = pick(raw, ['url','link','href','permalink','pageUrl','page']);
   if (linkV && typeof linkV === 'object' && !Array.isArray(linkV)) linkV = linkV.job || linkV.url || linkV.href || '';   // 104：link.job
+  if (!linkV && raw.metadata && typeof raw.metadata === 'object') linkV = raw.metadata.jobDetailsUrl || '';   // MyCareersFuture
   let url = absUrl(toText(linkV));
   const slug = toText(pick(raw, ['slug','path']));
   if (!url && slug) url = absUrl(slug.includes('/') ? slug : `/jobs/${slug.replace(/\.html$/,'')}.html`);
   const applyUrl = absUrl(toText(pick(raw, ['applyUrl','apply_url','applicationUrl','applicationLink','sourceUrl','source_url','originalUrl','externalUrl','absolute_url','hostedUrl'])));
   return {
     title, company, location: stripTags(location), dept, type, salary, salaryCur: curRaw, tags, date, desc, url: url || applyUrl, applyUrl,
-    remoteRaw, applicantLoc, isLd,
+    remoteRaw, applicantLoc, isLd, rawId: toText(pick(raw, ['id','jobId','uuid'])),
     extra: allValues(raw).map(stripTags).join(' \n ').slice(0, 20000),
     userText: ''
   };
@@ -428,8 +478,21 @@ function parseHtml(text, base = SITE){
     try { collectJobPostings(JSON.parse(s.textContent)).forEach(j => { const n = normalize(j); if (n){ if (!/^https?:/.test(n.url)) n.url = absUrl(n.url, base); jobs.push(n); } }); } catch {}
   });
   log('1-HTML', 'JSON-LD JobPosting 筆數', jobs.length);
-  // 2) gamesJobs 列表卡片：<li><a class="title">…<span class="meta">…<span class="company">（別的網站的 li 多半是選單，不套用）
-  const cards = base === SITE ? doc.querySelectorAll('li') : [];
+  // 2) LinkedIn 公開搜尋卡片：.base-search-card（資料頁與搜尋頁原始碼都是這個結構）
+  const liCards = doc.querySelectorAll('.base-search-card, .job-search-card');
+  liCards.forEach(card => {
+    const q = sel => (card.querySelector(sel)?.textContent || '').replace(/\s+/g, ' ').trim();
+    const a = card.querySelector('a.base-card__full-link') || card.querySelector('a[href*="/jobs/view/"]');
+    const title = q('.base-search-card__title') || (a ? a.textContent.replace(/\s+/g, ' ').trim() : '');
+    if (!title) return;
+    jobs.push({ title, company: q('.base-search-card__subtitle'), location: q('.job-search-card__location'), dept: '', type: '',
+      salary: q('.job-search-card__salary-info'), tags: '', salaryCur: '', date: card.querySelector('time')?.getAttribute('datetime') || '',
+      desc: '', url: a ? absUrl(a.getAttribute('href').split('?')[0], 'https://www.linkedin.com') : '', applyUrl: '', remoteRaw: undefined,
+      applicantLoc: '', isLd: false, extra: card.textContent.replace(/\s+/g, ' ').trim(), userText: '' });
+  });
+  if (liCards.length) log('1-HTML', 'LinkedIn 卡片筆數', liCards.length);
+  // 3) gamesJobs 列表卡片：<li><a class="title">…<span class="meta">…<span class="company">（別的網站的 li 多半是選單，不套用）
+  const cards = base === SITE && !liCards.length ? doc.querySelectorAll('li') : [];
   let cardCount = 0;
   cards.forEach(li => {
     const a = li.querySelector('a.title') || li.querySelector('a[href*="/jobs/"]');
@@ -445,7 +508,7 @@ function parseHtml(text, base = SITE){
     cardCount++;
   });
   log('1-HTML', '列表卡片筆數', cardCount);
-  // 3) 單一職缺頁：沒有卡片也沒有 JSON-LD 時，整頁當一筆
+  // 4) 單一職缺頁：沒有卡片也沒有 JSON-LD 時，整頁當一筆
   if (!jobs.length){
     const h1 = doc.querySelector('h1');
     if (h1){
@@ -490,9 +553,14 @@ const SEP = String.raw`[\s\-–—(),:/|]*`;
 const UKW = String.raw`(?:uk|u\.k\.|united kingdom|gb|great britain|england|scotland|wales|northern ireland|britain)`;
 const ZH_TW = '台灣|臺灣|台北|臺北|新北|桃園|台中|臺中|台南|臺南|高雄|新竹|基隆|嘉義|宜蘭|花蓮|台東|臺東|屏東|苗栗|彰化|南投|雲林|澎湖|金門';
 const LIVE = String.raw`(based|located|resid\w*|living|live)`;
+const CTRY = String.raw`(spain|españa|netherlands|nederland|holland|canada|germany|france|ireland|portugal|poland|sweden|finland|denmark|italy|belgium)`;
 const RX = {
   taiwan:   new RegExp(String.raw`\b(taiwan|taipei|kaohsiung|taichung|tainan|taoyuan|hsinchu)\b|${ZH_TW}`, 'i'),
   remoteZh: /遠端|遠距|居家(工作|辦公|上班)|在家(工作|上班)/,
+  // 西班牙文 / 荷蘭文 / 法文（加拿大魁北克）的遠端字樣
+  remoteIntl: /\b(teletrabajo|en remoto|100% remoto|trabajo remoto|remoto|thuiswerk\w*|op afstand|t[ée]l[ée]travail)\b|à distance/i,
+  // 限西班牙/荷蘭/加拿大/歐盟等國居住或工作權
+  country:  new RegExp(String.raw`remote${SEP}${CTRY}\b|\b${CTRY}${SEP}(remote|only)\b|\b(right|eligib\w*|authori[sz]ed|permission|legally allowed) to work in (the )?${CTRY}\b|\b${LIVE} in (the )?${CTRY}\b|\bwithin (the )?${CTRY}\b|\b${CTRY} (citizens?|residents?|work permit|work authori[sz]ation)\b|\b(eu|european union) (work permit|work authori[sz]ation|citizens?(hip)?|passport|residents?)\b|residen(te|cia) en espa[ñn]a|woonachtig in nederland`, 'i'),
   // 限澳洲/紐西蘭、限新加坡：時區跟台灣近，但通常要當地工作權
   anz:      new RegExp(String.raw`remote${SEP}(australia|aus|anz|new zealand|nz)\b|\b(australia|anz|new zealand)${SEP}remote\b|\baustralian (work(ing)? rights|citizens?(hip)?|permanent residen\w*)|\b(right|eligib\w*|authori[sz]ed|permission) to work in (australia|new zealand)|\b${LIVE} in (australia|new zealand)\b|\bwithin (australia|new zealand)\b|\b(aest|aedt|nzst) (time ?zone|hours)\b|澳洲(公民|永久居民|工作權)`, 'i'),
   sg:       new RegExp(String.raw`remote${SEP}singapore\b|\bsingapore${SEP}remote\b|\bsingapore(an)? (citizens?|prs?|permanent residents?)\b|\b(right|eligib\w*|authori[sz]ed|permission) to work in singapore|\b${LIVE} in singapore\b|\bwithin singapore\b|新加坡(公民|永久居民)`, 'i'),
@@ -504,7 +572,7 @@ const RX = {
   remote:   /\b(fully[- ]remote|100% remote|remote[- ](first|friendly|working|work|role|position|job|opportunity|option|based|ok)|work(ing)? remotely|work(ing)? from home|wfh|home[- ](based|working)|telecommute|remote(?![- ]?(play|config|configuration|desktop|control|server|access|render|rendering|debug|debugging|team members?|controlled|sensing|procedure|calls?)\b))\b/i,
   ukOnly:   new RegExp(String.raw`remote${SEP}${UKW}\b|\b${UKW}${SEP}remote\b|\buk[- ](based|remote|only|residents?|hours|time ?zone)\b|\b(based|located|resident|residing|living|live) (in|within) the (uk|united kingdom)\b|\bwithin the (uk|united kingdom)\b|right to work in the (uk|united kingdom)|(eligible|authori[sz]ed|permission) to work in the (uk|united kingdom)|must (be|live|reside)[^.]{0,40}\b(uk|united kingdom)\b|\b(gmt|bst) (working )?hours\b`, 'i'),
   emea:     new RegExp(String.raw`remote${SEP}(emea|europe|eu)\b|\b(emea|europe|eu)${SEP}remote\b|\bwithin (europe|the eu|emea)\b|\beuropean time ?zones?\b|\b(cet|cest)\b`, 'i'),
-  americas: new RegExp(String.raw`remote${SEP}(united states|canada|north america|americas|latam)\b|\b(united states|canada|north america)${SEP}(remote|only)\b|\bwithin the (us|united states)\b|\b${LIVE} in the (us|usa|united states)\b|\b(authori[sz]ed|eligible|right) to work in the (us|u\.s\.|united states)|\b(pst|est|cst) (time ?zone|hours)\b`, 'i'),
+  americas: new RegExp(String.raw`remote${SEP}(united states|north america|americas|latam)\b|\b(united states|north america)${SEP}(remote|only)\b|\bwithin the (us|united states)\b|\b${LIVE} in the (us|usa|united states)\b|\b(authori[sz]ed|eligible|right) to work in the (us|u\.s\.|united states)|\b(pst|est|cst) (time ?zone|hours)\b`, 'i'),
   hybrid:   /\b(hybrid|on[- ]?site|in[- ]office|office[- ]based|in[- ]studio|studio[- ]based|\d+ days? (a|per) week (in|at) (the )?(office|studio))\b/i,
   relocate: /\b(relocation|relocate)\b/i,
   freelance:/\b(freelance|freelancer|independent contractor|contractor|self[- ]employed|b2b|per[- ]project|vendor)\b/i,
@@ -517,21 +585,23 @@ function classify(job){
   const reasons = [];   // {t:文字, k:'p'|'n'|'m'}
   const add = (t, k) => reasons.push({ t, k });
   const rr = job.remoteRaw;
-  const rrText = typeof rr === 'string' ? rr : '';
-  const head = [job.title, job.location, job.type, rrText, job.applicantLoc].join(' \n ');
-  const full = [head, job.desc, job.extra, job.userText].join(' \n ');
+  const rrText = typeof rr === 'string' ? rr : (rr && typeof rr === 'object' ? toText(rr) : '');   // SEEK workArrangements 是物件
+  // 欄位之間用 ¦ 隔開：SEP 不含它，免得「地點…Australia」接「Remote」被拼成 "Australia Remote"
+  const head = [job.title, job.location, job.type, rrText, job.applicantLoc].join(' ¦ ');
+  const full = [head, job.desc, job.extra, job.userText].join(' ¦ ');
 
   // 明確的結構化遠端旗標
-  let flagRemote = rr === true || /^(true|yes|remote|fully remote|telecommute)$/i.test(rrText.trim()) || /remote|telecommute/i.test(rrText);
+  // 104 remoteWorkType 是數字：1 完全遠端、2 部分遠端
+  let flagRemote = rr === true || (typeof rr === 'number' && rr > 0) || /^(true|yes|remote|fully remote|telecommute)$/i.test(rrText.trim()) || /remote|telecommute/i.test(rrText);
   const flagOnsite = rr === false || /^(false|no|on-?site|onsite|office|in[- ]office|hybrid)$/i.test(rrText.trim());
   if (flagRemote) add('資料標示：遠端', 'p');
   if (flagOnsite) add(`資料標示：${rr === false ? '非遠端' : rrText}`, 'n');
 
   const has = rx => rx.test(full);
   const m = rx => (full.match(rx) || [''])[0].trim();
-  const remoteEn = has(RX.remote), remoteZh = has(RX.remoteZh);
-  const remote = flagRemote || remoteEn || remoteZh;
-  if (!flagRemote && remote) add(`寫到「${remoteEn ? m(RX.remote) : m(RX.remoteZh)}」`, 'p');
+  const remoteEn = has(RX.remote), remoteZh = has(RX.remoteZh), remoteIntl = has(RX.remoteIntl);
+  const remote = flagRemote || remoteEn || remoteZh || remoteIntl;
+  if (!flagRemote && remote) add(`寫到「${remoteEn ? m(RX.remote) : remoteZh ? m(RX.remoteZh) : m(RX.remoteIntl)}」`, 'p');
 
   // 結構化的「可應徵地區」（Remotive / Himalayas / Jobicy / JSON-LD）：清單不含台灣或亞洲就是不行
   const al = String(job.applicantLoc || '').trim();
@@ -552,6 +622,7 @@ function classify(job){
   const americas = has(RX.americas) || RX.usCS.test(full);
   const anz = has(RX.anz);
   const sg = has(RX.sg);
+  const ctry = has(RX.country);
   const nearTz = remote && RX.nearTz.test([job.location, al].join(' '));
   const hybrid = has(RX.hybrid);
   const relocate = has(RX.relocate);
@@ -568,6 +639,7 @@ function classify(job){
   if (americas) add(`限美洲：「${m(RX.americas) || m(RX.usCS)}」`, 'n');
   if (anz)    add(`限澳洲/紐西蘭：「${m(RX.anz)}」`, 'n');
   if (sg)     add(`限新加坡：「${m(RX.sg)}」`, 'n');
+  if (ctry)   add(`限當地居住/工作權：「${m(RX.country)}」`, 'n');
   if (nearTz && !asia) add(`時區相近：「${([job.location, al].join(' ').match(RX.nearTz) || [''])[0]}」`, 'p');
   if (hybrid) add(`需進辦公室：「${m(RX.hybrid)}」`, 'n');
   if (relocate) add('提到搬遷（通常要到當地）', 'n');
@@ -576,7 +648,7 @@ function classify(job){
   if (intern) add('實習/應屆職缺（多半要在當地）', 'n');
 
   const strongYes = taiwan || global || asia;
-  const regionBlock = ukOnly || emea || americas || anz || sg;
+  const regionBlock = ukOnly || emea || americas || anz || sg || ctry;
   // 工作型態：給「只要遠端／只要非遠端」篩選用
   const mode = remote && !flagOnsite ? 'remote' : 'office';
   let tier, score = 0;
@@ -593,6 +665,8 @@ function classify(job){
     tier = 'maybe';
     score = 5 + (freelance ? 2 : 0) + (chinese ? 2 : 0) + (nearTz ? 2 : 0) - (intern ? 2 : 0) - (hybrid ? 2 : 0) - (relocate ? 1 : 0) - (locOnlyUK ? 1 : 0);
     if (locOnlyUK) add('地點只寫英國，可能要英國居住', 'm');
+    // 澳洲/新加坡/LinkedIn 各國這類在地職缺網站：沒寫限制也多半要當地工作權
+    if (SOURCES[job.source]?.local){ score -= 1; add('在地職缺網站：沒寫限制，但多半仍要當地工作權', 'm'); }
     if (!job.desc && !job.userText) add('列表沒有完整說明，建議點原文確認', 'm');
   } else {
     tier = 'no'; score = -10;
@@ -622,7 +696,14 @@ function prepJob(j, forceSrc){
   j.source = forceSrc || j.source || detectSource(j.url || j.applyUrl);
   if (SOURCES[j.source]?.allRemote && j.remoteRaw === undefined) j.remoteRaw = true;
   j.tags = j.tags || '';
-  const defCur = j.salaryCur || (j.source === 'tw104' ? 'TWD' : j.source === 'gamesjobs' ? 'GBP' : j.source === 'seek' ? 'AUD' : j.source === 'mcf' ? 'SGD' : '');
+  const defCur = j.salaryCur || { tw104: 'TWD', gamesjobs: 'GBP', seek: 'AUD', mcf: 'SGD', li_es: 'EUR', li_nl: 'EUR', li_ca: 'CAD' }[j.source] || '';
+  // SEEK / MyCareersFuture 的資料沒有網址，用 id 組；地點補上國名
+  if (!j.url && j.rawId){
+    if (j.source === 'seek') j.url = `https://www.seek.com.au/job/${j.rawId}`;
+    if (j.source === 'mcf') j.url = `https://www.mycareersfuture.gov.sg/job/${j.rawId}`;
+  }
+  const ctryName = { seek: 'Australia', mcf: 'Singapore', li_es: 'Spain', li_nl: 'Netherlands', li_ca: 'Canada' }[j.source];
+  if (ctryName && !new RegExp(ctryName, 'i').test(j.location)) j.location = [j.location, ctryName].filter(Boolean).join(', ');
   j.pay = parsePay(j.salary, defCur);
   j.cls = classify(j);
   j.ai = null;
@@ -630,11 +711,13 @@ function prepJob(j, forceSrc){
 }
 
 // 合併載入：同一來源整批換新，其他來源保留
-function setJobs(jobs, src, forceSrc){
-  log(2, `開始判斷，共 ${jobs.length} 筆，來源：${src}`);
+// opts.append：同來源累加不換新（104 一頁一頁貼）；opts.markRemote：用「遠端」條件搜到的，資料沒寫也當遠端
+function setJobs(jobs, src, forceSrc, opts = {}){
+  log(2, `開始判斷，共 ${jobs.length} 筆，來源：${src}`, opts);
+  if (opts.markRemote) jobs.forEach(j => { if (j.remoteRaw === undefined || j.remoteRaw === '' || j.remoteRaw === 0) j.remoteRaw = true; });
   jobs.forEach(j => prepJob(j, forceSrc));
   const incoming = new Set(jobs.map(j => j.source));
-  const kept = JOBS.filter(j => !incoming.has(j.source));
+  const kept = opts.append ? JOBS.slice() : JOBS.filter(j => !incoming.has(j.source));
   log(2, `本次來源：${[...incoming].map(srcName).join('、')}；保留其他來源 ${kept.length} 筆`);
   // 用網址（沒網址就用職稱+公司）去重
   const seen = new Set(kept.map(jobKey));
@@ -761,11 +844,11 @@ function loadedSummary(jobs){
   }).join('<br>');
 }
 
-function ingest(text, src, base){
+function ingest(text, src, base, opts){
   try {
     const jobs = parseAny(text, base);
     if (!jobs.length) throw new Error('沒有找到任何職缺。若貼的是網頁，請確認是列表頁或職缺頁的原始碼。');
-    setJobs(jobs, src);
+    setJobs(jobs, src, opts && opts.forceSrc, opts);
     showMsg('loadMsg', 'ok', `讀到職缺：<br>${loadedSummary(jobs)}`
       + (src.includes('HTML') && jobs.length < 60 && jobs[0].source === 'gamesjobs' ? '<br>⚠ 網頁原始碼只含第一頁約 30 筆，要全部職缺請改用 jobs.json。' : ''));
     $('resultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -830,6 +913,103 @@ $('fetchBtn').onclick = async () => {
 };
 
 $('pasteBtn').onclick = () => { log(1, '分析貼上內容'); ingest($('paste').value, '貼上的內容'); };
+
+/* ===================== D. 各國在地職缺網站：開資料頁 → 複製 → 貼回來，一頁一頁累加 ===================== */
+// 每個分頁：src 是資料來源（合併/累加以來源為單位），urls() 產生資料頁、備用資料頁、搜尋頁網址
+const enc = encodeURIComponent;
+const TW104 = 'https://www.104.com.tw';
+// LinkedIn 公開搜尋：f_WT=2 遠端；資料頁一頁 10 筆、搜尋頁約 25 筆
+const liUrls = loc => (k, rw, p) => ({
+  api:    `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${enc(k)}&location=${enc(loc)}${rw ? '&f_WT=2' : ''}&start=${(p - 1) * 10}`,
+  old:    `https://www.linkedin.com/jobs/search?keywords=${enc(k)}&location=${enc(loc)}${rw ? '&f_WT=2' : ''}&start=${(p - 1) * 25}`,
+  search: `https://www.linkedin.com/jobs/search?keywords=${enc(k)}&location=${enc(loc)}${rw ? '&f_WT=2' : ''}`
+});
+const LI_HINT = '在資料頁按 <code>Ctrl+U</code> 開「原始碼」，再在原始碼頁按 <code>Ctrl+A</code>、<code>Ctrl+C</code>（直接複製畫面只會拿到文字）。資料頁一頁 10 筆；「換舊版資料頁」是一般搜尋頁，一頁約 25 筆，一樣用 Ctrl+U 複製。LinkedIn 偶爾會要求登入或擋太頻繁的查詢，等一下再試。';
+const LOCAL_SITES = {
+  tw104: { label: '台灣 104', src: 'tw104', kw: '遊戲', remote: true,
+    urls: (k, rw, p) => ({
+      api:    `${TW104}/jobs/search/api/jobs?keyword=${enc(k)}${rw ? '&remoteWork=1' : ''}&page=${p}&pagesize=30&jobsource=index_s&mode=s&order=15`,
+      old:    `${TW104}/jobs/search/list?ro=0&kwop=7&keyword=${enc(k)}${rw ? '&remoteWork=1' : ''}&order=15&asc=0&mode=s&page=${p}`,
+      search: `${TW104}/jobs/search/?keyword=${enc(k)}${rw ? '&remoteWork=1' : ''}` }),
+    hint: '資料頁顯示錯誤或空白（104 擋直接開）：先試「換舊版資料頁」；還不行就放上 GitHub，在「開搜尋頁」那頁點 A 區的書籤小工具。' },
+  seek: { label: '澳洲 SEEK', src: 'seek', kw: 'game', remote: true,
+    urls: (k, rw, p) => ({
+      api:    `https://www.seek.com.au/api/jobsearch/v5/search?siteKey=AU-Main&sourcesystem=houston&where=All%20Australia&keywords=${enc(k)}${rw ? '&workarrangement=3' : ''}&page=${p}&pageSize=50&locale=en-AU`,
+      old:    `https://www.seek.com.au/api/chalice-search/v4/search?siteKey=AU-Main&where=All%20Australia&keywords=${enc(k)}${rw ? '&workarrangement=3' : ''}&page=${p}`,
+      search: `https://www.seek.com.au/${enc(k.trim().replace(/\s+/g, '-'))}-jobs${rw ? '?workarrangement=3' : ''}` }),
+    hint: '澳洲職缺就算寫遠端，多半仍要澳洲工作權；工具會標「待確認」，請看內文。資料頁打不開就放上 GitHub，在「開搜尋頁」那頁點書籤小工具。' },
+  mcf: { label: '新加坡 MCF', src: 'mcf', kw: 'game', remote: false, noRemoteFilter: true,
+    urls: (k, rw, p) => ({
+      api:    `https://api.mycareersfuture.gov.sg/v2/jobs?search=${enc(k)}&limit=100&page=${p - 1}&sortBy=new_posting_date`,
+      old:    `https://api.mycareersfuture.gov.sg/v2/jobs?search=${enc(k)}&limit=100&page=${p - 1}`,
+      search: `https://www.mycareersfuture.gov.sg/search?search=${enc(k)}&sortBy=new_posting_date&page=0` }),
+    hint: 'MyCareersFuture 是新加坡政府職缺網，沒有「遠端」篩選，載入後用 ② 的「工作型態」篩。新加坡職缺多半要當地工作準證。' },
+  es: { label: '西班牙', src: 'li_es', kw: 'game', remote: true, urls: liUrls('Spain'), hint: LI_HINT },
+  nl: { label: '荷蘭',   src: 'li_nl', kw: 'game', remote: true, urls: liUrls('Netherlands'), hint: LI_HINT },
+  ca: { label: '加拿大', src: 'li_ca', kw: 'game', remote: true, urls: liUrls('Canada'), hint: LI_HINT }
+};
+let localSite = 'tw104';
+const localState = {};   // 每個分頁各自記關鍵字、遠端、頁數
+Object.entries(LOCAL_SITES).forEach(([k, s]) => localState[k] = { kw: s.kw, remote: s.remote, page: 1 });
+
+function urls104(){
+  const s = LOCAL_SITES[localSite];
+  const k = $('kw104').value.trim() || s.kw;
+  const p = Math.max(1, parseInt($('page104').value, 10) || 1);
+  return s.urls(k, !s.noRemoteFilter && $('remote104').checked, p);
+}
+function refresh104Links(){ const u = urls104(); $('old104').href = u.old; $('search104').href = u.search; }
+function switchLocal(key){
+  // 先記住目前分頁的輸入，再換成新分頁的
+  localState[localSite] = { kw: $('kw104').value, remote: $('remote104').checked, page: parseInt($('page104').value, 10) || 1 };
+  localSite = key;
+  const s = LOCAL_SITES[key], st = localState[key];
+  $('kw104').value = st.kw; $('remote104').checked = st.remote; $('page104').value = st.page;
+  $('remote104Box').hidden = !!s.noRemoteFilter;
+  $('open104').textContent = `① 開 ${s.label} 資料頁`;
+  $('add104').textContent = `③ 加入 ${s.label} 職缺`;
+  $('paste104').placeholder = s.src.startsWith('li_') ? '貼上 LinkedIn 資料頁的「原始碼」（Ctrl+U 後複製）…' : `貼上 ${s.label} 資料頁的內容（一大串 JSON）…`;
+  $('localHint').innerHTML = s.hint;
+  document.querySelectorAll('#localTabs button').forEach(b => b.classList.toggle('on', b.dataset.site === key));
+  refresh104Links();
+  log('D', `切換到 ${s.label}`);
+}
+document.querySelectorAll('#localTabs button').forEach(b => b.onclick = () => switchLocal(b.dataset.site));
+['kw104', 'remote104', 'page104'].forEach(id => $(id).addEventListener('input', refresh104Links));
+$('remote104').addEventListener('change', refresh104Links);
+switchLocal('tw104');
+$('open104').onclick = () => {
+  const u = urls104();
+  log('D', `開 ${LOCAL_SITES[localSite].label} 資料頁 第 ${$('page104').value} 頁`, u.api);
+  window.open(u.api, '_blank', 'noopener');
+  setTimeout(() => $('paste104').focus(), 300);
+};
+$('add104').onclick = () => {
+  const s = LOCAL_SITES[localSite];
+  const text = $('paste104').value.trim();
+  if (!text){ showMsg('loadMsg', 'err', `❌ 請先在 ${s.label} 資料頁複製內容，再貼到 D 區的框框`); return; }
+  const page = Math.max(1, parseInt($('page104').value, 10) || 1);
+  const remoteOnly = !s.noRemoteFilter && $('remote104').checked;
+  let jobs;
+  try { jobs = parseAny(text); }
+  catch (e){
+    // 網站擋下直接開啟時，頁面會是錯誤訊息
+    log('D', '貼上的內容看不懂', e.message);
+    showMsg('loadMsg', 'err', `❌ 貼上的不是 ${s.label} 職缺資料（${esc(e.message)}）。<br>${s.hint}`);
+    return;
+  }
+  if (!jobs.length){ showMsg('loadMsg', 'err', `❌ 這一頁沒有職缺（可能已經是最後一頁，或網站回傳錯誤訊息）。<br>${s.hint}`); return; }
+  const before = JOBS.filter(j => j.source === s.src).length;
+  setJobs(jobs, `${s.label}「${$('kw104').value.trim()}」第 ${page} 頁`, s.src, { append: page > 1, markRemote: remoteOnly });
+  const now = JOBS.filter(j => j.source === s.src).length;
+  log('D', `${s.label} 第 ${page} 頁讀到 ${jobs.length} 筆，累計 ${before} → ${now}`);
+  $('paste104').value = '';
+  $('page104').value = page + 1;
+  refresh104Links();
+  // 確保看得到剛加入的職缺
+  if (!remoteOnly && $('modeSel').value === 'remote'){ $('modeSel').value = ''; savePrefs(); render(); }
+  showMsg('loadMsg', 'ok', `✅ ${s.label} 第 ${page} 頁加入 ${jobs.length} 筆，${s.label} 共 ${now} 筆（${loadedSummary(jobs)}）。<br>要下一頁：已自動跳到第 ${page + 1} 頁，再按「①」。`);
+};
 
 async function readFiles(files){
   const all = [];
@@ -968,10 +1148,10 @@ $('aiBtn').onclick = async () => {
       const items = chunk.map((j, k) => ({ id: k, title: j.title, company: j.company, location: j.location, applicantLocation: j.applicantLoc, type: j.type,
         text: (j.userText || j.desc || j.extra).slice(0, 1500) }));
       const prompt = `你是遊戲產業求職顧問。使用者人在台灣（UTC+8），想找「人留在台灣就能遠端工作」的職缺，以海外約聘或自由接案方式也可以。
-以下職缺來自英國、美國、澳洲、新加坡、台灣等地的公司。請逐筆判斷：
+以下職缺來自英國、美國、澳洲、新加坡、西班牙、荷蘭、加拿大、台灣等地的公司。請逐筆判斷：
 - "yes"：明確接受台灣、亞洲或全球遠端，台灣可以做
 - "maybe"：有遠端但沒寫清楚地區限制
-- "no"：限特定國家居住（英國/美國/澳洲/新加坡/歐洲等）、要求當地工作權或公民身分、或需要進辦公室
+- "no"：限特定國家居住（英國/美國/澳洲/新加坡/西班牙/荷蘭/加拿大/歐盟等）、要求當地工作權或公民身分、或需要進辦公室
 只輸出 JSON 陣列，格式 [{"id":0,"verdict":"yes|maybe|no","reason":"繁體中文一句話理由"}]，不要其他文字。
 職缺：
 ${JSON.stringify(items)}`;
@@ -1002,15 +1182,29 @@ if (/^https?:$/.test(location.protocol)){
   const toolUrl = location.href.split(/[?#]/)[0];
   const code = `(async()=>{const h=location.hostname;`
     + `const w=window.open(${JSON.stringify(toolUrl)},'_blank');if(!w){alert('請允許彈出視窗');return}`
-    + `let t=null,ready=false,src='';const send=()=>{if(t!==null&&ready)w.postMessage({type:'gjr-jobs',text:t,src:src,base:location.origin},'*')};`
+    + `let t=null,ready=false,src='',rem=false,site='';const send=()=>{if(t!==null&&ready)w.postMessage({type:'gjr-jobs',text:t,src:src,base:location.origin,remote:rem,site:site},'*')};`
     + `addEventListener('message',e=>{if(e.source===w&&e.data==='gjr-ready'){ready=true;send()}});`
     + `try{`
     + `if(/(^|\\.)gamesjobs\\.co\\.uk$/.test(h)){const r=await fetch('/data/jobs.json',{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);t=await r.text();src='書籤 gamesJobs jobs.json'}`
-    + `else if(/(^|\\.)104\\.com\\.tw$/.test(h)){const q=new URLSearchParams(location.search),k=q.get('keyword')||'遊戲',rw=q.get('remoteWork');const all=[];`
-    +   `for(let p=1;p<=10;p++){const r=await fetch('/jobs/search/list?ro=0&kwop=7&keyword='+encodeURIComponent(k)+(rw?'&remoteWork='+encodeURIComponent(rw):'')+'&order=15&asc=0&mode=s&page='+p,{headers:{Accept:'application/json'}});`
-    +   `if(!r.ok)break;const j=await r.json();const d=j.data||{};const a=Array.isArray(d)?d:(d.list||[]);all.push(...a);if(!a.length||p>=(d.totalPage||1))break}`
-    +   `if(!all.length)throw new Error('104 沒有回傳職缺（可能 API 改版），請改用存檔方式');t=JSON.stringify({jobs:all});src='書籤 104「'+k+'」'+(rw?'遠端':'全部')}`
-    + `else{t=document.documentElement.outerHTML;src='書籤 '+h+' 頁面'}`
+    + `else if(/(^|\\.)104\\.com\\.tw$/.test(h)){const q=new URLSearchParams(location.search),k=q.get('keyword')||'遊戲',rw=q.get('remoteWork');rem=!!rw;const all=[];`
+    +   `const K=encodeURIComponent(k),R=rw?'&remoteWork='+encodeURIComponent(rw):'';`
+    +   `const get=async u=>{try{const r=await fetch(u,{headers:{Accept:'application/json'}});return r.ok?await r.json():null}catch(e){return null}};`
+    +   `const arr=d=>Array.isArray(d)?d:(d&&d.list)||[];`
+    +   `for(let p=1;p<=10;p++){let j=await get('/jobs/search/api/jobs?keyword='+K+R+'&page='+p+'&pagesize=30&jobsource=index_s&mode=s&order=15'),a=arr(j&&j.data);`
+    +   `if(!a.length){j=await get('/jobs/search/list?ro=0&kwop=7&keyword='+K+R+'&order=15&asc=0&mode=s&page='+p);a=arr(j&&j.data)}`
+    +   `all.push(...a);const last=(j&&j.data&&j.data.totalPage)||(j&&j.metadata&&j.metadata.pagination&&j.metadata.pagination.lastPage)||1;if(!a.length||p>=last)break}`
+    +   `if(!all.length)throw new Error('104 沒有回傳職缺（可能 API 改版），請改用 D 區貼上');t=JSON.stringify({jobs:all});src='書籤 104「'+k+'」'+(rw?'遠端':'全部')}`
+    // SEEK 搜尋結果頁 /xxx-jobs：用網址上的關鍵字打 SEEK 自己的搜尋 API（最多 5 頁）
+    + `else if(/(^|\\.)seek\\.com\\.au$/.test(h)&&/-jobs/.test(location.pathname)){const q=new URLSearchParams(location.search),mm=location.pathname.match(/\\/([^/]+)-jobs/),k=q.get('keywords')||(mm?decodeURIComponent(mm[1]).replace(/-/g,' '):'game'),wa=q.get('workarrangement');rem=wa==='3';site='seek';const all=[];`
+    +   `for(let p=1;p<=5;p++){const r=await fetch('/api/jobsearch/v5/search?siteKey=AU-Main&sourcesystem=houston&where=All%20Australia&keywords='+encodeURIComponent(k)+(wa?'&workarrangement='+encodeURIComponent(wa):'')+'&page='+p+'&pageSize=50&locale=en-AU',{headers:{Accept:'application/json'}});`
+    +   `if(!r.ok)break;const j=await r.json();const a=j.data||[];all.push(...a);if(a.length<50)break}`
+    +   `if(!all.length)throw new Error('SEEK 沒有回傳職缺（可能 API 改版），請改用 D 區貼上');t=JSON.stringify({jobs:all});src='書籤 SEEK「'+k+'」'+(rem?'遠端':'全部')}`
+    // MyCareersFuture 搜尋頁：打政府 API（最多 5 頁）
+    + `else if(/(^|\\.)mycareersfuture\\.gov\\.sg$/.test(h)&&/^\\/search/.test(location.pathname)){const k=new URLSearchParams(location.search).get('search')||'game';site='mcf';const all=[];`
+    +   `for(let p=0;p<5;p++){const r=await fetch('https://api.mycareersfuture.gov.sg/v2/jobs?search='+encodeURIComponent(k)+'&limit=100&page='+p);if(!r.ok)break;const j=await r.json();const a=j.results||[];all.push(...a);if(a.length<100)break}`
+    +   `if(!all.length)throw new Error('MyCareersFuture 沒有回傳職缺，請改用 D 區貼上');t=JSON.stringify({jobs:all});src='書籤 MyCareersFuture「'+k+'」'}`
+    // 其他（含 LinkedIn 搜尋頁、單一職缺頁）：送整頁 HTML；LinkedIn 網址有 f_WT=2 就是遠端
+    + `else{t=document.documentElement.outerHTML;src='書籤 '+h+' 頁面';rem=/[?&]f_WT=2(&|$)/.test(location.search)}`
     + `}catch(e){alert('抓取失敗：'+e.message);w.close();return}send()})()`;
   $('bmLink').href = 'javascript:' + encodeURIComponent(code);
   $('bmLink').onclick = e => { e.preventDefault(); alert('請把這顆按鈕「拖」到書籤列，再到 gamesjobs.co.uk、104 搜尋頁或職缺頁點它。'); };
@@ -1022,7 +1216,8 @@ window.addEventListener('message', e => {
   if (e.source !== window.opener && e.origin !== SITE) return;
   const base = /^https:\/\/[\w.-]+$/.test(e.data.base || '') ? e.data.base : SITE;
   log(1, `收到書籤送來的資料（${e.origin}），位元組`, e.data.text.length);
-  ingest(e.data.text, e.data.src || '書籤抓取', base);
+  const site = SOURCES[e.data.site] ? e.data.site : undefined;   // SEEK/MCF 的資料沒有網址，靠書籤告訴我們來源
+  ingest(e.data.text, e.data.src || '書籤抓取', base, { markRemote: e.data.remote === true, forceSrc: site });
 });
 if (window.opener){ try { window.opener.postMessage('gjr-ready', '*'); log(1, '已通知書籤：工具就緒'); } catch (e) {} }
 
@@ -1225,6 +1420,94 @@ if (/[?&]selftest/.test(location.search))
   let parseErr = '';
   try { parseAny('hello world'); } catch (e){ parseErr = e.message; }
   ok('亂貼文字會給清楚錯誤', /JSON|HTML|RSS/.test(parseErr), parseErr);
+
+  // ---- D. 台灣 104：貼第 1 頁、第 2 頁累加，用「只要遠端」搜的會標成遠端 ----
+  $('q').value = ''; $('modeSel').value = 'remote'; $('modeSel').dispatchEvent(new Event('change'));
+  const gjN = JOBS.length;
+  ok('D 區 104 按鈕存在、搜尋頁連結帶遠端', !!$('open104') && /remoteWork=1/.test($('search104').href) && /keyword=%E9%81%8A%E6%88%B2/.test($('search104').href), $('search104').href);
+  const p1 = JSON.stringify({ status: 200, data: { totalPage: 2, list: [
+    { jobName: '遊戲美術', custName: 'A 遊戲', jobAddrNoDesc: '台北市內湖區', salaryDesc: '月薪 45,000~60,000元', link: { job: 'https://www.104.com.tw/job/aaa1' } },
+    { jobName: 'Unity 工程師', custName: 'B 遊戲', jobAddrNoDesc: '新竹市', salaryDesc: '待遇面議', link: { job: 'https://www.104.com.tw/job/aaa2' } }] } });
+  // 新版 API 格式：data 直接是陣列、salaryLow/High 數字
+  const p2 = JSON.stringify({ data: [
+    { jobName: '遊戲企劃', custName: 'C 遊戲', jobAddrNoDesc: '台中市西屯區', salaryLow: 40000, salaryHigh: 55000, remoteWorkType: 2, link: { job: '//www.104.com.tw/job/bbb1' } },
+    { jobName: '資深遊戲程式', custName: 'D 遊戲', jobAddrNoDesc: '高雄市', salaryLow: 70000, salaryHigh: 9999999, link: { job: '//www.104.com.tw/job/bbb2' } }], metadata: { pagination: { lastPage: 2 } } });
+  $('remote104').checked = true; $('page104').value = '1';
+  $('paste104').value = p1; $('add104').click();
+  ok('104 第 1 頁加入 2 筆、跳到第 2 頁', JOBS.filter(j => j.source === 'tw104').length === 2 && $('page104').value === '2' && $('paste104').value === '', [JOBS.filter(j => j.source === 'tw104').length, $('page104').value]);
+  ok('104 用遠端搜的→標成遠端，「只要遠端」看得到', visibleJobs().filter(j => j.source === 'tw104').length === 2, visibleJobs().map(j => [j.source, j.cls.mode]));
+  $('paste104').value = p2; $('add104').click();
+  const t104s = JOBS.filter(j => j.source === 'tw104');
+  ok('104 第 2 頁累加成 4 筆、gamesJobs 保留', t104s.length === 4 && JOBS.length === gjN + 4, [t104s.length, JOBS.length, gjN]);
+  ok('104 新版 salaryLow/High 換成台幣', (j => j && j.pay && j.pay.cur === 'TWD' && j.pay.lo === 40000 && j.pay.hi === 55000)(t104s.find(j => j.title === '遊戲企劃')), t104s.map(j => [j.title, j.salary, j.pay]));
+  ok('104 9999999 代表以上', (j => j && /以上/.test(j.salary) && j.pay && j.pay.hi === 70000)(t104s.find(j => j.title === '資深遊戲程式')), t104s.map(j => j.salary));
+  ok('104 薪資篩選：月薪 ≥ 6 萬', ($('minPay').value = '60000', $('payUnknown').checked = false, render(), visibleJobs().filter(j => j.source === 'tw104').map(j => j.title).sort().join() === '資深遊戲程式,遊戲美術'), visibleJobs().map(j => [j.title, j.pay]));
+  $('minPay').value = ''; $('payUnknown').checked = true; render();
+  $('page104').value = '1'; $('paste104').value = p2; $('add104').click();
+  ok('改回第 1 頁會重新開始', JOBS.filter(j => j.source === 'tw104').length === 2, JOBS.filter(j => j.source === 'tw104').length);
+  $('remote104').checked = false; $('page104').value = '1'; $('paste104').value = p1; $('add104').click();
+  ok('不勾只要遠端：沒寫遠端的 104 職缺算非遠端、型態自動改成全部', JOBS.filter(j => j.source === 'tw104').every(j => j.cls.mode === 'office') && $('modeSel').value === '', [$('modeSel').value, JOBS.filter(j => j.source === 'tw104').map(j => j.cls.mode)]);
+  $('paste104').value = '<html><body>Access denied</body></html>'; $('add104').click();
+  ok('貼到錯誤頁會提示換舊版或書籤', /換舊版資料頁|沒有職缺/.test($('loadMsg').textContent), $('loadMsg').textContent);
+  JOBS = JOBS.filter(j => j.source !== 'tw104'); afterChange();
+
+  // ---- 西班牙/荷蘭/加拿大/歐盟限制、西荷法文遠端 ----
+  ok('Remote (Spain)→不行', tier({ location: 'Remote (Spain)' }) === 'no');
+  ok('must reside in the Netherlands→不行', tier({ location: 'Remote', desc: 'You must be based in the Netherlands.' }) === 'no');
+  ok('Canada remote→不行', tier({ location: 'Canada - Remote' }) === 'no');
+  ok('legally allowed to work in Canada→不行', tier({ location: 'Remote', desc: 'Must be legally allowed to work in Canada.' }) === 'no');
+  ok('EU work permit→不行', tier({ location: 'Remote', desc: 'A valid EU work permit is required.' }) === 'no');
+  ok('西文 teletrabajo 算遠端', classify(J({ location: 'Madrid', desc: 'Puesto en teletrabajo' })).mode === 'remote');
+  ok('荷文 thuiswerken 算遠端', classify(J({ location: 'Amsterdam', desc: 'Volledig thuiswerken mogelijk' })).mode === 'remote');
+  ok('法文 télétravail 算遠端', classify(J({ location: 'Montréal', desc: 'Poste en télétravail' })).mode === 'remote');
+  ok('英文 "at a distance" 不算遠端', classify(J({ location: 'Leeds', desc: 'viewed at a distance' })).mode === 'office');
+
+  // ---- D 區分頁：SEEK / MCF / LinkedIn ----
+  const tab = k => document.querySelector(`#localTabs button[data-site="${k}"]`).click();
+  tab('seek');
+  ok('切到 SEEK：關鍵字 game、按鈕文字、搜尋頁網址', $('kw104').value === 'game' && /SEEK/.test($('open104').textContent) && /seek\.com\.au\/game-jobs\?workarrangement=3/.test($('search104').href), [$('kw104').value, $('search104').href]);
+  const seekTxt = JSON.stringify({ data: [
+    { id: '80001', title: 'Senior Game Designer', advertiser: { id: '9', description: 'Wombat Games' }, locations: [{ label: 'Melbourne VIC' }], workArrangements: { data: [{ id: '3', label: { text: 'Remote' } }], displayText: 'Remote' }, salaryLabel: '$120,000 – $140,000 per year', teaser: 'Lead design on our next title', workTypes: ['Full time'] },
+    { id: '80002', title: 'QA Tester', advertiser: { description: 'Roo Studio' }, locations: [{ label: 'Sydney NSW' }], workArrangements: { displayText: 'On-site' }, salaryLabel: '$35 per hour', teaser: 'Test our game' }], totalCount: 2 });
+  $('paste104').value = seekTxt; $('page104').value = '1'; $('add104').click();
+  const sk = JOBS.filter(j => j.source === 'seek');
+  ok('SEEK 2 筆、公司取 advertiser.description', sk.length === 2 && sk[0].company === 'Wombat Games', sk.map(j => j.company));
+  ok('SEEK 用 id 組網址、地點補 Australia', sk[0].url === 'https://www.seek.com.au/job/80001' && /Melbourne VIC, Australia/.test(sk[0].location), [sk[0].url, sk[0].location]);
+  ok('SEEK Remote→待確認且標在地網站', sk[0].cls.tier === 'maybe' && sk[0].cls.reasons.some(r => /在地職缺網站/.test(r.t)), sk[0].cls);
+  ok('SEEK On-site→不行、非遠端', sk[1].cls.tier === 'no' && sk[1].cls.mode === 'office', sk[1].cls);
+  ok('SEEK 澳幣年薪/時薪換算', sk[0].pay && sk[0].pay.cur === 'AUD' && sk[0].pay.per === 'year' && sk[1].pay && sk[1].pay.per === 'hour', [sk[0].pay, sk[1].pay]);
+
+  tab('mcf');
+  ok('切到 MCF：沒有遠端勾選', $('remote104Box').hidden && /api\.mycareersfuture/.test(urls104().api) && /page=0/.test(urls104().api), urls104());
+  const mcfTxt = JSON.stringify({ results: [
+    { uuid: 'abc123', title: 'Game Programmer', postedCompany: { name: 'Merlion Games Pte Ltd' }, address: { street: 'Anson Road', postalCode: '079906' }, salary: { minimum: 5000, maximum: 8000, type: { salaryType: 'Monthly' } }, employmentTypes: [{ employmentType: 'Full Time' }], metadata: { jobDetailsUrl: 'https://www.mycareersfuture.gov.sg/job/game-programmer-abc123' }, description: '<p>Unity, hybrid 2 days in office</p>' }], total: 1 });
+  $('paste104').value = mcfTxt; $('add104').click();
+  const mc = JOBS.filter(j => j.source === 'mcf');
+  ok('MCF 1 筆、公司、網址、地點補 Singapore', mc.length === 1 && mc[0].company === 'Merlion Games Pte Ltd' && mc[0].url === 'https://www.mycareersfuture.gov.sg/job/game-programmer-abc123' && /Singapore/.test(mc[0].location), mc[0]);
+  ok('MCF 新幣月薪', mc[0].pay && mc[0].pay.cur === 'SGD' && mc[0].pay.per === 'month' && mc[0].pay.hi === 8000 * FX.SGD, [mc[0].salary, mc[0].pay]);
+
+  const gjBefore = JOBS.filter(j => j.source === 'gamesjobs').length;
+  tab('es');
+  ok('切到西班牙：LinkedIn 資料頁帶 Spain 與遠端', /linkedin\.com\/jobs-guest/.test(urls104().api) && /location=Spain/.test(urls104().api) && /f_WT=2/.test(urls104().api) && /start=0/.test(urls104().api), urls104().api);
+  const liHtml = `<ul><li><div class="base-card base-search-card job-search-card"><a class="base-card__full-link" href="https://es.linkedin.com/jobs/view/game-designer-at-cosmic-111?refId=x"></a>
+    <h3 class="base-search-card__title"> Game Designer </h3><h4 class="base-search-card__subtitle"><a>Cosmic Studio</a></h4>
+    <span class="job-search-card__location">Barcelona, Catalonia, Spain</span><span class="job-search-card__salary-info">€40,000 - €50,000</span><time datetime="2026-10-20">2 days ago</time></div></li>
+    <li><div class="base-card base-search-card"><a class="base-card__full-link" href="https://es.linkedin.com/jobs/view/qa-222"></a><h3 class="base-search-card__title">QA Lead (Remote)</h3>
+    <h4 class="base-search-card__subtitle">Iberia Games</h4><span class="job-search-card__location">Spain</span></div></li></ul>`;
+  $('paste104').value = liHtml; $('page104').value = '1'; $('add104').click();
+  const es = JOBS.filter(j => j.source === 'li_es');
+  ok('LinkedIn 西班牙 2 筆（不會被當成 gamesJobs 卡片重複算）', es.length === 2 && JOBS.filter(j => j.source === 'gamesjobs').length === gjBefore, [es.length, JOBS.map(j => j.source)]);
+  ok('LinkedIn 欄位、網址去參數', es[0].title === 'Game Designer' && es[0].company === 'Cosmic Studio' && /Barcelona/.test(es[0].location) && es[0].url === 'https://es.linkedin.com/jobs/view/game-designer-at-cosmic-111', es[0]);
+  ok('LinkedIn 歐元薪資', es[0].pay && es[0].pay.cur === 'EUR', es[0].pay);
+  ok('LinkedIn 遠端搜尋→標遠端、待確認', es.every(j => j.cls.mode === 'remote' && j.cls.tier === 'maybe'), es.map(j => j.cls));
+  tab('nl'); $('paste104').value = liHtml.replace(/Spain/g, 'Netherlands').replace(/es\.linkedin\.com\/jobs\/view\//g, 'nl.linkedin.com/jobs/view/nl-'); $('page104').value = '1'; $('add104').click();
+  ok('荷蘭分頁獨立：西班牙資料保留', JOBS.filter(j => j.source === 'li_nl').length === 2 && JOBS.filter(j => j.source === 'li_es').length === 2);
+  tab('ca');
+  ok('加拿大分頁：location=Canada', /location=Canada/.test(urls104().api));
+  tab('es');
+  ok('切回西班牙：頁數記得是第 2 頁', $('page104').value === '2', $('page104').value);
+  ok('來源選單有西班牙/荷蘭', ['li_es', 'li_nl', 'seek', 'mcf'].every(k => [...$('srcSel').options].some(o => o.value === k)));
+  JOBS = JOBS.filter(j => !['seek', 'mcf', 'li_es', 'li_nl'].includes(j.source)); afterChange(); tab('tw104');
 
   // ---- 書籤小工具（只在 http/https 才出現）----
   if (/^https?:$/.test(location.protocol)){
