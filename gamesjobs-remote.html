@@ -21,6 +21,7 @@
   --chip:#2a2c31;--shadow:none;
 }
 *{box-sizing:border-box}
+[hidden]{display:none !important}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "Segoe UI","Microsoft JhengHei",system-ui,sans-serif}
 a{color:inherit}
 .wrap{max-width:1080px;margin:0 auto;padding:0 16px}
@@ -119,9 +120,11 @@ footer{color:var(--sub);font-size:12.5px;padding:10px 0 30px}
       </div>
       <button class="primary" id="fetchBtn">🌐 抓取勾選的來源</button>
       <p class="note" style="margin-top:8px">台灣 104、澳洲 SEEK、新加坡 MyCareersFuture、西班牙／荷蘭／加拿大（LinkedIn）請用 <b style="display:inline">D 區</b>（不讓別的網站直接抓）。</p>
-      <div id="bmBox" hidden style="margin-top:10px">
-        <p><strong>書籤小工具（放上網後可用）</strong>：把這顆按鈕拖到書籤列，再到下列網站點書籤，資料會自動送進這裡：</p>
-        <a class="btn" id="bmLink" href="#">⭐ 送到台灣遠端篩選</a>
+      <div id="bmBox" style="margin-top:10px">
+        <p><strong>書籤小工具</strong>：把按鈕<strong>拖到書籤列</strong>（沒看到書籤列按 <code>Ctrl+Shift+B</code>），再到下列網站點書籤。它在職缺網站自己的頁面裡抓，不會被「存取遭到拒絕」擋下。</p>
+        <a class="btn bmCopy" href="#">📋 複製職缺</a>
+        <span id="bmSend" hidden><a class="btn" id="bmLink" href="#">⭐ 送到台灣遠端篩選</a></span>
+        <p class="note" style="margin-top:4px">📋 複製職缺：抓完按「複製」，回來貼到 D 或 C 區（本機版也能用）。<span id="bmSendNote" hidden>⭐ 送到台灣遠端篩選：抓完直接開這個工具送進來（線上版才有）。</span></p>
         <p class="note" style="margin-top:6px">
           • <a href="https://gamesjobs.co.uk/" target="_blank" rel="noopener">gamesjobs.co.uk</a>：抓完整清單<br>
           • 104 搜尋頁：照網址上的關鍵字抓（最多 10 頁）。網址有勾「遠端工作」才只抓遠端：
@@ -135,8 +138,7 @@ footer{color:var(--sub);font-size:12.5px;padding:10px 0 30px}
       <b>B. 存檔後拖進來（最穩）</b>
       <p>開資料網址 → <code>Ctrl+S</code> 存檔 → 拖到下面。可以一次拖多個檔案：<br>
         英國 <a href="https://gamesjobs.co.uk/data/jobs.json" target="_blank" rel="noopener">gamesJobs jobs.json</a>、
-        台灣 104 遊戲職缺 <a href="https://www.104.com.tw/jobs/search/list?ro=0&kwop=7&keyword=%E9%81%8A%E6%88%B2&remoteWork=1&order=15&asc=0&mode=s&page=1" target="_blank" rel="noopener">遠端</a> /
-        <a href="https://www.104.com.tw/jobs/search/list?ro=0&kwop=7&keyword=%E9%81%8A%E6%88%B2&order=15&asc=0&mode=s&page=1" target="_blank" rel="noopener">全部</a>（顯示錯誤就改用書籤）、
+        台灣 104 請用 D 區、
         全球 <a href="https://remotive.com/api/remote-jobs?search=game" target="_blank" rel="noopener">Remotive</a>、
         <a href="https://jobicy.com/api/v2/remote-jobs?count=100&tag=game" target="_blank" rel="noopener">Jobicy</a>、
         <a href="https://himalayas.app/jobs/api/search?q=game" target="_blank" rel="noopener">Himalayas</a>。
@@ -168,8 +170,8 @@ footer{color:var(--sub);font-size:12.5px;padding:10px 0 30px}
         <label class="chk">第 <input type="number" id="page104" value="1" min="1" style="width:60px"> 頁</label>
         <button class="primary" id="open104">① 開資料頁</button>
       </div>
-      <p class="note" style="margin:6px 0">② 在開出來的頁面按 <code>Ctrl+A</code>、<code>Ctrl+C</code>　③ 貼到下面按「加入」。<br>
-        加入後會自動跳到下一頁，再按 ① 就能繼續累加；改回第 1 頁會重新開始。</p>
+      <p class="note" style="margin:6px 0" id="localSteps"></p>
+      <p id="localBm" hidden style="margin:4px 0 8px"><a class="btn bmCopy" href="#">📋 複製職缺</a> <span class="note">← 先拖到書籤列（只要拖一次）</span></p>
       <textarea id="paste104" placeholder="貼上資料頁的內容（一大串 JSON）…" style="min-height:60px"></textarea>
       <div class="row" style="margin-top:6px">
         <button class="primary" id="add104">③ 加入職缺</button>
@@ -844,11 +846,24 @@ function loadedSummary(jobs){
   }).join('<br>');
 }
 
-function ingest(text, src, base, opts){
+// 書籤抓的資料開頭帶來源標記：JSON 是 {"gjrSite":…,"gjrRemote":…,"gjrSrc":…,"jobs":[…]}，HTML 是開頭一段 gjr 註解
+function readMeta(text){
+  const t = String(text || '').replace(/^﻿/, '').trim();
+  const m = t.match(/^<!-{2}gjr:(\{.*?\})-{2}>/);
+  if (m){ try { const o = JSON.parse(m[1]); return { site: o.site || '', remote: o.remote === true, src: o.src || '', base: o.base || '' }; } catch (e) {} }
+  if (t[0] === '{' && t.slice(0, 200).includes('"gjrSite"')){
+    try { const o = JSON.parse(t); return { site: o.gjrSite || '', remote: o.gjrRemote === true, src: o.gjrSrc || '' }; } catch (e) {}
+  }
+  return null;
+}
+
+function ingest(text, src, base, opts = {}){
   try {
+    const meta = readMeta(text);
+    if (meta){ log(1, '資料帶書籤標記', meta); src = meta.src || src; base = base || (/^https:\/\/[\w.-]+$/.test(meta.base) ? meta.base : undefined); }
     const jobs = parseAny(text, base);
     if (!jobs.length) throw new Error('沒有找到任何職缺。若貼的是網頁，請確認是列表頁或職缺頁的原始碼。');
-    setJobs(jobs, src, opts && opts.forceSrc, opts);
+    setJobs(jobs, src, opts.forceSrc || (meta && SOURCES[meta.site] ? meta.site : undefined), { ...opts, markRemote: opts.markRemote || !!(meta && meta.remote) });
     showMsg('loadMsg', 'ok', `讀到職缺：<br>${loadedSummary(jobs)}`
       + (src.includes('HTML') && jobs.length < 60 && jobs[0].source === 'gamesjobs' ? '<br>⚠ 網頁原始碼只含第一頁約 30 筆，要全部職缺請改用 jobs.json。' : ''));
     $('resultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -926,12 +941,13 @@ const liUrls = loc => (k, rw, p) => ({
 });
 const LI_HINT = '在資料頁按 <code>Ctrl+U</code> 開「原始碼」，再在原始碼頁按 <code>Ctrl+A</code>、<code>Ctrl+C</code>（直接複製畫面只會拿到文字）。資料頁一頁 10 筆；「換舊版資料頁」是一般搜尋頁，一頁約 25 筆，一樣用 Ctrl+U 複製。LinkedIn 偶爾會要求登入或擋太頻繁的查詢，等一下再試。';
 const LOCAL_SITES = {
-  tw104: { label: '台灣 104', src: 'tw104', kw: '遊戲', remote: true,
+  // 104 直接開資料網址會回 403「存取遭到拒絕」→ 改成：開搜尋頁 → 在 104 頁面點「📋 複製職缺」書籤 → 貼回來
+  tw104: { label: '台灣 104', src: 'tw104', kw: '遊戲', remote: true, viaBookmark: true,
     urls: (k, rw, p) => ({
       api:    `${TW104}/jobs/search/api/jobs?keyword=${enc(k)}${rw ? '&remoteWork=1' : ''}&page=${p}&pagesize=30&jobsource=index_s&mode=s&order=15`,
       old:    `${TW104}/jobs/search/list?ro=0&kwop=7&keyword=${enc(k)}${rw ? '&remoteWork=1' : ''}&order=15&asc=0&mode=s&page=${p}`,
       search: `${TW104}/jobs/search/?keyword=${enc(k)}${rw ? '&remoteWork=1' : ''}` }),
-    hint: '資料頁顯示錯誤或空白（104 擋直接開）：先試「換舊版資料頁」；還不行就放上 GitHub，在「開搜尋頁」那頁點 A 區的書籤小工具。' },
+    hint: '104 不讓人直接打開資料網址（會顯示「存取 www.104.com.tw 的要求遭到拒絕」），所以要在 104 自己的搜尋頁上點書籤抓。書籤一次抓最多 10 頁（約 300 筆），不用一頁一頁貼。' },
   seek: { label: '澳洲 SEEK', src: 'seek', kw: 'game', remote: true,
     urls: (k, rw, p) => ({
       api:    `https://www.seek.com.au/api/jobsearch/v5/search?siteKey=AU-Main&sourcesystem=houston&where=All%20Australia&keywords=${enc(k)}${rw ? '&workarrangement=3' : ''}&page=${p}&pageSize=50&locale=en-AU`,
@@ -966,9 +982,17 @@ function switchLocal(key){
   const s = LOCAL_SITES[key], st = localState[key];
   $('kw104').value = st.kw; $('remote104').checked = st.remote; $('page104').value = st.page;
   $('remote104Box').hidden = !!s.noRemoteFilter;
-  $('open104').textContent = `① 開 ${s.label} 資料頁`;
+  $('open104').textContent = s.viaBookmark ? `① 開 ${s.label} 搜尋頁` : `① 開 ${s.label} 資料頁`;
   $('add104').textContent = `③ 加入 ${s.label} 職缺`;
-  $('paste104').placeholder = s.src.startsWith('li_') ? '貼上 LinkedIn 資料頁的「原始碼」（Ctrl+U 後複製）…' : `貼上 ${s.label} 資料頁的內容（一大串 JSON）…`;
+  $('paste104').placeholder = s.viaBookmark ? '貼上「📋 複製職缺」書籤複製的內容…'
+    : s.src.startsWith('li_') ? '貼上 LinkedIn 資料頁的「原始碼」（Ctrl+U 後複製）…' : `貼上 ${s.label} 資料頁的內容（一大串 JSON）…`;
+  // 書籤模式：不用頁數、不用備用資料頁
+  $('page104').closest('label').hidden = !!s.viaBookmark;
+  $('old104').hidden = $('search104').hidden = !!s.viaBookmark;
+  $('localBm').hidden = !s.viaBookmark;
+  $('localSteps').innerHTML = s.viaBookmark
+    ? '② 在 104 搜尋結果頁，點書籤列上的「📋 複製職缺」→ 按「複製」<br>③ 回到這裡貼到下面，按「加入」。<br>想換條件：直接在 104 頁面改關鍵字、勾「遠端工作」再點書籤。'
+    : '② 在開出來的頁面按 <code>Ctrl+A</code>、<code>Ctrl+C</code>　③ 貼到下面按「加入」。<br>加入後會自動跳到下一頁，再按 ① 就能繼續累加；改回第 1 頁會重新開始。';
   $('localHint').innerHTML = s.hint;
   document.querySelectorAll('#localTabs button').forEach(b => b.classList.toggle('on', b.dataset.site === key));
   refresh104Links();
@@ -979,9 +1003,10 @@ document.querySelectorAll('#localTabs button').forEach(b => b.onclick = () => sw
 $('remote104').addEventListener('change', refresh104Links);
 switchLocal('tw104');
 $('open104').onclick = () => {
-  const u = urls104();
-  log('D', `開 ${LOCAL_SITES[localSite].label} 資料頁 第 ${$('page104').value} 頁`, u.api);
-  window.open(u.api, '_blank', 'noopener');
+  const u = urls104(), s = LOCAL_SITES[localSite];
+  const target = s.viaBookmark ? u.search : u.api;
+  log('D', `開 ${s.label} ${s.viaBookmark ? '搜尋頁' : '資料頁 第 ' + $('page104').value + ' 頁'}`, target);
+  window.open(target, '_blank', 'noopener');
   setTimeout(() => $('paste104').focus(), 300);
 };
 $('add104').onclick = () => {
@@ -999,23 +1024,34 @@ $('add104').onclick = () => {
     return;
   }
   if (!jobs.length){ showMsg('loadMsg', 'err', `❌ 這一頁沒有職缺（可能已經是最後一頁，或網站回傳錯誤訊息）。<br>${s.hint}`); return; }
-  const before = JOBS.filter(j => j.source === s.src).length;
-  setJobs(jobs, `${s.label}「${$('kw104').value.trim()}」第 ${page} 頁`, s.src, { append: page > 1, markRemote: remoteOnly });
-  const now = JOBS.filter(j => j.source === s.src).length;
-  log('D', `${s.label} 第 ${page} 頁讀到 ${jobs.length} 筆，累計 ${before} → ${now}`);
+  // 書籤複製來的資料自帶來源與遠端條件，以它為準，而且已經是多頁合起來的 → 整批換新、不跳頁
+  const meta = readMeta(text);
+  const src = meta && SOURCES[meta.site] ? meta.site : s.src;
+  const remote = meta ? meta.remote === true : remoteOnly;
+  const before = JOBS.filter(j => j.source === src).length;
+  setJobs(jobs, meta ? meta.src || s.label : `${s.label}「${$('kw104').value.trim()}」第 ${page} 頁`, src, { append: !meta && page > 1, markRemote: remote });
+  const now = JOBS.filter(j => j.source === src).length;
+  log('D', `${srcName(src)} ${meta ? '書籤資料' : '第 ' + page + ' 頁'}讀到 ${jobs.length} 筆，累計 ${before} → ${now}`);
   $('paste104').value = '';
-  $('page104').value = page + 1;
-  refresh104Links();
+  if (!meta){ $('page104').value = page + 1; refresh104Links(); }
   // 確保看得到剛加入的職缺
-  if (!remoteOnly && $('modeSel').value === 'remote'){ $('modeSel').value = ''; savePrefs(); render(); }
-  showMsg('loadMsg', 'ok', `✅ ${s.label} 第 ${page} 頁加入 ${jobs.length} 筆，${s.label} 共 ${now} 筆（${loadedSummary(jobs)}）。<br>要下一頁：已自動跳到第 ${page + 1} 頁，再按「①」。`);
+  if (!remote && $('modeSel').value === 'remote'){ $('modeSel').value = ''; savePrefs(); render(); }
+  showMsg('loadMsg', 'ok', meta
+    ? `✅ 加入 ${srcName(src)} ${jobs.length} 筆（${esc(meta.src || '')}）。<br>${loadedSummary(jobs)}`
+    : `✅ ${s.label} 第 ${page} 頁加入 ${jobs.length} 筆，${s.label} 共 ${now} 筆（${loadedSummary(jobs)}）。<br>要下一頁：已自動跳到第 ${page + 1} 頁，再按「①」。`);
 };
 
 async function readFiles(files){
   const all = [];
   for (const f of files){
     log(1, `讀取檔案 ${f.name}`, `${(f.size / 1024).toFixed(0)} KB`);
-    try { all.push(...parseAny(await f.text())); }
+    try {
+      const txt = await f.text(), meta = readMeta(txt);
+      const js = parseAny(txt, meta && /^https:\/\/[\w.-]+$/.test(meta.base) ? meta.base : undefined);
+      // 書籤複製後存成檔案的，也照標記決定來源與遠端
+      if (meta) js.forEach(j => { if (SOURCES[meta.site]) j.source = meta.site; if (meta.remote && j.remoteRaw === undefined) j.remoteRaw = true; });
+      all.push(...js);
+    }
     catch (e){ showMsg('loadMsg', 'err', `❌ ${esc(f.name)}：${esc(e.message)}`); log('錯誤', f.name + '：' + e.message); return; }
   }
   if (!all.length){ showMsg('loadMsg', 'err', '❌ 檔案裡沒有找到職缺'); return; }
@@ -1175,40 +1211,62 @@ ${JSON.stringify(items)}`;
   } finally { btn.disabled = false; render(); }
 };
 
-/* ===================== 書籤小工具：在職缺網站同源抓資料，再 postMessage 過來 ===================== */
-// gamesjobs.co.uk → data/jobs.json；104 → 搜尋 API（照網址上的關鍵字與遠端條件，最多 10 頁）；其他網站 → 整頁 HTML（解析 JSON-LD）
-// 只有工具放在 http(s) 上才可用（https 網頁不能開 file:// 視窗）
-if (/^https?:$/.test(location.protocol)){
-  const toolUrl = location.href.split(/[?#]/)[0];
-  const code = `(async()=>{const h=location.hostname;`
+/* ===================== 書籤小工具：在職缺網站自己的頁面裡抓資料（不會被 403 擋） ===================== */
+// gamesjobs.co.uk → data/jobs.json；104 → 搜尋 API（照網址上的關鍵字與遠端條件，最多 10 頁）；SEEK/MCF → 搜尋 API；其他（LinkedIn、單一職缺頁）→ 整頁 HTML
+// 抓到的資料開頭帶來源標記（JSON 的 gjrSite/gjrRemote，或 HTML 開頭的 gjr 註解），貼回工具時才知道是哪個網站、是不是只搜遠端
+// ⭐ 送到工具：直接開工具分頁送過去（只有工具放在 http(s) 上才可用，https 網頁不能開 file:// 視窗）
+// 📋 複製：抓完跳出「複製」按鈕，回工具貼上（本機版也能用）
+const BM_GRAB = `const grab=async()=>{const h=location.hostname;let t='',src='',rem=false,site='';`
+  + `const pack=(all)=>JSON.stringify({gjrSite:site,gjrRemote:rem,gjrSrc:src,jobs:all});`
+  + `if(/(^|\\.)gamesjobs\\.co\\.uk$/.test(h)){const r=await fetch('/data/jobs.json',{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);t=await r.text();src='書籤 gamesJobs jobs.json';site='gamesjobs'}`
+  + `else if(/(^|\\.)104\\.com\\.tw$/.test(h)){const q=new URLSearchParams(location.search),k=q.get('keyword')||'遊戲',rw=q.get('remoteWork');rem=!!rw;site='tw104';const all=[];`
+  +   `const K=encodeURIComponent(k),R=rw?'&remoteWork='+encodeURIComponent(rw):'';`
+  +   `const get=async u=>{try{const r=await fetch(u,{headers:{Accept:'application/json'},credentials:'include'});return r.ok?await r.json():null}catch(e){return null}};`
+  +   `const arr=d=>Array.isArray(d)?d:(d&&d.list)||[];`
+  +   `for(let p=1;p<=10;p++){let j=await get('/jobs/search/api/jobs?keyword='+K+R+'&page='+p+'&pagesize=30&jobsource=index_s&mode=s&order=15'),a=arr(j&&j.data);`
+  +   `if(!a.length){j=await get('/jobs/search/list?ro=0&kwop=7&keyword='+K+R+'&order=15&asc=0&mode=s&page='+p);a=arr(j&&j.data)}`
+  +   `all.push(...a);const last=(j&&j.data&&j.data.totalPage)||(j&&j.metadata&&j.metadata.pagination&&j.metadata.pagination.lastPage)||1;if(!a.length||p>=last)break}`
+  +   `if(!all.length)throw new Error('104 沒有回傳職缺。請確認是在 104 的「搜尋結果頁」點書籤（網址有 /jobs/search/）');src='書籤 104「'+k+'」'+(rw?'遠端':'全部');t=pack(all)}`
+  + `else if(/(^|\\.)seek\\.com\\.au$/.test(h)&&/-jobs/.test(location.pathname)){const q=new URLSearchParams(location.search),mm=location.pathname.match(/\\/([^/]+)-jobs/),k=q.get('keywords')||(mm?decodeURIComponent(mm[1]).replace(/-/g,' '):'game'),wa=q.get('workarrangement');rem=wa==='3';site='seek';const all=[];`
+  +   `for(let p=1;p<=5;p++){const r=await fetch('/api/jobsearch/v5/search?siteKey=AU-Main&sourcesystem=houston&where=All%20Australia&keywords='+encodeURIComponent(k)+(wa?'&workarrangement='+encodeURIComponent(wa):'')+'&page='+p+'&pageSize=50&locale=en-AU',{headers:{Accept:'application/json'}});`
+  +   `if(!r.ok)break;const j=await r.json();const a=j.data||[];all.push(...a);if(a.length<50)break}`
+  +   `if(!all.length)throw new Error('SEEK 沒有回傳職缺（可能 API 改版）');src='書籤 SEEK「'+k+'」'+(rem?'遠端':'全部');t=pack(all)}`
+  + `else if(/(^|\\.)mycareersfuture\\.gov\\.sg$/.test(h)&&/^\\/search/.test(location.pathname)){const k=new URLSearchParams(location.search).get('search')||'game';site='mcf';const all=[];`
+  +   `for(let p=0;p<5;p++){const r=await fetch('https://api.mycareersfuture.gov.sg/v2/jobs?search='+encodeURIComponent(k)+'&limit=100&page='+p);if(!r.ok)break;const j=await r.json();const a=j.results||[];all.push(...a);if(a.length<100)break}`
+  +   `if(!all.length)throw new Error('MyCareersFuture 沒有回傳職缺');src='書籤 MyCareersFuture「'+k+'」';t=pack(all)}`
+  + `else{rem=/[?&]f_WT=2(&|$)/.test(location.search);src='書籤 '+h+' 頁面';t='<!-'+'-gjr:'+JSON.stringify({site:'',remote:rem,src:src,base:location.origin})+'-'+'->'+document.documentElement.outerHTML}`
+  + `return{t:t,src:src,rem:rem,site:site}};`;
+
+// 📋 複製版：抓完蓋一層對話框；自動複製失敗（點擊時效過了）就請使用者再按一次「複製」
+const BM_COPY = `(async()=>{` + BM_GRAB
+  + `const box=document.createElement('div');box.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font:16px/1.6 sans-serif';`
+  + `const card=document.createElement('div');card.style.cssText='background:#fff;color:#111;padding:22px 26px;border-radius:14px;max-width:440px;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.3)';`
+  + `const msg=document.createElement('p');msg.textContent='抓取中…（104 最多 10 頁，約幾秒鐘）';card.appendChild(msg);box.appendChild(card);document.body.appendChild(box);`
+  + `const btn=(txt,fn)=>{const b=document.createElement('button');b.textContent=txt;b.style.cssText='font:inherit;font-size:17px;margin:6px;padding:9px 18px;border-radius:8px;border:1px solid #999;cursor:pointer';b.onclick=fn;card.appendChild(b);return b};`
+  + `let d;try{d=await grab()}catch(e){msg.textContent='抓取失敗：'+e.message;btn('關閉',()=>box.remove());return}`
+  + `const n=(d.t.match(/"(jobName|title|jobTitle)"/g)||[]).length;`
+  + `const done=()=>{msg.innerHTML='';msg.append('✅ 已複製'+(n?' '+n+' 筆':'')+'！','\\n');msg.style.whiteSpace='pre-line';msg.append('回到「台灣遠端職缺篩選」，貼到 D 區的框框按「③ 加入」，或貼到 C 區按「分析貼上內容」。')};`
+  + `const copy=async()=>{try{await navigator.clipboard.writeText(d.t);done();return true}catch(e){const ta=document.createElement('textarea');ta.value=d.t;ta.style.cssText='position:fixed;top:0;left:0;width:1px;height:1px;opacity:0';document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(e2){}ta.remove();if(ok)done();return ok}};`
+  + `msg.textContent='抓到'+(n?' '+n+' 筆':'資料')+'（'+d.src+'），按下面的按鈕複製：';`
+  + `const cb=btn('📋 複製',async()=>{if(!await copy())msg.textContent='瀏覽器不讓複製，請改用 ⭐ 書籤或存檔方式'});btn('關閉',()=>box.remove());`
+  + `if(await copy())cb.textContent='📋 再複製一次'})()`;
+
+// ⭐ 送到工具版
+function bmSendCode(toolUrl){
+  return `(async()=>{` + BM_GRAB
     + `const w=window.open(${JSON.stringify(toolUrl)},'_blank');if(!w){alert('請允許彈出視窗');return}`
-    + `let t=null,ready=false,src='',rem=false,site='';const send=()=>{if(t!==null&&ready)w.postMessage({type:'gjr-jobs',text:t,src:src,base:location.origin,remote:rem,site:site},'*')};`
+    + `let d=null,ready=false;const send=()=>{if(d&&ready)w.postMessage({type:'gjr-jobs',text:d.t,src:d.src,base:location.origin,remote:d.rem,site:d.site},'*')};`
     + `addEventListener('message',e=>{if(e.source===w&&e.data==='gjr-ready'){ready=true;send()}});`
-    + `try{`
-    + `if(/(^|\\.)gamesjobs\\.co\\.uk$/.test(h)){const r=await fetch('/data/jobs.json',{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);t=await r.text();src='書籤 gamesJobs jobs.json'}`
-    + `else if(/(^|\\.)104\\.com\\.tw$/.test(h)){const q=new URLSearchParams(location.search),k=q.get('keyword')||'遊戲',rw=q.get('remoteWork');rem=!!rw;const all=[];`
-    +   `const K=encodeURIComponent(k),R=rw?'&remoteWork='+encodeURIComponent(rw):'';`
-    +   `const get=async u=>{try{const r=await fetch(u,{headers:{Accept:'application/json'}});return r.ok?await r.json():null}catch(e){return null}};`
-    +   `const arr=d=>Array.isArray(d)?d:(d&&d.list)||[];`
-    +   `for(let p=1;p<=10;p++){let j=await get('/jobs/search/api/jobs?keyword='+K+R+'&page='+p+'&pagesize=30&jobsource=index_s&mode=s&order=15'),a=arr(j&&j.data);`
-    +   `if(!a.length){j=await get('/jobs/search/list?ro=0&kwop=7&keyword='+K+R+'&order=15&asc=0&mode=s&page='+p);a=arr(j&&j.data)}`
-    +   `all.push(...a);const last=(j&&j.data&&j.data.totalPage)||(j&&j.metadata&&j.metadata.pagination&&j.metadata.pagination.lastPage)||1;if(!a.length||p>=last)break}`
-    +   `if(!all.length)throw new Error('104 沒有回傳職缺（可能 API 改版），請改用 D 區貼上');t=JSON.stringify({jobs:all});src='書籤 104「'+k+'」'+(rw?'遠端':'全部')}`
-    // SEEK 搜尋結果頁 /xxx-jobs：用網址上的關鍵字打 SEEK 自己的搜尋 API（最多 5 頁）
-    + `else if(/(^|\\.)seek\\.com\\.au$/.test(h)&&/-jobs/.test(location.pathname)){const q=new URLSearchParams(location.search),mm=location.pathname.match(/\\/([^/]+)-jobs/),k=q.get('keywords')||(mm?decodeURIComponent(mm[1]).replace(/-/g,' '):'game'),wa=q.get('workarrangement');rem=wa==='3';site='seek';const all=[];`
-    +   `for(let p=1;p<=5;p++){const r=await fetch('/api/jobsearch/v5/search?siteKey=AU-Main&sourcesystem=houston&where=All%20Australia&keywords='+encodeURIComponent(k)+(wa?'&workarrangement='+encodeURIComponent(wa):'')+'&page='+p+'&pageSize=50&locale=en-AU',{headers:{Accept:'application/json'}});`
-    +   `if(!r.ok)break;const j=await r.json();const a=j.data||[];all.push(...a);if(a.length<50)break}`
-    +   `if(!all.length)throw new Error('SEEK 沒有回傳職缺（可能 API 改版），請改用 D 區貼上');t=JSON.stringify({jobs:all});src='書籤 SEEK「'+k+'」'+(rem?'遠端':'全部')}`
-    // MyCareersFuture 搜尋頁：打政府 API（最多 5 頁）
-    + `else if(/(^|\\.)mycareersfuture\\.gov\\.sg$/.test(h)&&/^\\/search/.test(location.pathname)){const k=new URLSearchParams(location.search).get('search')||'game';site='mcf';const all=[];`
-    +   `for(let p=0;p<5;p++){const r=await fetch('https://api.mycareersfuture.gov.sg/v2/jobs?search='+encodeURIComponent(k)+'&limit=100&page='+p);if(!r.ok)break;const j=await r.json();const a=j.results||[];all.push(...a);if(a.length<100)break}`
-    +   `if(!all.length)throw new Error('MyCareersFuture 沒有回傳職缺，請改用 D 區貼上');t=JSON.stringify({jobs:all});src='書籤 MyCareersFuture「'+k+'」'}`
-    // 其他（含 LinkedIn 搜尋頁、單一職缺頁）：送整頁 HTML；LinkedIn 網址有 f_WT=2 就是遠端
-    + `else{t=document.documentElement.outerHTML;src='書籤 '+h+' 頁面';rem=/[?&]f_WT=2(&|$)/.test(location.search)}`
-    + `}catch(e){alert('抓取失敗：'+e.message);w.close();return}send()})()`;
-  $('bmLink').href = 'javascript:' + encodeURIComponent(code);
+    + `try{d=await grab()}catch(e){alert('抓取失敗：'+e.message);w.close();return}send()})()`;
+}
+document.querySelectorAll('.bmCopy').forEach(a => {
+  a.href = 'javascript:' + encodeURIComponent(BM_COPY);
+  a.onclick = e => { e.preventDefault(); alert('請把這顆按鈕「拖」到瀏覽器書籤列（沒看到書籤列按 Ctrl+Shift+B），再到 104 搜尋結果頁點它。'); };
+});
+if (/^https?:$/.test(location.protocol)){
+  $('bmLink').href = 'javascript:' + encodeURIComponent(bmSendCode(location.href.split(/[?#]/)[0]));
   $('bmLink').onclick = e => { e.preventDefault(); alert('請把這顆按鈕「拖」到書籤列，再到 gamesjobs.co.uk、104 搜尋頁或職缺頁點它。'); };
-  $('bmBox').hidden = false;
+  $('bmSend').hidden = false; $('bmSendNote').hidden = false;
 }
 window.addEventListener('message', e => {
   if (!e.data || e.data.type !== 'gjr-jobs' || typeof e.data.text !== 'string') return;
@@ -1216,8 +1274,7 @@ window.addEventListener('message', e => {
   if (e.source !== window.opener && e.origin !== SITE) return;
   const base = /^https:\/\/[\w.-]+$/.test(e.data.base || '') ? e.data.base : SITE;
   log(1, `收到書籤送來的資料（${e.origin}），位元組`, e.data.text.length);
-  const site = SOURCES[e.data.site] ? e.data.site : undefined;   // SEEK/MCF 的資料沒有網址，靠書籤告訴我們來源
-  ingest(e.data.text, e.data.src || '書籤抓取', base, { markRemote: e.data.remote === true, forceSrc: site });
+  ingest(e.data.text, e.data.src || '書籤抓取', base);
 });
 if (window.opener){ try { window.opener.postMessage('gjr-ready', '*'); log(1, '已通知書籤：工具就緒'); } catch (e) {} }
 
@@ -1242,7 +1299,7 @@ if (window.opener){ try { window.opener.postMessage('gjr-ready', '*'); log(1, '�
 <script>
 if (/[?&]selftest/.test(location.search))
 // 自我測試：網址加 ?selftest 才執行，結果寫進 #selftest-result（給 headless --dump-dom 讀）
-(function(){
+(async function(){
   const results = [];
   const ok = (name, cond, info) => results.push({ name, pass: !!cond, info: cond ? '' : JSON.stringify(info) });
   const J = (o) => Object.assign({ title: 'Programmer', company: 'X', location: '', dept: '', type: '', salary: '', date: '', desc: '', url: '', applyUrl: '', remoteRaw: undefined, applicantLoc: '', isLd: false, extra: '', userText: '' }, o);
@@ -1509,15 +1566,46 @@ if (/[?&]selftest/.test(location.search))
   ok('來源選單有西班牙/荷蘭', ['li_es', 'li_nl', 'seek', 'mcf'].every(k => [...$('srcSel').options].some(o => o.value === k)));
   JOBS = JOBS.filter(j => !['seek', 'mcf', 'li_es', 'li_nl'].includes(j.source)); afterChange(); tab('tw104');
 
-  // ---- 書籤小工具（只在 http/https 才出現）----
+  // ---- 📋 複製職缺書籤（本機版也有）----
+  const copyHref = document.querySelector('.bmCopy').getAttribute('href');
+  let cpOk = false, cpErr = '';
+  try { new Function(decodeURIComponent(copyHref.replace(/^javascript:/, ''))); cpOk = true; } catch (e){ cpErr = e.message; }
+  ok('複製書籤程式碼可編譯', cpOk, cpErr);
+  ok('A 區與 D 區都有複製書籤', document.querySelectorAll('.bmCopy').length === 2 && document.querySelectorAll('.bmCopy')[1].getAttribute('href') === copyHref);
+  ok('書籤程式碼不含 HTML 註解記號（會弄壞 script 區塊）', !/<!-{2}|-{2}>/.test(BM_COPY), '');
+  // 在工具頁自己跑 grab：不是職缺網站 → 走「整頁 HTML」，開頭帶 gjr 標記
+  const g = await new Function(BM_GRAB + 'return grab;')()();
+  const gm = readMeta(g.t);
+  ok('grab 整頁模式帶來源標記', gm && gm.src === g.src && gm.site === '' && /^https?:|^file:|^null$/.test(gm.base || location.origin), [g.src, gm]);
+
+  // ---- 書籤資料貼到 D 區：以標記決定來源/遠端、整批換新不跳頁 ----
+  tab('tw104');
+  ok('104 分頁是書籤模式：隱藏頁數/備用連結、顯示複製書籤、① 開搜尋頁', $('page104').closest('label').hidden && $('old104').hidden && !$('localBm').hidden && /搜尋頁/.test($('open104').textContent) && getComputedStyle($('old104')).display === 'none', [$('open104').textContent, getComputedStyle($('old104')).display]);
+  const bm104 = JSON.stringify({ gjrSite: 'tw104', gjrRemote: true, gjrSrc: '書籤 104「遊戲」遠端', jobs: JSON.parse(p1).data.list });
+  $('modeSel').value = 'remote'; $('modeSel').dispatchEvent(new Event('change'));
+  $('remote104').checked = false; $('page104').value = '3';
+  $('paste104').value = bm104; $('add104').click();
+  const b104 = JOBS.filter(j => j.source === 'tw104');
+  ok('書籤 104 資料：來源 tw104、照標記當遠端（就算沒勾）、頁數不跳', b104.length === 2 && b104.every(j => j.cls.mode === 'remote') && $('page104').value === '3' && $('modeSel').value === 'remote', [b104.length, b104.map(j => j.cls.mode), $('page104').value, $('modeSel').value]);
+  $('paste104').value = bm104; $('add104').click();
+  ok('再貼一次是整批換新不是累加', JOBS.filter(j => j.source === 'tw104').length === 2);
+  const bmSeek = JSON.stringify({ gjrSite: 'seek', gjrRemote: true, gjrSrc: '書籤 SEEK「game」遠端', jobs: JSON.parse(seekTxt).data });
+  $('paste104').value = bmSeek; $('add104').click();
+  ok('在 104 分頁貼 SEEK 書籤資料 → 歸 SEEK', JOBS.filter(j => j.source === 'seek').length === 2 && JOBS.filter(j => j.source === 'tw104').length === 2);
+  $('paste').value = bmSeek.replace('"gjrRemote":true', '"gjrRemote":false'); $('pasteBtn').click();
+  ok('C 區貼書籤資料也看標記', JOBS.filter(j => j.source === 'seek').length === 2 && JOBS.find(j => j.title === 'QA Tester').cls.mode === 'office');
+  $('paste').value = '';
+  JOBS = JOBS.filter(j => !['tw104', 'seek'].includes(j.source)); afterChange();
+
+  // ---- ⭐ 送到工具書籤（只在 http/https 才出現）----
   if (/^https?:$/.test(location.protocol)){
-    ok('線上版顯示書籤按鈕', !$('bmBox').hidden);
+    ok('線上版顯示送出書籤', !$('bmSend').hidden);
     const href = $('bmLink').getAttribute('href');
     let compiled = false, err = '';
     try { new Function(decodeURIComponent(href.replace(/^javascript:/, ''))); compiled = true; } catch (e){ err = e.message; }
     ok('書籤程式碼可編譯', compiled, err);
     ok('書籤指向工具本身', decodeURIComponent(href).includes(location.href.split(/[?#]/)[0]), href.slice(0, 200));
-  } else ok('本機版隱藏書籤按鈕', $('bmBox').hidden);
+  } else ok('本機版隱藏送出書籤、保留複製書籤', $('bmSend').hidden && !$('bmBox').hidden);
 
   const pass = results.filter(x => x.pass).length;
   const out = document.createElement('pre');
