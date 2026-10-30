@@ -241,8 +241,10 @@ function insertFinal(seg){
     if($('nlChk').checked) sep = before.endsWith('\n') ? '' : '\n';
     else sep = /\s$/.test(before) ? '' : ' ';
   }
-  out.insertBefore(document.createTextNode(sep + seg), live);
+  const node = document.createTextNode(sep + seg);
+  out.insertBefore(node, live);
   scrollOut(); updatePlaceholder();
+  return { node, sep };
 }
 // 即時顯示暫定字
 function setInterim(t){
@@ -277,6 +279,38 @@ function honorCaret(){
 document.addEventListener('selectionchange', rememberCaret);
 
 // ---------- 語音辨識 ----------
+// 最近一次寫入的定稿，用來擋掉重送／累積式重複
+let lastFinal = null; // { key, raw, node, sep, ts, trans, time }
+const normKey = s => s.replace(/[\s，。、！？,.!?;；:：]/g, '').toLowerCase();
+function addFinal(raw){
+  const key = normKey(raw);
+  if(!key) return;
+  const lf = lastFinal;
+  const recent = lf && (Date.now() - lf.time < 8000);
+  if(recent){
+    // 完全相同或是上一句的前半段 → 重送，丟掉
+    if(key === lf.key || lf.key.startsWith(key)) return;
+    // 上一句的延伸（累積式結果）→ 改寫上一句，而不是再插一句
+    if(key.startsWith(lf.key) && lf.node.parentNode === out &&
+       lf.node.textContent === lf.sep + lf.ts + lf.raw){
+      lf.node.textContent = lf.sep + lf.ts + raw;
+      lf.key = key; lf.raw = raw; lf.time = Date.now();
+      if(lf.trans){ lf.trans.orig = raw; lf.trans.trans = '翻譯中…'; lf.trans.state = 'pending'; renderTrans(); translateSeg(lf.trans); }
+      updateCount();
+      return;
+    }
+  }
+  const ts = $('tsChk').checked ? nowTs() + ' ' : '';
+  const { node, sep } = insertFinal(ts + raw);
+  let trans = null;
+  if($('transChk').checked){
+    trans = { orig: raw, trans: '翻譯中…', state: 'pending' };
+    transSegs.push(trans);
+    renderTrans();
+    translateSeg(trans);
+  }
+  lastFinal = { key, raw, node, sep, ts, trans, time: Date.now() };
+}
 function buildRecognizer(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SR){
@@ -290,23 +324,19 @@ function buildRecognizer(){
   r.interimResults = true;
   r.lang = $('lang').value;
 
-  r.onstart = () => setStatus('收音中…請說話', 'on');
+  // 防重複：Chrome 偶爾會把同一個 index 的定稿送兩次、自動重啟後重送上一句，
+  // Android 版還會先送「前半句」再送「整句」兩個定稿 → 一句話出現兩次
+  let doneIdx = new Set();
+  r.onstart = () => { doneIdx = new Set(); setStatus('收音中…請說話', 'on'); };
   r.onresult = (e) => {
     let interim = '';
     for(let i = e.resultIndex; i < e.results.length; i++){
       const res = e.results[i];
       if(res.isFinal){
+        if(doneIdx.has(i)) continue;   // 同一個 index 已處理過
+        doneIdx.add(i);
         const raw = res[0].transcript.trim();
-        if(raw){
-          const seg = $('tsChk').checked ? nowTs() + ' ' + raw : raw;
-          insertFinal(seg);
-          if($('transChk').checked){
-            const obj = { orig: raw, trans: '翻譯中…', state: 'pending' };
-            transSegs.push(obj);
-            renderTrans();
-            translateSeg(obj);
-          }
-        }
+        if(raw) addFinal(raw);
       } else {
         interim += res[0].transcript;
       }
@@ -445,7 +475,7 @@ $('btnSave').onclick = () => {
 $('btnClear').onclick = () => {
   if(getText().trim() && !confirm('確定清除所有文字？')) return;
   out.innerHTML = ''; updateCount(); updatePlaceholder();
-  transSegs = []; renderTrans();
+  transSegs = []; renderTrans(); lastFinal = null;
 };
 
 // ---------- 即時翻譯（透過本機 server 代理 Google 翻譯，免金鑰）----------
