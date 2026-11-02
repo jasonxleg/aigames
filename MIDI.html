@@ -1,0 +1,2124 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SMK25">
+<meta name="theme-color" content="#1b1d22">
+<title>SMK25-II 模擬器</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+:root{
+  --bg:#1b1d22; --panel:#24272e; --panel2:#2c3038; --line:#3a3f49; --text:#e8eaef; --dim:#9aa1ad;
+  --accent:#4fd1c5; --rec:#ff4d5e; --ok:#5ad67d; --warn:#ffc04d;
+  --body:#f2f1ec; --body2:#e4e2db; --ink:#4a4a4a;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI","Microsoft JhengHei","PingFang TC",system-ui,sans-serif;-webkit-text-size-adjust:100%}
+button,.ui,.tab,input,select{touch-action:manipulation}
+#dev,#dev *{-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+/* iPad 橫向：壓縮標題，讓整台鍵盤在一個螢幕內 */
+@media (max-height:900px){
+  .wrap{padding:6px max(10px,env(safe-area-inset-right)) 30px max(10px,env(safe-area-inset-left))}
+  h1{font-size:15px;margin:0 0 4px} h1 small{display:none}
+  .tabs{margin:0 0 6px} .tab{padding:5px 14px}
+}
+#rotate{display:none;position:fixed;inset:0;z-index:99;background:#000d;color:#fff;align-items:center;justify-content:center;flex-direction:column;font-size:20px;text-align:center;gap:12px}
+#rotate b{font-size:64px;animation:rot 2s infinite}
+@keyframes rot{0%,30%{transform:rotate(0)}60%,100%{transform:rotate(90deg)}}
+@media (orientation:portrait) and (pointer:coarse) and (max-width:1100px){ #rotate{display:flex} }
+button{font:inherit}
+.wrap{max-width:1240px;margin:0 auto;padding:14px 16px 40px}
+h1{font-size:18px;margin:0 0 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h1 small{color:var(--dim);font-weight:400;font-size:13px}
+#srv{font-size:12px;padding:2px 8px;border-radius:10px;background:var(--panel2);color:var(--dim)}
+#srv.ok{color:var(--ok)} #srv.bad{color:var(--warn)}
+
+/* ===== 裝置本體 ===== */
+#stage{width:100%;position:relative}
+#dev{position:absolute;left:0;top:0;width:1180px;height:660px;transform-origin:0 0;background:linear-gradient(#f7f6f2,var(--body));
+  border-radius:26px;box-shadow:0 10px 40px #0008, inset 0 -6px 0 #d6d4cc;user-select:none;touch-action:none;color:var(--ink)}
+.lbl{position:absolute;font:600 11px/1 Arial,sans-serif;color:#555;letter-spacing:.5px;text-align:center}
+.strip{position:absolute;width:62px;height:150px;top:50px;border-radius:8px;background:linear-gradient(#fbfbf8,#ecebe5);
+  box-shadow:inset 0 0 0 1px #d8d6ce, inset 0 2px 6px #0001;cursor:ns-resize}
+.strip .dot{position:absolute;left:6px;right:6px;height:8px;border-radius:4px;background:#4fd1c5;box-shadow:0 0 10px #4fd1c5;opacity:.0;transition:opacity .15s}
+.strip.on .dot{opacity:.9}
+.btn{position:absolute;width:62px;height:34px;border-radius:7px;border:0;background:linear-gradient(#fff,#e9e8e2);
+  box-shadow:0 2px 0 #c9c7bf,0 0 0 1px #d4d2ca;font:700 12px Arial,sans-serif;color:#555;cursor:pointer}
+.btn:active,.btn.press{transform:translateY(2px);box-shadow:0 0 0 #c9c7bf,0 0 0 1px #d4d2ca}
+.btn.lit{background:linear-gradient(#bfe0ff,#8fc3ff);color:#1b3d6b;box-shadow:0 2px 0 #6f9fd6,0 0 14px #8fc3ff}
+.btn.lit.red{background:linear-gradient(#ffc0c6,#ff7a86);color:#6b1b22;box-shadow:0 2px 0 #d65f6b,0 0 14px #ff7a86}
+.btn.lit.green{background:linear-gradient(#c8f5d4,#7fdc98);color:#1b5c2c;box-shadow:0 2px 0 #5fb877,0 0 14px #7fdc98}
+#oled{position:absolute;left:228px;top:52px;width:96px;height:52px;border-radius:7px;background:#06090c;box-shadow:inset 0 0 0 3px #222;
+  display:flex;align-items:center;justify-content:center;font:700 28px/1 "Consolas","Courier New",monospace;color:#bff6ff;text-shadow:0 0 8px #6fe9ff;letter-spacing:2px}
+.knob{position:absolute;width:56px;height:56px;border-radius:50%;cursor:ns-resize;
+  background:radial-gradient(circle at 40% 35%,#3a3a3a,#111 70%);box-shadow:0 4px 8px #0006,0 0 0 4px #e3e1da}
+.knob i{position:absolute;left:26px;top:5px;width:4px;height:16px;border-radius:2px;background:#ddd;transform-origin:2px 23px}
+.knob.learn{box-shadow:0 4px 8px #0006,0 0 0 4px #ffc04d}
+.klbl{position:absolute;width:90px;font:700 11px Arial,sans-serif;color:#555;text-align:center}
+.pad{position:absolute;width:116px;height:104px;border-radius:10px;cursor:pointer;
+  box-shadow:inset 0 0 0 1px #0001, 0 3px 0 #cfcdc5;transition:filter .08s, transform .05s}
+.pad .pn{position:absolute;left:0;right:0;top:-17px;font:600 11px Arial;color:#555;text-align:center}
+.pad .pt{position:absolute;left:0;right:0;bottom:8px;font:700 12px "Segoe UI","Microsoft JhengHei";color:#0007;text-align:center}
+.pad.hit{filter:brightness(1.35) saturate(1.4);transform:scale(.97)}
+#logo{position:absolute;left:690px;top:282px;font:900 22px Arial Black,Arial,sans-serif;color:#3c3c3c;letter-spacing:1px;white-space:nowrap}
+#logo small{display:inline;margin-left:10px;font:700 10px Arial;letter-spacing:3px;color:#888}
+.flbl{position:absolute;top:318px;font:600 8.5px/1.15 Arial,sans-serif;color:#666;text-align:center;width:60px;transform:translateX(-50%)}
+#keys{position:absolute;left:30px;right:30px;top:362px;height:282px}
+.wk{position:absolute;top:0;height:282px;background:linear-gradient(#fff,#f6f5f0 85%,#e8e6df);border-radius:0 0 7px 7px;
+  box-shadow:inset 0 0 0 1px #cfcdc5, 0 3px 0 #d0cec6;cursor:pointer}
+.bk{position:absolute;top:0;height:172px;background:linear-gradient(#2a2a2a,#0e0e0e);border-radius:0 0 5px 5px;z-index:2;
+  box-shadow:0 3px 4px #0006, inset 0 -6px 0 #333;cursor:pointer}
+.wk.on{background:linear-gradient(#d8fbf7,#aef0e8)} .bk.on{background:linear-gradient(#1f6f68,#0d3b37)}
+.wk .kk,.bk .kk{position:absolute;left:0;right:0;bottom:8px;text-align:center;font:600 11px Consolas,monospace;color:#aaa}
+.bk .kk{color:#777}
+.wk .cn{position:absolute;left:0;right:0;bottom:24px;text-align:center;font:600 10px Arial;color:#4fd1c5}
+
+/* ===== 面板 ===== */
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.card h2{font-size:15px;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+.full{grid-column:1/-1}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
+.ui{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer}
+.ui:hover{border-color:#5a6170}
+.ui.pri{background:#1d5c56;border-color:#2c8a81}
+.ui.big{padding:9px 16px;font-weight:600}
+.ui.rec{background:#5c1d24;border-color:#a33a46}
+.ui:disabled{opacity:.45;cursor:not-allowed}
+input[type=text],select{background:#16181c;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+label.ck{display:inline-flex;gap:5px;align-items:center;color:var(--dim);cursor:pointer}
+#tl{width:100%;display:block;background:#15171b;border-radius:8px;border:1px solid var(--line)}
+#mix{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:6px}
+.trk{background:var(--panel2);border-radius:8px;padding:6px 8px;border-left:4px solid #888}
+.trk .nm{font-weight:600;font-size:12px;display:flex;justify-content:space-between}
+.trk .nm b{color:var(--dim);font-weight:400}
+.trk input[type=range]{width:100%}
+.trk .bt{display:flex;gap:4px}
+.trk .bt button{flex:1;padding:1px 0;font-size:11px;border-radius:5px;border:1px solid var(--line);background:#1a1c21;color:var(--dim);cursor:pointer}
+.trk .bt button.on{background:#c9a227;color:#000} .trk .bt button.on.s{background:#3fa7d6}
+.trk.empty{opacity:.55}
+#log{background:#111317;border-radius:8px;padding:8px;height:150px;overflow:auto;font:12px/1.5 Consolas,"Microsoft JhengHei",monospace;color:#b9c0cc;white-space:pre-wrap}
+#log .e{color:#ff8a95} #log .o{color:var(--ok)} #log a{color:var(--accent)}
+.help{color:var(--dim);font-size:13px} .help b{color:var(--text)} .help kbd{background:#111;border:1px solid #444;border-radius:4px;padding:0 5px;font:12px Consolas}
+.bar{height:8px;background:#111;border-radius:4px;overflow:hidden;flex:1;min-width:120px}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.tabs{display:flex;gap:6px;margin:0 0 10px}
+.tab{background:var(--panel);color:var(--dim);border:1px solid var(--line);border-radius:10px 10px 0 0;padding:8px 18px;cursor:pointer;font-weight:600}
+.tab.on{background:var(--panel2);color:var(--text);border-bottom-color:var(--accent);box-shadow:inset 0 -3px 0 var(--accent)}
+.tab .dotrec{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--rec);margin-left:6px;visibility:hidden}
+.tab .dotrec.on{visibility:visible;animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.2}}
+/* ===== 人聲錄音台（podcast 錄音台風格） ===== */
+.console{display:grid;grid-template-columns:120px 1fr 300px;gap:16px;padding:18px;margin-bottom:12px;border-radius:22px;
+  background:linear-gradient(160deg,#2a2c31,#16171a 55%,#101113);box-shadow:0 14px 40px #000a, inset 0 1px 0 #ffffff14, inset 0 -4px 0 #000;user-select:none;-webkit-user-select:none}
+.c-left{display:flex;flex-direction:column;align-items:center;gap:14px}
+.c-brand{font:900 13px/1.1 Arial Black,Arial;letter-spacing:2px;color:#d9dce2;text-align:center}
+.c-rec{width:86px;height:86px;border-radius:50%;border:0;cursor:pointer;background:radial-gradient(circle at 50% 40%,#3a3a3e,#151517 70%);
+  box-shadow:0 0 0 5px #222,0 0 0 8px #c3122288,0 6px 14px #000; display:flex;align-items:center;justify-content:center}
+.c-rec span{display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:50%;background:#e01b2c;color:#fff;font:800 11px Arial;box-shadow:0 0 18px #ff2a3c}
+.c-rec.on{box-shadow:0 0 0 5px #222,0 0 0 8px #ff2a3c,0 0 30px #ff2a3c} .c-rec.on span{border-radius:8px;animation:blink 1s infinite}
+.c-tr{display:flex;gap:8px}
+.c-sq{width:44px;height:38px;border-radius:9px;border:0;background:linear-gradient(#3a3d44,#24262b);color:#ddd;font-size:16px;cursor:pointer;box-shadow:0 3px 0 #0b0b0c}
+.c-sq:active{transform:translateY(2px);box-shadow:none}
+.c-mid{display:flex;flex-direction:column;gap:12px;min-width:0}
+.c-top{display:flex;gap:14px;align-items:stretch}
+.c-screen{flex:1;min-width:0;background:#050607;border-radius:12px;padding:8px 10px;box-shadow:inset 0 0 0 3px #2b2d33, 0 0 0 1px #000}
+.c-scr-h{display:flex;justify-content:space-between;align-items:center;color:#9aa1ad;font:600 12px Consolas,monospace}
+.c-scr-h #vbig{font:700 22px Consolas,monospace;color:#e9edf3;min-width:0}
+.c-scr-h #vbig.rec{color:#ff4d5e}
+#scr{width:100%;height:110px;display:block;margin:4px 0}
+.c-scr-f{display:flex;gap:12px;color:#7d8593;font:600 11px Consolas,"Microsoft JhengHei",monospace;flex-wrap:wrap} .c-scr-f b{color:#cfd5de;font-weight:600}
+.c-knobs{display:grid;grid-template-columns:repeat(2,64px);gap:26px 12px;padding-bottom:16px;align-content:center}
+.c-knob{position:relative;width:58px;height:58px;border-radius:50%;cursor:ns-resize;touch-action:none;
+  background:conic-gradient(from 225deg, var(--c) calc(var(--v,0.5)*270deg), #2a2c31 0 270deg, transparent 0);padding:5px}
+.c-knob::before{content:"";position:absolute;inset:6px;border-radius:50%;background:radial-gradient(circle at 45% 35%,#45474d,#141518 70%);box-shadow:0 2px 6px #000}
+.c-knob i{position:absolute;left:27px;top:9px;width:4px;height:13px;border-radius:2px;background:#eee;transform-origin:2px 20px;transform:rotate(calc(-135deg + var(--v,0.5)*270deg))}
+.c-knob b{position:absolute;left:-6px;right:-6px;bottom:-17px;text-align:center;font:700 11px "Microsoft JhengHei","PingFang TC",sans-serif;color:#aeb4be}
+.c-strips{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.c-strip{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;border-radius:12px;background:linear-gradient(#1f2125,#141518);box-shadow:inset 0 0 0 1px #2c2f35}
+.c-strip b{font:700 12px "Microsoft JhengHei","PingFang TC",sans-serif;color:#d6dae1} .c-strip small{color:#7d8593;font:11px Consolas,monospace}
+.c-led{width:46px;height:28px;border-radius:7px;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;
+  background:linear-gradient(#34363c,#24262b);box-shadow:0 3px 0 #0b0b0c, inset 0 0 0 2px color-mix(in srgb,var(--c) 35%,transparent)}
+.c-led.on{background:var(--c);box-shadow:0 0 14px var(--c),0 3px 0 #0b0b0c}
+.vfader{writing-mode:vertical-lr;direction:rtl;-webkit-appearance:slider-vertical;appearance:slider-vertical;width:34px;height:120px;accent-color:#e9edf3;cursor:ns-resize}
+.c-pads{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:1fr;gap:10px;align-content:center}
+.c-pad{border:0;border-radius:12px;cursor:pointer;font-size:24px;line-height:1;padding:10px 2px;color:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:84px;
+  background:linear-gradient(160deg,color-mix(in srgb,var(--c) 92%,#fff),var(--c));box-shadow:0 0 16px color-mix(in srgb,var(--c) 45%,transparent),0 4px 0 #0008}
+.c-pad b{font:800 11px "Microsoft JhengHei","PingFang TC",sans-serif}
+.c-pad:active,.c-pad.hit{transform:translateY(2px) scale(.97);filter:brightness(1.25)}
+.c-pad:disabled{filter:grayscale(.85) brightness(.45);box-shadow:0 4px 0 #0008;cursor:default}
+.c-pad.sel{outline:3px solid #fff;outline-offset:2px}
+@media (max-width:1060px){.console{grid-template-columns:96px 1fr 250px;gap:12px;padding:14px}.c-pad{min-height:70px;font-size:20px}.c-knobs{grid-template-columns:repeat(2,58px)}}
+@media (max-width:820px){.console{grid-template-columns:1fr}.c-left{flex-direction:row;justify-content:center}}
+/* ===== DJ 盤 ===== */
+.dj{display:grid;grid-template-columns:1fr 270px 1fr;gap:14px;padding:16px;margin-bottom:12px;border-radius:20px;user-select:none;-webkit-user-select:none;
+  background:linear-gradient(170deg,#2b2b2d,#18181a 60%,#121213);box-shadow:0 14px 40px #000a, inset 0 1px 0 #ffffff12, inset 0 -4px 0 #000}
+.deck{display:flex;flex-direction:column;gap:8px;min-width:0}
+.d-head{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.d-name{font:900 13px Arial Black,Arial;color:#ff9a1f;letter-spacing:1px;margin-right:auto}
+.dj-btn{background:#2a2a2d;color:#ddd;border:1px solid #444;border-radius:7px;padding:4px 8px;font-size:12px;cursor:pointer}
+.dj-btn:active{background:#3a3a3e}
+.d-title{font-size:12px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.d-wave{width:100%;height:56px;background:#08080a;border-radius:6px;cursor:pointer;touch-action:none}
+.d-time{display:flex;justify-content:space-between;font:700 13px Consolas,monospace;color:#e9e9e9}
+.d-time .d-tempoT{color:#ff9a1f}
+.d-body{display:flex;gap:10px;align-items:center;justify-content:center}
+.d-tempo{display:flex;flex-direction:column;align-items:center;gap:4px} .d-tempo small{font:700 9px Arial;color:#888}
+.d-tempo .vfader{height:170px}
+.d-jog{flex:1;max-width:230px;aspect-ratio:1;border-radius:50%;padding:10px;background:radial-gradient(circle,#3a3a3d 0 58%,#1a1a1c 60%,#2a2a2c 68%,#111 72%);
+  box-shadow:0 8px 18px #000c, inset 0 0 0 2px #444;touch-action:none;cursor:grab}
+.d-plat{position:relative;width:100%;height:100%;border-radius:50%;background:repeating-radial-gradient(circle,#1f1f22 0 2px,#262629 2px 4px);box-shadow:inset 0 0 0 3px #555}
+.d-plat i{position:absolute;left:50%;top:6%;width:6px;height:20%;margin-left:-3px;border-radius:3px;background:#ff9a1f;box-shadow:0 0 8px #ff9a1f}
+.d-plat span{position:absolute;inset:36%;border-radius:50%;background:radial-gradient(circle,#444,#222);display:flex;align-items:center;justify-content:center;font:900 11px Arial;color:#ff9a1f;letter-spacing:1px}
+.d-jog.touch .d-plat{box-shadow:inset 0 0 0 3px #ff9a1f}
+.d-pads{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.d-pads button{height:44px;border-radius:7px;border:0;cursor:pointer;font:800 11px Arial,"Microsoft JhengHei";line-height:1.1;color:#ffcf8f;
+  background:linear-gradient(#3a2a1a,#241a10);box-shadow:inset 0 0 0 2px #ff9a1f55, 0 3px 0 #000}
+.d-pads button.set{background:linear-gradient(#ffb04d,#ff8a00);color:#1a0d00;box-shadow:0 0 12px #ff9a1f,0 3px 0 #000}
+.d-pads button.fx{color:#e6d4ff;background:linear-gradient(#2c2238,#1b1424);box-shadow:inset 0 0 0 2px #c06bff55,0 3px 0 #000}
+.d-pads button:active,.d-pads button.hit{transform:translateY(2px);filter:brightness(1.4)}
+.d-tr{display:flex;gap:10px;justify-content:center}
+.d-tr button{width:64px;height:64px;border-radius:50%;border:0;cursor:pointer;font:900 13px Arial;color:#ff9a1f;background:radial-gradient(circle at 50% 40%,#3a3a3e,#161618 70%);box-shadow:0 0 0 3px #2b2b2e,0 4px 8px #000}
+.d-tr button.on{color:#111;background:radial-gradient(circle,#ffc06b,#ff8a00);box-shadow:0 0 0 3px #2b2b2e,0 0 18px #ff9a1f}
+.deck[data-deck=B] .d-tr{flex-direction:row-reverse}
+.mixer{display:flex;flex-direction:column;gap:8px;align-items:center;background:linear-gradient(#202022,#18181a);border-radius:14px;padding:10px 8px;box-shadow:inset 0 0 0 1px #333}
+.mx-cols{display:grid;grid-template-columns:1fr 70px 1fr;gap:6px;width:100%}
+.mx-ch,.mx-mid{display:flex;flex-direction:column;align-items:center;gap:20px}
+.mx-ch>b{font:900 11px Arial;color:#ff9a1f}
+.mx-ch .c-knob,.mx-mid .c-knob{width:46px;height:46px;padding:4px}
+.mx-ch .c-knob i,.mx-mid .c-knob i{left:21px;top:7px;height:10px;transform-origin:2px 16px}
+.mx-ch .c-knob b,.mx-mid .c-knob b{font-size:9px;bottom:-14px}
+.dj-chf{height:120px}
+#djMeter{width:20px;height:150px;background:#08080a;border-radius:4px}
+.dj-rec{width:58px;height:58px;border-radius:50%;border:0;cursor:pointer;background:radial-gradient(circle,#3a3a3e,#151517 70%);box-shadow:0 0 0 4px #222,0 0 0 6px #c3122288;display:flex;align-items:center;justify-content:center}
+.dj-rec span{width:32px;height:32px;border-radius:50%;background:#e01b2c;color:#fff;font:800 9px Arial;display:flex;align-items:center;justify-content:center}
+.dj-rec.on{box-shadow:0 0 0 4px #222,0 0 0 6px #ff2a3c,0 0 24px #ff2a3c} .dj-rec.on span{border-radius:6px;animation:blink 1s infinite}
+.mx-xf{display:flex;align-items:center;gap:6px;width:100%} .mx-xf input{flex:1;accent-color:#ff9a1f} .mx-xf small,.mx-lbl{font:700 10px Arial;color:#888}
+@media (max-width:1060px){.dj{grid-template-columns:1fr 230px 1fr;gap:10px;padding:12px}.d-tempo .vfader{height:140px}.d-pads button{height:38px}.d-tr button{width:54px;height:54px}}
+@media (max-width:820px){.dj{grid-template-columns:1fr}}
+/* ===== Beatbox Loop 站 ===== */
+.loopst{display:grid;grid-template-columns:250px 1fr;gap:18px;padding:18px;margin-bottom:12px;border-radius:20px;
+  background:linear-gradient(165deg,#23272d,#14161a 60%,#0f1013);box-shadow:0 14px 40px #000a, inset 0 1px 0 #ffffff12, inset 0 -4px 0 #000}
+.lp-left{display:flex;flex-direction:column;align-items:center;gap:8px}
+#lpRing{width:230px;height:230px}
+.lp-big{flex:1;min-width:150px;height:62px;border-radius:14px;border:0;cursor:pointer;font:800 17px "Microsoft JhengHei","PingFang TC",sans-serif;color:#eaffef;
+  background:linear-gradient(#2f6b44,#1d4a2d);box-shadow:0 4px 0 #0c2414, inset 0 0 0 2px #5ad67d66}
+.lp-big.rec{background:linear-gradient(#8a2230,#5c121c);box-shadow:0 4px 0 #2a060b, inset 0 0 0 2px #ff4d5e66;color:#fff}
+.lp-big.rec.on{animation:blink 1s infinite;box-shadow:0 0 22px #ff4d5e}
+.lp-big:active{transform:translateY(3px);box-shadow:none}
+.lp-layer{display:grid;grid-template-columns:28px 1fr 110px auto auto;gap:8px;align-items:center;background:#1b1e23;border-radius:10px;padding:6px 10px;margin:6px 0;border-left:4px solid #5ad67d}
+.lp-layer.mute{opacity:.5;border-left-color:#555}
+.lp-layer b{font:800 16px Consolas;color:#5ad67d;text-align:center}
+.lp-layer canvas{width:100%;height:34px;background:#0c0e11;border-radius:5px}
+.lp-add{background:#1b1e23;border-radius:10px;padding:8px 10px;color:var(--dim)}
+@media (max-width:860px){.loopst{grid-template-columns:1fr}}
+#meter{height:14px;background:#111;border-radius:7px;overflow:hidden;flex:1;min-width:160px;position:relative}
+#meter i{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,#5ad67d 0 70%,#ffc04d 70% 88%,#ff4d5e 88%)}
+#vbig{font:700 34px Consolas,monospace;color:var(--accent);min-width:120px}
+#vbig.rec{color:var(--rec)}
+.take{display:grid;grid-template-columns:150px 1fr auto;gap:10px;align-items:center;background:var(--panel2);border-radius:8px;padding:8px 10px;margin:6px 0;border-left:4px solid #ff9f6b}
+.take input[type=text]{width:100%}
+.take canvas{width:100%;height:36px;background:#15171b;border-radius:5px}
+.take .ctl{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--dim)}
+.take .ctl input[type=range]{width:80px}
+@media (max-width:860px){.panels{grid-template-columns:1fr}.take{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="rotate"><b>📱</b>請把 iPad 轉成橫向<br><small style="color:#aaa">橫向才放得下整台鍵盤</small><button class="ui" onclick="this.parentNode.style.display='none'">先這樣用</button></div>
+<div class="wrap">
+  <h1>🎹 SMK25-II 無線 MIDI 鍵盤模擬器 <small>8 打擊墊 × 2 組 · 25 鍵合成器 · 琶音器 · 分軌錄音 → Google Drive → LumaFusion</small><span id="srv">檢查伺服器…</span></h1>
+
+  <div class="tabs">
+    <button class="tab on" data-tab="kb">🎹 鍵盤 / 打擊墊</button>
+    <button class="tab" data-tab="voc">🎤 人聲錄音<span class="dotrec" id="vDot"></span></button>
+    <button class="tab" data-tab="dj">🎧 DJ 盤<span class="dotrec" id="djDot"></span></button>
+    <button class="tab" data-tab="loop">🔁 Beatbox Loop</button>
+  </div>
+  <div id="pg-loop" hidden>
+    <div class="loopst">
+      <div class="lp-left">
+        <canvas id="lpRing" width="230" height="230"></canvas>
+        <div class="help" style="text-align:center">戴耳機效果最好（喇叭的聲音會被錄進下一層）</div>
+      </div>
+      <div class="lp-mid">
+        <div class="row">
+          <button class="lp-big rec" id="lpRec">⏺ 錄下一層</button>
+          <button class="lp-big" id="lpPlay">▶ 播放 Loop</button>
+        </div>
+        <div class="row">
+          <span class="help">一圈長度</span><select id="lpBars"><option value="1">1 小節</option><option value="2" selected>2 小節</option><option value="4">4 小節</option><option value="8">8 小節</option></select>
+          <span class="help">速度用專案 BPM（鍵盤分頁 TEMPO）</span>
+          <label class="ck"><input type="checkbox" id="lpCount" checked> 預備拍</label>
+          <label class="ck"><input type="checkbox" id="lpMetro" checked> 節拍器</label>
+          <label class="ck"><input type="checkbox" id="lpChain"> 連續疊錄（每圈自動加一層）</label>
+        </div>
+        <div id="lpLayers"></div>
+        <div class="row lp-add">
+          <span>➕ 加入專案：重複</span>
+          <select id="lpRep"><option value="1">1 次</option><option value="2">2 次</option><option value="4" selected>4 次</option><option value="8">8 次</option><option value="16">16 次</option><option value="fill">填滿整首</option></select>
+          <span>從第</span><input type="text" id="lpAt" size="3" value="1"><span>小節開始</span>
+          <button class="ui big pri" id="lpAdd">➕ 加入音訊到專案</button>
+          <button class="ui" id="lpUndo">↶ 刪最後一層</button><button class="ui" id="lpClear">🗑 全部清除</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="pg-dj" hidden>
+    <div class="dj">
+      <!-- 左 Deck A -->
+      <div class="deck" data-deck="A">
+        <div class="d-head"><b class="d-name">DECK 1</b><button class="dj-btn d-load">📂 載入音樂</button><button class="dj-btn d-proj">🎹 載入專案混音</button></div>
+        <div class="d-title">未載入（可放 mp3 / wav / m4a / mp4）</div>
+        <canvas class="d-wave" width="600" height="56"></canvas>
+        <div class="d-time"><span class="d-pos">0:00.0</span><span class="d-tempoT">±0.0%</span><span class="d-rem">-0:00.0</span></div>
+        <div class="d-body">
+          <div class="d-tempo"><small>TEMPO</small><input type="range" class="vfader d-tempoF" min="-16" max="16" step="0.1" value="0"><button class="dj-btn d-t0">0</button></div>
+          <div class="d-jog"><div class="d-plat"><i></i><span>JOG</span></div></div>
+        </div>
+        <div class="d-pads">
+          <button data-pad="0">HOT 1</button><button data-pad="1">HOT 2</button><button data-pad="2">HOT 3</button><button data-pad="3">HOT 4</button>
+          <button data-pad="4" class="fx">📯<br>喇叭</button><button data-pad="5" class="fx">⚡<br>雷射</button><button data-pad="6" class="fx">🌀<br>刷碟</button><button data-pad="7" class="fx">💥<br>重拍</button>
+        </div>
+        <div class="d-tr"><button class="d-cue">CUE</button><button class="d-play">▶❚❚</button></div>
+        <input type="file" class="d-file" accept="audio/*,video/*" hidden>
+      </div>
+      <!-- 中間 混音器 -->
+      <div class="mixer">
+        <div class="mx-cols">
+          <div class="mx-ch">
+            <b>CH 1</b>
+            <div class="c-knob" data-for="djA_trim" data-def="0" style="--c:#ddd"><i></i><b>TRIM</b></div>
+            <div class="c-knob" data-for="djA_hi" data-def="0" style="--c:#ff9a1f"><i></i><b>HI</b></div>
+            <div class="c-knob" data-for="djA_mid" data-def="0" style="--c:#ff9a1f"><i></i><b>MID</b></div>
+            <div class="c-knob" data-for="djA_low" data-def="0" style="--c:#ff9a1f"><i></i><b>LOW</b></div>
+            <div class="c-knob" data-for="djA_flt" data-def="0" style="--c:#3fb6ff"><i></i><b>FILTER</b></div>
+            <input type="range" class="vfader dj-chf" id="djA_vol" min="0" max="100" value="85">
+          </div>
+          <div class="mx-mid">
+            <div class="mx-meter"><canvas id="djMeter" width="40" height="150"></canvas></div>
+            <div class="c-knob" data-for="djMaster" data-def="80" style="--c:#fff"><i></i><b>MASTER</b></div>
+            <div class="c-knob" data-for="djSmp" data-def="70" style="--c:#c06bff"><i></i><b>SAMPLER</b></div>
+            <button class="dj-rec" id="djRec"><span>REC</span></button>
+            <label class="ck" style="font-size:11px"><input type="checkbox" id="djBack"> 錄時播專案</label>
+          </div>
+          <div class="mx-ch">
+            <b>CH 2</b>
+            <div class="c-knob" data-for="djB_trim" data-def="0" style="--c:#ddd"><i></i><b>TRIM</b></div>
+            <div class="c-knob" data-for="djB_hi" data-def="0" style="--c:#ff9a1f"><i></i><b>HI</b></div>
+            <div class="c-knob" data-for="djB_mid" data-def="0" style="--c:#ff9a1f"><i></i><b>MID</b></div>
+            <div class="c-knob" data-for="djB_low" data-def="0" style="--c:#ff9a1f"><i></i><b>LOW</b></div>
+            <div class="c-knob" data-for="djB_flt" data-def="0" style="--c:#3fb6ff"><i></i><b>FILTER</b></div>
+            <input type="range" class="vfader dj-chf" id="djB_vol" min="0" max="100" value="85">
+          </div>
+        </div>
+        <div class="mx-xf"><small>1</small><input type="range" id="djXf" min="0" max="100" value="50"><small>2</small></div>
+        <small class="mx-lbl">CROSSFADER</small>
+        <div hidden>
+          <input type="range" id="djA_trim" min="-12" max="12" value="0"><input type="range" id="djA_hi" min="-26" max="6" value="0"><input type="range" id="djA_mid" min="-26" max="6" value="0"><input type="range" id="djA_low" min="-26" max="6" value="0"><input type="range" id="djA_flt" min="-100" max="100" value="0">
+          <input type="range" id="djB_trim" min="-12" max="12" value="0"><input type="range" id="djB_hi" min="-26" max="6" value="0"><input type="range" id="djB_mid" min="-26" max="6" value="0"><input type="range" id="djB_low" min="-26" max="6" value="0"><input type="range" id="djB_flt" min="-100" max="100" value="0">
+          <input type="range" id="djMaster" min="0" max="100" value="80"><input type="range" id="djSmp" min="0" max="100" value="70">
+        </div>
+      </div>
+      <!-- 右 Deck B -->
+      <div class="deck" data-deck="B">
+        <div class="d-head"><b class="d-name">DECK 2</b><button class="dj-btn d-load">📂 載入音樂</button><button class="dj-btn d-proj">🎹 載入專案混音</button></div>
+        <div class="d-title">未載入（可放 mp3 / wav / m4a / mp4）</div>
+        <canvas class="d-wave" width="600" height="56"></canvas>
+        <div class="d-time"><span class="d-pos">0:00.0</span><span class="d-tempoT">±0.0%</span><span class="d-rem">-0:00.0</span></div>
+        <div class="d-body">
+          <div class="d-jog"><div class="d-plat"><i></i><span>JOG</span></div></div>
+          <div class="d-tempo"><small>TEMPO</small><input type="range" class="vfader d-tempoF" min="-16" max="16" step="0.1" value="0"><button class="dj-btn d-t0">0</button></div>
+        </div>
+        <div class="d-pads">
+          <button data-pad="0">HOT 1</button><button data-pad="1">HOT 2</button><button data-pad="2">HOT 3</button><button data-pad="3">HOT 4</button>
+          <button data-pad="4" class="fx">📯<br>喇叭</button><button data-pad="5" class="fx">⚡<br>雷射</button><button data-pad="6" class="fx">🌀<br>刷碟</button><button data-pad="7" class="fx">💥<br>重拍</button>
+        </div>
+        <div class="d-tr"><button class="d-cue">CUE</button><button class="d-play">▶❚❚</button></div>
+        <input type="file" class="d-file" accept="audio/*,video/*" hidden>
+      </div>
+    </div>
+    <div class="card">
+      <div id="djPending"></div>
+      <p class="help">玩法：每個 Deck 按 📂 載入音樂（或 🎹 把你剛做的樂器＋人聲混音載進來）→ ▶ 播放，用 <b>TEMPO</b> 推桿對速度、轉 <b>JOG</b> 輪推拍子（停止時轉＝刷碟），
+        <b>HOT 1~4</b> 第一次按記住位置、之後按就跳過去（長按清除），右排 4 個是音效。中間 <b>CROSSFADER</b> 左右切換兩台。
+        按 <b>REC</b> 錄下整段 DJ 表演 → 停止後先待確認 → 按「➕ 加入 DJ 混音」才會加進專案（輸出成 30_DJ_*.wav 分軌，從 0 秒開始和其他分軌對齊）。</p>
+    </div>
+  </div>
+  <div id="pg-kb"><div id="stage"><div id="dev"></div></div></div>
+  <div id="pg-voc" hidden>
+    <!-- 錄音台風格主控台 -->
+    <div class="console">
+      <div class="c-left">
+        <div class="c-brand">VOCAL<br>STATION</div>
+        <button id="bVRec" class="c-rec" title="錄人聲 (R)"><span>REC</span></button>
+        <div class="c-tr"><button class="c-sq" id="bVPlay" title="播放全部">▶</button><button class="c-sq" id="bVStop" title="停止">■</button></div>
+      </div>
+      <div class="c-mid">
+        <div class="c-top">
+          <div class="c-screen">
+            <div class="c-scr-h"><span id="vbig">0.0</span><span id="scrState">待機</span></div>
+            <canvas id="scr" width="560" height="150"></canvas>
+            <div class="c-scr-f"><span id="meterT">-∞ dB</span><span id="vPitch">原聲</span><span>低 <b id="vBass">0 dB</b></span><span>高 <b id="vTreb">0 dB</b></span></div>
+            <div id="meter" hidden><i id="meterI"></i></div>
+          </div>
+          <div class="c-knobs">
+            <div class="c-knob" data-for="rPitch" style="--c:#ff4fd8"><i></i><b>變音</b></div>
+            <div class="c-knob" data-for="rBass"  style="--c:#ffb020"><i></i><b>低音</b></div>
+            <div class="c-knob" data-for="rTreb"  style="--c:#3fb6ff"><i></i><b>高音</b></div>
+            <div class="c-knob" data-for="rRev"   style="--c:#5ad67d"><i></i><b>殘響</b></div>
+            <input type="range" id="rPitch" min="-12" max="12" step="1" value="0" hidden>
+            <input type="range" id="rBass" min="-12" max="12" value="0" hidden>
+            <input type="range" id="rTreb" min="-12" max="12" value="0" hidden>
+            <input type="range" id="rRev" min="0" max="100" value="15" hidden>
+          </div>
+        </div>
+        <div class="c-strips">
+          <div class="c-strip"><button class="c-led" id="bMic" style="--c:#ff4fd8">🎙</button><input type="range" class="vfader" id="rGain" min="0" max="400" value="100"><b>收音</b><small id="vGain">100%</small></div>
+          <div class="c-strip"><label class="c-led on" style="--c:#5ad67d"><input type="checkbox" id="cBack" checked hidden>🥁</label><input type="range" class="vfader" id="rBack" min="0" max="150" value="100"><b>伴奏</b><small id="vBack">100%</small></div>
+          <div class="c-strip"><label class="c-led" style="--c:#3fb6ff"><input type="checkbox" id="cMon" hidden>🎧</label><input type="range" class="vfader" id="rMon" min="0" max="150" value="100"><b>監聽</b><small id="vMon">關</small></div>
+          <div class="c-strip"><label class="c-led" style="--c:#ffb020"><input type="checkbox" id="cMetroV" hidden>🔔</label><input type="range" class="vfader" id="rMaster" min="0" max="125" value="80"><b>主音量</b><small id="vMaster">80%</small></div>
+        </div>
+      </div>
+      <div class="c-pads">
+        <button class="c-pad" data-pp="-7" style="--c:#ff5a5a">👹<b>低沉</b></button>
+        <button class="c-pad" data-pp="0"  style="--c:#ff9a3c">🙂<b>原聲</b></button>
+        <button class="c-pad" data-pp="5"  style="--c:#f4e04d">🎵<b>高一點</b></button>
+        <button class="c-pad" data-pp="9"  style="--c:#7be07b">🐿<b>花栗鼠</b></button>
+        <button class="c-pad" id="padPrev" style="--c:#3fd1e0">▶<b>和樂器試聽</b></button>
+        <button class="c-pad" id="padAdd"  style="--c:#7f7bff">➕<b>加入人聲</b></button>
+        <button class="c-pad" id="padDrop" style="--c:#c06bff">🗑<b>放棄重錄</b></button>
+        <button class="c-pad" id="padSolo" style="--c:#ff6bc4">🎤<b>只聽人聲</b></button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row">
+        <span class="help">麥克風</span><select id="sMic" style="max-width:260px"><option value="">預設麥克風</option></select>
+        <label class="ck"><input type="checkbox" id="cNs"> 降噪/回音消除（錄歌建議關）</label>
+        <span class="help">延遲補償</span><input type="text" id="tLat" size="4" value="0"><span class="help">ms</span>
+        <span class="help">｜🥁 錄音時播放伴奏　🎧 耳機監聽（含變音，請戴耳機）　🔔 節拍器</span>
+      </div>
+      <div id="pending"></div>
+      <h2 style="margin-top:14px">✅ 已加入專案的人聲</h2>
+      <div id="takes"></div>
+    </div>
+  </div>
+
+  <div class="panels">
+    <div class="card full">
+      <h2>⏺ 錄音 / 時間軸 <span id="tinfo" style="color:var(--dim);font-weight:400;font-size:13px"></span></h2>
+      <div class="row">
+        <button class="ui big rec" id="bRec">⏺ 錄音 (R)</button>
+        <button class="ui big" id="bPlay">▶ 播放 (空白鍵)</button>
+        <button class="ui big" id="bStop">■ 停止</button>
+        <label class="ck"><input type="checkbox" id="cMetro" checked> 節拍器</label>
+        <label class="ck"><input type="checkbox" id="cCount" checked> 預備拍 1 小節</label>
+        <label class="ck"><input type="checkbox" id="cOver" checked> 疊錄(邊聽舊的邊錄)</label>
+        <label class="ck"><input type="checkbox" id="cVel"> 固定力度 100</label>
+        <span style="flex:1"></span>
+        <button class="ui" id="bQuant">⊞ 量化 1/16</button>
+        <button class="ui" id="bUndo">↶ 復原</button>
+        <button class="ui" id="bClear">🗑 全部清除</button>
+      </div>
+      <canvas id="tl" height="200"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>🎚 分軌混音 <small style="color:var(--dim);font-weight:400">每一軌會存成獨立的 WAV</small></h2>
+      <div class="row">
+        <span class="help">鍵盤音色</span>
+        <select id="sPreset"></select>
+        <span class="help">BPM</span><input type="text" id="tBpm" size="4" value="100">
+        <select id="sDemo"><option value="">🎵 範例…</option><option value="funkpop">Funk-Pop 甜蜜律動（Sugar 曲風，120 BPM）</option></select>
+      </div>
+      <div id="mix"></div>
+    </div>
+
+    <div class="card">
+      <h2>☁ 分軌存檔 → Google Drive</h2>
+      <div class="row"><span class="help">專案名稱</span><input type="text" id="tName" style="flex:1"></div>
+      <div class="row">
+        <select id="sRate"><option value="48000" selected>48 kHz（影片標準）</option><option value="44100">44.1 kHz</option></select>
+        <select id="sBits"><option value="24" selected>24-bit WAV</option><option value="16">16-bit WAV</option></select>
+        <label class="ck"><input type="checkbox" id="cMix" checked> 附混音 Mix</label>
+        <label class="ck"><input type="checkbox" id="cMidi" checked> 附 MIDI 檔</label>
+        <label class="ck" title="混音檔加壓縮+限幅並標準化到 Spotify -14 LUFS；分軌不受影響"><input type="checkbox" id="cMaster" checked> 混音做母帶（Spotify -14 LUFS）</label>
+        <label class="ck"><input type="checkbox" id="cHook" checked> 附 15 秒精華，從第</label><input type="text" id="tHook" size="2" value="2"><span class="help">小節</span>
+      </div>
+      <div class="row">
+        <button class="ui big pri" id="bDrive">☁ 上傳 Google Drive</button>
+        <button class="ui big" id="bLocal">💾 存到本機資料夾</button>
+        <button class="ui big" id="bPick">📁 選擇磁碟資料夾存檔</button>
+        <button class="ui" id="bZip">📦 下載 ZIP</button>
+        <button class="ui" id="bOpen">📂 開啟專案(.json)</button>
+        <input type="file" id="fOpen" accept=".json" hidden>
+      </div>
+      <div class="row" id="dirRow" hidden><span class="help">本機存檔位置</span><input type="text" id="tDir" style="flex:1" placeholder="例如 D:\音樂\SMK25（空白＝程式資料夾 recordings）"><button class="ui" id="bDir">儲存</button></div>
+      <div class="row" id="cidRow" hidden><span class="help">Google Client ID</span><input type="text" id="tCid" style="flex:1" placeholder="xxxx.apps.googleusercontent.com"><button class="ui" id="bCid">儲存</button></div>
+      <div class="row"><div class="bar"><i id="prog"></i></div><span id="progT" class="help"></span></div>
+      <div id="log"></div>
+    </div>
+
+    <div class="card full help">
+      <b>操作方式</b>：打擊墊用滑鼠點（點中央最大力）或數字鍵 <kbd>1</kbd>–<kbd>8</kbd>；琴鍵用滑鼠或
+      <kbd>A</kbd><kbd>W</kbd><kbd>S</kbd><kbd>E</kbd><kbd>D</kbd><kbd>F</kbd><kbd>T</kbd><kbd>G</kbd><kbd>Y</kbd><kbd>H</kbd><kbd>U</kbd><kbd>J</kbd><kbd>K</kbd>…；
+      <kbd>Z</kbd>/<kbd>X</kbd> 降/升八度；<kbd>R</kbd> 錄音、<kbd>空白鍵</kbd> 播放/停止。旋鈕上下拖曳或滾輪調整，雙擊回預設；
+      <b>KNOB-B</b> 把旋鈕切到機身印的琶音參數（MODE/OCT/LATCH/GATE/SWING/TEMPO/RATE/TRANSPOSE）；<b>PAD-B</b> 換第二組 8 種打擊樂器；
+      <b>SC/CH</b> 換鍵盤音色；<b>BT</b> 連接真的 SMK25-II（USB 或藍牙配對後，經 Web MIDI）。旋鈕按住 <kbd>Alt</kbd> 點一下可以「MIDI 學習」，再轉實體旋鈕就能綁定。<br>
+      <b>LumaFusion</b>：每一軌 WAV 都從 0 秒開始、長度一樣，把整個資料夾匯入後全部對齊在同一個時間點，就能逐軌調音量、靜音或加效果。
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+window.__errs=[]; window.addEventListener('error',e=>window.__errs.push(e.message)); window.addEventListener('unhandledrejection',e=>window.__errs.push(String(e.reason)));
+// ====== Log 開關 ======
+const SHOW_LOG = true;
+function plog(...a){ if(SHOW_LOG) console.log('[SMK25]', ...a); }
+
+// ====== 打擊樂器定義（兩組各 8 種，每種就是一個分軌） ======
+const DRUMS = [
+  // 第 A 組（機身亮青/粉色那一組）
+  {id:'kick',  name:'大鼓 Kick',      file:'Kick',       gm:36, col:'#7fe8dc'},
+  {id:'snare', name:'小鼓 Snare',     file:'Snare',      gm:38, col:'#7fe8dc'},
+  {id:'clap',  name:'拍手 Clap',      file:'Clap',       gm:39, col:'#7fe8dc'},
+  {id:'chh',   name:'閉鈸 Hi-Hat',    file:'HiHat_Closed',gm:42, col:'#7fe8dc'},
+  {id:'ohh',   name:'開鈸 Open HH',   file:'HiHat_Open', gm:46, col:'#f7b8cc'},
+  {id:'ltom',  name:'低音通鼓 Tom L', file:'Tom_Low',    gm:45, col:'#f7b8cc'},
+  {id:'htom',  name:'高音通鼓 Tom H', file:'Tom_High',   gm:50, col:'#f7b8cc'},
+  {id:'crash', name:'碎音鈸 Crash',   file:'Crash',      gm:49, col:'#f7b8cc'},
+  // 第 B 組（PAD-B）
+  {id:'rim',   name:'鼓邊 Rim',       file:'Rimshot',    gm:37, col:'#ffd27a'},
+  {id:'cow',   name:'牛鈴 Cowbell',   file:'Cowbell',    gm:56, col:'#ffd27a'},
+  {id:'shk',   name:'沙鈴 Shaker',    file:'Shaker',     gm:70, col:'#ffd27a'},
+  {id:'ride',  name:'疊音鈸 Ride',    file:'Ride',       gm:51, col:'#ffd27a'},
+  {id:'tamb',  name:'鈴鼓 Tambourine',file:'Tambourine', gm:54, col:'#c7b3ff'},
+  {id:'congH', name:'康加 高 Conga',  file:'Conga_High', gm:62, col:'#c7b3ff'},
+  {id:'congL', name:'康加 低 Conga',  file:'Conga_Low',  gm:64, col:'#c7b3ff'},
+  {id:'clave', name:'響棒 Clave',     file:'Clave',      gm:75, col:'#c7b3ff'},
+];
+const DRUM = Object.fromEntries(DRUMS.map(d=>[d.id,d]));
+const TRACKS = [...DRUMS.map(d=>d.id), 'keys'];
+const TRACK_INFO = Object.assign({}, DRUM, { keys:{id:'keys', name:'鍵盤 Keys', file:'Keys', col:'#8fc3ff'} });
+
+// ====== 可重現的雜訊（即時演奏與離線分軌輸出完全同一個聲音） ======
+function seeded(seed){ let s=seed>>>0; return ()=>{ s=(Math.imul(s,1103515245)+12345)>>>0; return (s>>>8)/8388608-1; }; }
+const _noise = new WeakMap(), _imp = new WeakMap();
+function noiseBuf(ctx){ let b=_noise.get(ctx); if(!b){ const n=ctx.sampleRate*2; b=ctx.createBuffer(1,n,ctx.sampleRate);
+  const d=b.getChannelData(0), r=seeded(12345); for(let i=0;i<n;i++) d[i]=r(); _noise.set(ctx,b);} return b; }
+function impulseBuf(ctx){ let b=_imp.get(ctx); if(!b){ const sec=2.2, n=Math.floor(ctx.sampleRate*sec); b=ctx.createBuffer(2,n,ctx.sampleRate);
+  for(let c=0;c<2;c++){ const d=b.getChannelData(c), r=seeded(777+c); for(let i=0;i<n;i++) d[i]=r()*Math.pow(1-i/n,3.2)*0.5; } _imp.set(ctx,b);} return b; }
+
+function env(g,t,peak,a,dec){ g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(Math.max(peak,0.0002),t+a); g.gain.exponentialRampToValueAtTime(0.0001,t+a+dec); }
+// 雜訊打擊：noise → filter → env → out
+function nz(ctx,out,t,dur,ft,f,q,peak,a,dec,off){
+  const s=ctx.createBufferSource(); s.buffer=noiseBuf(ctx); s.loop=true;
+  const fl=ctx.createBiquadFilter(); fl.type=ft; fl.frequency.value=f; fl.Q.value=q;
+  const g=ctx.createGain(); env(g,t,peak,a,dec);
+  s.connect(fl).connect(g).connect(out); s.start(t, off||0); s.stop(t+dur);
+}
+// 音高打擊：osc(滑音 f0→f1) → env → out
+function tone(ctx,out,t,type,f0,f1,glide,peak,a,dec){
+  const o=ctx.createOscillator(); o.type=type; o.frequency.setValueAtTime(f0,t);
+  if(f1&&f1!==f0) o.frequency.exponentialRampToValueAtTime(f1,t+glide);
+  const g=ctx.createGain(); env(g,t,peak,a,dec); o.connect(g).connect(out); o.start(t); o.stop(t+a+dec+0.05);
+}
+const DRUM_FN = {
+  kick (c,o,t,v){ tone(c,o,t,'sine',165,46,0.13,v*1.0,0.002,0.48); nz(c,o,t,0.02,'highpass',3000,0.7,v*0.25,0.001,0.012,0.1); },
+  snare(c,o,t,v){ tone(c,o,t,'triangle',190,160,0.05,v*0.55,0.001,0.11); nz(c,o,t,0.3,'highpass',1300,0.8,v*0.75,0.001,0.2,0.3); },
+  clap (c,o,t,v){ for(let k=0;k<3;k++) nz(c,o,t+k*0.011,0.03,'bandpass',1400,1.2,v*0.8,0.001,0.012,0.5+k*0.07); nz(c,o,t+0.033,0.3,'bandpass',1300,1.0,v*0.75,0.001,0.2,0.9); },
+  chh  (c,o,t,v){ nz(c,o,t,0.1,'highpass',7500,0.9,v*0.5,0.001,0.055,1.1); },
+  ohh  (c,o,t,v){ nz(c,o,t,0.6,'highpass',7000,0.8,v*0.45,0.002,0.42,1.3); },
+  ltom (c,o,t,v){ tone(c,o,t,'sine',130,82,0.25,v*0.9,0.002,0.42); nz(c,o,t,0.03,'lowpass',2000,0.7,v*0.15,0.001,0.02,1.5); },
+  htom (c,o,t,v){ tone(c,o,t,'sine',215,150,0.2,v*0.85,0.002,0.32); nz(c,o,t,0.03,'lowpass',2500,0.7,v*0.15,0.001,0.02,1.6); },
+  crash(c,o,t,v){ nz(c,o,t,1.9,'highpass',4500,0.6,v*0.5,0.003,1.7,0.2); nz(c,o,t,0.4,'bandpass',8000,2,v*0.25,0.001,0.3,0.6); },
+  rim  (c,o,t,v){ tone(c,o,t,'square',1750,1750,0,v*0.25,0.001,0.025); tone(c,o,t,'triangle',420,420,0,v*0.5,0.001,0.04); },
+  cow  (c,o,t,v){ const bp=c.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=900; bp.Q.value=2; bp.connect(o);
+                  tone(c,bp,t,'square',540,540,0,v*0.5,0.001,0.3); tone(c,bp,t,'square',810,810,0,v*0.45,0.001,0.3); },
+  shk  (c,o,t,v){ nz(c,o,t,0.2,'bandpass',6500,1.5,v*0.6,0.025,0.09,0.7); },
+  ride (c,o,t,v){ nz(c,o,t,1.4,'highpass',8000,0.8,v*0.3,0.002,1.2,1.7); tone(c,o,t,'triangle',2980,2980,0,v*0.07,0.001,0.9); tone(c,o,t,'triangle',4210,4210,0,v*0.05,0.001,0.7); },
+  tamb (c,o,t,v){ for(let k=0;k<4;k++) nz(c,o,t+k*0.018,0.2,'highpass',9000,1.2,v*0.45*(1-k*0.18),0.001,0.07+k*0.03,0.2+k*0.11); },
+  congH(c,o,t,v){ tone(c,o,t,'sine',360,330,0.04,v*0.85,0.001,0.17); },
+  congL(c,o,t,v){ tone(c,o,t,'sine',240,215,0.05,v*0.85,0.001,0.24); },
+  clave(c,o,t,v){ tone(c,o,t,'sine',2500,2500,0,v*0.6,0.001,0.06); },
+};
+
+// ====== 鍵盤音色（SC/CH 切換，螢幕顯示 Pr1~Pr8） ======
+// osc: [波形, 微調cents, 音量, 八度]   f: [濾波器, 截止Hz, Q]   e: [A, D, S, R]
+const PRESETS = [
+  {name:'電鋼琴 E.Piano', osc:[['sine',0,1,0],['sine',3,0.35,1],['triangle',0,0.12,2]], f:['lowpass',3200,0.7], e:[0.004,1.3,0.22,0.45]},
+  {name:'管風琴 Organ',   osc:[['sine',0,0.6,0],['sine',0,0.45,1],['sine',0,0.3,2],['sine',0,0.15,-1]], f:['lowpass',6000,0.5], e:[0.006,0.1,1,0.08]},
+  {name:'合成貝斯 Bass',  osc:[['sawtooth',0,0.7,-1],['square',-6,0.4,-1]], f:['lowpass',900,4], e:[0.003,0.35,0.5,0.12]},
+  {name:'鋸齒主音 Lead',  osc:[['sawtooth',-7,0.5,0],['sawtooth',7,0.5,0]], f:['lowpass',2600,3], e:[0.006,0.25,0.75,0.2]},
+  {name:'溫暖鋪底 Pad',   osc:[['sawtooth',-10,0.35,0],['sawtooth',10,0.35,0],['triangle',0,0.4,-1]], f:['lowpass',1500,1], e:[0.45,0.8,0.8,1.1]},
+  {name:'撥弦 Pluck',     osc:[['triangle',0,0.8,0],['square',0,0.2,1]], f:['lowpass',2400,2], e:[0.002,0.32,0.0,0.25]},
+  {name:'鐘聲 Bell',      osc:[['sine',0,0.7,0],['sine',0,0.3,2],['sine',14,0.22,3]], f:['lowpass',9000,0.5], e:[0.002,1.8,0.0,1.4]},
+  {name:'弦樂 Strings',   osc:[['sawtooth',-5,0.4,0],['sawtooth',5,0.4,0],['sawtooth',0,0.2,1]], f:['lowpass',2200,0.8], e:[0.3,0.6,0.85,0.8]},
+];
+
+// 單一鍵盤聲部。dur=null 代表即時演奏（回傳 stop），否則依 dur 自動放開。
+// ctl：[{t(絕對時間), type:'bend'|'mod', v}] 只在離線/回放時使用
+function voice(ctx,out,t,note,vel,dur,p,ctl){
+  const pr = PRESETS[p.pr|0] || PRESETS[0];
+  const f0 = 440*Math.pow(2,(note-69)/12);
+  const A = pr.e[0] + p.att*1.2, D=pr.e[1], S=pr.e[2], R = pr.e[3] + p.rel*2.5;
+  const peak = 0.32*(0.25+0.75*vel);
+  const ag = ctx.createGain(); ag.gain.setValueAtTime(0.0001,t); ag.gain.linearRampToValueAtTime(peak,t+A);
+  ag.gain.setTargetAtTime(Math.max(peak*S,0.0001), t+A, Math.max(D/3,0.005));
+  const rg = ctx.createGain(); rg.gain.value=1;
+  const fl = ctx.createBiquadFilter(); fl.type=pr.f[0];
+  fl.frequency.value = Math.min(18000, pr.f[1]*Math.pow(2,(p.cut-0.5)*4)*(0.7+0.5*vel)); fl.Q.value = pr.f[2] + p.res*14;
+  fl.connect(ag).connect(rg).connect(out);
+  const oscs=[];
+  let bend0=0, mod0=0;
+  if(ctl) for(const c of ctl){ if(c.t<=t){ if(c.type==='bend') bend0=c.v; else mod0=c.v; } }
+  else { bend0=live.bend; mod0=live.mod; }
+  // 顫音 LFO 只在需要時建立（即時演奏、或這個音有用到 MOD）——省下大量節點，長曲目渲染/播放快很多
+  const endEst = t + (dur||0) + R*1.6 + 0.1;
+  const needLfo = !ctl || mod0>0 || ctl.some(c=>c.type==='mod' && c.t>t && c.t<endEst);
+  let lfo=null, lg=null;
+  if(needLfo){ lfo=ctx.createOscillator(); lfo.frequency.value=5.6; lg=ctx.createGain(); lg.gain.value=0; lfo.connect(lg); }
+  for(const [type,det,gain,oct] of pr.osc){
+    const o=ctx.createOscillator(); o.type=type; o.frequency.value=f0*Math.pow(2,oct);
+    o.detune.setValueAtTime(det+bend0*200, t); if(lg) lg.connect(o.detune);
+    const g=ctx.createGain(); g.gain.value=gain/pr.osc.length*1.6; o.connect(g).connect(fl);
+    o.start(t); oscs.push({o,det});
+  }
+  if(lfo){ lg.gain.setValueAtTime(mod0*35, t); lfo.start(t); }
+  const stop = (tOff)=>{
+    rg.gain.setValueAtTime(1,tOff); rg.gain.setTargetAtTime(0,tOff,Math.max(R/4,0.01));
+    const end=tOff+R*1.6+0.08; oscs.forEach(x=>x.o.stop(end)); if(lfo) lfo.stop(end);
+    return end;
+  };
+  if(dur!=null){
+    const end = stop(t+Math.max(dur,0.01));
+    if(ctl) for(const c of ctl){ if(c.t>t && c.t<end){
+      if(c.type==='bend') oscs.forEach(x=>x.o.detune.setValueAtTime(x.det+c.v*200,c.t)); else if(lg) lg.gain.setValueAtTime(c.v*35,c.t); } }
+    return null;
+  }
+  return { stop, setBend(v,tt){ oscs.forEach(x=>x.o.detune.setValueAtTime(x.det+v*200,tt)); }, setMod(v,tt){ if(lg) lg.gain.setValueAtTime(v*35,tt); } };
+}
+
+// ====== 混音匯流排：每軌 vol + 殘響 send ======
+// mastering=true：混音檔專用母帶鏈（黏合壓縮 → 推響度 → 限幅），分軌不經過它保持乾淨
+function makeMaster(ctx, dest, masterVol, mastering){
+  const m=ctx.createGain(); m.gain.value=masterVol;
+  if(mastering){
+    const glue=ctx.createDynamicsCompressor(); glue.threshold.value=-18; glue.ratio.value=2.5; glue.knee.value=6; glue.attack.value=0.02; glue.release.value=0.25;
+    const mk=ctx.createGain(); mk.gain.value=Math.pow(10,4/20);
+    const lim=ctx.createDynamicsCompressor(); lim.threshold.value=-4; lim.ratio.value=20; lim.knee.value=0; lim.attack.value=0.002; lim.release.value=0.08;
+    const mud=ctx.createBiquadFilter(); mud.type='peaking'; mud.frequency.value=350; mud.Q.value=0.9; mud.gain.value=-2.5;
+    const air=ctx.createBiquadFilter(); air.type='highshelf'; air.frequency.value=7000; air.gain.value=2.5;
+    const pres=ctx.createBiquadFilter(); pres.type='peaking'; pres.frequency.value=2500; pres.Q.value=0.8; pres.gain.value=2.5;
+    m.connect(mud).connect(pres).connect(air).connect(glue).connect(mk).connect(lim).connect(dest);
+  } else m.connect(dest);
+  const conv=ctx.createConvolver(); conv.buffer=impulseBuf(ctx); conv.connect(m);
+  return { m, rev:conv };
+}
+function makeBus(ctx, M, st){
+  const g=ctx.createGain(); g.gain.value=st.vol;
+  if(st.pan && ctx.createStereoPanner){ const p=ctx.createStereoPanner(); p.pan.value=st.pan; g.connect(p).connect(M.m); } else g.connect(M.m);
+  const s=ctx.createGain(); s.gain.value=st.rev; g.connect(s).connect(M.rev);
+  return { g, s };
+}
+// 聲像：打擊樂左右分開，大鼓/小鼓/鍵盤置中（立體聲比較寬、比較「專業」）
+const PAN = { chh:0.25, ohh:-0.2, shk:0.45, tamb:-0.4, congH:0.35, congL:-0.3, ltom:-0.25, htom:0.25, ride:0.3, cow:-0.2, rim:0.15, clave:-0.35, crash:0.1, clap:0.05 };
+// 響度 LUFS（ITU-R BS.1770-4：K 加權 + 400ms 區塊 + 絕對/相對閘門）——Spotify 標準化到 -14 LUFS
+function lufs(buf){
+  const sr=buf.sampleRate, chs=[...Array(buf.numberOfChannels)].map((_,c)=>buf.getChannelData(c));
+  const biq=(b0,b1,b2,a1,a2,x)=>{ const y=new Float32Array(x.length); let x1=0,x2=0,y1=0,y2=0; for(let i=0;i<x.length;i++){ const v=b0*x[i]+b1*x1+b2*x2-a1*y1-a2*y2; x2=x1; x1=x[i]; y2=y1; y1=v; y[i]=v; } return y; };
+  // 依取樣率算 K 加權係數（pyloudnorm 公式）
+  let K=Math.tan(Math.PI*1681.974450955533/sr), Vh=Math.pow(10,3.999843853973347/20), Vb=Math.pow(Vh,0.4996667741545416), Q=0.7071752369554196;
+  let a0=1+K/Q+K*K; const s1=[(Vh+Vb*K/Q+K*K)/a0, 2*(K*K-Vh)/a0, (Vh-Vb*K/Q+K*K)/a0, 2*(K*K-1)/a0, (1-K/Q+K*K)/a0];
+  K=Math.tan(Math.PI*38.13547087602444/sr); Q=0.5003270373238773; a0=1+K/Q+K*K;
+  const s2=[1/a0, -2/a0, 1/a0, 2*(K*K-1)/a0, (1-K/Q+K*K)/a0];
+  const kw=chs.map(x=>biq(...s2, biq(...s1, x)));
+  const B=Math.round(sr*0.4), H=Math.round(sr*0.1), z=[];
+  for(let s=0; s+B<=kw[0].length; s+=H){ let e=0; for(const y of kw){ let a=0; for(let i=s;i<s+B;i++) a+=y[i]*y[i]; e+=a/B; } z.push(e); }
+  const L=e=>-0.691+10*Math.log10(e||1e-12);
+  const g1=z.filter(e=>L(e)>-70); if(!g1.length) return -70;
+  const rel=L(g1.reduce((a,b)=>a+b,0)/g1.length)-10, g2=g1.filter(e=>L(e)>rel);
+  return L(g2.reduce((a,b)=>a+b,0)/g2.length);
+}
+
+// ====== 狀態 ======
+const knobDefsA = [
+  {id:'cut', l:'CUTOFF', d:0.6}, {id:'res', l:'RESO', d:0.1}, {id:'att', l:'ATTACK', d:0}, {id:'rel', l:'RELEASE', d:0.2},
+  {id:'krev',l:'KEY REV',d:0.3}, {id:'drev',l:'DRUM REV',d:0.12},{id:'kvol',l:'KEYS VOL',d:0.8},{id:'mvol',l:'MASTER',d:0.8}];
+const knobDefsB = [ // 機身印的琶音器參數
+  {id:'amode',l:'MODE',d:0}, {id:'aoct',l:'OCT',d:0}, {id:'alatch',l:'LATCH',d:0}, {id:'agate',l:'GATE',d:0.6},
+  {id:'aswing',l:'SWING',d:0}, {id:'tempo',l:'TEMPO',d:(100-60)/140}, {id:'arate',l:'RATE',d:0.6}, {id:'trans',l:'TRANSPOSE',d:0.5}];
+const ARP_MODES=['UP','dn','UD','rnd','ord'], RATES=[[1,'1/4'],[0.5,'1/8'],[1/3,'8T'],[0.25,'16'],[1/6,'16T'],[0.125,'32']];
+const K = {}; [...knobDefsA,...knobDefsB].forEach(k=>K[k.id]=k.d);
+const st = {
+  bankK:0, bankP:0, oct:0, preset:0,
+  trk: Object.fromEntries(TRACKS.map(id=>[id,{vol: id==='keys'?0.8:0.9, rev: id==='keys'?0.3:0.12, pan: PAN[id]||0, mute:false, solo:false}])),
+  arp:false,
+};
+const live = { bend:0, mod:0 };
+let session = { bpm:100, length:0, events:[], ctl:[] };
+const undoStack = [];
+// 人聲：每個 take = {id, name, t(在專案中的起點秒), buf(AudioBuffer), vol, rev, mute, use(是否輸出), peaks}
+let vocals = [], vocSeq = 0, curTab = 'kb';
+const vrec = { on:false, start:0, stopAt:0, chunks:[] };
+const mic = { stream:null, src:null, node:null, an:null, mon:null, wk:false };
+// DJ 盤：兩台 deck + 混音器 + 錄音
+const mkDeck = s=>({s, buf:null, src:null, playing:false, pos:0, t0:0, rate:1, nudge:0, cur:1, cue:0, hot:[null,null,null,null], peaks:null, name:''});
+const DJ = { out:null, an:null, smp:null, d:{A:mkDeck('A'), B:mkDeck('B')}, recOn:false, recStart:0, chunks:[], untap:null };
+let djPendingTake = null;
+// Beatbox Loop 站：每一層都是一整圈（小節數 × 拍）的麥克風錄音，無限循環疊加
+const LP = { layers:[], run:false, t0:0, len:0, spb:0.6, bars:2, rec:false, recStart:0, recEnd:0, chunks:[], srcs:[], out:null, metroNext:0, metroBeat:0, seq:0 };
+
+const bpm = ()=> Math.round(60 + K.tempo*140);
+const transpose = ()=> Math.round(K.trans*24-12);
+const keyParams = ()=>({ pr:st.preset, cut:K.cut, res:K.res, att:K.att, rel:K.rel });
+
+// ====== AudioContext 與即時匯流排 ======
+let ctx=null, M=null, bus={};
+function ensureCtx(){
+  if(ctx){ if(ctx.state!=='running') ctx.resume(); return ctx; }
+  try{ if(navigator.audioSession) navigator.audioSession.type='playback'; }catch{} // iOS 17+：不受靜音開關影響
+  ctx = new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});
+  M = makeMaster(ctx, ctx.destination, K.mvol);
+  M.an = ctx.createAnalyser(); M.an.fftSize=1024; M.m.connect(M.an); // 錄音台螢幕的輸出音量表
+  for(const id of TRACKS) bus[id]=makeBus(ctx, M, st.trk[id]);
+  applyMixer();
+  plog('步驟1 音訊引擎啟動，取樣率', ctx.sampleRate);
+  return ctx;
+}
+function anySolo(){ return TRACKS.some(id=>st.trk[id].solo); }
+function audible(id){ const s=st.trk[id]; return !s.mute && (!anySolo() || s.solo); }
+function applyMixer(){
+  if(!ctx) return;
+  M.m.gain.setTargetAtTime(K.mvol, ctx.currentTime, 0.02);
+  for(const id of TRACKS){ const s=st.trk[id]; bus[id].g.gain.setTargetAtTime(audible(id)?s.vol:0, ctx.currentTime, 0.01); bus[id].s.gain.setTargetAtTime(s.rev, ctx.currentTime, 0.02); }
+}
+
+// ====== 錄音 / 播放 ======
+const rec = { on:false, start:0, take:[], ctl:[], pend:new Map(), armT:0 };
+const play = { on:false, t0:0, nodes:[], end:0, scaled:[] };
+const metro = { next:0, beat:0 };
+const tNow = ()=> ctx ? ctx.currentTime : 0;
+const recT = ()=> Math.max(0, tNow()-rec.start);
+
+function pushUndo(){ undoStack.push(JSON.stringify(session)); if(undoStack.length>50) undoStack.shift(); }
+
+// 播放用前瞻排程：每 25ms 只排未來 0.6 秒內的音（長曲目在 iPad 上也不會卡）
+function scheduleSession(t0, out){ // out(trackId)→AudioNode
+  play.q = { evs: session.events.slice().sort((a,b)=>a.t-b.t), ix:0, t0, out, ctl: session.ctl.map(c=>({t:t0+c.t, type:c.type, v:c.v})) };
+  pumpPlay();
+}
+function pumpPlay(){
+  const q=play.q; if(!q || !ctx) return;
+  const until=ctx.currentTime+0.6;
+  while(q.ix<q.evs.length && q.t0+q.evs[q.ix].t < until){ const e=q.evs[q.ix++], t=Math.max(ctx.currentTime, q.t0+e.t);
+    if(e.tr==='keys') voice(ctx, q.out('keys'), t, e.note, e.vel/127, e.dur, e.p, q.ctl);
+    else DRUM_FN[e.tr](ctx, q.out(e.tr), t, e.vel/127); }
+}
+function startPlayback(t0, extraTake){
+  stopPlayback();
+  const pb = {};
+  play.scaled=[];
+  for(const id of TRACKS){ pb[id]=ctx.createGain(); pb[id].gain.value=backVol(); pb[id].connect(bus[id].g); play.scaled.push({n:pb[id],base:1}); }
+  play.nodes = Object.values(pb);
+  scheduleSession(t0, id=>pb[id]);
+  if(extraTake) play.end=Math.max(play.end, t0+extraTake.t+extraTake.buf.duration);
+  for(const v of (extraTake?[...vocals,extraTake]:vocals)){ // 人聲 take 一起播（試聽時含待確認那段）
+    const base=v.mute?0:v.vol, b=makeBus(ctx, M, {vol: base*backVol(), rev:v.rev}); playVocal(ctx, v, b.g, t0+v.t); play.nodes.push(b.g); play.scaled.push({n:b.g,base});
+  }
+  play.on=true; play.t0=t0; play.end=t0+session.length;
+  plog('播放排程完成，事件數', session.events.length, '長度', session.length.toFixed(2)+'s');
+}
+function stopPlayback(){
+  play.nodes.forEach(n=>{ try{ n.gain.setValueAtTime(0,ctx.currentTime); n.disconnect(); }catch{} });
+  play.nodes=[]; play.on=false; play.q=null;
+}
+function lockTempo(){ // 已有內容就沿用專案速度，避免疊錄時節拍對不上
+  if(session.events.length||vocals.length){ K.tempo=(session.bpm-60)/140; $('tBpm').value=bpm(); drawKnobs(); }
+  else session.bpm=bpm();
+}
+function startRec(){
+  ensureCtx();
+  if(rec.on) return;
+  stopAll();
+  lockTempo();
+  const spb = 60/bpm(), ci = $('cCount').checked ? 4*spb : 0;
+  const t0 = ctx.currentTime + 0.12 + ci;
+  rec.on=true; rec.start=t0; rec.take=[]; rec.ctl=[]; rec.pend.clear();
+  metro.next = t0 - ci; metro.beat = ci? -4 : 0;
+  if($('cOver').checked && (session.events.length||vocals.length)) startPlayback(t0);
+  setBtn('REC', true); setBtn('PLAY', false);
+  plog('步驟2 開始錄音，BPM', bpm(), '預備拍', ci?'有':'無', '疊錄', $('cOver').checked);
+  log(`⏺ 開始錄音（BPM ${bpm()}${ci?'，預備拍 4 下':''}）`);
+}
+function finishRec(){
+  const end = recT();
+  for(const [k,pd] of rec.pend){ if(pd.voice) pd.voice.stop(ctx.currentTime); rec.take.push({tr:'keys', t:pd.t, note:pd.note, vel:pd.vel, dur:Math.max(0.02,end-pd.t), p:pd.p}); }
+  rec.pend.clear();
+  for(const a of activeNotes.values()) if(a.recKey) a.recKey=null;
+  rec.on=false;
+  if(rec.take.length || rec.ctl.length){
+    pushUndo();
+    session.events.push(...rec.take); session.ctl.push(...rec.ctl);
+    session.events.sort((a,b)=>a.t-b.t); session.ctl.sort((a,b)=>a.t-b.t);
+    session.length = Math.max(session.length, end, ...session.events.map(e=>e.t+(e.dur||0)));
+    log(`✔ 錄到 ${rec.take.length} 個音符/打擊，長度 ${session.length.toFixed(1)} 秒`,'o');
+  } else log('（這次沒錄到任何東西）');
+  plog('步驟3 錄音結束：新增', rec.take.length, '個事件；總事件', session.events.length, '總長', session.length.toFixed(2));
+  rec.take=[]; rec.ctl=[];
+  refreshMixer(); drawTL();
+}
+function stopAll(){
+  if(rec.on) finishRec();
+  if(vrec.on) finishVocal();
+  if(DJ.recOn) djStopRec();
+  stopPlayback();
+  setBtn('REC',false); setBtn('PLAY',false);
+  setDisp(prName());
+}
+function togglePlay(){
+  ensureCtx();
+  if(rec.on||play.on||vrec.on){ stopAll(); return; }
+  if(!session.events.length && !vocals.length){ setDisp('---',800); log('還沒有錄音，先按 ⏺ REC'); return; }
+  startPlayback(ctx.currentTime+0.06); setBtn('PLAY',true);
+}
+
+// ====== 演奏輸入 ======
+function velFrom(v){ return $('cVel').checked ? 100 : Math.max(1,Math.min(127,Math.round(v))); }
+function padHit(i, vel){
+  ensureCtx();
+  const d = DRUMS[st.bankP*8+i]; vel=velFrom(vel);
+  DRUM_FN[d.id](ctx, bus[d.id].g, ctx.currentTime, vel/127);
+  if(rec.on) rec.take.push({tr:d.id, t:recT(), vel});
+  const el = padEls[i]; el.classList.add('hit'); setTimeout(()=>el.classList.remove('hit'),110);
+  setDisp('P'+(i+1)+(st.bankP?'b':''),400);
+  plog('打擊墊', i+1, d.id, '力度', vel, rec.on?('錄到 t='+recT().toFixed(3)):'');
+}
+function drumByNote(n){ // MIDI 打擊（第 10 頻道）
+  const d = DRUMS.find(x=>x.gm===n); if(d){ const idx=DRUMS.indexOf(d); return {bank:idx>>3, i:idx&7}; }
+  if(n>=36&&n<=51){ const k=n-36; return {bank:k>>3, i:k&7}; }
+  return null;
+}
+
+const activeNotes = new Map(); // 鍵盤原始 note → {voice}
+const arp = { held:[], phys:0, next:0, step:0, timer:null };
+
+function keyDown(n, vel){
+  ensureCtx(); vel=velFrom(vel);
+  if(activeNotes.has(n)) keyUp(n);
+  markKey(n,true);
+  if(st.arp){
+    if(K.alatch>0.5 && arp.phys===0) arp.held=[];
+    arp.phys++;
+    if(!arp.held.find(h=>h.n===n)) arp.held.push({n,vel});
+    if(!arp.timer){ arp.next=ctx.currentTime+0.01; arp.step=0; arp.timer=setInterval(arpTick,20); arpTick(); }
+    activeNotes.set(n,{arp:true});
+    return;
+  }
+  const nn = n+transpose();
+  const v = voice(ctx, bus.keys.g, ctx.currentTime, nn, vel/127, null, keyParams(), null);
+  const a = {voice:v};
+  if(rec.on){ a.recKey = {t:recT(), note:nn, vel, p:keyParams(), voice:v}; rec.pend.set(n, a.recKey); }
+  activeNotes.set(n,a);
+  setDisp(noteName(nn),500);
+}
+function keyUp(n){
+  const a = activeNotes.get(n); if(!a) return;
+  activeNotes.delete(n); markKey(n,false);
+  if(a.arp){
+    arp.phys=Math.max(0,arp.phys-1);
+    if(K.alatch<=0.5) arp.held = arp.held.filter(h=>h.n!==n);
+    return;
+  }
+  a.voice.stop(ctx.currentTime);
+  if(a.recKey && rec.on && rec.pend.get(n)===a.recKey){
+    rec.pend.delete(n);
+    rec.take.push({tr:'keys', t:a.recKey.t, note:a.recKey.note, vel:a.recKey.vel, dur:Math.max(0.02, recT()-a.recKey.t), p:a.recKey.p});
+  }
+}
+function arpPattern(){
+  const oct = 1+Math.round(K.aoct*3), mode = Math.round(K.amode*4);
+  let base = mode===4 ? arp.held.slice() : arp.held.slice().sort((a,b)=>a.n-b.n);
+  let seq=[]; for(let o=0;o<oct;o++) base.forEach(h=>seq.push({n:h.n+12*o, vel:h.vel}));
+  if(mode===1) seq.reverse();
+  if(mode===2 && seq.length>2) seq = seq.concat(seq.slice(1,-1).reverse());
+  return {seq, mode};
+}
+function arpTick(){
+  if(!st.arp || (!arp.held.length)){ clearInterval(arp.timer); arp.timer=null; return; }
+  const rate = RATES[Math.round(K.arate*5)][0], stepLen = 60/bpm()*rate;
+  while(arp.next < ctx.currentTime+0.1){
+    const {seq,mode} = arpPattern(); if(!seq.length) break;
+    const h = mode===3 ? seq[Math.floor(Math.random()*seq.length)] : seq[arp.step%seq.length];
+    const swing = (arp.step%2===1) ? K.aswing*0.5*stepLen : 0;
+    const t = arp.next + swing, dur = Math.max(0.02, stepLen*(0.1+K.agate*0.9));
+    const nn = h.n+transpose(), p=keyParams();
+    voice(ctx, bus.keys.g, t, nn, h.vel/127, dur, p, []);
+    if(rec.on && t>=rec.start) rec.take.push({tr:'keys', t:t-rec.start, note:nn, vel:h.vel, dur, p});
+    arp.step++; arp.next += stepLen;
+  }
+}
+function setBend(v){ live.bend=v; ensureCtx(); const t=ctx.currentTime;
+  for(const a of activeNotes.values()) if(a.voice) a.voice.setBend(v,t);
+  if(rec.on) rec.ctl.push({t:recT(), type:'bend', v:+v.toFixed(3)}); }
+function setMod(v){ live.mod=v; ensureCtx(); const t=ctx.currentTime;
+  for(const a of activeNotes.values()) if(a.voice) a.voice.setMod(v,t);
+  if(rec.on) rec.ctl.push({t:recT(), type:'mod', v:+v.toFixed(3)}); }
+
+// ====== 建立裝置 UI ======
+const $ = id=>document.getElementById(id);
+const dev = $('dev');
+function el(tag, cls, css, html){ const e=document.createElement(tag); if(cls) e.className=cls; if(css) Object.assign(e.style,css); if(html!=null) e.innerHTML=html; dev.appendChild(e); return e; }
+const px = v=>v+'px';
+
+// 左側 PITCH / MOD 觸控條
+el('div','lbl',{left:px(40),top:px(30),width:px(62)},'PITCH');
+el('div','lbl',{left:px(118),top:px(30),width:px(62)},'MOD');
+const stripP = el('div','strip',{left:px(40)},'<div class="dot"></div>');
+const stripM = el('div','strip',{left:px(118)},'<div class="dot"></div>');
+function stripCtl(strip, onVal, spring){
+  const dot=strip.firstChild;
+  const show=v=>{ dot.style.top = px(6+(1-(spring?(v+1)/2:v))*130); };
+  show(spring?0:0);
+  strip.addEventListener('pointerdown',e=>{
+    try{ strip.setPointerCapture(e.pointerId); }catch{} strip.classList.add('on');
+    const mv=ev=>{ const r=strip.getBoundingClientRect(); let f=1-(ev.clientY-r.top)/r.height; f=Math.max(0,Math.min(1,f));
+      const v = spring ? f*2-1 : f; show(v); onVal(v); };
+    mv(e);
+    const up=()=>{ strip.removeEventListener('pointermove',mv); strip.removeEventListener('pointerup',up); strip.removeEventListener('pointercancel',up);
+      strip.classList.remove('on'); if(spring){ show(0); onVal(0); } };
+    strip.addEventListener('pointermove',mv); strip.addEventListener('pointerup',up); strip.addEventListener('pointercancel',up);
+  });
+  return show;
+}
+stripCtl(stripP, v=>{ setBend(v); setDisp('b'+(v>=0?'+':'')+Math.round(v*2*10)/10,300); }, true);
+const showMod = stripCtl(stripM, v=>{ setMod(v); setDisp('m'+Math.round(v*99),300); }, false);
+
+// OCT 按鈕
+const btns={};
+// 八度鍵：低八度 / 中央 Do（回到 C4 在中間）/ 高八度
+btns['OCT-']=el('button','btn',{left:px(40),top:px(222),width:px(48),fontSize:'11px',lineHeight:'1.05'},'低八度<br><small>OCT-</small>');
+btns['C4']  =el('button','btn',{left:px(94),top:px(222),width:px(54),fontSize:'11px',lineHeight:'1.05'},'中央Do<br><small>C4</small>');
+btns['OCT+']=el('button','btn',{left:px(154),top:px(222),width:px(48),fontSize:'11px',lineHeight:'1.05'},'高八度<br><small>OCT+</small>');
+const octLbl = el('div','lbl',{left:px(36),top:px(266),width:px(170),fontSize:'10px'},'');
+
+// OLED
+const oled = el('div',null,{},'Pr1'); oled.id='oled';
+let dispTimer=null;
+function setDisp(txt, ms){ oled.textContent=String(txt).slice(0,4); clearTimeout(dispTimer); if(ms) dispTimer=setTimeout(()=>oled.textContent= rec.on||play.on ? oled.textContent : prName(), ms); }
+const prName = ()=> 'Pr'+(st.preset+1);
+
+// 功能按鈕：機身兩排
+const B1=['PLAY','STOP','REC','BT'], B2=['ARP','SC/CH','KNOB-B','PAD-B'];
+B1.forEach((n,i)=> btns[n]=el('button','btn',{left:px(345+i*72),top:px(48)},n));
+B2.forEach((n,i)=> btns[n]=el('button','btn',{left:px(345+i*72),top:px(92)},n));
+el('div','lbl',{left:px(489),top:px(132),width:px(134),fontSize:'9px'},'└──── VEL ────┘');
+function setBtn(n,on,cls){ const b=btns[n]; b.classList.toggle('lit',!!on); b.classList.remove('red','green'); if(on&&cls) b.classList.add(cls);
+  if(n==='REC'&&on) b.classList.add('red'); if(n==='PLAY'&&on) b.classList.add('green'); }
+
+// 旋鈕 2×4
+const knobEls=[], klblEls=[];
+for(let r=0;r<2;r++) for(let c=0;c<4;c++){
+  const idx=r*4+c, x=260+c*104, y=146+r*84;
+  const k = el('div','knob',{left:px(x),top:px(y)},'<i></i>'); knobEls.push(k);
+  klblEls.push(el('div','klbl',{left:px(x-17),top:px(y+64)},''));
+  k.addEventListener('pointerdown',e=>{
+    if(e.altKey){ midiLearn=idx; knobEls.forEach(q=>q.classList.remove('learn')); k.classList.add('learn'); log('MIDI 學習：請轉動實體旋鈕…'); return; }
+    try{ k.setPointerCapture(e.pointerId); }catch{} let y0=e.clientY; const id=curKnobs()[idx].id;
+    const mv=ev=>{ const dv=(y0-ev.clientY)/180; y0=ev.clientY; setKnob(idx, K[id]+dv); };
+    const up=()=>{ k.removeEventListener('pointermove',mv); k.removeEventListener('pointerup',up); };
+    k.addEventListener('pointermove',mv); k.addEventListener('pointerup',up);
+  });
+  k.addEventListener('wheel',e=>{ e.preventDefault(); const id=curKnobs()[idx].id; setKnob(idx, K[id]-Math.sign(e.deltaY)*0.03); },{passive:false});
+  k.addEventListener('dblclick',()=>{ const d=curKnobs()[idx]; setKnob(idx,d.d); });
+}
+const curKnobs = ()=> st.bankK ? knobDefsB : knobDefsA;
+function knobText(id){
+  const v=K[id];
+  switch(id){
+    case 'amode': return ARP_MODES[Math.round(v*4)];
+    case 'aoct': return 'o'+(1+Math.round(v*3));
+    case 'alatch': return v>0.5?'L on':'LoF';
+    case 'agate': return Math.round(10+v*90);
+    case 'aswing': return Math.round(50+v*25);
+    case 'tempo': return bpm();
+    case 'arate': return RATES[Math.round(v*5)][1];
+    case 'trans': { const t=transpose(); return (t>0?'+':'')+t; }
+    default: return Math.round(v*127);
+  }
+}
+function setKnob(idx, v){
+  const d=curKnobs()[idx]; K[d.id]=Math.max(0,Math.min(1,v));
+  onKnob(d.id); drawKnobs(); setDisp(knobText(d.id),700);
+}
+function onKnob(id){
+  if(id==='krev') st.trk.keys.rev=K.krev;
+  if(id==='drev') DRUMS.forEach(d=>st.trk[d.id].rev=K.drev);
+  if(id==='kvol') st.trk.keys.vol=K.kvol*1.25;
+  if(id==='tempo'){ $('tBpm').value=bpm(); }
+  if(id==='mvol' && $('rMaster')){ $('rMaster').value=Math.round(K.mvol*100); $('vMaster').textContent=Math.round(K.mvol*100)+'%'; }
+  if(['krev','drev','kvol','mvol'].includes(id)){ applyMixer(); refreshMixer(); }
+}
+function drawKnobs(){
+  curKnobs().forEach((d,i)=>{ knobEls[i].firstChild.style.transform=`rotate(${-135+K[d.id]*270}deg)`; klblEls[i].textContent=d.l; });
+}
+
+// 打擊墊 2×4
+const padEls=[];
+for(let r=0;r<2;r++) for(let c=0;c<4;c++){
+  const i=r*4+c, x=690+c*122, y=50+r*120;
+  const p = el('div','pad',{left:px(x),top:px(y)},`<div class="pn">Pad ${i+1}</div><div class="pt"></div>`); padEls.push(p);
+  p.addEventListener('pointerdown',e=>{ e.preventDefault(); const r=p.getBoundingClientRect();
+    const dx=(e.clientX-r.left)/r.width-0.5, dy=(e.clientY-r.top)/r.height-0.5; const dist=Math.min(1,Math.hypot(dx,dy)*2);
+    padHit(i, 127-dist*75); });
+}
+function drawPads(){ padEls.forEach((p,i)=>{ const d=DRUMS[st.bankP*8+i];
+  p.style.background=`radial-gradient(circle at 50% 45%, ${d.col}, ${d.col}cc 60%, ${d.col}99)`; p.style.boxShadow=`0 0 22px ${d.col}88, 0 3px 0 #cfcdc5`;
+  p.querySelector('.pt').textContent=d.name; }); }
+
+el('div',null,{},'SMK-25 II<small>SIMULATOR</small>').id='logo';
+
+// 琴鍵上方印刷字（機身的 SHIFT 功能字樣，僅裝飾）
+const FL = ['CH\n1','CH\nDOWN','D\nINC','CH\nEXCL','E\nRAND','F\nORDER','F#\nREPEAT','G\nOCT-','G#\nLATCH','A\nGATE-','A#\nGATE','B\nTAP','OFF\nSWING-','','TEMPO-','TEMPO+','','1/4','1/4T','1/8','1/8T','1/16','1/16T','MAJOR\n1/32','MINOR\n1/32T'];
+
+// 25 鍵（C~C）
+const KEYMAP = 'awsedftgyhujkolp;\''; // 電腦鍵盤 → 半音
+const keyEls = {};
+(function buildKeys(){
+  const kd = el('div',null,{}); kd.id='keys';
+  const W = (1180-60)/15; let wi=0;
+  for(let s=0;s<25;s++){
+    const pc=s%12, black=[1,3,6,8,10].includes(pc);
+    let e;
+    if(!black){ e=document.createElement('div'); e.className='wk'; e.style.left=px(wi*W+1); e.style.width=px(W-2); wi++; }
+    else { e=document.createElement('div'); e.className='bk'; e.style.left=px(wi*W-W*0.31); e.style.width=px(W*0.62); }
+    e.dataset.s=s;
+    const kk = KEYMAP[s]; if(kk) e.innerHTML=`<div class="kk">${kk.toUpperCase()}</div>`;
+    if(pc===0) e.innerHTML+=`<div class="cn"></div>`;
+    kd.appendChild(e); keyEls[s]=e;
+    const fl = FL[s]; if(fl){ const f=el('div','flbl',{left:px(30+(black? wi*W : (wi-0.5)*W))}, fl.replace('\n','<br>')); }
+  }
+})();
+const BASE = 48; // C3
+const sToNote = s=> BASE + st.oct*12 + s;
+function markKey(n,on){ const s=n-BASE-st.oct*12; if(keyEls[s]) keyEls[s].classList.toggle('on',on); }
+function labelOct(){
+  for(const s in keyEls){ const c=keyEls[s].querySelector('.cn'); if(c){ const n=sToNote(+s); c.innerHTML = n===60 ? '中央Do<br>C4' : noteName(n); c.style.color = n===60 ? '#ff6b9a' : ''; } }
+  if(typeof octLbl!=='undefined') octLbl.textContent = `琴鍵範圍 ${noteName(sToNote(0))} ~ ${noteName(sToNote(24))}`;
+}
+const NN=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const noteName = n=> NN[((n%12)+12)%12]+(Math.floor(n/12)-1);
+// 琴鍵指標事件（支援滑奏）
+const ptrNote = new Map();
+$('keys').addEventListener('pointerdown',e=>{
+  const k=e.target.closest('.wk,.bk'); if(!k) return; e.preventDefault();
+  const r=k.getBoundingClientRect(); const vel = 40+87*Math.min(1,(e.clientY-r.top)/r.height*1.3);
+  const n=sToNote(+k.dataset.s); ptrNote.set(e.pointerId,{n,vel}); keyDown(n,vel);
+});
+window.addEventListener('pointermove',e=>{
+  const cur=ptrNote.get(e.pointerId); if(!cur) return;
+  const k=document.elementFromPoint(e.clientX,e.clientY)?.closest?.('.wk,.bk'); if(!k) return;
+  const n=sToNote(+k.dataset.s); if(n!==cur.n){ keyUp(cur.n); cur.n=n; keyDown(n,cur.vel); }
+});
+const ptrEnd=e=>{ const cur=ptrNote.get(e.pointerId); if(cur){ keyUp(cur.n); ptrNote.delete(e.pointerId); } };
+window.addEventListener('pointerup',ptrEnd); window.addEventListener('pointercancel',ptrEnd);
+
+// ====== 按鈕行為 ======
+function shiftOct(d, abs){ for(const n of [...activeNotes.keys()]) keyUp(n);
+  st.oct = abs ? 0 : Math.max(-3,Math.min(3,st.oct+d));
+  setBtn('OCT-',st.oct<0); setBtn('OCT+',st.oct>0); setBtn('C4',st.oct===0,'green'); labelOct();
+  setDisp(st.oct===0?'C4':'o'+(st.oct>0?'+':'')+st.oct,700);
+  plog('八度', st.oct, '琴鍵範圍', noteName(sToNote(0)), '~', noteName(sToNote(24)));
+}
+btns['OCT-'].onclick=()=>shiftOct(-1);
+btns['OCT+'].onclick=()=>shiftOct(1);
+btns['C4'].onclick=()=>shiftOct(0,true);
+btns['PLAY'].onclick=()=>togglePlay();
+btns['STOP'].onclick=()=>stopAll();
+btns['REC'].onclick=()=>{ rec.on ? stopAll() : startRec(); };
+btns['ARP'].onclick=()=>{ for(const n of [...activeNotes.keys()]) keyUp(n); st.arp=!st.arp; arp.held=[]; arp.phys=0; setBtn('ARP',st.arp); setDisp(st.arp?'ArP':'oFF',700); };
+btns['SC/CH'].onclick=e=>{ st.preset=(st.preset+(e.shiftKey?7:1))%8; $('sPreset').value=st.preset; setDisp(prName()); log('鍵盤音色 → '+prName()+' '+PRESETS[st.preset].name); };
+btns['KNOB-B'].onclick=()=>{ st.bankK^=1; setBtn('KNOB-B',st.bankK); drawKnobs(); setDisp(st.bankK?'Kb':'KA',600); };
+btns['PAD-B'].onclick=()=>{ st.bankP^=1; setBtn('PAD-B',st.bankP); drawPads(); setDisp(st.bankP?'Pb':'PA',600); };
+btns['BT'].onclick=()=>connectMidi();
+
+$('bRec').onclick=()=>{ rec.on ? stopAll() : startRec(); };
+$('bPlay').onclick=()=>togglePlay();
+$('bStop').onclick=()=>stopAll();
+$('bUndo').onclick=()=>{ if(!undoStack.length) return log('沒有可以復原的動作'); stopAll(); session=JSON.parse(undoStack.pop()); refreshMixer(); drawTL(); log('↶ 已復原'); };
+$('bClear').onclick=()=>{ if(!session.events.length&&!vocals.length) return;
+  const withVoc = vocals.length && confirm('連人聲錄音也一起清除？\n（確定＝一起清；取消＝只清鼓和鍵盤。人聲刪掉無法復原）');
+  if(!withVoc && !session.events.length) return;
+  stopAll(); pushUndo(); session={bpm:bpm(),length:withVoc?0:Math.max(0,...vocals.map(v=>v.t+v.buf.duration)),events:[],ctl:[]};
+  if(withVoc){ vocals=[]; refreshVocals(); } refreshMixer(); drawTL(); log('🗑 已清除'+(withVoc?'（含人聲）':'（人聲保留）')); };
+$('bQuant').onclick=()=>{
+  if(!session.events.length) return; stopAll(); pushUndo();
+  const g = 60/session.bpm/4;
+  for(const e of session.events) e.t = Math.max(0, Math.round(e.t/g)*g);
+  session.events.sort((a,b)=>a.t-b.t); drawTL(); log('⊞ 已量化到 1/16 音符（BPM '+session.bpm+'）');
+};
+$('tBpm').onchange=()=>{ const v=Math.max(60,Math.min(200,+$('tBpm').value||100)); K.tempo=(v-60)/140; $('tBpm').value=bpm(); drawKnobs(); };
+PRESETS.forEach((p,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=`Pr${i+1} ${p.name}`; $('sPreset').appendChild(o); });
+$('sPreset').onchange=()=>{ st.preset=+$('sPreset').value; setDisp(prName()); };
+
+// 電腦鍵盤
+const downKeys=new Set();
+window.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
+  const k=e.key.toLowerCase();
+  if(e.repeat) { if(KEYMAP.includes(k)||/^[1-8]$/.test(k)||k===' ') e.preventDefault(); return; }
+  if(/^[1-8]$/.test(k)){ padHit(+k-1, 100); return; }
+  if(k===' '){ e.preventDefault(); togglePlay(); return; }
+  if(k==='r'){ if(curTab==='voc') toggleVocalRec(); else rec.on?stopAll():startRec(); return; }
+  if(k==='z'){ shiftOct(-1); return; } if(k==='x'){ shiftOct(1); return; } if(k==='c'){ shiftOct(0,true); return; }
+  const s=KEYMAP.indexOf(k); if(s>=0){ const n=sToNote(s); downKeys.add(k+'|'+n); keyDown(n,100); }
+});
+window.addEventListener('keyup',e=>{
+  const k=e.key.toLowerCase();
+  for(const dk of [...downKeys]){ const [kk,n]=dk.split('|'); if(kk===k){ keyUp(+n); downKeys.delete(dk); } }
+});
+
+// ====== Web MIDI（連接真的 SMK25-II） ======
+let midiLearn=-1; let ccMap={};
+try{ ccMap=JSON.parse(localStorage.getItem('smk25.ccmap')||'{}'); }catch{}
+async function connectMidi(){
+  if(!navigator.requestMIDIAccess){ log('這個瀏覽器不支援 Web MIDI，請用 Chrome/Edge','e'); return; }
+  try{
+    const acc = await navigator.requestMIDIAccess();
+    const hook=()=>{ let names=[]; acc.inputs.forEach(inp=>{ inp.onmidimessage=onMidi; names.push(inp.name); });
+      setBtn('BT', names.length>0); log(names.length? '🎹 MIDI 已連接：'+names.join('、') : '找不到 MIDI 裝置。USB 插上或藍牙配對 SMK25-II 後再按一次 BT', names.length?'o':'e');
+      plog('MIDI 輸入裝置', names); };
+    acc.onstatechange=hook; hook();
+  }catch(err){ log('MIDI 連線失敗：'+err.message,'e'); }
+}
+function onMidi(m){
+  const [s,d1,d2]=m.data, cmd=s&0xf0, ch=(s&0x0f)+1;
+  if(cmd===0x90 && d2>0){
+    if(ch===10){ const p=drumByNote(d1); if(p){ if(p.bank!==st.bankP){ st.bankP=p.bank; setBtn('PAD-B',st.bankP); drawPads(); } padHit(p.i,d2); } return; }
+    keyDown(d1,d2); return;
+  }
+  if(cmd===0x80 || (cmd===0x90&&d2===0)){ if(ch!==10) keyUp(d1); return; }
+  if(cmd===0xE0){ setBend(((d2<<7|d1)-8192)/8192); return; }
+  if(cmd===0xB0){
+    if(d1===1){ setMod(d2/127); showMod(d2/127); return; }
+    if(midiLearn>=0){ ccMap[d1]={bank:st.bankK, idx:midiLearn}; knobEls[midiLearn].classList.remove('learn'); log(`CC${d1} 綁定到旋鈕 ${midiLearn+1}`,'o'); midiLearn=-1;
+      try{ localStorage.setItem('smk25.ccmap',JSON.stringify(ccMap)); }catch{} }
+    const map = ccMap[d1] || (d1>=70&&d1<=77 ? {bank:st.bankK, idx:d1-70} : null);
+    if(map){ if(map.bank!==st.bankK){ st.bankK=map.bank; setBtn('KNOB-B',st.bankK); } setKnob(map.idx, d2/127); }
+  }
+}
+
+// ====== 分軌混音面板 ======
+function counts(){ const c={}; for(const e of session.events) c[e.tr]=(c[e.tr]||0)+1; return c; }
+function refreshMixer(){
+  const c=counts(), box=$('mix'); box.innerHTML='';
+  for(const id of TRACKS){
+    const info=TRACK_INFO[id], s=st.trk[id];
+    const d=document.createElement('div'); d.className='trk'+(c[id]?'':' empty'); d.style.borderLeftColor=info.col;
+    d.innerHTML=`<div class="nm">${info.name}<b>${c[id]||0}</b></div>
+      <input type="range" min="0" max="150" value="${Math.round(s.vol*100)}" title="音量">
+      <div class="bt"><button class="${s.mute?'on':''}">M</button><button class="s ${s.solo?'on':''}">S</button><button title="清掉這一軌">🗑</button></div>`;
+    const [rg]=d.getElementsByTagName('input'); const [bm,bs,bc]=d.getElementsByTagName('button');
+    rg.oninput=()=>{ s.vol=rg.value/100; applyMixer(); };
+    bm.onclick=()=>{ s.mute=!s.mute; applyMixer(); refreshMixer(); };
+    bs.onclick=()=>{ s.solo=!s.solo; applyMixer(); refreshMixer(); };
+    bc.onclick=()=>{ if(!c[id]) return; stopAll(); pushUndo(); session.events=session.events.filter(e=>e.tr!==id); refreshMixer(); drawTL(); log('已清掉 '+info.name+'（可復原）'); };
+    box.appendChild(d);
+  }
+}
+
+// ====== 時間軸 ======
+const tl=$('tl');
+function drawTL(){
+  const dpr=window.devicePixelRatio||1, W=tl.clientWidth;
+  const c=counts(); const rows=TRACKS.filter(id=>c[id]); const rh=16, H=Math.max(110, 24+(rows.length+vocals.length+(vrec.on?1:0))*rh+8);
+  if(tl.width!==Math.round(W*dpr)||tl.height!==Math.round(H*dpr)){ tl.width=Math.round(W*dpr); tl.height=Math.round(H*dpr); tl.style.height=H+'px'; }
+  const g=tl.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.fillStyle='#15171b'; g.fillRect(0,0,W,H);
+  const curT = rec.on ? recT() : vrec.on ? Math.max(0,tNow()-vrec.start) : play.on ? Math.max(0,tNow()-play.t0) : 0;
+  const len = Math.max(8, session.length+1, curT+1), L=110, sx=(W-L-8)/len;
+  const spb=60/(rec.on?bpm():session.bpm||bpm());
+  g.font='11px "Microsoft JhengHei",sans-serif';
+  for(let b=0, t=0; t<=len; b++, t=b*spb){ g.fillStyle = b%4===0 ? '#3a3f49' : '#24282f'; g.fillRect(L+t*sx,18,1,H-18);
+    if(b%4===0){ g.fillStyle='#7d8593'; g.fillText(String(b/4+1),L+t*sx+3,13); } }
+  rows.forEach((id,ri)=>{ const y=24+ri*rh, info=TRACK_INFO[id];
+    g.fillStyle='#9aa1ad'; g.fillText(info.name,6,y+11);
+    g.fillStyle=info.col;
+    for(const e of session.events) if(e.tr===id){
+      if(id==='keys'){ const w=Math.max(2,e.dur*sx); const ny = y+12-((e.note%24)/24)*10; g.fillRect(L+e.t*sx,ny,w,3); }
+      else { g.globalAlpha=0.4+0.6*e.vel/127; g.fillRect(L+e.t*sx,y+2,3,11); g.globalAlpha=1; }
+    }
+  });
+  vocals.forEach((v,vi)=>{ const y=24+(rows.length+vi)*rh;
+    g.fillStyle=v.mute?'#5a5f69':'#9aa1ad'; g.fillText((v.kind==='dj'?'🎧 ':v.kind==='loop'?'🔁 ':'🎤 ')+v.name,6,y+11); g.fillStyle=v.mute?'#5a5f69':'#ff9f6b';
+    const dt=v.buf.duration/v.peaks.length; v.peaks.forEach((p,i)=>{ const h=Math.max(1,p*12); g.fillRect(L+(v.t+i*dt)*sx,y+7-h/2,Math.max(1,dt*sx),h); }); });
+  if(vrec.on && tNow()>vrec.start){ const y=24+(rows.length+vocals.length)*rh; g.fillStyle='#ff4d5e55'; g.fillRect(L,y+1,(tNow()-vrec.start)*sx,13); g.fillStyle='#ff4d5e'; g.fillText('🎤 錄音中…',6,y+11); }
+  if(rec.on){ g.fillStyle='#ff4d5e'; for(const e of rec.take) g.fillRect(L+e.t*sx,H-8,3,6); }
+  if(!rows.length&&!rec.on&&!vocals.length&&!vrec.on){ g.fillStyle='#7d8593'; g.fillText('按 ⏺ 錄音（或鍵盤 R），打擊墊/琴鍵的演奏會依樂器分軌顯示在這裡',L,60); }
+  if(rec.on||play.on||vrec.on){ g.fillStyle=(rec.on||vrec.on)?'#ff4d5e':'#5ad67d'; g.fillRect(L+curT*sx,16,2,H-16); }
+  $('tinfo').textContent = `BPM ${session.events.length||vocals.length?session.bpm:bpm()} · ${session.events.length} 個事件 · 人聲 ${vocals.length} 軌 · ${session.length.toFixed(1)} 秒`;
+}
+
+// ====== 主循環：節拍器、螢幕、播放頭 ======
+function click(t, accent){ const o=ctx.createOscillator(), g=ctx.createGain(); o.frequency.value=accent?1600:1050;
+  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(accent?0.35:0.22,t+0.001); g.gain.exponentialRampToValueAtTime(0.0001,t+0.05);
+  o.connect(g).connect(ctx.destination); o.start(t); o.stop(t+0.06); }
+setInterval(()=>{
+  if(!ctx) return;
+  if(play.q) pumpPlay();
+  if(rec.on||vrec.on){
+    const spb=60/bpm();
+    while(metro.next < ctx.currentTime+0.1){
+      if(metro.beat<0 || $('cMetro').checked) click(metro.next, ((metro.beat%4)+4)%4===0);
+      metro.beat++; metro.next+=spb;
+    }
+  }
+  if(play.on && !rec.on && !vrec.on && !DJ.recOn && ctx.currentTime>play.end+0.3){ stopAll(); }
+  if(LP.run){ // Loop 站節拍器（不會被錄進去）
+    while(LP.metroNext < ctx.currentTime+0.1){
+      if(LP.metroBeat<0 || $('lpMetro').checked) click(LP.metroNext, ((LP.metroBeat%4)+4)%4===0);
+      LP.metroBeat++; LP.metroNext+=LP.spb;
+    }
+    if(LP.rec && ctx.currentTime > LP.recEnd + 0.15) lpFinishLayer();
+  }
+},25);
+// 錄音台螢幕：MIC / OUT 兩條音量柱 + 收音音量捲動歷史（錄音中變紅）
+const scrHist = [];
+function levelOf(an){ if(!an) return -90; const d=new Float32Array(an.fftSize); an.getFloatTimeDomainData(d); let p=0; for(const x of d){ const a=Math.abs(x); if(a>p) p=a; } return 20*Math.log10(p||1e-5); }
+function drawScreen(){
+  const cv=$('scr'); if(!cv || !cv.clientWidth) return;
+  const dpr=window.devicePixelRatio||1, W=cv.clientWidth, H=cv.clientHeight;
+  if(cv.width!==Math.round(W*dpr)){ cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); }
+  const g=cv.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.fillStyle='#050607'; g.fillRect(0,0,W,H);
+  const mdb=levelOf(mic.an), odb=levelOf(M&&M.an);
+  $('meterT').textContent='MIC '+(mdb<-59?'-∞':mdb.toFixed(0))+' dB';
+  const bar=(x,db,lab)=>{ const f=Math.max(0,Math.min(1,(db+60)/60)), bh=H-16;
+    for(let i=0;i<24;i++){ const y=bh-(i+1)*bh/24, on=i/24<f; g.fillStyle = on ? (i>=21?'#ff3b4e':i>=17?'#ffc04d':'#33e07a') : '#15181c'; g.fillRect(x,y+1,22,bh/24-2); }
+    g.fillStyle='#8a919c'; g.font='10px Consolas'; g.fillText(lab,x,H-3); };
+  bar(4,mdb,'MIC'); bar(32,odb,'OUT');
+  scrHist.push(vrec.on && tNow()>=vrec.start ? -mdb-1000 : mdb); if(scrHist.length>220) scrHist.shift();
+  const x0=66, w=W-x0-4, bw=w/220, mid=(H-16)/2;
+  g.strokeStyle='#1d2228'; g.beginPath(); g.moveTo(x0,mid); g.lineTo(W-4,mid); g.stroke();
+  scrHist.forEach((v,i)=>{ const recd=v<-500, db=recd?-(v+1000):v, a=Math.max(0,Math.min(1,(db+60)/60)), h=Math.max(1,a*(H-20));
+    g.fillStyle=recd?'#ff4d5e':'#3fd1e0'; g.fillRect(x0+i*bw,mid-h/2,Math.max(1,bw-0.5),h); });
+  g.fillStyle='#8a919c'; g.font='11px "Microsoft JhengHei",sans-serif';
+  const state = vrec.on ? (tNow()<vrec.start?'預備拍…':'● 錄音中') : play.on ? '▶ 播放中' : pendingTake ? '🟡 待確認（按 ➕ 加入人聲）' : mic.stream ? '麥克風就緒' : '按 🎙 開麥克風';
+  $('scrState').textContent=state; $('scrState').style.color = vrec.on?'#ff4d5e':pendingTake?'#ffc04d':'#9aa1ad';
+}
+function frame(){
+  if(ctx && (rec.on||play.on||vrec.on)){
+    const rs = rec.on ? rec.start : vrec.on ? vrec.start : play.t0, recording = rec.on||vrec.on;
+    const tt = ctx.currentTime-rs;
+    if(recording && tt<0){ oled.textContent='-'+Math.ceil(-tt/(60/bpm()))+'-'; }
+    else { const spb=60/(recording?bpm():session.bpm), b=Math.floor(Math.max(0,tt)/spb); oled.textContent=(Math.floor(b/4)+1)+'.'+(b%4+1); }
+    $('vbig').textContent = recording && tt<0 ? '預備 '+Math.ceil(-tt/(60/bpm())) : Math.max(0,tt).toFixed(1);
+    $('vbig').className = vrec.on ? 'rec' : '';
+    drawTL();
+  }
+  if(curTab==='voc') drawScreen();
+  if(curTab==='dj') djDraw();
+  if(curTab==='loop') loopDraw();
+  requestAnimationFrame(frame);
+}
+
+// ====== 輸出：離線渲染每一軌 ======
+const TAIL = 2.5; // 尾音（殘響/放開）秒數，所有分軌一樣長
+async function renderTracks(ids, sr, respectMute, mastering){
+  const dur = session.length + TAIL, n=Math.ceil(dur*sr);
+  const oc = new OfflineAudioContext(2, n, sr);
+  const MM = makeMaster(oc, oc.destination, K.mvol, mastering);
+  const outs = {};
+  for(const id of ids){
+    if(id.startsWith('voc:')){ const v=vocals.find(x=>'voc:'+x.id===id); if(!v) continue;
+      const b=makeBus(oc, MM, {vol: respectMute&&v.mute?0:v.vol, rev:v.rev}); playVocal(oc, v, b.g, v.t); continue; }
+    const s=st.trk[id]; outs[id]=makeBus(oc, MM, {vol: respectMute&&!audible(id)?0:s.vol, rev:s.rev}).g; }
+  const ctl = session.ctl.slice();
+  // 分段排程：每 1 秒暫停一次只建立下一秒要響的音（一次全建好會讓上千個濾波器整首都在跑，非常慢）
+  const evs = session.events.filter(e=>outs[e.tr]), W=1;
+  let ix=0;
+  const sched = until=>{ while(ix<evs.length && evs[ix].t<until){ const e=evs[ix++];
+    if(e.tr==='keys') voice(oc, outs.keys, e.t, e.note, e.vel/127, e.dur, e.p, ctl);
+    else DRUM_FN[e.tr](oc, outs[e.tr], e.t, e.vel/127); } };
+  sched(W);
+  if(oc.suspend) for(let k=1; k*W<dur && ix<evs.length+1; k++){
+    const at=Math.max(0, k*W-0.25);
+    oc.suspend(at).then(()=>{ sched((k+1)*W); oc.resume(); });
+  } else sched(Infinity);
+  return await oc.startRendering();
+}
+function peakOf(buf){ let p=0; for(let c=0;c<buf.numberOfChannels;c++){ const d=buf.getChannelData(c); for(let i=0;i<d.length;i++){ const a=Math.abs(d[i]); if(a>p) p=a; } } return p; }
+function encodeWav(buf, bits, gain){
+  const ch=buf.numberOfChannels, n=buf.length, bps=bits/8, data=n*ch*bps, ab=new ArrayBuffer(44+data), v=new DataView(ab);
+  const w=(o,s)=>{ for(let i=0;i<s.length;i++) v.setUint8(o+i,s.charCodeAt(i)); };
+  w(0,'RIFF'); v.setUint32(4,36+data,true); w(8,'WAVE'); w(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,ch,true);
+  v.setUint32(24,buf.sampleRate,true); v.setUint32(28,buf.sampleRate*ch*bps,true); v.setUint16(32,ch*bps,true); v.setUint16(34,bits,true); w(36,'data'); v.setUint32(40,data,true);
+  const chs=[...Array(ch)].map((_,c)=>buf.getChannelData(c)); let o=44;
+  for(let i=0;i<n;i++) for(let c=0;c<ch;c++){ let s=Math.max(-1,Math.min(1,chs[c][i]*gain));
+    if(bits===16){ v.setInt16(o, s<0?s*0x8000:s*0x7fff, true); o+=2; }
+    else { let x=Math.round(s<0?s*0x800000:s*0x7fffff); v.setUint8(o,x&255); v.setUint8(o+1,(x>>8)&255); v.setUint8(o+2,(x>>16)&255); o+=3; } }
+  return new Uint8Array(ab);
+}
+// 標準 MIDI 檔（type 1）：鼓在第 10 頻道、鍵盤第 1 頻道
+function buildMidi(){
+  const PPQ=480, tps=session.bpm/60*PPQ, tk=t=>Math.round(t*tps);
+  const vlq=x=>{ const a=[x&127]; while(x>>=7) a.unshift((x&127)|128); return a; };
+  const trackChunk=evs=>{ evs.sort((a,b)=>a[0]-b[0]||a[2]-b[2]); let last=0, bytes=[];
+    for(const [t,data] of evs){ bytes.push(...vlq(t-last),...data); last=t; } bytes.push(0,0xff,0x2f,0);
+    return [0x4d,0x54,0x72,0x6b, ...u32(bytes.length), ...bytes]; };
+  const u32=x=>[(x>>>24)&255,(x>>16)&255,(x>>8)&255,x&255];
+  const us=Math.round(60e6/session.bpm);
+  const t0=trackChunk([[0,[0xff,0x51,3,(us>>16)&255,(us>>8)&255,us&255],0]]);
+  const dr=[], ky=[];
+  for(const e of session.events){
+    if(e.tr==='keys'){ const n=Math.max(0,Math.min(127,e.note)); ky.push([tk(e.t),[0x90,n,e.vel],1],[tk(e.t+e.dur),[0x80,n,0],0]); }
+    else { const n=DRUM[e.tr].gm; dr.push([tk(e.t),[0x99,n,e.vel],1],[tk(e.t+0.08),[0x89,n,0],0]); }
+  }
+  for(const c of session.ctl){ if(c.type==='bend'){ const b=Math.round(8192+c.v*8191); ky.push([tk(c.t),[0xE0,b&127,b>>7],2]); } else ky.push([tk(c.t),[0xB0,1,Math.round(c.v*127)],2]); }
+  const hdr=[0x4d,0x54,0x68,0x64,0,0,0,6,0,1,0,3,PPQ>>8,PPQ&255];
+  return new Uint8Array([...hdr,...t0,...trackChunk(dr.map(x=>[x[0],x[1],x[2]])),...trackChunk(ky)]);
+}
+// 純前端 ZIP（不壓縮，WAV 本來就壓不太下來）
+const CRC=(()=>{ const t=new Uint32Array(256); for(let i=0;i<256;i++){ let c=i; for(let k=0;k<8;k++) c=c&1?0xEDB88320^(c>>>1):c>>>1; t[i]=c>>>0; } return t; })();
+function crc32(u){ let c=0xffffffff; for(let i=0;i<u.length;i++) c=CRC[(c^u[i])&255]^(c>>>8); return (c^0xffffffff)>>>0; }
+function buildZip(files){ // [{name, data:Uint8Array}]
+  const enc=new TextEncoder(), parts=[], cen=[]; let off=0;
+  for(const f of files){ const nm=enc.encode(f.name), crc=crc32(f.data), sz=f.data.length;
+    const h=new DataView(new ArrayBuffer(30)); h.setUint32(0,0x04034b50,true); h.setUint16(4,20,true); h.setUint16(6,0x0800,true);
+    h.setUint32(14,crc,true); h.setUint32(18,sz,true); h.setUint32(22,sz,true); h.setUint16(26,nm.length,true);
+    parts.push(new Uint8Array(h.buffer),nm,f.data);
+    const c=new DataView(new ArrayBuffer(46)); c.setUint32(0,0x02014b50,true); c.setUint16(4,20,true); c.setUint16(6,20,true); c.setUint16(8,0x0800,true);
+    c.setUint32(16,crc,true); c.setUint32(20,sz,true); c.setUint32(24,sz,true); c.setUint16(28,nm.length,true); c.setUint32(42,off,true);
+    cen.push(new Uint8Array(c.buffer),nm); off+=30+nm.length+sz; }
+  const cs=cen.reduce((a,b)=>a+b.length,0), e=new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true); e.setUint16(8,files.length,true); e.setUint16(10,files.length,true); e.setUint32(12,cs,true); e.setUint32(16,off,true);
+  return new Blob([...parts,...cen,new Uint8Array(e.buffer)],{type:'application/zip'});
+}
+
+// 產生要輸出的全部檔案
+async function buildExport(){
+  if(rec.on||play.on) stopAll();
+  if(!session.events.length && !vocals.length) throw new Error('還沒有錄音內容');
+  const sr=+$('sRate').value, bits=+$('sBits').value;
+  const c=counts(), ids=[...TRACKS.filter(id=>c[id]), ...vocals.filter(v=>v.use).map(v=>'voc:'+v.id)];
+  const files=[];
+  prog(0,'準備渲染…');
+  plog('步驟4 開始分軌渲染：', ids.join(','), '取樣率', sr, '位元', bits);
+  // 先渲染混音算出整體峰值 → 所有分軌用同一個增益，避免破音又保持彼此比例
+  const mix = await renderTracks(ids, sr, true);
+  const pk = peakOf(mix); const gain = pk>0.97 ? 0.97/pk : 1;
+  plog('混音峰值', pk.toFixed(3), '統一增益', gain.toFixed(3));
+  let outMix = mix, outGain = gain, mixName = '00_Mix.wav';
+  if($('cMaster').checked){ // 母帶：壓縮/限幅後標準化到 -14 LUFS，峰值上限 -1 dBFS
+    prog(0.05,'母帶處理…');
+    outMix = await renderTracks(ids, sr, true, true);
+    const L0=lufs(outMix), p0=peakOf(outMix);
+    outGain = Math.min(Math.pow(10,(-14-L0)/20), Math.pow(10,-1/20)/p0);
+    const Lf=L0+20*Math.log10(outGain);
+    mixName='00_Mix_Master.wav';
+    log(`🎚 母帶：響度 ${Lf.toFixed(1)} LUFS（Spotify 目標 -14）、峰值 ${(20*Math.log10(p0*outGain)).toFixed(1)} dBFS`);
+    plog('母帶 LUFS', L0.toFixed(2), '→', Lf.toFixed(2), '增益', outGain.toFixed(3));
+  }
+  if($('cMix').checked) files.push({name:mixName, data:encodeWav(outMix,bits,outGain)});
+  if($('cHook').checked){ // 15 秒精華：從指定小節切 15 秒，頭尾淡入淡出
+    const st0=Math.max(0,((+$('tHook').value||1)-1)*4*60/session.bpm), n=Math.min(Math.round(15*outMix.sampleRate), outMix.length-Math.round(st0*outMix.sampleRate));
+    if(n>outMix.sampleRate){ const hk=new AudioBuffer({length:n, sampleRate:outMix.sampleRate, numberOfChannels:2}), s0=Math.round(st0*outMix.sampleRate), fi=Math.round(0.05*outMix.sampleRate), fo=Math.round(1.2*outMix.sampleRate);
+      for(let c=0;c<2;c++){ const src=outMix.getChannelData(c), d=new Float32Array(n); for(let i=0;i<n;i++){ let g=1; if(i<fi) g=i/fi; if(i>n-fo) g=(n-i)/fo; d[i]=src[s0+i]*g; } hk.copyToChannel(d,c); }
+      files.push({name:'00_Hook_15s.wav', data:encodeWav(hk,bits,outGain)}); log(`✂ 15 秒精華：從第 ${$('tHook').value} 小節（${st0.toFixed(1)} 秒）開始`); }
+  }
+  let i=0;
+  for(const id of ids){
+    const v = id.startsWith('voc:') ? vocals.find(x=>'voc:'+x.id===id) : null;
+    i++; prog(i/(ids.length+1)*0.9, `渲染 ${v ? '🎤 '+v.name : TRACK_INFO[id].name}…`);
+    const b = await renderTracks([id], sr, false);
+    const kindOf = x=>x.kind||'voc', same = v ? vocals.filter(x=>kindOf(x)===kindOf(v)) : [], kn = v ? same.indexOf(v)+1 : 0;
+    const pre = v ? ({voc:['2','Vocal'], dj:['3','DJ'], loop:['4','Loop']})[kindOf(v)] : null;
+    const fname = v ? `${pre[0]}${Math.min(9,kn-1)}_${pre[1]}_${String(kn).padStart(2,'0')}_${v.name.replace(/[\\/:*?"<>|\s]/g,'_')}.wav`
+                    : `${String(TRACKS.indexOf(id)+1).padStart(2,'0')}_${TRACK_INFO[id].file}.wav`;
+    files.push({name:fname, data:encodeWav(b,bits,gain), track:id});
+    plog('  分軌', id, '峰值', peakOf(b).toFixed(3));
+  }
+  if($('cMidi').checked) files.push({name:'SMK25.mid', data:buildMidi()});
+  const meta = { app:'SMK25-II Simulator', created:new Date().toISOString(), sampleRate:sr, bits, tailSec:TAIL, gain, settings:{st, K}, session,
+    vocals: vocals.map(v=>({name:v.name, start:v.t, duration:v.buf.duration, vol:v.vol, rev:v.rev, note:'人聲音訊在 Vocal_*.wav'})) };
+  files.push({name:'session.json', data:new TextEncoder().encode(JSON.stringify(meta,null,1))});
+  prog(0.92,'渲染完成'); log(`🎛 已渲染 ${ids.length} 條分軌（含人聲 ${ids.filter(x=>x.startsWith('voc:')).length} 軌）${$('cMix').checked?' + 混音':''}，每軌 ${(session.length+TAIL).toFixed(1)} 秒`);
+  return files;
+}
+const safeName = s=> (s||'').trim().replace(/[\\/:*?"<>|]/g,'_') || defaultName();
+function defaultName(){ const d=new Date(), p=x=>String(x).padStart(2,'0'); return `SMK25_${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`; }
+function prog(f,t){ $('prog').style.width=Math.round(f*100)+'%'; $('progT').textContent=t||''; }
+function log(msg,cls){ const d=document.createElement('div'); if(cls) d.className=cls; d.innerHTML=msg; $('log').appendChild(d); $('log').scrollTop=1e9; }
+
+let SERVER = false; // 本機 bun 伺服器（雙擊 .bat）才有；GitHub Pages 上改走瀏覽器直傳 Drive
+
+// ====== 瀏覽器直傳 Google Drive（GitHub Pages 用；Google Identity Services + drive.file）======
+const DRIVE_ROOT = 'SMK25 錄音', FOLDER_MIME='application/vnd.google-apps.folder';
+let gTok=null, gExp=0, gClient=null, gPending=null;
+const cid = ()=>{ try{ return localStorage.getItem('smk25.cid')||''; }catch{ return ''; } };
+function gInit(){
+  if(!cid() || !window.google?.accounts?.oauth2) return false;
+  gClient = google.accounts.oauth2.initTokenClient({ client_id:cid(), scope:'https://www.googleapis.com/auth/drive.file',
+    callback:r=>{ const f=gPending; gPending=null; if(r.error){ f&&f.rej(new Error('Google 登入失敗：'+r.error)); return; }
+      gTok=r.access_token; gExp=Date.now()+(r.expires_in-60)*1000; plog('Drive 步驟1 取得瀏覽器 token'); f&&f.res(gTok); } });
+  return true;
+}
+function gToken(){
+  if(gTok && Date.now()<gExp) return Promise.resolve(gTok);
+  return new Promise((res,rej)=>{
+    if(!cid()){ $('cidRow').hidden=false; rej(new Error('請先在上方填 Google OAuth「網頁應用程式」Client ID')); return; }
+    if(!gClient && !gInit()){ rej(new Error('Google 登入元件還沒載入，請稍候再試')); return; }
+    gPending={res,rej}; gClient.requestAccessToken({prompt: gTok?'':'consent'});
+  });
+}
+async function gfetch(url, opt={}){ const t=await gToken(); return fetch(url,{...opt, headers:{Authorization:'Bearer '+t, ...(opt.headers||{})}}); }
+const gq = s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+async function gFind(name, parent, mime){
+  let q=`name='${gq(name)}' and trashed=false and '${parent}' in parents`; if(mime) q+=` and mimeType='${mime}'`;
+  const r=await gfetch('https://www.googleapis.com/drive/v3/files?fields=files(id)&spaces=drive&q='+encodeURIComponent(q)); const j=await r.json();
+  if(!r.ok) throw new Error('Drive 查詢失敗：'+(j.error?.message||r.status)); return j.files?.[0]?.id||null;
+}
+const gFolders={};
+async function gFolder(name, parent='root'){
+  const k=parent+'/'+name; if(gFolders[k]) return gFolders[k];
+  let id=await gFind(name,parent,FOLDER_MIME);
+  if(!id){ const r=await gfetch('https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,mimeType:FOLDER_MIME,parents:[parent]})});
+    const j=await r.json(); if(!r.ok) throw new Error('建立資料夾失敗：'+(j.error?.message||r.status)); id=j.id; plog('Drive 建立資料夾', name, id); }
+  return gFolders[k]=id;
+}
+async function gUpload(session, name, bytes){
+  const folder=await gFolder(session, await gFolder(DRIVE_ROOT));
+  const old=await gFind(name, folder);
+  const mime = name.endsWith('.wav')?'audio/wav':name.endsWith('.mid')?'audio/midi':'application/json';
+  const init=await gfetch(old?`https://www.googleapis.com/upload/drive/v3/files/${old}?uploadType=resumable`:'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable',
+    {method:old?'PATCH':'POST', headers:{'Content-Type':'application/json; charset=UTF-8','X-Upload-Content-Type':mime}, body:JSON.stringify(old?{}:{name,parents:[folder]})});
+  if(!init.ok) throw new Error('上傳初始化失敗：'+init.status+' '+(await init.text()).slice(0,200));
+  const loc=init.headers.get('Location'); if(!loc) throw new Error('Drive 沒回傳上傳網址');
+  const up=await fetch(loc,{method:'PUT', headers:{'Content-Type':mime}, body:bytes});
+  if(!up.ok) throw new Error('上傳失敗：'+up.status+' '+(await up.text()).slice(0,200));
+  plog('Drive 步驟2', old?'覆蓋':'上傳', session+'/'+name, (bytes.length/1048576).toFixed(2)+'MB');
+  return { folderLink:'https://drive.google.com/drive/folders/'+folder };
+}
+$('bCid').onclick=()=>{ const v=$('tCid').value.trim(); try{ localStorage.setItem('smk25.cid',v); }catch{} gClient=null; gTok=null; gInit();
+  log(v?'已儲存 Client ID，按「上傳 Google Drive」時會跳出 Google 登入':'已清除 Client ID', v?'o':''); };
+async function sendFiles(kind){ // kind: 'save' | 'drive'
+  const busy=[$('bDrive'),$('bLocal'),$('bZip'),$('bPick')]; busy.forEach(b=>b.disabled=true);
+  try{
+    const files = await buildExport(); const name=safeName($('tName').value);
+    let folderLink='';
+    for(let i=0;i<files.length;i++){
+      const f=files[i]; prog(0.92+0.08*i/files.length, `${kind==='drive'?'上傳':'寫入'} ${f.name}（${(f.data.length/1048576).toFixed(1)} MB）…`);
+      let j;
+      if(kind==='drive' && !SERVER){ j = await gUpload(name, f.name, f.data); }
+      else if(kind==='pick'){ await pickWrite(name, f); j={}; }
+      else { const dq = kind==='save' && saveDir() ? '&dir='+encodeURIComponent(saveDir()) : '';
+        const r = await fetch(`/api/${kind}?session=${encodeURIComponent(name)}&file=${encodeURIComponent(f.name)}${dq}`, {method:'POST', body:f.data});
+        j = await r.json().catch(()=>({error:'伺服器回應錯誤 '+r.status}));
+        if(!r.ok||j.error) throw new Error(j.error||('HTTP '+r.status)); }
+      if(j.folderLink) folderLink=j.folderLink;
+      plog('  已送出', f.name, j);
+    }
+    prog(1,'完成');
+    if(kind==='pick') log(`📁 已存到你選的資料夾「${pickDir.name}\\${name}」（${files.length} 個檔案）`,'o');
+    else if(kind==='drive') log(`☁ 已上傳 ${files.length} 個檔案到 Google Drive「SMK25 錄音 / ${name}」 → <a href="${folderLink}" target="_blank">開啟資料夾</a>`,'o');
+    else { log(`💾 已存到 ${(saveDir()||'recordings').replace(/[\\/]$/,'')}\\${name}\\（${files.length} 個檔案） <a href="#" id="openLocal">開啟資料夾</a>`,'o');
+      const a=document.getElementById('openLocal'); if(a){ a.id=''; const dq=saveDir()?'&dir='+encodeURIComponent(saveDir()):''; a.onclick=ev=>{ ev.preventDefault(); fetch('/api/open?session='+encodeURIComponent(name)+dq); }; } }
+  }catch(err){ log('❌ '+err.message,'e'); prog(0,''); plog('輸出失敗', err);
+    if(kind==='drive') log('👉 Drive 存不了的話，可以按「💾 存到本機資料夾」或「📁 選擇磁碟資料夾存檔」存到這台電腦的任何磁碟'); }
+  finally{ busy.forEach(b=>b.disabled=false); if(!SERVER) $('bLocal').disabled=true; if(location.protocol==='file:') $('bDrive').disabled=true; }
+}
+// ====== 存到指定的本機磁碟 ======
+// ① 本機伺服器模式：填路徑（如 D:\音樂\SMK25），伺服器直接寫入
+// ② 瀏覽器（Chrome/Edge 電腦版）：📁 跳出資料夾選擇視窗，直接寫進你選的磁碟資料夾
+// ③ iPad / Safari 沒有資料夾選擇 → 改下載 ZIP（存到「檔案」App 後可自選位置）
+const saveDir = ()=>{ try{ return localStorage.getItem('smk25.dir')||''; }catch{ return ''; } };
+$('bDir').onclick=()=>{ const v=$('tDir').value.trim(); try{ localStorage.setItem('smk25.dir',v); }catch{}
+  log(v?`💾 本機存檔位置改為：${v}`:'💾 本機存檔位置：程式資料夾 recordings', 'o'); };
+let pickDir=null;
+async function pickWrite(name, f){
+  const sub = await pickDir.getDirectoryHandle(name, {create:true});
+  const fh = await sub.getFileHandle(f.name, {create:true}); const w = await fh.createWritable(); await w.write(f.data); await w.close();
+}
+$('bPick').onclick=async()=>{
+  if(!window.showDirectoryPicker){ log('這個瀏覽器不能直接選資料夾（iPad/Safari），改下載 ZIP：存到「檔案」App 後可以搬到任何位置','e'); $('bZip').click(); return; }
+  try{ pickDir = await window.showDirectoryPicker({id:'smk25', mode:'readwrite'}); }
+  catch(err){ if(err.name!=='AbortError') log('❌ 無法選擇資料夾：'+err.message,'e'); return; }
+  plog('選擇的存檔資料夾', pickDir.name);
+  sendFiles('pick');
+};
+$('bDrive').onclick=()=>sendFiles('drive');
+$('bLocal').onclick=()=>sendFiles('save');
+$('bZip').onclick=async()=>{
+  try{ const files=await buildExport(); const blob=buildZip(files); const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download=safeName($('tName').value)+'.zip'; a.click(); prog(1,'完成'); log('📦 已下載 ZIP（'+(blob.size/1048576).toFixed(1)+' MB）','o'); }
+  catch(err){ log('❌ '+err.message,'e'); }
+};
+$('bOpen').onclick=()=>$('fOpen').click();
+$('fOpen').onchange=async()=>{
+  const f=$('fOpen').files[0]; if(!f) return;
+  try{ const j=JSON.parse(await f.text()); const s=j.session||j; if(!Array.isArray(s.events)) throw new Error('不是 SMK25 專案檔');
+    stopAll(); pushUndo(); session={bpm:s.bpm||100,length:s.length||0,events:s.events,ctl:s.ctl||[]};
+    K.tempo=(session.bpm-60)/140; $('tBpm').value=bpm(); drawKnobs(); refreshMixer(); drawTL(); log('📂 已開啟專案：'+f.name+'（'+s.events.length+' 個事件）','o'); }
+  catch(err){ log('❌ 開啟失敗：'+err.message,'e'); }
+  $('fOpen').value='';
+};
+
+// ====== 🎤 人聲錄音 ======
+// 變音演算法（雙讀頭延遲線 + sin² 交叉淡化）：即時監聽的 AudioWorklet 與離線輸出用同一套 → 聽到的就是存下來的
+const PS_WIN = 0.05; // 50ms 視窗
+function pitchShift(x, sr, semis){
+  if(!semis) return x;
+  const r=Math.pow(2,semis/12), W=Math.round(sr*PS_WIN), inc=(1-r)/W, y=new Float32Array(x.length);
+  let p=0; const rd=d=>{ const pos=Math.max(0,d), i0=Math.floor(pos), f=pos-i0; return (x[i0]||0)*(1-f)+(x[i0+1]||0)*f; };
+  for(let n=0;n<x.length;n++){
+    const p2=(p+0.5)%1, a=Math.sin(Math.PI*p), b=Math.sin(Math.PI*p2);
+    y[n]=rd(n-p*W)*a*a + rd(n-p2*W)*b*b;
+    p+=inc; p-=Math.floor(p);
+  }
+  return y;
+}
+const WK_SRC = `class SmkRec extends AudioWorkletProcessor{process(inp){const c=inp[0]&&inp[0][0];if(c&&c.length)this.port.postMessage({t:currentTime,d:c.slice(0)});return true;}}registerProcessor('smk-rec',SmkRec);
+class SmkPitch extends AudioWorkletProcessor{constructor(){super();this.s=0;this.W=Math.round(sampleRate*${PS_WIN});this.N=this.W*4;this.b=new Float32Array(this.N);this.w=0;this.p=0;this.port.onmessage=e=>{this.s=e.data;};}
+process(inp,out){const x=inp[0]&&inp[0][0],o=out[0];if(!x||!o||!o[0])return true;const y=o[0],W=this.W,N=this.N,B=this.b,s=this.s,inc=(1-Math.pow(2,s/12))/W;
+const rd=d=>{let pos=this.w-d;if(pos<0)pos+=N;const i0=Math.floor(pos),f=pos-i0;return B[i0%N]*(1-f)+B[(i0+1)%N]*f;};
+for(let n=0;n<x.length;n++){B[this.w]=x[n];if(!s){y[n]=x[n];}else{const p=this.p,p2=(p+0.5)%1,a=Math.sin(Math.PI*p),b=Math.sin(Math.PI*p2);y[n]=rd(p*W)*a*a+rd(p2*W)*b*b;this.p+=inc;this.p-=Math.floor(this.p);}this.w=(this.w+1)%N;}
+for(let c=1;c<o.length;c++)o[c].set(y);return true;}}registerProcessor('smk-pitch',SmkPitch);
+class SmkRec2 extends AudioWorkletProcessor{process(inp){const a=inp[0];if(a&&a[0]&&a[0].length)this.port.postMessage({t:currentTime,l:a[0].slice(0),r:(a[1]||a[0]).slice(0)});return true;}}registerProcessor('smk-rec2',SmkRec2);`;
+let wkPromise=null;
+function loadWorklets(){ ensureCtx(); if(!wkPromise) wkPromise=ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WK_SRC],{type:'application/javascript'}))).then(()=>{ mic.wk=true; }); return wkPromise; }
+// 立體聲擷取：把某個節點的輸出錄成 {t,l,r} 區塊（DJ 錄音用）
+async function stereoTap(node, onData){
+  await loadWorklets();
+  const w=new AudioWorkletNode(ctx,'smk-rec2',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[2],channelCount:2,channelCountMode:'explicit'});
+  w.port.onmessage=e=>onData(e.data); const sink=ctx.createGain(); sink.gain.value=0; node.connect(w).connect(sink).connect(ctx.destination);
+  return ()=>{ try{ node.disconnect(w); w.disconnect(); }catch{} };
+}
+function chunksToBuffer(chunks, startT, endT, offset){ // 依 AudioContext 時間把區塊裁成 [startT,endT)
+  const sr=ctx.sampleRate; if(!chunks.length) return null;
+  const total=chunks.reduce((a,c)=>a+c.l.length,0), L=new Float32Array(total), R=new Float32Array(total); let o=0;
+  for(const c of chunks){ L.set(c.l,o); R.set(c.r,o); o+=c.l.length; }
+  const skip=Math.max(0,Math.round((startT-chunks[0].t)*sr)+(offset||0)), n=Math.min(total-skip, Math.round((endT-startT)*sr));
+  if(n<=0) return null;
+  const b=ctx.createBuffer(2,n,sr); b.copyToChannel(L.subarray(skip,skip+n),0); b.copyToChannel(R.subarray(skip,skip+n),1); return b;
+}
+function peaksOf(buf){ const sr=buf.sampleRate, d=buf.getChannelData(0), bins=Math.max(1,Math.ceil(d.length/(sr*0.05))), p=new Array(bins).fill(0);
+  for(let i=0;i<d.length;i++){ const a=Math.abs(d[i]), k=(i/(sr*0.05))|0; if(a>p[k]) p[k]=a; } return p.map(x=>Math.min(1,x*1.5)); }
+// 錄音效果設定（錄下一段時會跟著那段存起來）
+const vfx = { gain:1, pitch:0, bass:0, treble:0 };
+function eqChain(c, fx, dest){ // 低音 lowshelf 200Hz、高音 highshelf 3.5kHz
+  const lo=c.createBiquadFilter(); lo.type='lowshelf'; lo.frequency.value=200; lo.gain.value=fx.bass;
+  const hi=c.createBiquadFilter(); hi.type='highshelf'; hi.frequency.value=3500; hi.gain.value=fx.treble;
+  lo.connect(hi).connect(dest); return {lo,hi};
+}
+function vocalBuf(v){ // 依這段的變音設定產生處理後的 buffer（有快取）
+  if(!v.fx.pitch) return v.buf;
+  if(v._pc && v._pc.k===v.fx.pitch) return v._pc.b;
+  const raw=v.buf.getChannelData(0), y=pitchShift(raw, v.buf.sampleRate, v.fx.pitch);
+  const b=new AudioBuffer({length:y.length, sampleRate:v.buf.sampleRate, numberOfChannels:1}); b.copyToChannel(y,0);
+  v._pc={k:v.fx.pitch, b}; plog('人聲 變音處理', v.name, v.fx.pitch, '半音'); return b;
+}
+function playVocal(c, v, dest, when, offset){ // buffer → 低音/高音 → dest
+  const s=c.createBufferSource(); s.buffer=vocalBuf(v); s.connect(eqChain(c, v.fx, dest).lo); s.start(when, offset||0); return s;
+}
+async function enableMic(){
+  ensureCtx();
+  if(mic.stream) return true;
+  if(!navigator.mediaDevices?.getUserMedia){ log('❌ 這個網址不能用麥克風（需要 https 或 localhost）','e'); return false; }
+  const devId=$('sMic').value, ns=$('cNs').checked;
+  try{ if(navigator.audioSession) navigator.audioSession.type='play-and-record'; }catch{}
+  try{
+    mic.stream = await navigator.mediaDevices.getUserMedia({audio:{deviceId:devId?{exact:devId}:undefined, echoCancellation:ns, noiseSuppression:ns, autoGainControl:false, channelCount:1}});
+  }catch(err){ log('❌ 無法開啟麥克風：'+err.message,'e'); return false; }
+  mic.src = ctx.createMediaStreamSource(mic.stream);
+  // 訊號路徑：麥克風 → 收音音量 →（錄音 + 音量表）
+  //                          └→ 變音 → 低音/高音 → 監聽（耳機）
+  mic.inG = ctx.createGain(); mic.inG.gain.value=vfx.gain; mic.src.connect(mic.inG);
+  mic.an = ctx.createAnalyser(); mic.an.fftSize=1024; mic.inG.connect(mic.an);
+  mic.mon = ctx.createGain(); mic.mon.gain.value=monVol(); mic.mon.connect(ctx.destination);
+  mic.eq = eqChain(ctx, vfx, mic.mon);
+  const sink = ctx.createGain(); sink.gain.value=0; sink.connect(ctx.destination);
+  const onData=(t,d)=>{ const e=t+d.length/ctx.sampleRate;
+    if(vrec.on && e > vrec.start) vrec.chunks.push({t,d});
+    if(LP.rec && e > LP.recStart) LP.chunks.push({t,d}); };
+  try{
+    await loadWorklets();
+    mic.node = new AudioWorkletNode(ctx,'smk-rec',{numberOfInputs:1,numberOfOutputs:1,channelCount:1,channelCountMode:'explicit'});
+    mic.node.port.onmessage = e=>onData(e.data.t, e.data.d);
+    mic.ps = new AudioWorkletNode(ctx,'smk-pitch',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[1],channelCount:1,channelCountMode:'explicit'});
+    mic.ps.port.postMessage(vfx.pitch);
+  }catch(err){
+    plog('AudioWorklet 不可用，改用 ScriptProcessor（監聽聽不到變音，但輸出仍會變音）', err);
+    mic.node = ctx.createScriptProcessor(2048,1,1);
+    mic.node.onaudioprocess = e=>onData(e.playbackTime-2*2048/ctx.sampleRate, e.inputBuffer.getChannelData(0).slice(0));
+    mic.ps = ctx.createGain();
+  }
+  mic.inG.connect(mic.node).connect(sink);
+  mic.inG.connect(mic.ps).connect(mic.eq.lo);
+  // 自動延遲補償估計：輸出延遲（你聽到伴奏的延遲）+ 基本延遲
+  if(!+$('tLat').value) $('tLat').value = Math.round(((ctx.outputLatency||0)+(ctx.baseLatency||0))*1000);
+  try{ const devs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='audioinput'); const sel=$('sMic'), cur=sel.value;
+    sel.innerHTML='<option value="">預設麥克風</option>'+devs.map(d=>`<option value="${d.deviceId}">${d.label||'麥克風'}</option>`).join(''); sel.value=cur; }catch{}
+  const tr = mic.stream.getAudioTracks()[0];
+  $('bMic').classList.add('on'); $('bMic').title='麥克風已開啟（再按關閉）';
+  log('🎙 麥克風：'+(tr?.label||'預設')+'，取樣率 '+ctx.sampleRate+'，延遲補償 '+$('tLat').value+' ms','o');
+  plog('人聲 步驟1 麥克風啟用', tr?.label, '設定', tr?.getSettings?.());
+  return true;
+}
+function closeMic(){ if(!mic.stream) return; mic.stream.getTracks().forEach(t=>t.stop()); try{ mic.src.disconnect(); mic.node.disconnect(); }catch{}
+  mic.stream=null; mic.an=null; $('bMic').classList.remove('on'); $('bMic').title='啟用麥克風'; }
+async function startVocalRec(){
+  if(!(await enableMic())) return;
+  stopAll(); lockTempo();
+  if(pendingTake){ log('（上一段沒按「加入人聲」，這次錄音會取代它）'); pendingTake=null; renderPending(); }
+  const spb=60/bpm(), ci=$('cCount').checked?4*spb:0;
+  const t0=ctx.currentTime+0.15+ci;
+  vrec.on=true; vrec.start=t0; vrec.chunks=[]; vrec.stopAt=0;
+  metro.next=t0-ci; metro.beat=ci?-4:0;
+  if($('cBack').checked && (session.events.length||vocals.length)) startPlayback(t0);
+  $('bVRec').classList.add('on'); $('bVRec').firstChild.textContent='STOP'; $('vDot').classList.add('on'); setBtn('REC',true);
+  log(`🎤 開始錄人聲（BPM ${bpm()}${ci?'，預備拍 4 下':''}${$('cBack').checked?'，播放伴奏':''}）`);
+  plog('人聲 步驟2 開始錄音 start=', t0.toFixed(3), '伴奏', $('cBack').checked);
+}
+function toggleVocalRec(){ vrec.on ? stopAll() : startVocalRec(); }
+function finishVocal(){
+  vrec.on=false; vrec.stopAt=ctx.currentTime;
+  $('bVRec').classList.remove('on'); $('bVRec').firstChild.textContent='REC'; $('vDot').classList.remove('on');
+  const sr=ctx.sampleRate, comp=(+$('tLat').value||0)/1000, ch=vrec.chunks; vrec.chunks=[];
+  if(!ch.length || vrec.stopAt<=vrec.start){ log('（這次沒錄到人聲：還在預備拍就停止了）'); return; }
+  const total=ch.reduce((a,c)=>a+c.d.length,0), all=new Float32Array(total); let o=0; for(const c of ch){ all.set(c.d,o); o+=c.d.length; }
+  const t0=ch[0].t;                       // 第一個樣本的 AudioContext 時間
+  let skip=Math.max(0,Math.round((vrec.start-t0)*sr)); // 預備拍期間的樣本丟掉
+  let n=Math.min(total-skip, Math.round((vrec.stopAt-vrec.start)*sr));
+  if(n<sr*0.1){ log('（人聲太短，未保存）'); return; }
+  // 延遲補償：錄到的聲音比你聽到的伴奏晚 comp 秒 → 往前移
+  let start = (t0+skip/sr) - vrec.start - comp;
+  if(start<0){ const cut=Math.min(n-1,Math.round(-start*sr)); skip+=cut; n-=cut; start=0; }
+  const buf=ctx.createBuffer(1,n,sr); buf.copyToChannel(all.subarray(skip,skip+n),0);
+  const d=buf.getChannelData(0), bins=Math.max(1,Math.ceil(n/(sr*0.05))), peaks=new Array(bins).fill(0); let pk=0;
+  for(let i=0;i<n;i++){ const a=Math.abs(d[i]); if(a>peaks[(i/(sr*0.05))|0]) peaks[(i/(sr*0.05))|0]=a; if(a>pk) pk=a; }
+  const take={id:++vocSeq, name:'人聲'+vocSeq, t:start, buf, vol:1, rev:vfx.rev, mute:false, use:true, peaks:peaks.map(p=>Math.min(1,p*1.5)), pk,
+    fx:{pitch:vfx.pitch, bass:vfx.bass, treble:vfx.treble}};
+  // 不直接加入專案：先放「待確認」，試聽滿意再按「➕ 加入人聲」
+  pendingTake = take;
+  log(`🎤 錄好一段人聲（${buf.duration.toFixed(1)} 秒，峰值 ${(20*Math.log10(pk||1e-6)).toFixed(1)} dB）`+(pk<0.02?' ⚠ 音量很小，請靠近麥克風':pk>0.98?' ⚠ 有破音，請離遠一點':'')+' → 試聽後按「➕ 加入人聲」才會加進樂器音檔', pk<0.02||pk>0.98?'e':'o');
+  plog('人聲 步驟3 待確認 take', take.id, '起點', start.toFixed(3), '長度', buf.duration.toFixed(2), '峰值', pk.toFixed(3), '補償', comp);
+  renderPending();
+}
+let pendingTake = null;
+function renderPending(){
+  const box=$('pending'); box.innerHTML='';
+  if(!pendingTake){ box.innerHTML='<p class="help">流程：① 按 ⏺ 錄人聲（會同時播放剛剛做好的樂器音檔）→ ② 按 ■ 停止 → ③ 試聽，不滿意就重錄 → ④ 按「➕ 加入人聲」才會加進專案。</p>'; return; }
+  const v=pendingTake, pk=v.pk;
+  const d=document.createElement('div'); d.className='take'; d.style.borderLeftColor='#ffc04d'; d.style.background='#3a3320';
+  d.innerHTML=`<div><b>🟡 待確認：${v.name}</b><div class="help">${v.buf.duration.toFixed(1)} 秒 · 峰值 ${(20*Math.log10(pk||1e-6)).toFixed(1)} dB<br>尚未加入專案</div></div>
+    <canvas width="600" height="36"></canvas>
+    <div class="ctl"><button class="ui" id="pvMix">▶ 和樂器一起試聽</button><button class="ui" id="pvSolo">▶ 只聽人聲</button>
+    <button class="ui big pri" id="pvAdd">➕ 加入人聲</button><button class="ui" id="pvDrop">🗑 放棄（重錄）</button></div>`;
+  box.appendChild(d);
+  const g=d.querySelector('canvas').getContext('2d'); g.fillStyle='#ffc04d'; const bw=600/v.peaks.length;
+  v.peaks.forEach((p,i)=>{ const h=Math.max(1,p*34); g.fillRect(i*bw,18-h/2,Math.max(1,bw-0.3),h); });
+  $('pvMix').onclick=previewMix; $('pvSolo').onclick=previewSolo; $('pvAdd').onclick=()=>addPending(); $('pvDrop').onclick=dropPending;
+  padState();
+}
+function previewMix(){ if(!pendingTake) return; ensureCtx(); if(play.on){ stopAll(); return; } startPlayback(ctx.currentTime+0.06, pendingTake); setBtn('PLAY',true); }
+function previewSolo(){ if(!pendingTake) return; ensureCtx(); if(previewSrc){ try{previewSrc.stop();}catch{} previewSrc=null; return; }
+  const s=playVocal(ctx, pendingTake, ctx.destination, ctx.currentTime); previewSrc=s; s.onended=()=>{ if(previewSrc===s) previewSrc=null; }; }
+function dropPending(){ if(!pendingTake) return; stopAll(); pendingTake=null; renderPending(); log('已放棄這段人聲，可以重錄'); }
+function padState(){ // 錄音台右側 pad：沒有待確認人聲時，試聽/加入/放棄 變暗
+  ['padPrev','padAdd','padDrop','padSolo'].forEach(id=>{ const b=$(id); if(b) b.disabled=!pendingTake; });
+  document.querySelectorAll('.c-pad[data-pp]').forEach(b=>b.classList.toggle('sel', +b.dataset.pp===vfx.pitch));
+}
+function addPending(){
+  if(!pendingTake) return;
+  stopAll();
+  const v=pendingTake; pendingTake=null; delete v.pk;
+  vocals.push(v);
+  session.length=Math.max(session.length, v.t+v.buf.duration);
+  log(`➕ 已把「${v.name}」加入專案（從 ${v.t.toFixed(2)} 秒開始），輸出時會存成獨立人聲分軌`,'o');
+  plog('人聲 步驟4 加入專案', v.id, '目前人聲軌數', vocals.length);
+  renderPending(); refreshVocals(); drawTL();
+}
+let previewSrc=null;
+function refreshVocals(){
+  const box=$('takes'); box.innerHTML='';
+  if(!vocals.length){ box.innerHTML='<p class="help">還沒有人聲。先在「鍵盤 / 打擊墊」分頁錄好伴奏（也可以不錄），再按 ⏺ 錄人聲。每按一次就多一軌 take，可以挑好的輸出。</p>'; return; }
+  vocals.forEach(v=>{
+    const d=document.createElement('div'); d.className='take';
+    d.innerHTML=`<div><input type="text" value="${v.name.replace(/"/g,'&quot;')}"><div class="help">從 ${v.t.toFixed(2)} 秒開始 · ${v.buf.duration.toFixed(1)} 秒</div></div>
+      <canvas width="600" height="36"></canvas>
+      <div class="ctl"><button class="ui">▶ 試聽</button>音量<input type="range" min="0" max="200" value="${Math.round(v.vol*100)}">殘響<input type="range" min="0" max="100" value="${Math.round(v.rev*100)}">
+      <label class="ck"><input type="checkbox" ${v.mute?'checked':''}>靜音</label><label class="ck"><input type="checkbox" ${v.use?'checked':''}>輸出分軌</label><button class="ui" title="刪除這個 take">🗑</button>
+      <span>🎭 變音</span><input type="range" min="-12" max="12" value="${v.fx.pitch}"><b class="pv">${v.fx.pitch>0?'+':''}${v.fx.pitch}</b>
+      <span>🔈 低音</span><input type="range" min="-12" max="12" value="${v.fx.bass}"><span>🔔 高音</span><input type="range" min="-12" max="12" value="${v.fx.treble}"></div>`;
+    const [nm,rv,rr,cm,cu,fp,fb,ft]=d.querySelectorAll('input'); const [bp,bd]=d.querySelectorAll('button'); const cv=d.querySelector('canvas');
+    fp.onchange=()=>{ v.fx.pitch=+fp.value; d.querySelector('.pv').textContent=(v.fx.pitch>0?'+':'')+v.fx.pitch; }; fp.oninput=()=>{ d.querySelector('.pv').textContent=(+fp.value>0?'+':'')+fp.value; };
+    fb.oninput=()=>{ v.fx.bass=+fb.value; }; ft.oninput=()=>{ v.fx.treble=+ft.value; };
+    nm.onchange=()=>{ v.name=nm.value.trim()||('人聲'+v.id); drawTL(); };
+    rv.oninput=()=>{ v.vol=rv.value/100; }; rr.oninput=()=>{ v.rev=rr.value/100; };
+    cm.onchange=()=>{ v.mute=cm.checked; drawTL(); }; cu.onchange=()=>{ v.use=cu.checked; };
+    bp.onclick=()=>{ ensureCtx(); if(previewSrc){ try{previewSrc.stop();}catch{} previewSrc=null; bp.textContent='▶ 試聽'; return; }
+      const g=ctx.createGain(); g.gain.value=v.vol; g.connect(ctx.destination); const s=playVocal(ctx, v, g, ctx.currentTime);
+      previewSrc=s; bp.textContent='■ 停'; s.onended=()=>{ if(previewSrc===s){ previewSrc=null; bp.textContent='▶ 試聽'; } }; };
+    bd.onclick=()=>{ if(!confirm(`刪除「${v.name}」？（無法復原）`)) return; stopAll(); vocals=vocals.filter(x=>x!==v); refreshVocals(); drawTL(); };
+    const g=cv.getContext('2d'); g.fillStyle='#ff9f6b'; const bw=600/v.peaks.length;
+    v.peaks.forEach((p,i)=>{ const h=Math.max(1,p*34); g.fillRect(i*bw,18-h/2,Math.max(1,bw-0.3),h); });
+    box.appendChild(d);
+  });
+}
+$('bMic').onclick=()=>{ mic.stream ? closeMic() : enableMic(); };
+$('sMic').onchange=async()=>{ if(mic.stream){ closeMic(); await enableMic(); } };
+$('cNs').onchange=async()=>{ if(mic.stream){ closeMic(); await enableMic(); } };
+// 推桿：伴奏音量（只影響播放/錄音時聽到的伴奏，不影響輸出）、監聽音量、主音量
+const backVol = ()=> $('rBack').value/100;
+const monVol = ()=> $('cMon').checked ? $('rMon').value/100 : 0;
+function syncLeds(){ document.querySelectorAll('label.c-led').forEach(l=>{ const c=l.querySelector('input'); l.classList.toggle('on', c.checked); }); }
+$('cMon').onchange=()=>{ if(mic.mon) mic.mon.gain.value=monVol(); $('vMon').textContent=$('cMon').checked?$('rMon').value+'%':'關'; syncLeds();
+  if($('cMon').checked) log('🎧 監聽開啟：請戴耳機，用喇叭會產生回授尖叫'); };
+$('cBack').onchange=syncLeds;
+$('cMetroV').checked=$('cMetro').checked;
+$('cMetroV').onchange=()=>{ $('cMetro').checked=$('cMetroV').checked; syncLeds(); };
+$('cMetro').addEventListener('change',()=>{ $('cMetroV').checked=$('cMetro').checked; syncLeds(); });
+$('rBack').oninput=()=>{ $('vBack').textContent=$('rBack').value+'%'; if(ctx) play.scaled.forEach(x=>x.n.gain.setTargetAtTime(x.base*backVol(),ctx.currentTime,0.02)); };
+$('rMon').oninput=()=>{ if(mic.mon) mic.mon.gain.setTargetAtTime(monVol(),ctx.currentTime,0.02); $('vMon').textContent=$('cMon').checked?$('rMon').value+'%':'關'; };
+$('rMaster').oninput=()=>{ K.mvol=$('rMaster').value/100; $('vMaster').textContent=$('rMaster').value+'%'; applyMixer(); drawKnobs(); };
+syncLeds();
+// 旋鈕（變音/低音/高音/殘響）：拖曳上下、滾輪、雙擊歸零，實際值存在隱藏的 range
+document.querySelectorAll('.c-knob').forEach(k=>{
+  const r=$(k.dataset.for);
+  const set=v=>{ r.value=Math.max(+r.min,Math.min(+r.max,v)); r.dispatchEvent(new Event('input')); };
+  k.addEventListener('pointerdown',e=>{ e.preventDefault(); try{ k.setPointerCapture(e.pointerId); }catch{} let y0=e.clientY, acc=+r.value;
+    const span=(+r.max)-(+r.min);
+    const mv=ev=>{ acc+= (y0-ev.clientY)/160*span; y0=ev.clientY; set(Math.round(acc)); };
+    const up=()=>{ k.removeEventListener('pointermove',mv); k.removeEventListener('pointerup',up); k.removeEventListener('pointercancel',up); };
+    k.addEventListener('pointermove',mv); k.addEventListener('pointerup',up); k.addEventListener('pointercancel',up); });
+  k.addEventListener('wheel',e=>{ e.preventDefault(); set(+r.value-Math.sign(e.deltaY)); },{passive:false});
+  k.addEventListener('dblclick',()=>set(k.dataset.def!=null ? +k.dataset.def : (r.id==='rRev'?15:0)));
+});
+function drawCKnobs(){ document.querySelectorAll('.c-knob').forEach(k=>{ const r=$(k.dataset.for); k.style.setProperty('--v',(r.value-r.min)/(r.max-r.min)); }); }
+// 收音音量 / 變音 / 高低音
+const pitchLabel = s=> s===0 ? '原聲' : (s>0?'+':'')+s+' 半音';
+function setVfx(){
+  vfx.gain=$('rGain').value/100; vfx.pitch=+$('rPitch').value; vfx.bass=+$('rBass').value; vfx.treble=+$('rTreb').value; vfx.rev=$('rRev').value/100;
+  $('vGain').textContent=Math.round(vfx.gain*100)+'%';
+  drawCKnobs(); padState();
+  $('vPitch').textContent=pitchLabel(vfx.pitch); $('vBass').textContent=(vfx.bass>0?'+':'')+vfx.bass+' dB'; $('vTreb').textContent=(vfx.treble>0?'+':'')+vfx.treble+' dB';
+  if(mic.inG){ const t=ctx.currentTime; mic.inG.gain.setTargetAtTime(vfx.gain,t,0.02); mic.eq.lo.gain.setTargetAtTime(vfx.bass,t,0.02); mic.eq.hi.gain.setTargetAtTime(vfx.treble,t,0.02);
+    if(mic.ps.port) mic.ps.port.postMessage(vfx.pitch); }
+  if(pendingTake){ pendingTake.fx={pitch:vfx.pitch,bass:vfx.bass,treble:vfx.treble}; pendingTake.rev=vfx.rev; } // 待確認那段跟著調
+}
+['rGain','rPitch','rBass','rTreb','rRev'].forEach(id=>$(id).addEventListener('input',setVfx));
+document.querySelectorAll('[data-pp]').forEach(b=>b.onclick=()=>{ $('rPitch').value=b.dataset.pp; setVfx(); });
+$('padPrev').onclick=previewMix; $('padAdd').onclick=()=>addPending(); $('padDrop').onclick=dropPending; $('padSolo').onclick=previewSolo;
+setVfx();
+$('rGain').addEventListener('dblclick',()=>{ $('rGain').value=100; setVfx(); });
+$('bVRec').onclick=()=>toggleVocalRec();
+$('bVPlay').onclick=()=>togglePlay();
+$('bVStop').onclick=()=>stopAll();
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
+  curTab=b.dataset.tab; document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===b));
+  ['kb','voc','dj','loop'].forEach(t=>{ const pg=$('pg-'+t); if(pg) pg.hidden = curTab!==t; }); fit();
+});
+
+// ====== 🎧 DJ 盤 ======
+const fmtT = s=>{ s=Math.max(0,s); return Math.floor(s/60)+':'+(s%60).toFixed(1).padStart(4,'0'); };
+const djEl = s=> document.querySelector(`.deck[data-deck=${s}]`);
+function djInit(){
+  ensureCtx(); if(DJ.out) return;
+  const bq=(type,f)=>{ const b=ctx.createBiquadFilter(); b.type=type; b.frequency.value=f; return b; };
+  DJ.out=ctx.createGain(); DJ.out.connect(ctx.destination);
+  DJ.an=ctx.createAnalyser(); DJ.an.fftSize=1024; DJ.out.connect(DJ.an);
+  DJ.smp=ctx.createGain(); DJ.smp.connect(DJ.out);
+  for(const s of ['A','B']){ const c={};
+    c.trim=ctx.createGain(); c.hi=bq('highshelf',3200); c.mid=bq('peaking',1000); c.mid.Q.value=0.8; c.low=bq('lowshelf',250);
+    c.flt=bq('lowpass',22000); c.flt.Q.value=0.7; c.vol=ctx.createGain(); c.xf=ctx.createGain();
+    c.trim.connect(c.hi).connect(c.mid).connect(c.low).connect(c.flt).connect(c.vol).connect(c.xf).connect(DJ.out);
+    DJ.d[s].c=c; }
+  djApplyAll(); plog('DJ 步驟1 混音器建立');
+}
+function djApply(s){
+  const c=DJ.d[s].c, t=ctx.currentTime, v=id=>+$('dj'+s+'_'+id).value;
+  c.trim.gain.setTargetAtTime(Math.pow(10,v('trim')/20),t,0.01);
+  c.hi.gain.setTargetAtTime(v('hi'),t,0.01); c.mid.gain.setTargetAtTime(v('mid'),t,0.01); c.low.gain.setTargetAtTime(v('low'),t,0.01);
+  const f=v('flt');   // 左轉＝低通（悶），右轉＝高通（薄）
+  if(f<-2){ c.flt.type='lowpass'; c.flt.frequency.setTargetAtTime(20000*Math.pow(2,f/100*9),t,0.01); c.flt.Q.value=1.2; }
+  else if(f>2){ c.flt.type='highpass'; c.flt.frequency.setTargetAtTime(20*Math.pow(2,f/100*9),t,0.01); c.flt.Q.value=1.2; }
+  else { c.flt.type='lowpass'; c.flt.frequency.setTargetAtTime(22000,t,0.01); c.flt.Q.value=0.7; }
+  const vol=v('vol')/100; c.vol.gain.setTargetAtTime(vol*vol,t,0.01);
+  const x=$('djXf').value/100; c.xf.gain.setTargetAtTime(s==='A'?Math.cos(x*Math.PI/2):Math.sin(x*Math.PI/2),t,0.01); // 等功率 crossfader
+}
+function djApplyAll(){ if(!DJ.out) return; djApply('A'); djApply('B');
+  DJ.out.gain.setTargetAtTime($('djMaster').value/100*1.2,ctx.currentTime,0.01); DJ.smp.gain.setTargetAtTime($('djSmp').value/100,ctx.currentTime,0.01); }
+document.querySelectorAll('[id^=djA_],[id^=djB_],#djXf,#djMaster,#djSmp').forEach(r=>r.addEventListener('input',()=>{ djApplyAll(); drawCKnobs(); }));
+drawCKnobs();
+
+const dRate = d=> d.rate*(1+d.nudge);
+const dPos = d=> !d.buf ? 0 : d.playing ? Math.min(d.buf.duration, d.pos+(ctx.currentTime-d.t0)*d.cur) : d.pos;
+function dPlay(d){
+  if(!d.buf) return; djInit(); if(d.playing) return; if(d.pos>=d.buf.duration-0.02) d.pos=0;
+  const s=ctx.createBufferSource(); s.buffer=d.buf; s.playbackRate.value=dRate(d); s.connect(d.c.trim); s.start(0,d.pos);
+  d.src=s; d.t0=ctx.currentTime; d.cur=dRate(d); d.playing=true;
+  s.onended=()=>{ if(d.src===s && d.playing){ d.pos=d.buf.duration; d.playing=false; d.src=null; djBtns(d); } };
+  djBtns(d); plog('DJ deck', d.s, '播放 @', d.pos.toFixed(2));
+}
+function dPause(d){ if(!d.playing) return; d.pos=dPos(d); d.playing=false; const s=d.src; d.src=null; try{ s.stop(); }catch{} djBtns(d); }
+function dSeek(d,p){ const was=d.playing; if(was) dPause(d); d.pos=Math.max(0,Math.min(d.buf?d.buf.duration:0,p)); if(was) dPlay(d); }
+function dSetRate(d){ if(d.playing){ d.pos=dPos(d); d.t0=ctx.currentTime; d.cur=dRate(d); d.src.playbackRate.setValueAtTime(d.cur,ctx.currentTime); } }
+function djBtns(d){ const e=djEl(d.s); e.querySelector('.d-play').classList.toggle('on',d.playing);
+  e.querySelectorAll('.d-pads button').forEach((b,i)=>{ if(i<4) b.classList.toggle('set', d.hot[i]!=null); }); }
+function djLoad(d, buf, name){
+  if(d.playing) dPause(d);
+  d.buf=buf; d.name=name; d.pos=0; d.cue=0; d.hot=[null,null,null,null];
+  const n=600, p=new Array(n).fill(0), L=buf.getChannelData(0), R=buf.numberOfChannels>1?buf.getChannelData(1):L, step=Math.max(1,Math.floor(L.length/n));
+  for(let i=0;i<n;i++){ let m=0; for(let j=i*step, e=Math.min(L.length,(i+1)*step); j<e; j+=4){ const a=Math.max(Math.abs(L[j]),Math.abs(R[j])); if(a>m) m=a; } p[i]=m; }
+  d.peaks=p; djEl(d.s).querySelector('.d-title').textContent=name+'（'+fmtT(buf.duration)+'）'; djBtns(d);
+  log(`🎧 Deck ${d.s==='A'?1:2} 載入：${name}`,'o'); plog('DJ 載入', d.s, name, buf.duration.toFixed(1)+'s');
+}
+// 取樣音效（右排 pad）
+function djFx(i){
+  djInit(); const c=ctx, o=DJ.smp, t=c.currentTime+0.005;
+  if(i===0){ // 喇叭 air horn
+    [[0,0.14],[0.2,0.14],[0.4,0.6]].forEach(([dt,du])=>{ [466,587,698].forEach(f=>{ const s=c.createOscillator(); s.type='sawtooth'; s.frequency.value=f;
+      const g=c.createGain(); g.gain.setValueAtTime(0.0001,t+dt); g.gain.linearRampToValueAtTime(0.12,t+dt+0.01); g.gain.setValueAtTime(0.12,t+dt+du); g.gain.linearRampToValueAtTime(0.0001,t+dt+du+0.04);
+      const lp=c.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=2500; s.connect(lp).connect(g).connect(o); s.start(t+dt); s.stop(t+dt+du+0.06); }); });
+  } else if(i===1){ tone(c,o,t,'square',2200,120,0.4,0.25,0.002,0.42); }      // 雷射
+  else if(i===2){ // 刷碟 scratch：帶通雜訊頻率來回
+    const s=c.createBufferSource(); s.buffer=noiseBuf(c); s.loop=true; const f=c.createBiquadFilter(); f.type='bandpass'; f.Q.value=4;
+    [[0,600],[0.09,2200],[0.18,500],[0.27,2600],[0.4,400]].forEach(([dt,v])=>f.frequency.linearRampToValueAtTime(v,t+dt));
+    const g=c.createGain(); g.gain.setValueAtTime(0.0001,t); [[0.01,0.6],[0.08,0.05],[0.1,0.6],[0.17,0.05],[0.19,0.6],[0.26,0.05],[0.28,0.6],[0.42,0.0001]].forEach(([dt,v])=>g.gain.linearRampToValueAtTime(v,t+dt));
+    s.connect(f).connect(g).connect(o); s.start(t); s.stop(t+0.45);
+  } else { tone(c,o,t,'sine',95,32,0.9,1.0,0.003,1.3); nz(c,o,t,0.4,'lowpass',900,0.7,0.5,0.002,0.3,0.4); } // 重拍 boom
+}
+document.querySelectorAll('.deck').forEach(el=>{
+  const d=DJ.d[el.dataset.deck], file=el.querySelector('.d-file');
+  el.querySelector('.d-load').onclick=()=>file.click();
+  file.onchange=async()=>{ const f=file.files[0]; if(!f) return; djInit();
+    try{ const buf=await ctx.decodeAudioData(await f.arrayBuffer()); djLoad(d, buf, f.name.replace(/\.[^.]+$/,'')); }
+    catch(err){ log('❌ 讀不到這個音檔：'+err.message,'e'); } file.value=''; };
+  el.querySelector('.d-proj').onclick=async()=>{
+    const c=counts(), ids=[...TRACKS.filter(id=>c[id]), ...vocals.filter(v=>!v.mute).map(v=>'voc:'+v.id)];
+    if(!ids.length){ log('專案還是空的：先到「鍵盤 / 打擊墊」錄一段'); return; }
+    djInit(); log('🎹 渲染專案混音中…'); djLoad(d, await renderTracks(ids, ctx.sampleRate, true), '🎹 我的專案混音'); };
+  el.querySelector('.d-play').onclick=()=>{ if(!d.buf) return log('先載入音樂'); d.playing?dPause(d):dPlay(d); };
+  el.querySelector('.d-cue').onclick=()=>{ if(!d.buf) return; if(d.playing){ dPause(d); d.pos=d.cue; } else { d.cue=d.pos; setDisp('CUE',500); } };
+  const tf=el.querySelector('.d-tempoF');
+  tf.oninput=()=>{ d.rate=1+tf.value/100; el.querySelector('.d-tempoT').textContent=(tf.value>0?'+':tf.value<0?'':'±')+(+tf.value).toFixed(1)+'%'; if(ctx) dSetRate(d); };
+  el.querySelector('.d-t0').onclick=()=>{ tf.value=0; tf.oninput(); };
+  // HOT CUE（長按清除）與音效
+  el.querySelectorAll('.d-pads button').forEach(b=>{ const i=+b.dataset.pad; let tm=null, cleared=false;
+    b.addEventListener('pointerdown',e=>{ e.preventDefault(); cleared=false;
+      if(i>=4){ djFx(i-4); b.classList.add('hit'); setTimeout(()=>b.classList.remove('hit'),120); return; }
+      tm=setTimeout(()=>{ d.hot[i]=null; cleared=true; djBtns(d); log(`HOT ${i+1} 已清除`); },650); });
+    b.addEventListener('pointerup',()=>{ if(i>=4||cleared) return; clearTimeout(tm); if(!d.buf) return;
+      if(d.hot[i]==null){ d.hot[i]=dPos(d); djBtns(d); } else { dSeek(d,d.hot[i]); if(!d.playing) dPlay(d); } });
+    b.addEventListener('pointerleave',()=>clearTimeout(tm)); });
+  // 波形點擊/拖曳 = 跳到該位置
+  const wv=el.querySelector('.d-wave');
+  const wseek=e=>{ if(!d.buf) return; const r=wv.getBoundingClientRect(); dSeek(d,(e.clientX-r.left)/r.width*d.buf.duration); };
+  wv.addEventListener('pointerdown',e=>{ wseek(e); const mv=ev=>wseek(ev), up=()=>{ window.removeEventListener('pointermove',mv); window.removeEventListener('pointerup',up); };
+    window.addEventListener('pointermove',mv); window.addEventListener('pointerup',up); });
+  // JOG：播放中轉＝推快/拉慢（對拍），停止時轉＝刷碟
+  const jog=el.querySelector('.d-jog');
+  jog.addEventListener('pointerdown',e=>{
+    e.preventDefault(); if(!d.buf) return; djInit(); try{ jog.setPointerCapture(e.pointerId); }catch{}
+    const r=jog.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
+    let a0=Math.atan2(e.clientY-cy,e.clientX-cx), t0=performance.now(); jog.classList.add('touch');
+    const mv=ev=>{ const a=Math.atan2(ev.clientY-cy,ev.clientX-cx); let da=a-a0; if(da>Math.PI) da-=2*Math.PI; if(da<-Math.PI) da+=2*Math.PI;
+      const now=performance.now(), dt=Math.max(8,now-t0)/1000, vel=da/dt; a0=a; t0=now;
+      if(d.playing){ d.nudge=Math.max(-0.5,Math.min(0.5,vel/(2*Math.PI)*0.25)); dSetRate(d); }
+      else { d.pos=Math.max(0,Math.min(d.buf.duration,d.pos+da/(2*Math.PI)*1.8));
+        if(Math.abs(da)>0.02){ const g=ctx.createBufferSource(); g.buffer=d.buf; g.playbackRate.value=Math.max(0.3,Math.min(3,Math.abs(vel)/(2*Math.PI)*1.8));
+          const gg=ctx.createGain(); gg.gain.setValueAtTime(0.9,ctx.currentTime); gg.gain.linearRampToValueAtTime(0,ctx.currentTime+0.07);
+          g.connect(gg).connect(d.c.trim); g.start(0,d.pos); g.stop(ctx.currentTime+0.08); } } };
+    const up=()=>{ jog.classList.remove('touch'); d.nudge=0; if(d.playing) dSetRate(d);
+      jog.removeEventListener('pointermove',mv); jog.removeEventListener('pointerup',up); jog.removeEventListener('pointercancel',up); };
+    jog.addEventListener('pointermove',mv); jog.addEventListener('pointerup',up); jog.addEventListener('pointercancel',up);
+  });
+});
+function djDraw(){
+  for(const s of ['A','B']){ const d=DJ.d[s], el=djEl(s), p=dPos(d);
+    el.querySelector('.d-plat').style.transform=`rotate(${(p/1.8*360)%360}deg)`;
+    el.querySelector('.d-pos').textContent=fmtT(p); el.querySelector('.d-rem').textContent='-'+fmtT(d.buf?d.buf.duration-p:0);
+    const cv=el.querySelector('.d-wave'), g=cv.getContext('2d'), W=cv.width, H=cv.height; g.fillStyle='#08080a'; g.fillRect(0,0,W,H);
+    if(d.peaks){ const f=p/d.buf.duration, bw=W/d.peaks.length;
+      d.peaks.forEach((v,i)=>{ const h=Math.max(1,v*(H-6)); g.fillStyle = i/d.peaks.length<f ? '#ff9a1f' : '#6b6f78'; g.fillRect(i*bw,(H-h)/2,Math.max(1,bw),h); });
+      g.fillStyle='#fff'; g.fillRect(f*W-1,0,2,H);
+      d.hot.forEach((h,i)=>{ if(h!=null){ g.fillStyle='#ffcf8f'; g.fillRect(h/d.buf.duration*W,0,2,10); g.font='9px Arial'; g.fillText(i+1,h/d.buf.duration*W+3,9); } });
+      g.fillStyle='#3fb6ff'; g.fillRect(d.cue/d.buf.duration*W,H-6,3,6); } }
+  const mc=$('djMeter'), mg=mc.getContext('2d'), db=levelOf(DJ.an), f=Math.max(0,Math.min(1,(db+60)/60));
+  mg.fillStyle='#08080a'; mg.fillRect(0,0,40,150);
+  for(let i=0;i<20;i++){ mg.fillStyle = i/20<f ? (i>=17?'#ff3b4e':i>=13?'#ffc04d':'#33e07a') : '#18181b'; mg.fillRect(6,150-(i+1)*7.5+1,28,5.5); }
+}
+// DJ 錄音：錄 DJ 混音器的輸出（立體聲），停止後待確認
+async function djStartRec(){
+  djInit(); if(DJ.recOn) return;
+  stopAll();
+  if(djPendingTake){ log('（上一段 DJ 錄音沒加入，已捨棄）'); djPendingTake=null; renderDjPending(); }
+  DJ.chunks=[];
+  DJ.untap = await stereoTap(DJ.out, c=>{ if(DJ.recOn) DJ.chunks.push(c); });
+  DJ.recStart=ctx.currentTime+0.05; DJ.recOn=true;
+  if($('djBack').checked && (session.events.length||vocals.length)) startPlayback(DJ.recStart);
+  $('djRec').classList.add('on'); $('djRec').firstChild.textContent='STOP'; $('djDot').classList.add('on'); setBtn('REC',true);
+  log('🎧 DJ 開始錄音（錄的是 DJ 混音器輸出）'); plog('DJ 步驟2 開始錄音', DJ.recStart.toFixed(3));
+}
+function djStopRec(){
+  if(!DJ.recOn) return;
+  DJ.recOn=false; const end=ctx.currentTime; if(DJ.untap) DJ.untap(); DJ.untap=null; stopPlayback();
+  $('djRec').classList.remove('on'); $('djRec').firstChild.textContent='REC'; $('djDot').classList.remove('on'); setBtn('REC',false);
+  const buf=chunksToBuffer(DJ.chunks, DJ.recStart, end); DJ.chunks=[];
+  if(!buf || buf.duration<0.3){ log('（DJ 錄音太短，未保存）'); return; }
+  const n=vocals.filter(v=>v.kind==='dj').length+1;
+  djPendingTake={kind:'dj', id:++vocSeq, name:'DJ'+n, t:0, buf, vol:1, rev:0, mute:false, use:true, fx:{pitch:0,bass:0,treble:0}, peaks:peaksOf(buf)};
+  log(`🎧 錄好一段 DJ（${buf.duration.toFixed(1)} 秒，峰值 ${(20*Math.log10(peakOf(buf)||1e-6)).toFixed(1)} dB）→ 試聽後按「➕ 加入 DJ 混音」`,'o');
+  plog('DJ 步驟3 待確認', buf.duration.toFixed(2));
+  renderDjPending();
+}
+$('djRec').onclick=()=>{ DJ.recOn ? djStopRec() : djStartRec(); };
+function renderDjPending(){
+  const box=$('djPending'); box.innerHTML='';
+  if(!djPendingTake) return;
+  const v=djPendingTake, d=document.createElement('div'); d.className='take'; d.style.borderLeftColor='#ff9a1f'; d.style.background='#33261a';
+  d.innerHTML=`<div><b>🟠 待確認：${v.name}</b><div class="help">${v.buf.duration.toFixed(1)} 秒 · 尚未加入專案</div></div><canvas width="600" height="36"></canvas>
+    <div class="ctl"><button class="ui" id="djPv">▶ 試聽（含專案）</button><button class="ui big pri" id="djAdd">➕ 加入 DJ 混音</button><button class="ui" id="djDrop">🗑 放棄</button></div>`;
+  box.appendChild(d);
+  const g=d.querySelector('canvas').getContext('2d'); g.fillStyle='#ff9a1f'; const bw=600/v.peaks.length; v.peaks.forEach((p,i)=>{ const h=Math.max(1,p*34); g.fillRect(i*bw,18-h/2,Math.max(1,bw-0.3),h); });
+  $('djPv').onclick=()=>{ ensureCtx(); if(play.on){ stopAll(); return; } startPlayback(ctx.currentTime+0.06, djPendingTake); };
+  $('djAdd').onclick=()=>addTake(djPendingTake, ()=>{ djPendingTake=null; renderDjPending(); });
+  $('djDrop').onclick=()=>{ stopAll(); djPendingTake=null; renderDjPending(); log('已放棄這段 DJ 錄音'); };
+}
+// 共用：把一段音訊（DJ/Loop）加入專案，輸出時是獨立分軌
+function addTake(v, after){
+  stopAll(); vocals.push(v); session.length=Math.max(session.length, v.t+v.buf.duration);
+  log(`➕ 已把「${v.name}」加入專案（從 ${v.t.toFixed(2)} 秒開始，${v.buf.duration.toFixed(1)} 秒）`,'o');
+  plog('加入專案', v.kind, v.name, '目前音訊軌', vocals.length);
+  if(after) after(); refreshVocals(); drawTL();
+}
+
+// ====== 🔁 Beatbox Loop 站 ======
+function lpEnsure(){ ensureCtx(); if(!LP.out){ LP.out=ctx.createGain(); LP.out.gain.value=1; LP.out.connect(ctx.destination); } }
+function lpRestart(){ // 依目前相位重新排所有層（無縫）
+  LP.srcs.forEach(s=>{ try{ s.stop(); }catch{} }); LP.srcs=[];
+  if(!LP.run) return;
+  const now=ctx.currentTime, start=Math.max(now+0.03, LP.t0), phase=((start-LP.t0)%LP.len+LP.len)%LP.len;
+  for(const l of LP.layers){ if(l.mute) continue;
+    const s=ctx.createBufferSource(), g=ctx.createGain(); s.buffer=l.buf; s.loop=true; g.gain.value=l.vol; s.connect(g).connect(LP.out);
+    s.start(start, phase); LP.srcs.push(s); }
+}
+function lpStartClock(countIn){
+  lockTempo(); LP.bars=+$('lpBars').value; LP.spb=60/bpm(); LP.len=LP.bars*4*LP.spb;
+  const ci=countIn?4*LP.spb:0; LP.t0=ctx.currentTime+0.12+ci; LP.run=true; LP.metroNext=LP.t0-ci; LP.metroBeat=ci?-4:0;
+  plog('Loop 步驟1 開始循環 BPM', bpm(), '長度', LP.len.toFixed(3)+'s', LP.bars+'小節');
+}
+async function lpRec(){
+  if(LP.rec){ LP.chainStop=true; log('這一圈錄完就停止疊錄'); return; }
+  if(!(await enableMic())) return;
+  lpEnsure();
+  if(LP.layers.length>=8){ log('最多 8 層，先刪掉一層或加入專案'); return; }
+  if(!LP.run) lpStartClock($('lpCount').checked);
+  const k=Math.ceil((ctx.currentTime+0.05-LP.t0)/LP.len); LP.recStart=LP.t0+Math.max(0,k)*LP.len; LP.recEnd=LP.recStart+LP.len;
+  LP.chunks=[]; LP.rec=true; LP.chainStop=false; lpRestart(); lpUI();
+  log(`🔁 下一圈開始錄第 ${LP.layers.length+1} 層（${LP.bars} 小節，${LP.len.toFixed(2)} 秒）`);
+}
+function lpFinishLayer(){
+  const sr=ctx.sampleRate, n=Math.round(LP.len*sr), comp=(+$('tLat').value||0)/1000;
+  const total=LP.chunks.reduce((a,c)=>a+c.d.length,0), all=new Float32Array(total); let o=0; for(const c of LP.chunks){ all.set(c.d,o); o+=c.d.length; }
+  const out=new Float32Array(n);
+  if(LP.chunks.length){ const skip=Math.round((LP.recStart+comp-LP.chunks[0].t)*sr); for(let i=0;i<n;i++){ const j=skip+i; if(j>=0&&j<total) out[i]=all[j]; } }
+  // 頭尾 5ms 淡入淡出，循環接縫不會「啪」一聲
+  const fd=Math.round(sr*0.005); for(let i=0;i<fd;i++){ out[i]*=i/fd; out[n-1-i]*=i/fd; }
+  const buf=ctx.createBuffer(1,n,sr); buf.copyToChannel(out,0);
+  const layer={id:++LP.seq, buf, vol:1, mute:false, peaks:peaksOf(buf)};
+  LP.layers.push(layer);
+  const pk=peakOf(buf); plog('Loop 步驟2 第', LP.layers.length, '層完成，峰值', pk.toFixed(3));
+  log(`🔁 第 ${LP.layers.length} 層錄好了`+(pk<0.02?'（⚠ 幾乎沒聲音，靠近麥克風或調高「收音」推桿）':''), pk<0.02?'e':'o');
+  const chain=$('lpChain').checked && !LP.chainStop && LP.layers.length<8;
+  if(chain){ const end=LP.recEnd; LP.recStart=end; LP.recEnd=end+LP.len; LP.chunks=LP.chunks.filter(c=>c.t+c.d.length/sr>end); }
+  else { LP.rec=false; LP.chunks=[]; }
+  lpRestart(); lpUI();
+}
+function lpStop(){ LP.run=false; LP.rec=false; LP.chunks=[]; lpRestart(); lpUI(); }
+function lpPlay(){ if(!LP.layers.length) return log('還沒有任何一層，先按 ⏺ 錄下一層'); lpEnsure(); if(LP.run) return lpStop(); lpStartClock(false); lpRestart(); lpUI(); }
+function lpUI(){
+  $('lpRec').classList.toggle('on',LP.rec); $('lpRec').textContent = LP.rec ? '⏺ 錄音中…（再按：這圈錄完就停）' : '⏺ 錄下一層';
+  $('lpPlay').textContent = LP.run ? '■ 停止 Loop' : '▶ 播放 Loop';
+  $('lpBars').disabled = LP.layers.length>0;
+  const box=$('lpLayers'); box.innerHTML='';
+  LP.layers.forEach((l,i)=>{ const d=document.createElement('div'); d.className='lp-layer'+(l.mute?' mute':'');
+    d.innerHTML=`<b>${i+1}</b><canvas width="400" height="34"></canvas><input type="range" min="0" max="200" value="${Math.round(l.vol*100)}"><button class="ui">${l.mute?'🔇':'🔊'}</button><button class="ui">🗑</button>`;
+    const [rg]=d.getElementsByTagName('input'), [bm,bd]=d.getElementsByTagName('button');
+    rg.oninput=()=>{ l.vol=rg.value/100; lpRestart(); };
+    bm.onclick=()=>{ l.mute=!l.mute; lpRestart(); lpUI(); };
+    bd.onclick=()=>{ LP.layers=LP.layers.filter(x=>x!==l); if(!LP.layers.length) lpStop(); else lpRestart(); lpUI(); };
+    const g=d.querySelector('canvas').getContext('2d'); g.fillStyle=l.mute?'#555':'#5ad67d'; const bw=400/l.peaks.length;
+    l.peaks.forEach((p,k)=>{ const h=Math.max(1,p*32); g.fillRect(k*bw,17-h/2,Math.max(1,bw-0.3),h); });
+    box.appendChild(d); });
+  if(!LP.layers.length) box.innerHTML='<p class="help">還沒有任何一層。按 ⏺ 錄下一層 → 預備拍 4 下後錄一整圈（例如 2 小節）→ 自動循環播放；再按就疊上第 2 層、第 3 層…（例如：先錄大鼓「bm」，再疊小鼓「ka」，再疊 hi-hat「ts」）。</p>';
+}
+function lpMix(reps){ // 把所有沒靜音的層混成一段，重複 reps 次
+  const sr=LP.layers[0].buf.sampleRate, n=LP.layers[0].buf.length, out=new Float32Array(n*reps), one=new Float32Array(n);
+  for(const l of LP.layers){ if(l.mute) continue; const d=l.buf.getChannelData(0); for(let i=0;i<n;i++) one[i]+=d[i]*l.vol; }
+  for(let r=0;r<reps;r++) out.set(one, r*n);
+  const b=new AudioBuffer({length:out.length, sampleRate:sr, numberOfChannels:1}); b.copyToChannel(out,0); return b;
+}
+$('lpAdd').onclick=()=>{
+  if(!LP.layers.length) return log('Loop 是空的');
+  const at=Math.max(1,+$('lpAt').value||1), t=(at-1)*4*60/(session.bpm||bpm()), rv=$('lpRep').value;
+  const reps = rv==='fill' ? Math.max(1,Math.ceil((Math.max(session.length,LP.len)-t)/LP.len)) : +rv;
+  const buf=lpMix(reps), n=vocals.filter(v=>v.kind==='loop').length+1;
+  lpStop();
+  addTake({kind:'loop', id:++vocSeq, name:'Beatbox'+n, t, buf, vol:1, rev:0.05, mute:false, use:true, fx:{pitch:0,bass:0,treble:0}, peaks:peaksOf(buf)});
+  log(`🔁 Loop 重複 ${reps} 次（${buf.duration.toFixed(1)} 秒）從第 ${at} 小節加入；Loop 站內容保留，可以繼續疊`,'o');
+};
+$('lpRec').onclick=()=>lpRec();
+$('lpPlay').onclick=()=>lpPlay();
+$('lpUndo').onclick=()=>{ if(!LP.layers.length) return; LP.layers.pop(); if(!LP.layers.length) lpStop(); else lpRestart(); lpUI(); };
+$('lpClear').onclick=()=>{ if(!LP.layers.length||!confirm('清除 Loop 站所有層？')) return; LP.layers=[]; lpStop(); };
+function loopDraw(){
+  const cv=$('lpRing'), g=cv.getContext('2d'), W=cv.width, c=W/2, R=W/2-14;
+  g.clearRect(0,0,W,W); g.lineCap='round';
+  g.lineWidth=14; g.strokeStyle='#22262c'; g.beginPath(); g.arc(c,c,R,0,Math.PI*2); g.stroke();
+  let txt='STOP', sub=`${$('lpBars').value} 小節 · ${bpm()} BPM`;
+  if(LP.run && ctx){ const now=ctx.currentTime, el=now-LP.t0;
+    if(el<0){ txt='-'+Math.ceil(-el/LP.spb)+'-'; sub='預備拍'; }
+    else { const ph=(el%LP.len)/LP.len; g.strokeStyle= LP.rec && now>=LP.recStart ? '#ff4d5e' : LP.rec ? '#ffc04d' : '#5ad67d';
+      g.beginPath(); g.arc(c,c,R,-Math.PI/2,-Math.PI/2+ph*Math.PI*2); g.stroke();
+      const b=Math.floor(el/LP.spb)%(LP.bars*4); txt=(Math.floor(b/4)+1)+'.'+(b%4+1);
+      sub = LP.rec ? (now>=LP.recStart?`● 錄第 ${LP.layers.length+1} 層`:'下一圈開始錄') : `▶ ${LP.layers.length} 層循環中`; }
+    for(let i=0;i<LP.bars*4;i++){ const a=-Math.PI/2+i/(LP.bars*4)*Math.PI*2; g.fillStyle=i%4===0?'#fff':'#666'; g.beginPath(); g.arc(c+Math.cos(a)*(R+0),c+Math.sin(a)*R,i%4===0?3:2,0,Math.PI*2); g.fill(); } }
+  g.fillStyle='#e9edf3'; g.textAlign='center'; g.font='700 34px Consolas,monospace'; g.fillText(txt,c,c+8);
+  g.fillStyle='#9aa1ad'; g.font='13px "Microsoft JhengHei","PingFang TC",sans-serif'; g.fillText(sub,c,c+34); g.textAlign='left';
+}
+lpUI();
+
+// ====== 🎵 範例：Funk-Pop 甜蜜律動（Maroon 5〈Sugar〉的曲風，原創編曲，不含原曲旋律）======
+// 曲風要素：120 BPM、D♭ 大調、迪斯可四拍大鼓、2/4 拍小鼓+拍手、16 分 hi-hat 反拍開鈸、
+// 電鋼琴反拍切分和弦（funk 吉他感）、切分合成貝斯、鈴鼓/沙鈴、Pluck 五聲音階小勾子
+function demoFunkPop(){
+  // 編曲（23 小節 ≈ 46 秒）：0 前奏小過門 → 1-8 主歌/勾子（第 2 秒就進 hook，前 15 秒抓耳朵）
+  // → 9-12 Breakdown（抽掉大鼓貝斯、鐘聲輕唱 hook、最後一小節小鼓漸強）→ 13-20 副歌（全編制+鋪底+八度鐘聲疊 hook）→ 21-22 結尾
+  const BPM=120, S=60/BPM/4, BAR=16*S, ev=[];
+  let seed=20261102; const rnd=()=>{ seed=(Math.imul(seed,1103515245)+12345)>>>0; return (seed>>>8)/16777216; }; // 可重現的人性化
+  const P=(pr,o)=>Object.assign({pr, cut:0.6, res:0.1, att:0, rel:0.15}, o||{});
+  const hv=v=>Math.max(20,Math.min(127,Math.round(v+(rnd()-0.5)*14)));                 // 力度 ±7
+  const drum=(tr,bar,step,vel,swing)=>{ let t=bar*BAR+step*S;
+    if(swing && step%2===1) t+=0.012;                                                    // 16 分反拍晚一點點（約 54% swing）
+    if(swing) t+=(rnd()-0.5)*0.008;                                                      // ±4ms 手感
+    ev.push({tr, t:+Math.max(0,t).toFixed(4), vel:hv(vel)}); };
+  const key=(bar,step,note,len,vel,p)=>ev.push({tr:'keys', t:+(bar*BAR+step*S).toFixed(4), note, vel:hv(vel), dur:+(len*S).toFixed(4), p});
+  // 和弦（每小節一個）：D♭maj9 – B♭m7 – G♭maj7 – A♭sus
+  const CH=[ {root:49, v:[65,68,72,75]}, {root:46, v:[65,68,70,73]}, {root:42, v:[65,66,70,73]}, {root:44, v:[66,68,73,75]} ];
+  const EP=P(0,{cut:0.72, rel:0.05}), BASS=P(2,{cut:0.5, res:0.25, rel:0.05}), PLK=P(5,{cut:0.95, res:0.2, rel:0.18}), PAD=P(4,{cut:0.55, att:0.15, rel:0.5}), BELL=P(6,{cut:0.7, rel:0.3});
+  const SCALE=[1,3,5,6,8,10,0], inKey=n=>SCALE.includes(((n%12)+12)%12)?n:n-1;   // 不在 D♭ 大調的音往下修半音
+  // Hook（原創，D♭ 五聲音階為主）：4 小節一句，切分節奏、重複好記
+  const HOOK=[
+    [[0,77,2],[3,80,1],[4,82,2],[7,80,1],[8,77,2],[11,75,1],[12,77,4]],
+    [[0,73,2],[3,75,1],[4,77,2],[6,75,1],[8,73,3],[12,68,2],[14,70,2]],
+    [[0,77,2],[3,80,1],[4,82,2],[7,80,1],[8,77,2],[11,75,1],[12,80,4]],
+    [[0,82,2],[3,80,1],[4,77,2],[7,75,1],[8,77,6],[14,75,1],[15,73,1]] ];
+  const BARS=23, isVerse=b=>b>=1&&b<=8, isBreak=b=>b>=9&&b<=12, isChorus=b=>b>=13&&b<=20, isOutro=b=>b>=21;
+  for(let b=0;b<BARS;b++){
+    const c= b===BARS-1 ? CH[0] : CH[(b+3)%4] /* 第 1 小節起 D♭，最後回到 D♭ */, groove=isVerse(b)||isChorus(b);
+    // —— 前奏小過門（第 0 小節）——
+    if(b===0){ drum('kick',0,0,115); drum('kick',0,8,100); for(let s=0;s<8;s+=2) drum('chh',0,s,62+s*3,true);
+      for(let s=8;s<16;s++) drum('snare',0,s,58+(s-8)*8);                                   // 後半小節小鼓漸強帶進主歌
+      [[0,3],[3,1],[6,10]].forEach(([s,l])=>CH[0].v.forEach(n=>key(0,s,n,l,s===6?72:85,EP)));   // 最後一下和弦延音到小節尾，不留空
+      CH[0].v.slice(0,3).forEach(n=>key(0,0,n-12,16,45,PAD)); continue; }
+    // —— 鼓 ——
+    if(groove) for(const s of [0,4,8,12]) drum('kick',b,s,s===0?120:108);
+    if(groove && b%2===0) drum('kick',b,14,70);                                          // 推進的切分大鼓
+    if(groove||isBreak(b)){ if(!(b===12)){ drum('snare',b,4,98); drum('snare',b,12,104); } drum('clap',b,4,92); drum('clap',b,12,98); }
+    if(b===12) for(let s=0;s<16;s++) drum('snare',b,s,50+s*4.5);                         // breakdown 尾巴小鼓漸強
+    if(groove || isBreak(b)) for(let s=0;s<16;s++){
+      if(groove && s%4===2) drum('ohh',b,s,s===2||s===10?84:76,true);
+      else drum('chh',b,s, isBreak(b) ? (s%2?40:58) : (s%4===0?92:s%2?52:72), true); }
+    if(groove){ for(let s=0;s<16;s++) drum('shk',b,s,s%2?38:62,true); drum('tamb',b,4,68,true); drum('tamb',b,12,74,true); if(isChorus(b)) drum('tamb',b,10,55,true); }
+    if(groove && b%2===1){ drum('congH',b,3,68,true); drum('congL',b,7,72,true); drum('congH',b,11,62,true); drum('congL',b,14,58,true); }
+    if(b===1||b===13||b===17||b===BARS-1) drum('crash',b,0,b===13?118:105);
+    if(b===8||b===16){ [['htom',12,98],['htom',13,92],['ltom',14,104],['ltom',15,112]].forEach(([tr,s,v])=>drum(tr,b,s,v)); }
+    if(b===4) { drum('rim',b,14,85); drum('rim',b,15,95); }
+    if(isOutro(b)){ if(b===21){ for(const s of [0,4,8,12]) drum('kick',b,s,105); drum('snare',b,4,90); drum('snare',b,12,95); for(let s=0;s<16;s+=2) drum('chh',b,s,60,true); }
+      else drum('kick',b,0,118); }
+    // —— 電鋼琴 ——
+    const stabs = isBreak(b) ? [[0,15]] : b===BARS-1 ? [[0,14]] : [[2,1.5],[5,1],[7,1.5],[10,1.5],[13,1],[15,1]];
+    for(const [s,l] of stabs) c.v.forEach((n,i)=>key(b,s,n,l, isBreak(b)?60:(s%2?68:76)-i*4, EP));
+    // —— 貝斯 ——
+    if(groove || b===21){ const r=c.root;
+      const pat=[[0,r,2],[3,r,1],[6,r+12,1],[8,r,2],[10,r+7,1],[11,r,1],[14,r+12,1],[15,r+10,1]];
+      if(b%2===1) pat.push([13,r+7,1]);
+      pat.forEach(([s,n,l])=>key(b,s,inKey(n),l,s===0?108:90,BASS)); }
+    if(b===BARS-1) key(b,0,c.root,14,115,BASS);
+    // —— 鋪底 ——
+    if(isBreak(b)||isChorus(b)) c.v.slice(0,3).forEach(n=>key(b,0,n-12,15.5,isBreak(b)?55:40,PAD));
+    // —— Hook ——
+    const ph=HOOK[(b-1)%4];
+    if(isVerse(b)||isChorus(b)) ph.forEach(([s,n,l])=>key(b,s,n,l,100,PLK));
+    if(isChorus(b)) ph.forEach(([s,n,l])=>key(b,s,n+12,l,60,BELL));                     // 副歌：高八度鐘聲疊上去
+    if(isVerse(b)) ph.forEach(([s,n,l])=>key(b,s,n+12,l,40,BELL));                      // 主歌：輕輕疊一層，讓 hook 更亮、更突出
+    if(isBreak(b) && b<12) ph.forEach(([s,n,l])=>key(b,s,n,l,62,BELL));                 // breakdown：鐘聲輕輕唱
+  }
+  ev.sort((a,b)=>a.t-b.t);
+  return { bpm:BPM, length:BARS*BAR, events:ev, ctl:[] };
+}
+function loadDemo(kind){
+  if(kind!=='funkpop') return;
+  if((session.events.length||vocals.length) && !confirm('載入範例會取代目前的鼓/鍵盤錄音（人聲/DJ/Loop 保留，可按復原）。繼續？')) return;
+  stopAll(); pushUndo();
+  session = demoFunkPop();
+  K.tempo=(session.bpm-60)/140; $('tBpm').value=bpm(); drawKnobs();
+  Object.assign(st.trk.keys,{vol:0.62,rev:0.2}); const V={kick:1.05,snare:1.15,clap:1.25,chh:1.3,ohh:1.2,shk:1.25,tamb:1.3,congH:0.9,congL:0.9,crash:0.85,htom:0.85,ltom:0.9,rim:0.9}; for(const k in V) st.trk[k].vol=V[k]; applyMixer();
+  $('tName').value='FunkPop_甜蜜律動_Sugar曲風_Demo';
+  refreshMixer(); drawTL();
+  const c=counts(); log(`🎵 已載入範例「Funk-Pop 甜蜜律動」：${session.events.length} 個音符、${Object.keys(c).length} 條分軌、${session.length.toFixed(0)} 秒。按 ▶ 播放聽聽看，可以再疊人聲 / Beatbox / DJ。`,'o');
+  plog('範例載入', c);
+}
+$('sDemo').onchange=()=>{ loadDemo($('sDemo').value); $('sDemo').value=''; };
+
+// ====== 縮放裝置以符合寬度 ======
+// 寬、高都要塞得下（iPad 橫向 1024×768 / 1180×820 / 1366×1024 整台一個畫面）
+function fit(){
+  const stg=$('stage'), W=stg.clientWidth; if(!W){ drawTL(); return; }
+  const top=stg.getBoundingClientRect().top+window.scrollY, H=window.innerHeight-top-8;
+  const s=Math.max(0.3, Math.min(1, W/1180, H>200 ? H/660 : 1));
+  dev.style.transform=`scale(${s})`; dev.style.left=Math.max(0,(W-1180*s)/2)+'px'; stg.style.height=(660*s)+'px';
+  plog('版面縮放', s.toFixed(3), '視窗', window.innerWidth+'×'+window.innerHeight);
+  drawTL();
+}
+window.addEventListener('resize',fit);
+window.addEventListener('orientationchange',()=>setTimeout(fit,300));
+// iPad/iPhone：靜音開關會把 Web Audio 靜音 → 宣告為播放+錄音用途；切回 App 時恢復音訊
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden && ctx && ctx.state!=='running') ctx.resume(); });
+
+// ====== 啟動 ======
+$('tName').value=defaultName();
+drawKnobs(); drawPads(); labelOct(); setBtn('C4',true,'green'); refreshMixer(); refreshVocals(); renderPending(); fit(); requestAnimationFrame(frame);
+setBtn('BT',false);
+function webMode(){ // GitHub Pages / 單檔模式：Drive 走瀏覽器 Google 登入
+  SERVER=false; $('bLocal').disabled=true; $('tCid').value=cid();
+  const s=$('srv');
+  if(location.protocol==='file:'){ s.textContent='單機檔案模式：可錄音、下載 ZIP；上傳 Drive 請開 GitHub Pages 網址或雙擊 .bat'; s.className='bad'; $('bDrive').disabled=true; return; }
+  $('cidRow').hidden=!!cid();
+  s.textContent= cid() ? '☁ Drive：按上傳時用 Google 登入' : '⚠ 第一次上傳 Drive 前請先填 Client ID'; s.className= cid()?'ok':'bad';
+  const t=setInterval(()=>{ if(window.google?.accounts?.oauth2){ clearInterval(t); gInit(); } },500); setTimeout(()=>clearInterval(t),20000);
+}
+if(location.protocol.startsWith('http')){
+  fetch('/api/status').then(r=>r.ok?r.json():Promise.reject()).then(j=>{ if(!j||!('drive' in j)) throw 0; SERVER=true; const s=$('srv');
+    $('dirRow').hidden=false; $('tDir').value=saveDir();
+    if(j.drive){ s.textContent='☁ 本機伺服器 · Drive 已就緒'; s.className='ok'; } else { s.textContent='⚠ Drive：'+(j.driveError||'未授權'); s.className='bad'; }
+  }).catch(webMode);
+} else webMode();
+log('準備好了：點打擊墊或琴鍵試音，按 ⏺ 開始錄音。');
+plog('介面建立完成：打擊墊', padEls.length, '琴鍵', Object.keys(keyEls).length, '旋鈕', knobEls.length);
+
+// ====== 自我測試掛勾（test/run-test.js 使用） ======
+window.__SMK = { get session(){return session;}, set session(v){session=v;}, st, K, DRUMS, TRACKS, padHit, keyDown, keyUp, startRec, stopAll, finishRec,
+  renderTracks, encodeWav, buildMidi, buildZip, buildExport, peakOf, counts, ensureCtx, btns, padEls, keyEls, knobEls, setBend, get rec(){return rec;},
+  get vocals(){return vocals;}, loadDemo, djLoad, sendFiles, pitchShift, vfx, DJ, LP, get djPendingTake(){return djPendingTake;}, get pendingTake(){return pendingTake;}, addPending, get play(){return play;}, enableMic, startVocalRec, toggleVocalRec, get vrec(){return vrec;} };
+{ const qt=new URLSearchParams(location.search).get('tab'); const tb=qt&&document.querySelector(`.tab[data-tab="${qt}"]`); if(tb) tb.click(); } // ?tab=voc|dj|loop
+document.documentElement.dataset.ready='1';
+{ const st0=new URLSearchParams(location.search).get('selftest'); // 測試腳本（只在本機伺服器的測試模式載入）
+  if(st0){ const s=document.createElement('script'); s.src= st0==='demo' ? 'test/demo.js' : st0==='create' ? 'test/create-all.js' : 'test/selftest.js'; document.body.appendChild(s); } }
+</script>
+</body>
+</html>
