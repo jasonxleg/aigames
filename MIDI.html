@@ -1471,7 +1471,9 @@ function drawScreen(){
     for(let i=0;i<24;i++){ const y=bh-(i+1)*bh/24, on=i/24<f; g.fillStyle = on ? (i>=21?'#ff3b4e':i>=17?'#ffc04d':'#33e07a') : '#15181c'; g.fillRect(x,y+1,22,bh/24-2); }
     g.fillStyle='#8a919c'; g.font='10px Consolas'; g.fillText(lab,x,H-3); };
   bar(4,mdb,'MIC'); bar(32,odb,'OUT');
-  scrHist.push(vrec.on && tNow()>=vrec.start ? -mdb-1000 : mdb); if(scrHist.length>220) scrHist.shift();
+  // 停止錄音後（待確認/播放中）凍結波形，保留剛錄的那段；只有錄音中或閒置監聽時才捲動
+  const scrLive = vrec.on || (!pendingTake && !play.on);
+  if(scrLive){ scrHist.push(vrec.on && tNow()>=vrec.start ? -mdb-1000 : mdb); if(scrHist.length>220) scrHist.shift(); }
   const x0=66, w=W-x0-4, bw=w/220, mid=(H-16)/2;
   g.strokeStyle='#1d2228'; g.beginPath(); g.moveTo(x0,mid); g.lineTo(W-4,mid); g.stroke();
   scrHist.forEach((v,i)=>{ const recd=v<-500, db=recd?-(v+1000):v, a=Math.max(0,Math.min(1,(db+60)/60)), h=Math.max(1,a*(H-20));
@@ -1917,6 +1919,7 @@ async function startVocalRec(){
   if(ctx.state!=='running'){ try{ await ctx.resume(); }catch{} } // iOS：ctx 停住時 currentTime 不會走，起點會算錯
   stopAll(); lockTempo();
   if(pendingTake){ log('（上一段沒按「加入人聲」，這次錄音會取代它）'); pendingTake=null; renderPending(); }
+  scrHist.length=0; plog('人聲 錄音台波形 已重置（新錄音）');
   const t0=ctx.currentTime+0.15; // 從時間軸游標直接開錄
   vrec.on=true; vrec.start=t0; vrec.from=TL.cur; vrec.chunks=[]; vrec.stopAt=0;
   if($('cBack').checked && (session.events.length||vocals.length)) startPlayback(t0, null, vrec.from);
@@ -1978,7 +1981,7 @@ function renderPending(){
 function previewMix(){ if(!pendingTake) return; ensureCtx(); if(play.on){ stopAll(); return; } startPlayback(ctx.currentTime+0.06, pendingTake, Math.min(TL.cur, pendingTake.t)); setBtn('PLAY',true); }
 function previewSolo(){ if(!pendingTake) return; ensureCtx(); if(previewSrc){ try{previewSrc.stop();}catch{} previewSrc=null; return; }
   const s=playVocal(ctx, pendingTake, ctx.destination, ctx.currentTime); previewSrc=s; s.onended=()=>{ if(previewSrc===s) previewSrc=null; }; }
-function dropPending(){ if(!pendingTake) return; stopAll(); pendingTake=null; renderPending(); log('已放棄這段人聲，可以重錄'); }
+function dropPending(){ if(!pendingTake) return; stopAll(); pendingTake=null; scrHist.length=0; plog('人聲 錄音台波形 已重置（放棄）'); renderPending(); log('已放棄這段人聲，可以重錄'); }
 function padState(){ // 錄音台右側變音 pad：標出目前選的變音
   document.querySelectorAll('.c-pad[data-pp]').forEach(b=>b.classList.toggle('sel', +b.dataset.pp===vfx.pitch));
 }
