@@ -285,12 +285,14 @@ html{scrollbar-gutter:stable} /* 鎖捲動時捲軸消失，版面不會左右�
       <button class="ui big" id="bStop">■ 停止</button>
       <button class="ui" id="bHome" title="游標回到開頭">⏮ 開頭</button>
       <span class="tlmode" title="時間軸怎麼用手指/滑鼠操作（上方刻度列任何模式都能點選起點）">
-        <button class="ui on" data-tlm="cur">▼ 選起點</button><button class="ui" data-tlm="move">✋ 移動音軌</button><button class="ui" data-tlm="sel">⬚ 框選刪除</button>
+        <button class="ui on" data-tlm="cur">▼ 選起點</button><button class="ui" data-tlm="move">✋ 移動音軌</button><button class="ui" data-tlm="sel">⬚ 框選刪除</button><button class="ui" data-tlm="loop" title="在時間軸上左右拖一段＝只循環播放這一段（對齊拍子）；會自動勾 🔁 循環播放">🔁 循環範圍</button>
       </span>
       <button class="ui" id="tlDel" hidden>✂ 刪除選取</button>
+      <button class="ui" id="tlLoopX" hidden title="取消自訂循環範圍，改回整首循環">✕ 取消循環範圍</button>
       <span class="tlcur" id="tlCur">▼ 1.1 · 0:00.0</span>
       <span id="tinfo" style="color:var(--dim);font-size:12px"></span>
       <span style="flex:1"></span>
+      <label class="ck" title="播到所有音軌的最後（補滿到整小節）就從頭再播。循環中按 ⏺ REC＝循環疊錄：一邊重複播放，一邊把你彈的鍵盤/打擊墊加在當下的位置，下一圈就聽得到；再按一次 ⏺ 收錄但繼續循環"><input type="checkbox" id="cLoop"> 🔁 循環播放</label>
       <label class="ck"><input type="checkbox" id="cOver" checked> 疊錄(邊聽舊的邊錄)</label>
       <label class="ck"><input type="checkbox" id="cVel"> 固定力度 100</label>
       <button class="ui" id="bQuant">⊞ 量化</button>
@@ -307,7 +309,7 @@ html{scrollbar-gutter:stable} /* 鎖捲動時捲軸消失，版面不會左右�
       <span class="help">鍵盤音色</span>
       <select id="sPreset"></select>
       <span class="help">BPM</span><input type="text" id="tBpm" size="4" value="100">
-      <select id="sDemo"><option value="">🎵 範例…</option><option value="funkpop">Funk-Pop 甜蜜律動（Sugar 曲風，120 BPM）</option></select>
+      <select id="sDemo"><option value="">🎵 範例…</option><option value="funkpop">Funk-Pop 甜蜜律動（Sugar 曲風，120 BPM）</option><option value="stereolove">Stereo Love Cover 循環伴奏（C#m–A–E–G#m，128 BPM）</option></select>
     </div>
     <div id="mix"></div>
   </div>
@@ -797,17 +799,30 @@ function applyMixer(){
 
 // ====== 錄音 / 播放 ======
 const rec = { on:false, start:0, take:[], ctl:[], pend:new Map(), armT:0 };
-const play = { on:false, t0:0, nodes:[], end:0, scaled:[] };
+const play = { on:false, t0:0, nodes:[], end:0, scaled:[], loop:false, L:0, vb:[], pass:0 };
+// 循環長度：所有音軌的最後（含人聲/DJ），往上補滿到整小節；全空就給 4 小節
+function loopLenCalc(){
+  const bar=4*60/(session.bpm||bpm()), len=Math.max(contentLength(), session.length||0);
+  if(len<0.05) return 4*bar;
+  return Math.max(bar, Math.ceil((len-0.05)/bar)*bar);
+}
+// 循環範圍 [A,B)：有用「🔁 循環範圍」拉過就用那段（session.loopR，跟專案一起存），否則 0 ~ 整首結尾
+function loopRange(){ const r=session.loopR; if(r && r[1]-r[0]>0.05) return [r[0], r[1]]; return [0, loopLenCalc()]; }
+// AudioContext 絕對時間 → 循環中的專案秒數（落在 A~B 之間）
+function loopPos(abs){ const x=abs-play.t0; return x<=play.A ? play.A : play.A+((x-play.A)%play.L); }
+// 播一段音訊軌在 [lo,hi) 內的部分（base＝專案第 0 秒的 ctx 時間；循環範圍切在中間也能接）
+function playVocalSeg(x, base, lo, hi){ const v=x.v, a=Math.max(lo,v.t), b=Math.min(hi,v.t+v.buf.duration); if(b<=a+0.001) return;
+  const s=playVocal(ctx, v, x.g, base+a, a-v.t); if(hi<Infinity) try{ s.stop(base+b); }catch{} }
 // 共用時間軸游標：cur＝錄音/播放起點（專案秒數），手指在時間軸上點/拖設定
 const TL = { cur:0, L:110, sx:1, len:8, drag:false };
 const tNow = ()=> ctx ? ctx.currentTime : 0;
 const recT = ()=> Math.max(0, tNow()-rec.start);
 // 目前播放頭在專案時間軸上的位置（秒）
 function headT(){
-  if(rec.on) return recT();
+  if(rec.on && !rec.loop) return recT();
   if(vrec.on) return vrec.from + Math.max(0, tNow()-vrec.start);
   if(DJ.recOn) return DJ.from + Math.max(0, tNow()-DJ.recStart);
-  if(play.on) return Math.max(0, tNow()-play.t0);
+  if(play.on) return play.loop ? loopPos(tNow()) : Math.max(0, tNow()-play.t0);
   return TL.cur;
 }
 
@@ -818,47 +833,126 @@ function pushUndoAll(){ undoStack.push({s:JSON.stringify(session), v:vocals.map(
 // 播放用前瞻排程：每 25ms 只排未來 0.6 秒內的音（長曲目在 iPad 上也不會卡）
 function scheduleSession(t0, out, from){ // out(trackId)→AudioNode；from＝從專案第幾秒開始（之前的音不排）
   from=from||0;
-  play.q = { evs: session.events.filter(e=>e.t>=from-0.001).sort((a,b)=>a.t-b.t), ix:0, t0, out, ctl: session.ctl.map(c=>({t:t0+c.t, type:c.type, v:c.v})) };
+  play.q = { evs: session.events.filter(e=>e.t>=from-0.001 && (!play.loop || e.t<play.B-0.001)).sort((a,b)=>a.t-b.t), ix:0, t0, out, ctl: session.ctl.map(c=>({t:t0+c.t, type:c.type, v:c.v})) };
   pumpPlay();
 }
 function pumpPlay(){
   const q=play.q; if(!q || !ctx) return;
   const until=ctx.currentTime+0.6;
-  while(q.ix<q.evs.length && q.t0+q.evs[q.ix].t < until){ const e=q.evs[q.ix++], t=Math.max(ctx.currentTime, q.t0+e.t);
-    if(e.tr==='keys') voice(ctx, q.out('keys'), t, e.note, e.vel/127, e.dur, e.p, q.ctl);
-    else DRUM_FN[e.tr](ctx, q.out(e.tr), t, e.vel/127); }
+  for(let guard=0; guard<2; guard++){
+    while(q.ix<q.evs.length && q.t0+q.evs[q.ix].t < until){ const e=q.evs[q.ix++], t=Math.max(ctx.currentTime, q.t0+e.t);
+      if(e.tr==='keys') voice(ctx, q.out('keys'), t, e.note, e.vel/127, e.dur, e.p, q.ctl);
+      else DRUM_FN[e.tr](ctx, q.out(e.tr), t, e.vel/127); }
+    // 循環：這一圈排完、下一圈起點進入前瞻範圍 → 從循環起點 A 重排（重新讀 session，循環疊錄剛彈的音下一圈就會響）
+    if(!(play.loop && q.ix>=q.evs.length && q.t0+play.B < until)) break;
+    q.t0 += play.L; play.pass++;
+    q.evs = session.events.filter(e=>e.t>=play.A-0.001 && e.t<play.B-0.001).sort((a,b)=>a.t-b.t); q.ix=0;
+    q.ctl = session.ctl.map(c=>({t:q.t0+c.t, type:c.type, v:c.v}));
+    for(const x of play.vb) playVocalSeg(x, q.t0, play.A, play.B);
+    plog('🔁 循環 第', play.pass+1, '圈排程，起點 ctx', (q.t0+play.A).toFixed(3), '範圍', play.A.toFixed(2)+'~'+play.B.toFixed(2)+'s', '事件數', q.evs.length, '音訊軌', play.vb.length);
+  }
 }
 // t0＝實際開始發聲的 AudioContext 時間；from＝從專案第幾秒開始播（時間軸游標）
-function startPlayback(t0, extraTake, from){
+function startPlayback(t0, extraTake, from, loop){
   stopPlayback();
   from=Math.max(0,from||0);
+  loop = !!loop && !extraTake;
+  if(loop){ [play.A, play.B]=loopRange(); play.L=play.B-play.A; if(from<play.A-0.001 || from>=play.B-0.05) from=play.A; }
   const base0 = t0-from; // 專案第 0 秒對應的 AudioContext 時間
   const pb = {};
-  play.scaled=[];
+  play.scaled=[]; play.vb=[]; play.pass=0; play.cut=false;
+  play.loop=loop; play.t0=base0; // 先設好，scheduleSession 第一次 pump 就可能要換圈
   for(const id of TRACKS){ pb[id]=ctx.createGain(); pb[id].gain.value=backVol(); pb[id].connect(bus[id].g); play.scaled.push({n:pb[id],base:1}); }
   play.nodes = Object.values(pb);
-  scheduleSession(base0, id=>pb[id], from);
   for(const v of (extraTake?[...vocals,extraTake]:vocals)){ // 人聲 take 一起播（試聽時含待確認那段）
-    const dur=v.buf.duration; if(v.t+dur<=from) continue;
+    const dur=v.buf.duration; if(v.t+dur<=from && !loop) continue; // 循環時這圈不播的也要建 bus，下一圈要用
     const base=v.mute?0:v.vol, b=makeBus(ctx, M, {vol: base*backVol(), rev:v.rev});
-    if(v.t>=from) playVocal(ctx, v, b.g, base0+v.t); else playVocal(ctx, v, b.g, t0, from-v.t); // 游標落在這段中間 → 從中間開始播
-    play.nodes.push(b.g); play.scaled.push({n:b.g,base,v});
+    const x={v, g:b.g};
+    if(loop) playVocalSeg(x, base0, from, play.B); // 循環：只播到循環尾
+    else if(v.t+dur>from){ if(v.t>=from) playVocal(ctx, v, b.g, base0+v.t); else playVocal(ctx, v, b.g, t0, from-v.t); } // 游標落在這段中間 → 從中間開始播
+    play.nodes.push(b.g); play.scaled.push({n:b.g,base,v}); play.vb.push(x);
   }
-  play.on=true; play.t0=base0; play.end=base0+session.length;
+  play.on=true; play.end=base0+session.length;
+  scheduleSession(base0, id=>pb[id], from);
   if(extraTake) play.end=Math.max(play.end, base0+extraTake.t+extraTake.buf.duration);
-  plog('播放排程完成，事件數', session.events.length, '長度', session.length.toFixed(2)+'s', '起點', from.toFixed(2)+'s');
+  plog('播放排程完成，事件數', session.events.length, '長度', session.length.toFixed(2)+'s', '起點', from.toFixed(2)+'s', loop?('🔁 循環範圍 '+play.A.toFixed(2)+'~'+play.B.toFixed(2)+'s（'+(play.L/(4*60/(session.bpm||bpm()))).toFixed(2)+' 小節）'):'');
+}
+const loopTxt = ()=> session.loopR ? `${tlFmt(play.A)}～${tlFmt(play.B)}` : `每 ${tlFmt(play.L)} 從頭`;
+// 播放中切換 🔁：打開＝這圈播完接著從頭；關掉＝這圈播完就停（循環疊錄也一起收錄）
+function setLoop(on){
+  plog('🔁 循環播放 切換', play.loop?'開':'關', '→', on?'開':'關', '播放中', play.on);
+  if(!play.on || !ctx) return;
+  if(on && !play.loop){
+    if(rec.on||vrec.on||DJ.recOn) return log('錄音中不能切成循環，停止後再按 ▶');
+    const h=headT(), [A,B]=loopRange();
+    startPlayback(ctx.currentTime+0.04, null, h>=A && h<B-0.05 ? h : A, true); // 從目前位置接著播（在範圍外就跳到範圍起點）
+    log(`🔁 循環播放：${loopTxt()}重播`);
+  } else if(!on && play.loop){
+    if(rec.on && rec.loop) recPunchOut();
+    const q=play.q, now=ctx.currentTime;
+    play.loop=false; play.cut=true; // 已排到下一圈的音要剪掉
+    play.end = q && q.t0+play.A>now ? q.t0+play.A : (q?q.t0:play.t0)+play.B;
+    log('🔁 循環關閉：這一圈播完就停');
+  }
 }
 function stopPlayback(){
   play.nodes.forEach(n=>{ try{ n.gain.setValueAtTime(0,ctx.currentTime); n.disconnect(); }catch{} });
-  play.nodes=[]; play.on=false; play.q=null;
+  play.nodes=[]; play.on=false; play.q=null; play.loop=false; play.vb=[];
 }
 function lockTempo(){ // 已有內容就沿用專案速度，避免疊錄時節拍對不上
   if(session.events.length||vocals.length){ K.tempo=(session.bpm-60)/140; $('tBpm').value=bpm(); drawKnobs(); }
   else session.bpm=bpm();
 }
+// ---- 循環疊錄：一邊循環播放，一邊把彈的音直接寫進專案（下一圈就聽得到） ----
+function recNow(){ return rec.loop ? loopPos(tNow()) : recT(); }
+function recPush(e, abs){ // e.t＝專案秒數；abs＝這個音實際響的 ctx 時間（琶音會排在未來）
+  if(!rec.loop){ rec.take.push(e); return; }
+  if(e.dur!=null) e.dur=Math.min(e.dur, Math.max(0.02, play.B-e.t)); // 不超過循環尾，循環長度才不會被撐大
+  if(!rec.undo){ pushUndo(); rec.undo=true; }
+  session.events.push(e); session.events.sort((a,b)=>a.t-b.t);
+  session.length=Math.max(session.length, e.t+(e.dur||0));
+  rec.n++;
+  // 已經預排到下一圈（循環尾前 0.6 秒內彈的）→ 插進佇列，下一圈就響
+  const q=play.q; if(q && q.t0+e.t > (abs??ctx.currentTime)+0.03){ let i=q.ix; while(i<q.evs.length && q.evs[i].t<=e.t) i++; q.evs.splice(i,0,e); }
+  plog('🔁 循環疊錄 加入', e.tr, e.note!=null?noteName(e.note):'', 't=', e.t.toFixed(3)+'s', e.dur!=null?'長 '+e.dur.toFixed(3)+'s':'', '第', play.pass+1, '圈，累計', rec.n);
+}
+function recCtl(c){
+  if(!rec.loop){ rec.ctl.push(c); return; }
+  if(!rec.undo){ pushUndo(); rec.undo=true; }
+  session.ctl.push(c); session.ctl.sort((a,b)=>a.t-b.t);
+}
+function startLoopRec(){
+  if(!play.on || !play.loop){
+    stopAll(); lockTempo();
+    startPlayback(ctx.currentTime+0.12, null, TL.cur, true); setBtn('PLAY',true);
+  }
+  rec.on=true; rec.loop=true; rec.start=ctx.currentTime; rec.n=0; rec.undo=false; rec.take=[]; rec.ctl=[]; rec.pend.clear();
+  setBtn('REC', true);
+  plog('🔁 循環疊錄 步驟1 開始，循環長度', play.L.toFixed(2)+'s', 'BPM', session.bpm||bpm(), '目前位置', loopPos(tNow()).toFixed(2)+'s');
+  log(`⏺🔁 循環疊錄中：${loopTxt()}重播，彈的音會加在當下位置；再按 ⏺ 收錄（繼續循環），■ 停止`);
+}
+// 收錄（不停播放）：還按著的音補上長度
+function recPunchOut(){
+  if(!rec.on || !rec.loop) return;
+  const now=recNow();
+  for(const [k,pd] of rec.pend){ let d=now-pd.t; if(d<=0) d+=play.L; recPush({tr:'keys', t:pd.t, note:pd.note, vel:pd.vel, dur:Math.max(0.02,d), p:pd.p}); }
+  rec.pend.clear();
+  for(const a of activeNotes.values()) if(a.recKey) a.recKey=null;
+  if(rec.n && !session.loopR) session.length=Math.max(session.length, play.B); // 空專案錄的 4 小節循環：長度要留著，下次循環才一樣長
+  rec.on=false; rec.loop=false;
+  setBtn('REC', false);
+  log(rec.n ? `✔ 循環疊錄加入 ${rec.n} 個音符/打擊（可按 ↶ 復原）` : '（這次循環疊錄沒彈任何東西）', rec.n?'o':undefined);
+  plog('🔁 循環疊錄 步驟2 收錄：新增', rec.n, '個；總事件', session.events.length, '專案長', session.length.toFixed(2));
+  refreshMixer(); drawTL();
+}
+function recBtn(){
+  if(rec.on) return rec.loop ? recPunchOut() : stopAll();
+  startRec();
+}
 function startRec(){
   ensureCtx();
   if(rec.on) return;
+  if($('cLoop').checked) return startLoopRec();
   stopAll();
   lockTempo();
   const t0 = ctx.currentTime + 0.12, from = TL.cur; // 從游標位置直接開錄
@@ -869,6 +963,7 @@ function startRec(){
   log(`⏺ 開始錄音（從 ${tlFmt(from)} 開始，BPM ${bpm()}）`);
 }
 function finishRec(){
+  if(rec.loop) return recPunchOut();
   const end = recT();
   for(const [k,pd] of rec.pend){ if(pd.voice) pd.voice.stop(ctx.currentTime); rec.take.push({tr:'keys', t:pd.t, note:pd.note, vel:pd.vel, dur:Math.max(0.02,end-pd.t), p:pd.p}); }
   rec.pend.clear();
@@ -902,8 +997,10 @@ function playAll(){
   ensureCtx();
   if(rec.on||play.on||vrec.on||DJ.recOn){ stopAll(); return; }
   if(!session.events.length && !vocals.length){ setDisp('---',800); log('還沒有錄音，先按 ⏺ REC'); return; }
-  let from=TL.cur; if(from>=session.length-0.05){ from=0; log('游標在結尾之後，改從開頭播放'); }
-  startPlayback(ctx.currentTime+0.06, null, from); setBtn('PLAY',true);
+  const lp=$('cLoop').checked;
+  let from=TL.cur; if(!lp && from>=session.length-0.05){ from=0; log('游標在結尾之後，改從開頭播放'); }
+  startPlayback(ctx.currentTime+0.06, null, from, lp); setBtn('PLAY',true);
+  if(lp) log(`🔁 循環播放：${loopTxt()}重播（按 ⏺ 可以邊循環邊加音）`);
 }
 
 // ====== 演奏輸入 ======
@@ -912,10 +1009,11 @@ function padHit(i, vel){
   ensureCtx();
   const d = DRUMS[st.bankP*8+i]; vel=velFrom(vel);
   DRUM_FN[d.id](ctx, bus[d.id].g, ctx.currentTime, vel/127);
-  if(rec.on) rec.take.push({tr:d.id, t:recT(), vel});
+  const rt = rec.on ? recNow() : 0;
+  if(rec.on) recPush({tr:d.id, t:rt, vel});
   const el = padEls[i]; el.classList.add('hit'); setTimeout(()=>el.classList.remove('hit'),110);
   setDisp('P'+(i+1)+(st.bankP?'b':''),400);
-  plog('打擊墊', i+1, d.id, '力度', vel, rec.on?('錄到 t='+recT().toFixed(3)):'');
+  plog('打擊墊', i+1, d.id, '力度', vel, rec.on?('錄到 t='+rt.toFixed(3)):'');
 }
 function drumByNote(n){ // MIDI 打擊（第 10 頻道）
   const d = DRUMS.find(x=>x.gm===n); if(d){ const idx=DRUMS.indexOf(d); return {bank:idx>>3, i:idx&7}; }
@@ -941,7 +1039,7 @@ function keyDown(n, vel){
   const nn = n+transpose();
   const v = voice(ctx, bus.keys.g, ctx.currentTime, nn, vel/127, null, keyParams(), null);
   const a = {voice:v};
-  if(rec.on){ a.recKey = {t:recT(), note:nn, vel, p:keyParams(), voice:v}; rec.pend.set(n, a.recKey); }
+  if(rec.on){ a.recKey = {t:recNow(), note:nn, vel, p:keyParams(), voice:v}; rec.pend.set(n, a.recKey); }
   activeNotes.set(n,a);
   setDisp(noteName(nn),500);
 }
@@ -956,7 +1054,8 @@ function keyUp(n){
   a.voice.stop(ctx.currentTime);
   if(a.recKey && rec.on && rec.pend.get(n)===a.recKey){
     rec.pend.delete(n);
-    rec.take.push({tr:'keys', t:a.recKey.t, note:a.recKey.note, vel:a.recKey.vel, dur:Math.max(0.02, recT()-a.recKey.t), p:a.recKey.p});
+    let d=recNow()-a.recKey.t; if(rec.loop && d<=0) d+=play.L; // 循環中按住跨過循環尾
+    recPush({tr:'keys', t:a.recKey.t, note:a.recKey.note, vel:a.recKey.vel, dur:Math.max(0.02, d), p:a.recKey.p});
   }
 }
 function arpPattern(){
@@ -977,16 +1076,16 @@ function arpTick(){
     const t = arp.next + swing, dur = Math.max(0.02, stepLen*(0.1+K.agate*0.9));
     const nn = h.n+transpose(), p=keyParams();
     voice(ctx, bus.keys.g, t, nn, h.vel/127, dur, p, []);
-    if(rec.on && t>=rec.start) rec.take.push({tr:'keys', t:t-rec.start, note:nn, vel:h.vel, dur, p});
+    if(rec.on && t>=rec.start) recPush({tr:'keys', t:rec.loop?loopPos(t):t-rec.start, note:nn, vel:h.vel, dur, p}, t);
     arp.step++; arp.next += stepLen;
   }
 }
 function setBend(v){ live.bend=v; ensureCtx(); const t=ctx.currentTime;
   for(const a of activeNotes.values()) if(a.voice) a.voice.setBend(v,t);
-  if(rec.on) rec.ctl.push({t:recT(), type:'bend', v:+v.toFixed(3)}); }
+  if(rec.on) recCtl({t:recNow(), type:'bend', v:+v.toFixed(3)}); }
 function setMod(v){ live.mod=v; ensureCtx(); const t=ctx.currentTime;
   for(const a of activeNotes.values()) if(a.voice) a.voice.setMod(v,t);
-  if(rec.on) rec.ctl.push({t:recT(), type:'mod', v:+v.toFixed(3)}); }
+  if(rec.on) recCtl({t:recNow(), type:'mod', v:+v.toFixed(3)}); }
 
 // ====== 建立裝置 UI ======
 const $ = id=>document.getElementById(id);
@@ -1157,7 +1256,7 @@ btns['OCT+'].onclick=()=>shiftOct(1);
 btns['C4'].onclick=()=>shiftOct(0,true);
 btns['PLAY'].onclick=()=>togglePlay();
 btns['STOP'].onclick=()=>stopAll();
-btns['REC'].onclick=()=>{ rec.on ? stopAll() : startRec(); };
+btns['REC'].onclick=()=>recBtn();
 btns['ARP'].onclick=()=>{ for(const n of [...activeNotes.keys()]) keyUp(n); st.arp=!st.arp; arp.held=[]; arp.phys=0; setBtn('ARP',st.arp); setDisp(st.arp?'ArP':'oFF',700); };
 btns['SC/CH'].onclick=e=>{ st.preset=(st.preset+(e.shiftKey?PRESETS.length-1:1))%PRESETS.length; $('sPreset').value=st.preset; setDisp(prName()); log('鍵盤音色 → '+prName()+' '+PRESETS[st.preset].name); };
 btns['KNOB-B'].onclick=()=>{ st.bankK^=1; setBtn('KNOB-B',st.bankK); drawKnobs(); setDisp(st.bankK?'Kb':'KA',600); };
@@ -1168,7 +1267,7 @@ btns['BT'].onclick=()=>connectMidi();
 function recToggle(){
   if(curTab==='voc') return toggleVocalRec();
   if(curTab==='dj') return DJ.recOn ? djStopRec() : djStartRec();
-  rec.on ? stopAll() : startRec();
+  recBtn();
 }
 // 錄音中禁止網頁捲動（避免手指碰到畫面捲走、錄音按鈕跑掉）：桌機靠 overflow:hidden，iPad/iPhone 還要擋 touchmove
 let scrollLocked=false;
@@ -1190,6 +1289,7 @@ function updRecBtn(){
 $('bPlay').onclick=()=>togglePlay();
 $('bHome').onclick=()=>setCursor(0);
 $('bStop').onclick=()=>stopAll();
+$('cLoop').onchange=e=>setLoop(e.target.checked);
 $('bUndo').onclick=()=>{ if(!undoStack.length) return log('沒有可以復原的動作'); stopAll(); const u=undoStack.pop();
   if(typeof u==='string') session=JSON.parse(u);
   else { session=JSON.parse(u.s); vocals=u.v.map(x=>{ x.v.t=x.t; x.v.buf=x.buf; x.v.peaks=x.peaks; return x.v; }); refreshVocals(); }
@@ -1327,8 +1427,17 @@ function drawTL(){
   if(TL.mv && TL.mv.moved){ const r=TL.rows[TL.mv.ri]; if(r){ g.strokeStyle='#5fe3ff'; g.lineWidth=1.5; g.strokeRect(L+0.5,r.y+0.5,W-L-9,rh-2); } }
   // 起點游標 ▼（青色）
   { const x=L+TL.cur*sx; g.fillStyle='#5fe3ff'; g.fillRect(x-1,16,2,H-16); g.beginPath(); g.moveTo(x-7,2); g.lineTo(x+7,2); g.lineTo(x,15); g.closePath(); g.fill(); }
+  // 🔁 循環範圍 A~B（黃線＋底色）：播放中畫實際在循環的範圍；沒播時畫自訂範圍；拖曳中畫拖的那段
+  { let R=null, live=false;
+    if(TL.lr) R=[Math.min(TL.lr.a,TL.lr.b), Math.max(TL.lr.a,TL.lr.b)];
+    else if(play.on && play.loop){ R=[play.A,play.B]; live=true; }
+    else if(session.loopR) R=session.loopR;
+    if(R){ const xa=L+R[0]*sx, xb=L+R[1]*sx; g.fillStyle=live?'#ffc04d18':'#ffc04d0d'; g.fillRect(xa,16,xb-xa,H-16);
+      g.fillStyle=live||TL.lr?'#ffc04d':'#ffc04d88'; g.fillRect(xa-1,16,2,H-16); g.fillRect(xb-1,16,2,H-16); g.fillRect(xa,14,xb-xa,3);
+      g.fillText('🔁'+(rec.on&&rec.loop?' ⏺':''),xb+3,13); } }
   const busy=rec.on||play.on||vrec.on||DJ.recOn;
   if(busy){ g.fillStyle=(rec.on||vrec.on||DJ.recOn)?'#ff4d5e':'#5ad67d'; g.fillRect(L+curT*sx,16,2,H-16); }
+  loopUI();
   $('tinfo').textContent = `BPM ${session.events.length||vocals.length?session.bpm:bpm()} · ${session.events.length} 事件 · 音訊 ${vocals.length} 軌 · ${session.length.toFixed(1)} 秒`;
   const spbC=60/(session.bpm||bpm()), bt=Math.round(TL.cur/spbC);
   $('tlCur').textContent = `▼ ${Math.floor(bt/4)+1}.${bt%4+1} · ${tlFmt(TL.cur)}`;
@@ -1340,7 +1449,7 @@ function setCursor(t, snap){
   const spb=60/(session.bpm||bpm());
   t=Math.max(0,t); if(snap!==false) t=Math.round(t/spb)*spb;
   TL.cur=+t.toFixed(4);
-  if(play.on && !(rec.on||vrec.on||DJ.recOn)) startPlayback(ctx.currentTime+0.04, null, TL.cur);
+  if(play.on && !(rec.on||vrec.on||DJ.recOn)) startPlayback(ctx.currentTime+0.04, null, TL.cur, play.loop);
   drawTL();
 }
 function tlPick(e){ const r=tl.getBoundingClientRect(); setCursor((e.clientX-r.left-TL.L)/TL.sx); }
@@ -1364,7 +1473,7 @@ function tlDeleteRow(r){
 // ====== 時間軸編輯：▼ 選起點 / ✋ 移動音軌 / ⬚ 框選刪除 ======
 TL.mode='cur'; TL.sel=null; TL.mv=null;
 function tlSetMode(m){ TL.mode=m; document.querySelectorAll('.tlmode [data-tlm]').forEach(b=>b.classList.toggle('on', b.dataset.tlm===m));
-  tl.style.cursor = m==='move' ? 'grab' : m==='sel' ? 'crosshair' : 'pointer';
+  tl.style.cursor = m==='move' ? 'grab' : (m==='sel'||m==='loop') ? 'crosshair' : 'pointer';
   if(m!=='sel'){ TL.sel=null; tlSelUI(); } drawTL(); plog('時間軸 模式 →', m); }
 document.querySelectorAll('.tlmode [data-tlm]').forEach(b=>b.onclick=()=>tlSetMode(b.dataset.tlm));
 const tlQ = ()=> 60/(session.bpm||bpm())/4;            // 移動時對齊 16 分音符
@@ -1405,6 +1514,19 @@ function tlCutSel(){
   log(done.length ? `✂ 已刪除 ${tlFmt(a)}～${tlFmt(b)}：${done.join('、')}（可按 ↶ 復原）` : '（框選範圍裡沒有聲音）', done.length?'o':'');
 }
 $('tlDel').onclick=()=>tlCutSel();
+// 🔁 自訂循環範圍（null＝整首）；播放中改範圍 → 立刻從新範圍起點循環
+function setLoopRange(a,b){
+  if(rec.on&&rec.loop) return log('循環疊錄中不能改範圍，先按 ⏺ 收錄');
+  session.loopR = a==null ? null : [+a.toFixed(4), +b.toFixed(4)];
+  plog('🔁 循環範圍 設為', session.loopR ? session.loopR[0].toFixed(3)+'~'+session.loopR[1].toFixed(3)+'s' : '整首');
+  if(session.loopR){ $('cLoop').checked=true; TL.cur=session.loopR[0];
+    log(`🔁 循環範圍：${tlFmt(a)}～${tlFmt(b)}（${((b-a)/(60/(session.bpm||bpm()))).toFixed(0)} 拍），按 ▶ 播放 / ⏺ 循環疊錄`,'o'); }
+  else log('🔁 已取消循環範圍，改回整首循環');
+  if(ctx && play.on && play.loop && !(rec.on||vrec.on||DJ.recOn)) startPlayback(ctx.currentTime+0.04, null, session.loopR?session.loopR[0]:0, true);
+  loopUI(); drawTL();
+}
+function loopUI(){ const x=$('tlLoopX'); if(x) x.hidden=!session.loopR; }
+$('tlLoopX').onclick=()=>setLoopRange(null);
 document.addEventListener('keydown',e=>{ if((e.key==='Delete'||e.key==='Backspace') && TL.sel && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)){ e.preventDefault(); tlCutSel(); } });
 
 tl.addEventListener('pointerdown',e=>{
@@ -1423,6 +1545,11 @@ tl.addEventListener('pointerdown',e=>{
       ctl: r.kind==='trk' && r.id==='keys' ? session.ctl.map(c=>[c,c.t]) : [] };
     tl.style.cursor='grabbing'; return;
   }
+  if(TL.mode==='loop' && x>=TL_L){ // 🔁 拖一段＝循環範圍
+    if(rec.on||vrec.on||DJ.recOn) return log('錄音中不能改循環範圍，先按 ■ 停止');
+    e.preventDefault(); TL.drag=true; try{ tl.setPointerCapture(e.pointerId); }catch{}
+    const t=tlT(e); TL.lr={a:t, b:t}; drawTL(); return;
+  }
   if(TL.mode==='sel' && onRow){ // ⬚ 框選
     e.preventDefault(); TL.drag=true; try{ tl.setPointerCapture(e.pointerId); }catch{}
     const ri=tlRowIdx(y), t=tlT(e); TL.sel={r0:ri, r1:ri, t0:t, t1:t, dragging:true}; tlSelUI(); drawTL(); return;
@@ -1438,6 +1565,7 @@ tl.addEventListener('pointermove',e=>{
     else { const minT=Math.min(...m.orig.map(o=>o[1])); const d=Math.max(-minT, tlSnap(dt));
       for(const [ev,t] of m.orig) ev.t=+(t+d).toFixed(6); for(const [c,t] of m.ctl) c.t=Math.max(0,+(t+d).toFixed(6)); }
     drawTL(); return; }
+  if(TL.lr){ TL.lr.b=tlT(e); drawTL(); return; }
   if(TL.sel && TL.sel.dragging){ const b=tl.getBoundingClientRect(); TL.sel.t1=tlT(e); TL.sel.r1=tlRowIdx(e.clientY-b.top); tlSelUI(); drawTL(); return; }
   if(TL.picking) tlPick(e);
 });
@@ -1446,6 +1574,9 @@ const tlUp=()=>{ if(!TL.drag) return; TL.drag=false;
     if(m.moved){ session.length=contentLength(); refreshVocals(); const nm = m.r.kind==='voc' ? m.r.v.name : TRACK_INFO[m.r.id].name, t = m.r.kind==='voc' ? m.r.v.t : Math.min(...m.orig.map(o=>o[0].t));
       log(`✋ 已把「${nm}」移到 ${tlFmt(t)} 開始（可按 ↶ 復原）`,'o'); plog('時間軸 移動音軌', nm, '新起點', t.toFixed(3)+'s'); }
     drawTL(); return; }
+  if(TL.lr){ const spb=60/(session.bpm||bpm()), a=Math.round(Math.min(TL.lr.a,TL.lr.b)/spb)*spb, b=Math.round(Math.max(TL.lr.a,TL.lr.b)/spb)*spb; TL.lr=null;
+    if(b-a<spb-0.001){ drawTL(); return log('🔁 循環範圍至少要 1 拍：在時間軸上左右拖一段'); }
+    setLoopRange(a,b); return; }
   if(TL.sel && TL.sel.dragging){ TL.sel.dragging=false; if(Math.abs(TL.sel.t1-TL.sel.t0)<0.02) TL.sel=null; tlSelUI(); drawTL();
     if(TL.sel) plog('時間軸 框選', Math.min(TL.sel.t0,TL.sel.t1).toFixed(3)+'~'+Math.max(TL.sel.t0,TL.sel.t1).toFixed(3)+'s', '列', TL.sel.r0, '~', TL.sel.r1); return; }
   TL.picking=false; plog('時間軸 起點設為', TL.cur.toFixed(2)+'s'); drawTL(); };
@@ -1455,7 +1586,7 @@ tl.addEventListener('pointerup',tlUp); tl.addEventListener('pointercancel',tlUp)
 setInterval(()=>{
   if(!ctx) return;
   if(play.q) pumpPlay();
-  if(play.on && !rec.on && !vrec.on && !DJ.recOn && ctx.currentTime>play.end+0.3){ stopAll(); }
+  if(play.on && !play.loop && !rec.on && !vrec.on && !DJ.recOn && ctx.currentTime>play.end+(play.cut?0.02:0.3)){ stopAll(); }
 },25);
 // 錄音台螢幕：MIC / OUT 兩條音量柱 + 收音音量捲動歷史（錄音中變紅）
 const scrHist = [];
@@ -2371,10 +2502,40 @@ function demoFunkPop(){
   ev.sort((a,b)=>a.t-b.t);
   return { bpm:BPM, length:BARS*BAR, events:ev, ctl:[] };
 }
+// Stereo Love Cover 循環伴奏：照影片（M-VAVE SMK-25 Cover）採出來的 128 BPM、C# 小調、4 小節 C#m–A–E–G#m
+// 左手＝整小節按住根音八度、右手＝反拍和弦（影片裡偵測到的音），套 Pr2 管風琴；鼓是另外加的節拍參考（時間軸勾掉就沒了）
+function demoStereoLove(){
+  const BPM=128, S=60/BPM/4, BAR=16*S, ev=[];
+  const ORG={pr:1, cut:0.8, res:0.1, att:0, rel:0.08};
+  const key=(bar,step,note,len,vel)=>ev.push({tr:'keys', t:+(bar*BAR+step*S).toFixed(4), note, vel, dur:+(len*S).toFixed(4), p:ORG});
+  const drum=(tr,bar,step,vel)=>ev.push({tr, t:+(bar*BAR+step*S).toFixed(4), vel});
+  const CH=[ {root:37, v:[56,61,64], n:'C#m'}, {root:45, v:[57,61,64], n:'A'}, {root:40, v:[56,59,64], n:'E'}, {root:44, v:[56,59,63], n:'G#m'} ];
+  CH.forEach((c,b)=>{
+    key(b,0,c.root,15.6,96); key(b,0,c.root+12,15.6,84);                 // 左手八度按滿一小節
+    for(const s of [2,6,10,14]) c.v.forEach(n=>key(b,s,n,1.6,s===14?80:74)); // 右手反拍和弦
+    for(const s of [0,4,8,12]) drum('kick',b,s,s?100:112);
+    drum('clap',b,4,80); drum('clap',b,12,86);
+    for(const s of [2,6,10,14]) drum('ohh',b,s,64);
+  });
+  plog('Stereo Love 伴奏 產生', ev.length, '個事件', CH.map(c=>c.n).join('–'), BPM+' BPM');
+  ev.sort((a,b)=>a.t-b.t);
+  return { bpm:BPM, length:4*BAR, events:ev, ctl:[] };
+}
 function loadDemo(kind){
-  if(kind!=='funkpop') return;
+  if(kind!=='funkpop' && kind!=='stereolove') return;
   if((session.events.length||vocals.length) && !confirm('載入範例會取代目前的鼓/鍵盤錄音（人聲/DJ/Loop 保留，可按復原）。繼續？')) return;
   stopAll(); pushUndo();
+  if(kind==='stereolove'){
+    session = demoStereoLove();
+    K.tempo=(session.bpm-60)/140; $('tBpm').value=bpm(); drawKnobs();
+    st.preset=1; $('sPreset').value=1; setDisp(prName());                  // 影片用 Pr2（管風琴）：你接著彈的旋律也是這個音色
+    Object.assign(st.trk.keys,{vol:0.6,rev:0.18}); Object.assign(st.trk.kick,{vol:0.9}); Object.assign(st.trk.clap,{vol:0.8}); Object.assign(st.trk.ohh,{vol:0.7}); applyMixer();
+    $('tName').value='StereoLove_Cover_循環伴奏';
+    $('cLoop').checked=true; TL.cur=0;
+    refreshMixer(); drawTL();
+    log('🎵 已載入「Stereo Love Cover 循環伴奏」：128 BPM · C#m–A–E–G#m 4 小節，🔁 循環已打勾。按 ▶ 聽伴奏一直循環；按 ⏺ 一邊循環一邊彈旋律（加在當下位置，下一圈就聽得到），再按 ⏺ 收錄。','o');
+    return;
+  }
   session = demoFunkPop();
   K.tempo=(session.bpm-60)/140; $('tBpm').value=bpm(); drawKnobs();
   Object.assign(st.trk.keys,{vol:0.62,rev:0.2}); const V={kick:1.05,snare:1.15,clap:1.25,chh:1.3,ohh:1.2,shk:1.25,tamb:1.3,congH:0.9,congL:0.9,crash:0.85,htom:0.85,ltom:0.9,rim:0.9}; for(const k in V) st.trk[k].vol=V[k]; applyMixer();
@@ -2411,7 +2572,7 @@ document.addEventListener('visibilitychange',()=>{ if(!document.hidden && ctx &&
 // 存檔位置：device＝瀏覽器 IndexedDB（iPad 可用）｜drive＝Google Drive「Hinata錄音室」｜folder＝電腦資料夾（Chrome/Edge 電腦版）
 const PJ = { name:'', loc:'', driveId:null, sig:'', saving:false, savedAt:0, size:0, dirtyAt:0, needLogin:false, list:[] };
 const PJ_EXT = '.smk25';
-const PJ_CTL = ['rGain','rPitch','rBass','rTreb','rRev','rBack','rMon','rMaster','cBack','cMon','cNs','tLat','cOver','cVel',
+const PJ_CTL = ['rGain','rPitch','rBass','rTreb','rRev','rBack','rMon','rMaster','cBack','cMon','cNs','tLat','cOver','cLoop','cVel',
   'djXf','djMaster','djSmp','djBack',
   ...['A','B'].flatMap(s=>['trim','hi','mid','low','flt','vol'].map(k=>`dj${s}_${k}`))];
 const pjLocName = l=>({device:'📱 這台裝置（瀏覽器內）', drive:'☁ Google Drive「Hinata錄音室」', folder:'💻 電腦資料夾'})[l]||'未設定';
@@ -2787,7 +2948,7 @@ log('準備好了：點打擊墊或琴鍵試音，按 ⏺ 開始錄音。');
 plog('介面建立完成：打擊墊', padEls.length, '琴鍵', Object.keys(keyEls).length, '旋鈕', knobEls.length);
 
 // ====== 自我測試掛勾（test/run-test.js 使用） ======
-window.__SMK = { VLOOP, addTake, tlSetMode, tlCutSel, drawTL, get undoStack(){return undoStack;}, get session(){return session;}, set session(v){session=v;}, TL, setCursor, headT, st, K, DRUMS, TRACKS, padHit, keyDown, keyUp, startRec, stopAll, finishRec,
+window.__SMK = { setLoopRange, loopRange, recBtn, VLOOP, addTake, tlSetMode, tlCutSel, drawTL, get undoStack(){return undoStack;}, get session(){return session;}, set session(v){session=v;}, TL, setCursor, headT, st, K, DRUMS, TRACKS, padHit, keyDown, keyUp, startRec, stopAll, finishRec,
   renderTracks, encodeWav, buildMidi, buildZip, buildExport, peakOf, counts, ensureCtx, btns, padEls, keyEls, knobEls, setBend, get rec(){return rec;},
   get vocals(){return vocals;}, loadDemo, djLoad, sendFiles, pitchShift, vfx, DJ, LP, get djPendingTake(){return djPendingTake;}, get pendingTake(){return pendingTake;}, addPending, get play(){return play;}, enableMic, startVocalRec, toggleVocalRec, get vrec(){return vrec;}, mic, micDiag,
   PJ, pjPack, pjUnpack, pjReset, pjSig, pjSave, pjDialog, pjNew, pjOpenFile, devList, devRead };
@@ -2795,7 +2956,7 @@ window.__SMK = { VLOOP, addTake, tlSetMode, tlCutSel, drawTL, get undoStack(){re
 document.documentElement.dataset.ready='1';
 if(!new URLSearchParams(location.search).has('selftest')) pjStart(); else pjBadge(); // 測試模式不跳開檔視窗
 { const st0=new URLSearchParams(location.search).get('selftest'); // 測試腳本（只在本機伺服器的測試模式載入）
-  if(st0){ const s=document.createElement('script'); s.src= st0==='demo' ? 'test/demo.js' : st0==='create' ? 'test/create-all.js' : st0==='mic' ? 'test/mic-test.js' : st0==='loop' ? 'test/loop-test.js' : st0==='dj' ? 'test/dj-test.js' : st0==='inst' ? 'test/inst-test.js' : st0==='edit' ? 'test/edit-test.js' : st0==='project' ? 'test/project-test.js' : 'test/selftest.js'; document.body.appendChild(s); } }
+  if(st0){ const s=document.createElement('script'); s.src= st0==='demo' ? 'test/demo.js' : st0==='create' ? 'test/create-all.js' : st0==='mic' ? 'test/mic-test.js' : st0==='loop' ? 'test/loop-test.js' : st0==='playloop' ? 'test/playloop-test.js' : st0==='dj' ? 'test/dj-test.js' : st0==='inst' ? 'test/inst-test.js' : st0==='edit' ? 'test/edit-test.js' : st0==='project' ? 'test/project-test.js' : 'test/selftest.js'; document.body.appendChild(s); } }
 </script>
 </body>
 </html>
