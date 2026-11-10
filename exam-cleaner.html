@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>試卷筆跡清除</title>
+<style>
+:root{
+  --bg:#f4f1ea; --panel:#fffdf8; --ink:#222; --sub:#6b6458; --line:#ddd5c6;
+  --acc:#2f6f5e; --acc2:#e8f1ec; --warn:#b4532a; --red:#c8323c; --blue:#2d55b5; --pencil:#3a9a4a;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#1b1a17; --panel:#25231f; --ink:#ece7dc; --sub:#a59d8e; --line:#3b3831; --acc:#6cc0a6; --acc2:#23332d; }
+}
+:root[data-theme="dark"]{ --bg:#1b1a17; --panel:#25231f; --ink:#ece7dc; --sub:#a59d8e; --line:#3b3831; --acc:#6cc0a6; --acc2:#23332d; }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 "Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+header h1{font-size:18px;margin:0}
+header .hint{color:var(--sub);font-size:13px}
+.app{display:grid;grid-template-columns:170px 1fr 300px;height:calc(100vh - 53px)}
+aside,.side{background:var(--panel);overflow:auto;padding:12px}
+aside{border-right:1px solid var(--line)}
+.side{border-left:1px solid var(--line)}
+main{display:flex;flex-direction:column;min-width:0}
+button,.btn{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:#fff;border-color:var(--acc)}
+button.on{background:var(--acc2);border-color:var(--acc);font-weight:bold}
+button:disabled{opacity:.45;cursor:default}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:14px 8px;text-align:center;color:var(--sub);cursor:pointer;margin-bottom:10px}
+.drop.over{border-color:var(--acc);background:var(--acc2)}
+.thumb{position:relative;border:2px solid transparent;border-radius:8px;margin-bottom:8px;cursor:pointer;background:#fff}
+.thumb.cur{border-color:var(--acc)}
+.thumb img{width:100%;display:block;border-radius:6px}
+.thumb .nm{font-size:12px;color:var(--sub);padding:2px 4px;word-break:break-all}
+.thumb .x{position:absolute;top:2px;right:2px;padding:0 6px;font-size:12px}
+.tabs{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap;align-items:center;background:var(--panel)}
+.tools{display:flex;gap:6px;padding:6px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap;align-items:center}
+.tools label{color:var(--sub);font-size:13px}
+.viewer{flex:1;overflow:auto;position:relative;background:repeating-conic-gradient(#0000 0 25%,#8881 0 50%) 0 0/20px 20px}
+.stage{position:relative;margin:12px auto;width:max-content}
+.stage canvas{display:block;box-shadow:0 2px 10px #0003;background:#fff}
+#ovl{position:absolute;left:0;top:0;pointer-events:none;box-shadow:none;background:transparent}
+#cards{padding:12px;display:none}
+#cards canvas{display:block;margin:0 auto 14px;max-width:100%;box-shadow:0 2px 10px #0003;background:#fff}
+.empty{padding:60px 20px;text-align:center;color:var(--sub)}
+.empty b{color:var(--ink)}
+fieldset{border:1px solid var(--line);border-radius:10px;margin:0 0 12px;padding:8px 10px}
+legend{font-weight:bold;padding:0 4px}
+.row{display:flex;align-items:center;gap:6px;margin:4px 0;flex-wrap:wrap}
+.row input[type=range]{flex:1;min-width:100px}
+.row .v{width:42px;text-align:right;font-variant-numeric:tabular-nums;color:var(--sub)}
+.chk{display:flex;align-items:center;gap:6px;margin:3px 0}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%}
+.small{font-size:12px;color:var(--sub)}
+#status{font-size:13px;color:var(--sub);margin-left:auto}
+#status.busy{color:var(--warn)}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--sub);padding:4px 12px}
+#printArea{display:none}
+@media print{
+  body>*:not(#printArea){display:none!important}
+  #printArea{display:block}
+  #printArea img{width:100%;display:block;page-break-after:always;break-after:page}
+  @page{margin:8mm}
+}
+@media (max-width:900px){
+  .app{grid-template-columns:1fr;height:auto}
+  aside{border-right:0;border-bottom:1px solid var(--line);display:flex;gap:8px;overflow-x:auto}
+  aside .thumb{width:90px;flex:none}
+  aside .drop{flex:none;width:130px;margin:0}
+  .viewer{height:70vh}
+  .side{border-left:0;border-top:1px solid var(--line)}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>✏️ 試卷筆跡清除</h1>
+  <span class="hint">自動分開印刷字和鉛筆／原子筆／紅筆筆跡 → 擦掉筆跡還原空白試卷，答案另外抽成一頁</span>
+  <button id="btnTheme" title="切換深淺色" style="margin-left:auto">🌓</button>
+</header>
+<div class="app">
+  <aside id="pages">
+    <div class="drop" id="drop">📷 拖曳／點此加入試卷照片<br><span class="small">可多張・可貼上(Ctrl+V)</span></div>
+    <input type="file" id="file" accept="image/*" multiple hidden>
+    <button id="btnDemo" style="width:100%;margin-bottom:10px">載入示範試卷</button>
+    <div id="thumbs"></div>
+  </aside>
+  <main>
+    <div class="tabs" id="tabs">
+      <button data-v="orig">原圖</button>
+      <button data-v="mark">偵測標示</button>
+      <button data-v="clean" class="on">清除後</button>
+      <button data-v="answer">答案頁</button>
+      <button data-v="cards">答案卡片</button>
+      <button id="btnHold" title="按住看原圖">👁 按住比對</button>
+      <span id="status">尚未載入試卷</span>
+    </div>
+    <div class="tools">
+      <label>工具</label>
+      <button data-t="pan" class="on" title="捲動檢視">✋ 檢視</button>
+      <button data-t="erase" title="塗過的地方一律當筆跡擦掉（黑筆答案用這個）">🧽 擦除筆刷</button>
+      <button data-t="keep" title="塗過的地方一律保留（誤擦的印刷字）">🛡 保留筆刷</button>
+      <button data-t="rect" title="框一塊區域全部擦掉">▭ 框選擦除</button>
+      <label>筆刷</label><input type="range" id="brush" min="4" max="80" value="18" style="width:90px">
+      <button id="btnUndo" title="復原手動修改 (Ctrl+Z)">↶ 復原</button>
+      <button id="btnClearManual" title="清除這頁所有手動修改">清除手動</button>
+      <label>縮放</label>
+      <select id="zoom"><option value="fit">符合寬度</option><option value="0.5">50%</option><option value="1">100%</option><option value="2">200%</option></select>
+    </div>
+    <div class="legend" id="legend" style="display:none">
+      <span><i class="dot" style="background:#555"></i> 印刷(保留)</span>
+      <span><i class="dot" style="background:#00b4c8"></i> 印刷線條</span>
+      <span><i class="dot" style="background:var(--pencil)"></i> 鉛筆</span>
+      <span><i class="dot" style="background:var(--red)"></i> 紅筆</span>
+      <span><i class="dot" style="background:var(--blue)"></i> 藍筆</span>
+      <span><i class="dot" style="background:#9b4dca"></i> 其他彩色</span>
+      <span><i class="dot" style="background:#e08a00"></i> 黑/藍黑原子筆</span>
+      <span><i class="dot" style="background:#e0c000"></i> 手動擦除</span>
+      <span><i class="dot" style="background:#ff7a00"></i> AI 手寫框</span>
+      <span class="small">淡色＝該類別沒勾選，會保留</span>
+    </div>
+    <div class="viewer" id="viewer">
+      <div class="empty" id="empty"><b>把考卷照片拖進來</b><br>手機拍或掃描都可以（建議正面拍、光線均勻、整張入鏡）<br><br>或按左邊「載入示範試卷」試試看</div>
+      <div class="stage" id="stage" style="display:none"><canvas id="view"></canvas><canvas id="ovl"></canvas></div>
+      <div id="cards"></div>
+    </div>
+  </main>
+  <div class="side">
+    <fieldset>
+      <legend>要擦掉哪些筆跡</legend>
+      <label class="chk"><input type="checkbox" id="c_pencil" checked><i class="dot" style="background:var(--pencil)"></i>鉛筆</label>
+      <label class="chk"><input type="checkbox" id="c_red" checked><i class="dot" style="background:var(--red)"></i>紅筆（批改）</label>
+      <label class="chk"><input type="checkbox" id="c_blue" checked><i class="dot" style="background:var(--blue)"></i>藍筆</label>
+      <label class="chk"><input type="checkbox" id="c_other" checked><i class="dot" style="background:#9b4dca"></i>其他彩色筆／螢光筆</label>
+      <label class="chk"><input type="checkbox" id="c_dark"><i class="dot" style="background:#e08a00"></i>黑／藍黑原子筆（實驗）</label>
+      <label class="chk"><input type="checkbox" id="c_speck" checked>零碎雜點、背面透字</label>
+      <div class="small">純黑原子筆跟印刷字幾乎一樣，自動判斷不準時用「🧽 擦除筆刷」塗過去。</div>
+    </fieldset>
+    <fieldset>
+      <legend>判斷門檻</legend>
+      <div class="row"><span>墨跡敏感度</span><input type="range" id="s_ink" min="6" max="30" value="12"><span class="v" id="v_ink"></span></div>
+      <div class="small">越小越敏感；背景髒、有陰影就調大。</div>
+      <div class="row"><span>鉛筆／印刷分界</span><input type="range" id="s_core" min="50" max="98" value="75"><span class="v" id="v_core"></span></div>
+      <div class="small">跟這張考卷附近的印刷字比深淺。鉛筆沒擦乾淨 → 往右調；印刷字被擦掉 → 往左調。壓很重的鉛筆用下面的 AI 或擦除筆刷。</div>
+      <div class="row"><span>彩色判定</span><input type="range" id="s_color" min="5" max="40" value="13"><span class="v" id="v_color"></span></div>
+      <div class="row"><span>擴張清除</span><input type="range" id="s_grow" min="0" max="5" value="2"><span class="v" id="v_grow"></span></div>
+      <label class="chk"><input type="checkbox" id="c_parens" checked>作答括號「(　　)」裡的字一律當作答</label>
+      <label class="chk"><input type="checkbox" id="c_ticks" checked>行距空白裡的小勾 ✓ 當筆跡</label>
+      <label class="chk"><input type="checkbox" id="c_lines" checked>保護並修補印刷線條／框線</label>
+      <div class="row"><span>輸出底色</span><select id="s_bgmode"><option value="white" selected>白底（去陰影，適合列印）</option><option value="paper">保留紙張質感</option></select></div>
+      <div class="row"><span>處理解析度</span><select id="s_res"><option value="1600">1600</option><option value="2400" selected>2400</option><option value="3200">3200</option><option value="99999">原尺寸</option></select></div>
+    </fieldset>
+    <fieldset>
+      <legend>🤖 AI 找手寫（選用）</legend>
+      <div class="small">壓很重的鉛筆、黑色原子筆跟印刷字一樣深，光看顏色分不出來。可以請 Gemini 先標出哪裡是手寫，再交給上面的規則擦。照片會送到 Google。</div>
+      <div class="row"><input type="password" id="apiKey" placeholder="Gemini API Key" style="flex:1;min-width:0" autocomplete="off"></div>
+      <div class="row"><button id="btnAI">🤖 AI 標出這頁的手寫</button><button id="btnAIall">全部頁</button></div>
+      <div class="row"><button id="btnAIclear">清除 AI 標記</button><span class="small" id="aiInfo"></span></div>
+    </fieldset>
+    <fieldset>
+      <legend>答案頁</legend>
+      <div class="row"><span>題目淡影</span><input type="range" id="s_ghost" min="0" max="50" value="16"><span class="v" id="v_ghost"></span></div>
+      <label class="chk"><input type="checkbox" id="c_cardctx" checked>答案卡片附原圖題目</label>
+    </fieldset>
+    <fieldset>
+      <legend>匯出</legend>
+      <div class="row"><button id="dlClean" class="pri">⬇ 清除後</button><button id="dlAns">⬇ 答案頁</button><button id="dlCards">⬇ 答案卡片</button></div>
+      <div class="row"><select id="fmt"><option value="png">PNG</option><option value="jpg">JPG</option></select><button id="dlZip">⬇ 全部頁打包 ZIP</button></div>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="p_clean" checked>空白卷</label>
+        <label class="chk"><input type="checkbox" id="p_ans" checked>答案頁</label>
+        <label class="chk"><input type="checkbox" id="p_cards">答案卡片</label>
+      </div>
+      <label class="chk"><input type="checkbox" id="p_sep" checked>空白卷和答案之間夾一張「後面是答案，不要偷看！」</label>
+      <div class="row"><button id="dlPdf" class="pri">⬇ 下載 PDF（全部頁）</button><button id="btnPrint">🖨 列印</button></div>
+    </fieldset>
+    <div class="small">所有處理都在你的瀏覽器裡完成，照片不會上傳。<br>iPhone 的 HEIC 照片請先轉 JPG。</div>
+  </div>
+</div>
+<div id="printArea"></div>
+
+<!-- ================= 核心演算法（純函式，可在 Node 裡測） ================= -->
+<script id="core">
+(function (root) {
+  'use strict';
+  const SHOW_LOG = true;
+  function log() { if (SHOW_LOG) console.log.apply(console, ['[試卷清除]'].concat([].slice.call(arguments))); }
+
+  // 類別代碼
+  const C = { PAPER: 0, PRINT: 1, PENCIL: 2, RED: 3, BLUE: 4, OTHER: 5, DARK: 6, SPECK: 7, EDGE: 8 };
+
+  function hueOf(r, g, b) {
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    if (d <= 0) return 0;
+    let h;
+    if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+    h *= 60; if (h < 0) h += 360; return h;
+  }
+
+  // 二值遮罩方形膨脹（可分離，滑動視窗計數，O(N)）
+  function dilate(src, w, h, r) {
+    if (r <= 0) return src.slice();
+    const tmp = new Uint8Array(w * h), out = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+      const o = y * w; let cnt = 0;
+      for (let x = 0; x < Math.min(r, w); x++) cnt += src[o + x] ? 1 : 0;
+      for (let x = 0; x < w; x++) {
+        const a = x + r; if (a < w && src[o + a]) cnt++;
+        const m = x - r - 1; if (m >= 0 && src[o + m]) cnt--;
+        tmp[o + x] = cnt > 0 ? 1 : 0;
+      }
+    }
+    for (let x = 0; x < w; x++) {
+      let cnt = 0;
+      for (let y = 0; y < Math.min(r, h); y++) cnt += tmp[y * w + x];
+      for (let y = 0; y < h; y++) {
+        const a = y + r; if (a < h) cnt += tmp[a * w + x];
+        const m = y - r - 1; if (m >= 0) cnt -= tmp[m * w + x];
+        out[y * w + x] = cnt > 0 ? 1 : 0;
+      }
+    }
+    return out;
+  }
+
+  // 8 連通元件。onComp(pixBuf, count) 拿到這個元件的所有像素索引
+  function components(mask, w, h, onComp) {
+    const N = w * h, seen = new Uint8Array(N), buf = new Int32Array(N);
+    for (let s = 0; s < N; s++) {
+      if (!mask[s] || seen[s]) continue;
+      let head = 0, tail = 0; buf[tail++] = s; seen[s] = 1;
+      while (head < tail) {
+        const p = buf[head++], x = p % w, y = (p - x) / w;
+        for (let dy = -1; dy <= 1; dy++) {
+          const ny = y + dy; if (ny < 0 || ny >= h) continue;
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx; if (nx < 0 || nx >= w) continue;
+            const q = ny * w + nx;
+            if (mask[q] && !seen[q]) { seen[q] = 1; buf[tail++] = q; }
+          }
+        }
+      }
+      onComp(buf, tail);
+    }
+  }
+
+  // 紙張背景估計：區塊取最亮 → 最大值濾波 → 盒狀模糊 → 雙線性放大
+  function estimateBackground(data, w, h, opt) {
+    const long = Math.max(w, h), s = Math.max(1, Math.round(long / 800));
+    const sw = Math.ceil(w / s), sh = Math.ceil(h / s), sn = sw * sh;
+    const ch = [new Float32Array(sn), new Float32Array(sn), new Float32Array(sn)];
+    for (let by = 0; by < sh; by++) for (let bx = 0; bx < sw; bx++) {
+      let mr = 0, mg = 0, mb = 0, ml = -1;
+      const y1 = Math.min(h, (by + 1) * s), x1 = Math.min(w, (bx + 1) * s);
+      for (let y = by * s; y < y1; y++) for (let x = bx * s; x < x1; x++) {
+        const i = (y * w + x) * 4, l = data[i] * 3 + data[i + 1] * 6 + data[i + 2];
+        if (l > ml) { ml = l; mr = data[i]; mg = data[i + 1]; mb = data[i + 2]; }   // 取最亮的那一點(整組顏色，避免拼出假色)
+      }
+      const k = by * sw + bx; ch[0][k] = mr; ch[1][k] = mg; ch[2][k] = mb;
+    }
+    // 視窗只要比最粗的筆畫寬一點就好；太大會把紙張摺痕、陰影當成墨跡
+    const rb = Math.max(2, Math.round(long * (opt && opt.bgRadius || 0.0065) / s));
+    const tmp = new Float32Array(sn);
+    function maxPass(a, rb) {
+      for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
+        let m = 0; const x0 = Math.max(0, x - rb), x1 = Math.min(sw - 1, x + rb);
+        for (let xx = x0; xx <= x1; xx++) { const v = a[y * sw + xx]; if (v > m) m = v; }
+        tmp[y * sw + x] = m;
+      }
+      for (let x = 0; x < sw; x++) for (let y = 0; y < sh; y++) {
+        let m = 0; const y0 = Math.max(0, y - rb), y1 = Math.min(sh - 1, y + rb);
+        for (let yy = y0; yy <= y1; yy++) { const v = tmp[yy * sw + x]; if (v > m) m = v; }
+        a[y * sw + x] = m;
+      }
+    }
+    function boxPass(a, r) {
+      for (let y = 0; y < sh; y++) {
+        let sum = 0, cnt = 0; const o = y * sw;
+        for (let x = 0; x < Math.min(r, sw); x++) { sum += a[o + x]; cnt++; }
+        for (let x = 0; x < sw; x++) {
+          if (x + r < sw) { sum += a[o + x + r]; cnt++; }
+          if (x - r - 1 >= 0) { sum -= a[o + x - r - 1]; cnt--; }
+          tmp[o + x] = sum / cnt;
+        }
+      }
+      for (let x = 0; x < sw; x++) {
+        let sum = 0, cnt = 0;
+        for (let y = 0; y < Math.min(r, sh); y++) { sum += tmp[y * sw + x]; cnt++; }
+        for (let y = 0; y < sh; y++) {
+          if (y + r < sh) { sum += tmp[(y + r) * sw + x]; cnt++; }
+          if (y - r - 1 >= 0) { sum -= tmp[(y - r - 1) * sw + x]; cnt--; }
+          a[y * sw + x] = sum / cnt;
+        }
+      }
+    }
+    const rbox = Math.max(1, Math.round(rb * 0.75));
+    // 大範圍底限：灰階插圖、塗黑區塊比小視窗大，小視窗會把它們當成「紙」→ 用大視窗的紙色×0.85 當下限
+    const rbig = Math.max(rb * 3, Math.round(long * 0.035 / s));
+    for (let c = 0; c < 3; c++) {
+      const big = ch[c].slice();
+      maxPass(ch[c], rb); boxPass(ch[c], rbox); boxPass(ch[c], rbox);
+      maxPass(big, rbig); boxPass(big, rbig); boxPass(big, rbig);
+      for (let k = 0; k < sn; k++) if (ch[c][k] < big[k] * 0.85) ch[c][k] = big[k] * 0.85;
+    }
+    const bg = new Uint8ClampedArray(w * h * 3);
+    for (let y = 0; y < h; y++) {
+      let fy = (y + 0.5) / s - 0.5; if (fy < 0) fy = 0; let y0 = Math.floor(fy); if (y0 > sh - 1) y0 = sh - 1;
+      const y1 = Math.min(sh - 1, y0 + 1), ty = Math.min(1, fy - y0);
+      for (let x = 0; x < w; x++) {
+        let fx = (x + 0.5) / s - 0.5; if (fx < 0) fx = 0; let x0 = Math.floor(fx); if (x0 > sw - 1) x0 = sw - 1;
+        const x1 = Math.min(sw - 1, x0 + 1), tx = Math.min(1, fx - x0);
+        const a = y0 * sw + x0, b = y0 * sw + x1, c2 = y1 * sw + x0, d = y1 * sw + x1, o = (y * w + x) * 3;
+        for (let c = 0; c < 3; c++) {
+          const A = ch[c];
+          bg[o + c] = (A[a] * (1 - tx) + A[b] * tx) * (1 - ty) + (A[c2] * (1 - tx) + A[d] * tx) * ty;
+        }
+      }
+    }
+    return bg;
+  }
+
+  // Float32 方形視窗加總（可分離）
+  function boxSum(src, w, h, r) {
+    const tmp = new Float32Array(w * h), out = new Float32Array(w * h);
+    for (let y = 0; y < h; y++) {
+      const o = y * w; let s = 0;
+      for (let x = 0; x < Math.min(r, w); x++) s += src[o + x];
+      for (let x = 0; x < w; x++) {
+        if (x + r < w) s += src[o + x + r];
+        if (x - r - 1 >= 0) s -= src[o + x - r - 1];
+        tmp[o + x] = s;
+      }
+    }
+    for (let x = 0; x < w; x++) {
+      let s = 0;
+      for (let y = 0; y < Math.min(r, h); y++) s += tmp[y * w + x];
+      for (let y = 0; y < h; y++) {
+        if (y + r < h) s += tmp[(y + r) * w + x];
+        if (y - r - 1 >= 0) s -= tmp[(y - r - 1) * w + x];
+        out[y * w + x] = s;
+      }
+    }
+    return out;
+  }
+
+  // 色偏向量 → 筆的顏色。va=紅綠軸、vy=黃藍軸（已扣掉印刷字本身的色偏）
+  function hueClass(va, vy) {
+    const t = Math.atan2(vy, va) * 180 / Math.PI;
+    if (t > -55 && t <= 65) return C.RED;        // 紅、洋紅、橘紅
+    if (t <= -55 && t > -165) return C.BLUE;     // 藍、藍紫、藍綠
+    return C.OTHER;                              // 黃、綠、螢光筆、桌面
+  }
+
+  /**
+   * 分析一張圖：分出每個像素是紙／印刷／鉛筆／紅／藍／其他彩色／深色原子筆／雜點
+   * img = {w,h,data(RGBA)}；opt = {tInk, tCore(null=自動), colorRatio, darkPen, lines}
+   * 判斷都是「跟這張考卷自己的印刷字比」：顏色比印刷字的色偏、深淺比印刷字的墨色，
+   * 而且以「一整筆」(連通元件) 為單位投票，不靠單一像素(手機照片的紅筆常常只是暗紅色)。
+   */
+  function analyze(img, opt) {
+    const t0 = Date.now();
+    const w = img.w, h = img.h, data = img.data, N = w * h;
+    opt = Object.assign({ tInk: 0.12, tCore: null, colorRatio: 0.13, darkPen: false, lines: true }, opt || {});
+    log('步驟1 估計紙張背景(去除光線不均、摺痕) 尺寸', w + '×' + h);
+    const bg = estimateBackground(data, w, h, opt);
+
+    // 校正：讓「紙」的正規化值剛好≈1（區塊最大值會偏亮）
+    const samp = [[], [], []];
+    for (let i = 0; i < N; i += 7) {
+      const r = data[i * 4] / Math.max(1, bg[i * 3]), g = data[i * 4 + 1] / Math.max(1, bg[i * 3 + 1]), b = data[i * 4 + 2] / Math.max(1, bg[i * 3 + 2]);
+      if (r > 0.8 && g > 0.8 && b > 0.8) { samp[0].push(r); samp[1].push(g); samp[2].push(b); }
+    }
+    const cal = samp.map(a => { if (!a.length) return 1; a.sort((p, q) => p - q); return a[Math.floor(a.length * 0.6)]; });
+    for (let i = 0; i < N * 3; i++) bg[i] = bg[i] * cal[i % 3];
+    log('步驟2 紙色校正係數', cal.map(v => v.toFixed(3)).join(','));
+
+    // ---- 每個像素：深度 D(0~255) 與色偏(紅綠 ca、黃藍 cy) ----
+    const tInk = opt.tInk, tInkQ = Math.round(tInk * 255);
+    const D = new Uint8Array(N), cls = new Uint8Array(N);
+    const ca = new Float32Array(N), cy = new Float32Array(N), dd = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      let r = data[i * 4] / Math.max(1, bg[i * 3]), g = data[i * 4 + 1] / Math.max(1, bg[i * 3 + 1]), b = data[i * 4 + 2] / Math.max(1, bg[i * 3 + 2]);
+      if (r > 1) r = 1; if (g > 1) g = 1; if (b > 1) b = 1;
+      let d = 1 - (0.299 * r + 0.587 * g + 0.114 * b); if (d < 0) d = 0;
+      D[i] = Math.round(d * 255);
+      if (D[i] >= tInkQ * 0.5) { ca[i] = r - g; cy[i] = (r + g) / 2 - b; dd[i] = d; }
+    }
+    // 3×3 加權平均(壓 JPEG 色度雜訊；分母是深度 → 等於以墨量加權的平均色偏)
+    const sa = boxSum(ca, w, h, 1), sy = boxSum(cy, w, h, 1), sd = boxSum(dd, w, h, 1);
+
+    // 印刷墨色深度 Dp：近中性墨跡裡最深的 7%
+    const hist = new Uint32Array(256);
+    for (let i = 0; i < N; i++) if (D[i] >= tInkQ && sd[i] > 0 && Math.hypot(sa[i], sy[i]) / sd[i] < 0.22) hist[D[i]]++;
+    let tot = 0; for (let k = 0; k < 256; k++) tot += hist[k];
+    let acc = 0, p93 = 150;
+    for (let k = 255; k >= 0; k--) { acc += hist[k]; if (acc >= tot * 0.07) { p93 = k; break; } }
+    const Dp = Math.max(0.3, p93 / 255);
+    // 印刷字自己的色偏(相機白平衡、紙色反光)：深色中性像素的平均
+    let ta = 0, ty = 0, tn = 0;
+    for (let i = 0; i < N; i++) {
+      if (D[i] < Dp * 255 * 0.85 || sd[i] <= 0) continue;
+      const va = sa[i] / sd[i], vy = sy[i] / sd[i];
+      if (Math.hypot(va, vy) < 0.25) { ta += va; ty += vy; tn++; }
+    }
+    const tintA = tn ? ta / tn : 0, tintY = tn ? ty / tn : 0;
+
+    // 區域印刷墨色與色偏：照片各處亮度、對焦、鏡頭色差、光源色溫都不同 → 每一小塊各算一次，再平滑內插
+    // (只用整張的平均色偏時，照片邊緣的黑字會因為色差被誤判成藍筆/綠筆)
+    const tile = Math.max(40, Math.round(Math.max(w, h) / 9)), gw = Math.ceil(w / tile), gh = Math.ceil(h / tile), GN = gw * gh;
+    const gridDp = new Float32Array(GN), gridTA = new Float32Array(GN), gridTY = new Float32Array(GN), th = new Uint32Array(256);
+    for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++) {
+      th.fill(0); let cnt = 0;
+      const ya = gy * tile, yb = Math.min(h, (gy + 1) * tile), xa = gx * tile, xb = Math.min(w, (gx + 1) * tile);
+      for (let y = ya; y < yb; y++) for (let x = xa; x < xb; x++) {
+        const i = y * w + x; if (D[i] >= tInkQ && sd[i] > 0 && Math.hypot(sa[i], sy[i]) / sd[i] < 0.22) { th[D[i]]++; cnt++; }
+      }
+      let v = Dp * 255;
+      if (cnt >= 250) { let a2 = 0; for (let k = 255; k >= 0; k--) { a2 += th[k]; if (a2 >= cnt * 0.07) { v = k; break; } } v = Math.max(v, Dp * 255 * 0.6); }
+      let sA = 0, sY = 0, nT = 0;
+      for (let y = ya; y < yb; y++) for (let x = xa; x < xb; x++) {
+        const i = y * w + x; if (D[i] < v * 0.75 || sd[i] <= 0) continue;
+        const va = sa[i] / sd[i], vy = sy[i] / sd[i]; if (Math.hypot(va, vy) < 0.22) { sA += va; sY += vy; nT++; }
+      }
+      const g = gy * gw + gx;
+      gridDp[g] = v; gridTA[g] = nT >= 60 ? sA / nT : tintA; gridTY[g] = nT >= 60 ? sY / nT : tintY;
+    }
+    function smoothGrid(G) {
+      const out = new Float32Array(GN);
+      for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++) {
+        let s2 = 0, c2 = 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = gx + dx, y = gy + dy; if (x >= 0 && y >= 0 && x < gw && y < gh) { const wt = dx || dy ? 1 : 2; s2 += G[y * gw + x] * wt; c2 += wt; } }
+        out[gy * gw + gx] = s2 / c2;
+      }
+      return out;
+    }
+    function interpGrid(G, out) {
+      for (let y = 0; y < h; y++) {
+        let fy = (y + 0.5) / tile - 0.5; fy = Math.max(0, Math.min(gh - 1, fy)); const y0 = Math.floor(fy), y1 = Math.min(gh - 1, y0 + 1), ty2 = fy - y0;
+        for (let x = 0; x < w; x++) {
+          let fx = (x + 0.5) / tile - 0.5; fx = Math.max(0, Math.min(gw - 1, fx)); const x0 = Math.floor(fx), x1 = Math.min(gw - 1, x0 + 1), tx2 = fx - x0;
+          out[y * w + x] = (G[y0 * gw + x0] * (1 - tx2) + G[y0 * gw + x1] * tx2) * (1 - ty2) + (G[y1 * gw + x0] * (1 - tx2) + G[y1 * gw + x1] * tx2) * ty2;
+        }
+      }
+      return out;
+    }
+    const LD = interpGrid(smoothGrid(gridDp), new Uint8Array(N));        // 每個像素所在區域的印刷墨色深度
+    const TA = interpGrid(smoothGrid(gridTA), new Float32Array(N));      // 每個像素所在區域的印刷色偏
+    const TY = interpGrid(smoothGrid(gridTY), new Float32Array(N));
+
+    // ---- 像素初判：跟印刷色偏差夠大 → 彩色筆 ----
+    const thr = opt.colorRatio;
+    const VA = new Float32Array(N), VY = new Float32Array(N);
+    let nColored = 0, nUnder = 0;
+    const under = new Uint8Array(N);   // 被筆蓋住的印刷像素
+    for (let i = 0; i < N; i++) {
+      if (D[i] < tInkQ) continue;
+      const va = sa[i] / sd[i] - TA[i], vy = sy[i] / sd[i] - TY[i], mag = Math.hypot(va, vy);
+      VA[i] = va; VY[i] = vy;
+      const absC = Math.hypot(sa[i], sy[i]) / 9;
+      if (mag >= thr && absC >= 0.02) {
+        // 筆壓在印刷字上：單獨的墨水會讓自己的顏色透過去(紅筆的 R 通道仍然亮)；
+        // 疊在碳粉上則每個通道都跟印刷一樣暗 → 這是「被筆蓋住的印刷字」，保留成印刷
+        const o = i * 4, ob = i * 3;
+        const mx = Math.max(data[o] / Math.max(1, bg[ob]), data[o + 1] / Math.max(1, bg[ob + 1]), data[o + 2] / Math.max(1, bg[ob + 2]));
+        if (mx <= (1 - LD[i] / 255) * 1.0 + 0.02) { cls[i] = C.PRINT; under[i] = 1; nUnder++; }
+        else { cls[i] = hueClass(va, vy); nColored++; }
+      }
+      else if (opt.darkPen && mag >= thr * 0.5 && hueClass(va, vy) === C.BLUE) cls[i] = C.DARK;
+      else cls[i] = C.PRINT;
+    }
+    // 鉛筆/印刷分界 = 相對「當地印刷墨色」的比例。一整筆的最深處(p90)比 tCore×當地墨色 淺 → 鉛筆
+    const autoCore = 0.75;
+    const tCore = opt.tCore != null ? opt.tCore : autoCore;
+    const coreAt = i => LD[i] * tCore * 0.8;                     // 像素層級的印刷核心門檻
+    const pixCoreQ = Math.round(Dp * 255 * tCore * 0.8);         // 給合成階段用的全域近似值
+    log('步驟3 印刷墨色 Dp=' + Dp.toFixed(2), '區域格', gw + '×' + gh, '印刷色偏', tintA.toFixed(3), tintY.toFixed(3), '彩色像素', nColored, '筆蓋印刷', nUnder, '→ 鉛筆/印刷分界 ×', tCore.toFixed(2));
+
+    // ---- 印刷線條（橫線/直線/框線）：夠長且大部分是深色中性墨跡的連續段 ----
+    const line = new Uint8Array(N);
+    const Lmin = Math.max(24, Math.round(Math.min(w, h) * 0.035));
+    const lineInk = Math.max(tInkQ, Math.round(Dp * 255 * 0.3));
+    const printish = i => cls[i] === C.PRINT && D[i] >= LD[i] * 0.7;
+    let nLineRuns = 0;
+    function scanRuns(len, count, idxOf) {
+      for (let a = 0; a < count; a++) {
+        let t = 0;
+        while (t < len) {
+          if (D[idxOf(a, t)] < lineInk) { t++; continue; }
+          const start = t; let last = t, gap = 0, cnt = 0, pr = 0;
+          while (t < len) {
+            const i = idxOf(a, t);
+            if (D[i] >= lineInk) { last = t; gap = 0; cnt++; if (printish(i)) pr++; }
+            else if (++gap > 1) break;
+            t++;
+          }
+          if (last - start + 1 >= Lmin && pr >= cnt * 0.55) {
+            for (let k = start; k <= last; k++) line[idxOf(a, k)] = 1;
+            nLineRuns++;
+          }
+          t = last + 1;
+        }
+      }
+    }
+    if (opt.lines !== false) {
+      scanRuns(w, h, (y, x) => y * w + x);
+      scanRuns(h, w, (x, y) => y * w + x);
+    }
+    log('步驟4 印刷線條偵測 最短長度', Lmin, '段數', nLineRuns);
+
+    // ---- 印刷字核心 + 邊緣保護帶 ----
+    const core = new Uint8Array(N);
+    for (let i = 0; i < N; i++) if (cls[i] === C.PRINT && D[i] >= coreAt(i) && !line[i]) core[i] = 1;
+    const nearText = dilate(core, w, h, 2), nearLine = dilate(line, w, h, 1);
+    const near = new Uint8Array(N);
+    for (let i = 0; i < N; i++) near[i] = nearText[i] | nearLine[i];
+
+    const figW = Math.round(w * 0.09), bigArea = N * 0.004;
+    const isColor = k => k === C.RED || k === C.BLUE || k === C.OTHER || k === C.DARK;
+    const stat = { tick: 0, pen: 0, fringe: 0, border: 0, pencilComp: 0, pencil: 0, speck: 0, fig: 0, thin: 0 };
+    // 中性筆畫該算哪類：雜點／淡色細線(印刷)／灰階插圖(印刷)／鉛筆
+    function neutralKind(n, bw, bh, meanD) {
+      if (n <= 5) return C.SPECK;
+      if ((bw >= Lmin && bh <= 4) || (bh >= Lmin && bw <= 4)) { stat.thin++; return C.PRINT; }
+      if ((bw >= figW && bh >= figW) || n > bigArea) { stat.fig++; return C.PRINT; }
+      if (n < 40 && meanD < tInkQ * 1.6) return C.SPECK;     // 很淡的小塊(背面透字、灰塵)
+      return C.PENCIL;
+    }
+
+    // 小而深的點是不是「坐在文字列上」(標點)：同一高度左右兩個字寬內有印刷字核心
+    // 寫在行距空白裡的小勾 ✓ 左右沒有字 → 不算標點
+    // 估計這張考卷的字高：有印刷核心、中等大小的元件，取高度中位數
+    const hs = [];
+    components(core, w, h, (buf, n) => {
+      if (n < 20) return;
+      let y0 = h, y1 = 0, x0 = w, x1 = 0;
+      for (let j = 0; j < n; j++) { const p = buf[j], x = p % w, y = (p - x) / w; if (y < y0) y0 = y; if (y > y1) y1 = y; if (x < x0) x0 = x; if (x > x1) x1 = x; }
+      const bh = y1 - y0 + 1, bw = x1 - x0 + 1;
+      if (bh >= h * 0.006 && bh <= h * 0.04 && bw <= bh * 2) hs.push(bh);
+    });
+    hs.sort((a, b) => a - b);
+    const charW = hs.length >= 20 ? hs[Math.floor(hs.length * 0.85)] : Math.max(8, Math.round(h * 0.016));
+    function onTextRow(x0, y0, x1, y1) {
+      // 只看自己高度的中間一半：文字列上的標點，左右同高度一定有字；跨在行距裡的勾，中段左右是空白
+      let cnt = 0;
+      const ya = Math.round(y0 + (y1 - y0) * 0.25), yb = Math.round(y1 - (y1 - y0) * 0.25);
+      const xa = Math.max(0, x0 - charW * 5), xb = Math.min(w - 1, x1 + charW * 5);
+      for (let y = ya; y <= yb; y++) for (let x = xa; x <= xb; x++) { if (x >= x0 - 1 && x <= x1 + 1) continue; if (core[y * w + x]) cnt++; }
+      return cnt >= (yb - ya + 1) * 2;
+    }
+
+    // ---- 元件層級：一整筆一起投票 ----
+    const inkMask = new Uint8Array(N);
+    for (let i = 0; i < N; i++) if (cls[i] !== C.PAPER && !line[i]) inkMask[i] = 1;
+    const dh = new Uint32Array(256);
+    components(inkMask, w, h, (buf, n) => {
+      let x0 = w, y0 = h, x1 = 0, y1 = 0, col = 0, nCore = 0, swt = 0, sva = 0, svy = 0, sumD = 0, nNeu = 0;
+      dh.fill(0);
+      for (let j = 0; j < n; j++) {
+        const p = buf[j], x = p % w, y = (p - x) / w, d = D[p];
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        if (isColor(cls[p])) col++; else { dh[d]++; nNeu++; }
+        if (core[p]) nCore++;
+        swt += d; sva += VA[p] * d; svy += VY[p] * d; sumD += d;
+      }
+      // 碰到照片邊緣的(桌面、紙張邊緣陰影) → 不是考卷內容，原樣保留
+      if (x0 === 0 || y0 === 0 || x1 === w - 1 || y1 === h - 1) {
+        for (let j = 0; j < n; j++) cls[buf[j]] = C.EDGE; stat.border++; return;
+      }
+      const ma = sva / swt, my = svy / swt, mag = Math.hypot(ma, my);
+      if (col >= n * 0.4 && mag >= thr * 0.7) {            // 整筆是彩色筆 → 中心較深、色偏較弱的地方也算
+        const k = (opt.darkPen && mag < thr) ? C.DARK : hueClass(ma, my);
+        // 筆劃過印刷字時兩者會黏成一塊：印刷核心像素只有「自己也帶這支筆的色偏」才算筆
+        for (let j = 0; j < n; j++) {
+          const p = buf[j];
+          if (cls[p] === C.PRINT && (under[p] || (core[p] || near[p]) && !(Math.hypot(VA[p], VY[p]) >= thr * 0.5 && hueClass(VA[p], VY[p]) === k))) continue;
+          cls[p] = k;
+        }
+        stat.pen++; return;
+      }
+      // 深藍/藍黑原子筆：單點看不出顏色，整筆平均才微微偏藍
+      if (opt.darkPen && col < n * 0.4 && mag >= 0.045 && hueClass(ma, my) === C.BLUE && n < N * 0.002) {
+        for (let j = 0; j < n; j++) cls[buf[j]] = C.DARK;
+        stat.pen++; return;
+      }
+      if (col > 0 && col < n * 0.15 && nCore > 0) {         // 印刷字邊緣的色差雜訊 → 改回印刷
+        for (let j = 0; j < n; j++) { const p = buf[j]; if (isColor(cls[p]) && near[p]) { cls[p] = C.PRINT; stat.fringe++; } }
+      }
+      if (nNeu === 0) return;
+      // 中性部分最深處(p90)比印刷淺很多 → 整筆是鉛筆
+      let acc = 0, p90 = 0;
+      for (let k = 255; k >= 0; k--) { acc += dh[k]; if (acc >= nNeu * 0.1) { p90 = k; break; } }
+      const cx = (x0 + x1) >> 1, cyy = (y0 + y1) >> 1, ld = LD[cyy * w + cx];
+      // 含有印刷級深色核心的(例如印刷字跟摺痕陰影黏在一起) → 不整筆判鉛筆，交給下面的像素層級
+      // 很小但夠深的點(句點「。」、標點) → 印刷
+      if (p90 < ld * tCore && nCore <= n * 0.02 && !(n < 50 && p90 >= ld * 0.55 && onTextRow(x0, y0, x1, y1))) {
+        const k = neutralKind(n, x1 - x0 + 1, y1 - y0 + 1, sumD / n);
+        if (k !== C.PRINT) { for (let j = 0; j < n; j++) { const p = buf[j]; if (cls[p] === C.PRINT) cls[p] = k; } if (k === C.PENCIL) stat.pencilComp++; else stat.speck++; }
+      } else if (opt.ticks !== false && col === 0 && n >= 15 && p90 < ld * 0.92 && Math.max(x1 - x0 + 1, y1 - y0 + 1) <= charW * 0.85 && n <= charW * charW * 0.3 && !onTextRow(x0, y0, x1, y1)) {
+        // 行距空白裡孤零零的小記號(老師打的勾 ✓、學生的小註記)：印刷字一定排在文字列上
+        for (let j = 0; j < n; j++) { const p = buf[j]; if (cls[p] === C.PRINT) cls[p] = C.PENCIL; }
+        stat.tick++;
+      }
+    });
+    log('字高估計', charW, 'px');
+    log('步驟5 整筆判定：彩色筆', stat.pen, '筆、鉛筆', stat.pencilComp, '筆、行距小勾', stat.tick, '個、碰邊忽略', stat.border, '、色差邊緣改回', stat.fringe, '點');
+
+    const forced = new Uint8Array(N);   // 作答括號 / AI 框判定的，不再被插圖規則改回
+    // ---- 作答括號「(　　)」：印刷的左右括號中間留白很寬 → 裡面的筆畫就是作答 ----
+    // 手機照片裡壓很重的鉛筆深度跟印刷字一樣，但它「寫在作答括號裡」這件事是確定的
+    if (opt.parens !== false) {
+      const m3 = new Uint8Array(N);
+      for (let i = 0; i < N; i++) if (cls[i] !== C.PAPER && cls[i] !== C.EDGE && !line[i] && D[i] >= tInkQ) m3[i] = 1;
+      const comps = [];
+      components(m3, w, h, (buf, n) => {
+        if (n < 6 || n > N * 0.003) return;
+        let x0 = w, y0 = h, x1 = 0, y1 = 0, nPrint = 0;
+        for (let j = 0; j < n; j++) { const p = buf[j], x = p % w, y = (p - x) / w; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; if (cls[p] === C.PRINT) nPrint++; }
+        const c = { x0, y0, x1, y1, n, pix: buf.slice(0, n), kind: 0 };
+        const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+        // 括號外形：細長、空心、中段往外凸
+        if (nPrint >= n * 0.8 && bh >= h * 0.008 && bh <= h * 0.05 && bw / bh >= 0.12 && bw / bh <= 0.55 && n / (bw * bh) < 0.5) {
+          let se = 0, ne = 0, sm2 = 0, nm = 0;
+          for (let j = 0; j < n; j++) { const p = c.pix[j], x = p % w, y = (p - x) / w, t = (y - y0) / bh; if (t < 0.25 || t > 0.75) { se += x; ne++; } else if (t > 0.38 && t < 0.62) { sm2 += x; nm++; } }
+          if (ne && nm) { const d = sm2 / nm - se / ne; if (d < -bw * 0.12) c.kind = 1; else if (d > bw * 0.12) c.kind = 2; }   // 1=「(」 2=「)」
+        }
+        comps.push(c);
+      });
+      const Ls = comps.filter(c => c.kind === 1), Rs = comps.filter(c => c.kind === 2);
+      let nSlots = 0, nAns = 0;
+      for (const L of Ls) {
+        const bh = L.y1 - L.y0 + 1, cyL = (L.y0 + L.y1) / 2;
+        let R = null;
+        // 先找同一列「最近的」右括號，再看間距；不能跳過近的去配遠的(否則「(2)( )」會配錯)
+        for (const r of Rs) {
+          const rh = r.y1 - r.y0 + 1;
+          if (r.x0 <= L.x1 || Math.abs((r.y0 + r.y1) / 2 - cyL) > bh * 0.3 || rh / bh < 0.7 || rh / bh > 1.4) continue;
+          if (!R || r.x0 < R.x0) R = r;
+        }
+        if (!R) continue;
+        const gap = R.x0 - L.x1;
+        if (gap < bh * 1.2 || gap > bh * 8) continue;
+        if (Ls.some(o => o !== L && o.x0 > L.x1 && o.x1 < R.x0 && Math.abs((o.y0 + o.y1) / 2 - cyL) < bh * 0.5)) continue;   // 中間又有左括號 → 不是一組
+        const ix0 = L.x1 + 1, ix1 = R.x0 - 1, iy0 = Math.min(L.y0, R.y0) - bh * 0.8, iy1 = Math.max(L.y1, R.y1) + bh * 0.8;
+        const inside = comps.filter(c => c.kind === 0 && c.x0 >= ix0 && c.x1 <= ix1 && c.y0 >= iy0 && c.y1 <= iy1);
+        if (!inside.length) continue;
+        let covered = 0; inside.forEach(c => covered += c.x1 - c.x0 + 1);
+        if (inside.length > 3 || covered > (ix1 - ix0 + 1) * 0.6) continue;   // 作答只有一兩個字；括號裡排滿印刷字(例如「(每題 5 分)」) 不算
+        nSlots++;
+        inside.forEach(c => { for (let j = 0; j < c.n; j++) { const p = c.pix[j]; if (cls[p] === C.PRINT || cls[p] === C.SPECK || cls[p] === C.PENCIL) { cls[p] = C.PENCIL; forced[p] = 1; } } nAns++; });
+      }
+      log('步驟5a 作答括號', Ls.length, '左/', Rs.length, '右 → 配對成作答欄', nSlots, '個，裡面的筆畫', nAns, '筆判為作答');
+    }
+
+    // ---- (選用) AI 標出的手寫框：框內筆畫一律當手寫 ----
+    // 用途：手機照片裡壓很重的鉛筆、黑/深藍原子筆，深淺跟印刷字一樣，光看像素分不出來
+    if (opt.aiBoxes && opt.aiBoxes.length) {
+      const boxId = new Uint8Array(N), pad = 2;
+      opt.aiBoxes.forEach(b => {
+        const x0 = Math.max(0, Math.floor(b.x0) - pad), x1 = Math.min(w - 1, Math.ceil(b.x1) + pad);
+        const y0 = Math.max(0, Math.floor(b.y0) - pad), y1 = Math.min(h - 1, Math.ceil(b.y1) + pad);
+        for (let y = y0; y <= y1; y++) boxId.fill(1, y * w + x0, y * w + x1 + 1);
+      });
+      const m2 = new Uint8Array(N);
+      for (let i = 0; i < N; i++) if ((cls[i] === C.PRINT || cls[i] === C.SPECK) && !line[i] && D[i] >= tInkQ) m2[i] = 1;
+      let nWhole = 0, nPart = 0;
+      components(m2, w, h, (buf, n) => {
+        let inside = 0;
+        for (let j = 0; j < n; j++) if (boxId[buf[j]]) inside++;
+        if (!inside) return;
+        if (inside >= n * 0.6) { for (let j = 0; j < n; j++) { cls[buf[j]] = C.PENCIL; forced[buf[j]] = 1; } nWhole++; }
+        else { for (let j = 0; j < n; j++) { const p = buf[j]; if (boxId[p] && !core[p]) { cls[p] = C.PENCIL; forced[p] = 1; } } nPart++; }
+      });
+      log('步驟5b AI 手寫框', opt.aiBoxes.length, '個：整筆判手寫', nWhole, '、部分重疊', nPart);
+    }
+
+    // ---- 跟印刷字黏在一起的鉛筆：像素層級(淺、且不貼著印刷字核心) ----
+    const cand = new Uint8Array(N);
+    for (let i = 0; i < N; i++) if (cls[i] === C.PRINT && D[i] < coreAt(i) && !near[i] && !line[i]) cand[i] = 1;
+    components(cand, w, h, (buf, n) => {
+      let x0 = w, y0 = h, x1 = 0, y1 = 0, dsum = 0;
+      for (let j = 0; j < n; j++) {
+        const p = buf[j], x = p % w, y = (p - x) / w;
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; dsum += D[p];
+      }
+      const k = neutralKind(n, x1 - x0 + 1, y1 - y0 + 1, dsum / n);
+      if (k === C.PENCIL) stat.pencil++; else if (k === C.SPECK) stat.speck++;
+      if (k !== C.PRINT) for (let j = 0; j < n; j++) cls[buf[j]] = k;
+    });
+    log('步驟6 黏在印刷旁的鉛筆', stat.pencil, '塊、雜點', stat.speck, '、灰階插圖保留', stat.fig, '、淡細線保留', stat.thin);
+
+    // ---- 線條插圖保護：一群淡色筆畫靠在一起、整群又寬又高 → 是印刷的線稿插圖，不是鉛筆 ----
+    {
+      const pm = new Uint8Array(N);
+      for (let i = 0; i < N; i++) if (cls[i] === C.PENCIL && !forced[i]) pm[i] = 1;
+      const f = 3, sw2 = Math.ceil(w / f), sh2 = Math.ceil(h / f), small = new Uint8Array(sw2 * sh2);
+      for (let i = 0; i < N; i++) if (pm[i]) { const x = i % w, y = (i - x) / w; small[((y / f) | 0) * sw2 + ((x / f) | 0)] = 1; }
+      const grow = dilate(small, sw2, sh2, Math.max(2, Math.round(w * 0.012 / f)));
+      const gid = new Int32Array(sw2 * sh2).fill(-1), big = [];
+      components(grow, sw2, sh2, (buf, n) => {
+        let x0 = sw2, y0 = sh2, x1 = 0, y1 = 0, members = 0;
+        for (let j = 0; j < n; j++) { const p = buf[j]; if (!small[p]) continue; const x = p % sw2, y = (p - x) / sw2; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; members++; }   // 只量實際筆畫，不量膨脹後的範圍
+        const fw = Math.max(figW, charW * 4), isFig = members > 0 && (x1 - x0 + 1) * f >= fw && (y1 - y0 + 1) * f >= fw * 0.8 && members * f * f > fw * fw * 0.04;
+        if (isFig) { const id = big.length; big.push(1); for (let j = 0; j < n; j++) gid[buf[j]] = id; }
+      });
+      let nFigPx = 0;
+      if (big.length) for (let i = 0; i < N; i++) if (pm[i]) { const x = i % w, y = (i - x) / w; if (gid[((y / f) | 0) * sw2 + ((x / f) | 0)] >= 0) { cls[i] = C.PRINT; pm[i] = 0; nFigPx++; } }
+      // 印刷插圖旁的淡字(圖中標示「甲乙丙丁」常用較細較淡的字)：貼近大型印刷圖形的「鉛筆」→ 印刷
+      const gfx = new Uint8Array(sw2 * sh2), pr = new Uint8Array(N);
+      for (let i = 0; i < N; i++) if (cls[i] === C.PRINT && !line[i] && D[i] >= tInkQ) pr[i] = 1;
+      let nG = 0;
+      components(pr, w, h, (buf, n) => {
+        let x0 = w, y0 = h, x1 = 0, y1 = 0;
+        for (let j = 0; j < n; j++) { const p = buf[j], x = p % w, y = (p - x) / w; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+        if (x1 - x0 + 1 < charW * 3 || y1 - y0 + 1 < charW * 3) return;
+        nG++;
+        for (let j = 0; j < n; j++) { const p = buf[j], x = p % w, y = (p - x) / w; gfx[((y / f) | 0) * sw2 + ((x / f) | 0)] = 1; }
+      });
+      const zone = dilate(gfx, sw2, sh2, Math.max(2, Math.round(charW * 1.5 / f)));
+      let nLabel = 0;
+      components(pm, w, h, (buf, n) => {
+        let hit = false;
+        for (let j = 0; j < n && !hit; j++) { const p = buf[j], x = p % w, y = (p - x) / w; if (zone[((y / f) | 0) * sw2 + ((x / f) | 0)]) hit = true; }
+        if (hit) { for (let j = 0; j < n; j++) cls[buf[j]] = C.PRINT; nLabel++; }
+      });
+      log('步驟7b 大型印刷圖形', nG, '個，旁邊的淡字改回印刷', nLabel, '筆');
+      log('步驟7 線稿插圖保護', big.length, '群，改回印刷', nFigPx, '點');
+    }
+
+    // 印刷墨色（線條被筆蓋到時用這個顏色補回）
+    let pr = 0, pg = 0, pb = 0, pn = 0;
+    for (let i = 0; i < N; i += 3) if (core[i]) { pr += data[i * 4]; pg += data[i * 4 + 1]; pb += data[i * 4 + 2]; pn++; }
+    const printRGB = pn ? [pr / pn, pg / pn, pb / pn] : [40, 40, 40];
+    log('分析完成，耗時', Date.now() - t0, 'ms');
+    return { w, h, data, bg, D, cls, line, near, core, LD, VA, VY, tInkQ, tCoreQ: pixCoreQ, tCore, autoCore, Dp, printRGB, opt };
+  }
+
+  // 依手動遮罩與勾選類別，產生清除後影像、答案頁
+  // en = {pencil,red,blue,other,dark,speck}；manual: Uint8Array(0無/1擦/2留) 或 null
+  function compose(A, en, opt, manual) {
+    const t0 = Date.now();
+    opt = Object.assign({ grow: 2, ghost: 0.16, eraseLinesManual: false, seed: 12345, white: true }, opt || {});
+    const { w, h, data, bg, D, cls, line, near, tInkQ, tCoreQ } = A, N = w * h;
+    const on = new Uint8Array(9);
+    on[C.PENCIL] = en.pencil ? 1 : 0; on[C.RED] = en.red ? 1 : 0; on[C.BLUE] = en.blue ? 1 : 0;
+    on[C.OTHER] = en.other ? 1 : 0; on[C.DARK] = en.dark ? 1 : 0; on[C.SPECK] = en.speck ? 1 : 0;
+
+    const H = new Uint8Array(N), linePen = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      if (!on[cls[i]]) continue;
+      if (line[i]) { if (cls[i] !== C.SPECK && cls[i] !== C.PENCIL) linePen[i] = 1; } else H[i] = 1;
+    }
+    // 擴張清除筆畫外圍的淡色光暈，但不吃進印刷字與線條
+    const E = opt.grow > 0 ? dilate(H, w, h, opt.grow) : H.slice();
+    for (let i = 0; i < N; i++) {
+      if (!E[i] || H[i]) continue;
+      if (line[i] || (cls[i] === C.PRINT && (A.core[i] || near[i])) || (cls[i] > C.PRINT && !on[cls[i]])) E[i] = 0;
+    }
+    if (manual) for (let i = 0; i < N; i++) {
+      if (manual[i] === 1) { if (!line[i] || opt.eraseLinesManual) E[i] = 1; else if (D[i] >= tInkQ) linePen[i] = 1; }
+      else if (manual[i] === 2) { E[i] = 0; linePen[i] = 0; }
+    }
+
+    // ---- 清除：用附近紙張的紋理補回 ----
+    const out = new Uint8ClampedArray(data);
+    let seed = opt.seed >>> 0;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    let nE = 0, nTex = 0;
+    for (let p = 0; p < N; p++) {
+      if (!E[p]) continue; nE++;
+      const x = p % w, y = (p - x) / w, o = p * 4, ob = p * 3;
+      let found = -1;
+      for (let t = 0; t < 36 && found < 0; t++) {
+        const rad = 3 + t * 2;
+        const qx = x + Math.round((rnd() * 2 - 1) * rad), qy = y + Math.round((rnd() * 2 - 1) * rad);
+        if (qx < 0 || qy < 0 || qx >= w || qy >= h) continue;
+        const q = qy * w + qx;
+        if (!E[q] && D[q] < tInkQ * 0.7) found = q;
+      }
+      if (found >= 0) {
+        nTex++;
+        const qo = found * 4, qb = found * 3;
+        out[o] = bg[ob] + (data[qo] - bg[qb]); out[o + 1] = bg[ob + 1] + (data[qo + 1] - bg[qb + 1]); out[o + 2] = bg[ob + 2] + (data[qo + 2] - bg[qb + 2]);
+      } else { out[o] = bg[ob]; out[o + 1] = bg[ob + 1]; out[o + 2] = bg[ob + 2]; }
+    }
+    // ---- 被筆蓋到的印刷線條：補回印刷墨色 ----
+    const pc = A.printRGB; let nLine = 0;
+    for (let p = 0; p < N; p++) {
+      if (!linePen[p]) continue; nLine++;
+      const a = Math.min(1, Math.max(0.55, D[p] / Math.max(1, tCoreQ * 1.3))), o = p * 4, ob = p * 3;
+      out[o] = bg[ob] * (1 - a) + pc[0] * a; out[o + 1] = bg[ob + 1] * (1 - a) + pc[1] * a; out[o + 2] = bg[ob + 2] * (1 - a) + pc[2] * a;
+    }
+    // ---- 擦除區旁邊留下的印刷像素去色(筆壓在印刷字上會染色) ----
+    const zone = dilate(E, w, h, 2); let nDesat = 0;
+    for (let p = 0; p < N; p++) {
+      if (!zone[p] || E[p] || linePen[p] || D[p] < tInkQ || cls[p] !== C.PRINT) continue;
+      if (Math.hypot(A.VA[p], A.VY[p]) < 0.06) continue;
+      const o = p * 4, l = 0.299 * out[o] + 0.587 * out[o + 1] + 0.114 * out[o + 2];
+      out[o] = out[o + 1] = out[o + 2] = l; nDesat++;
+    }
+    // ---- 白底輸出：用紙張背景做平場校正 → 紙變純白、陰影/摺痕消失、印刷字拉到接近全黑 ----
+    if (opt.white) {
+      const Dp = A.Dp || 0.6, lo = tInkQ / 255 * 0.9, span = Math.max(0.1, Dp * 0.92 - lo);
+      for (let p = 0; p < N; p++) {
+        const o = p * 4, ob = p * 3;
+        if (E[p] || cls[p] === C.EDGE || D[p] < tInkQ) { out[o] = out[o + 1] = out[o + 2] = 255; continue; }
+        for (let c = 0; c < 3; c++) {
+          const dk = 1 - Math.min(1, out[o + c] / Math.max(1, bg[ob + c]));
+          const v = Math.min(1, Math.max(0, (dk - lo) / span));
+          out[o + c] = 255 * (1 - v);
+        }
+      }
+    }
+
+    // ---- 答案頁：只留被擦掉的筆跡(白平衡後原色) + 淡淡的題目 ----
+    const ans = new Uint8ClampedArray(N * 4), handMask = new Uint8Array(N);
+    const g = opt.ghost;
+    for (let p = 0; p < N; p++) {
+      const o = p * 4, ob = p * 3; ans[o + 3] = 255;
+      const hand = (E[p] && D[p] >= tInkQ && (H[p] || manual && manual[p] === 1)) || linePen[p];
+      if (hand) {
+        handMask[p] = 1;
+        const boost = (cls[p] === C.PENCIL || cls[p] === C.SPECK) ? 1.7 : 1.15;
+        for (let c = 0; c < 3; c++) {
+          const n = Math.min(1, data[o + c] / Math.max(1, bg[ob + c]));
+          ans[o + c] = 255 * (1 - (1 - n) * boost);
+        }
+      } else if (g > 0 && D[p] >= tInkQ && !E[p] && cls[p] !== C.EDGE) {
+        const v = 255 - D[p] * g; ans[o] = ans[o + 1] = ans[o + 2] = v;
+      } else { ans[o] = ans[o + 1] = ans[o + 2] = 255; }
+    }
+    log('合成完成 擦除', nE, '點(紋理補', nTex, ')、補線', nLine, '點、去色', nDesat, '點，耗時', Date.now() - t0, 'ms');
+    return { clean: out, answer: ans, erase: E, linePen, hand: handMask };
+  }
+
+  // 把答案像素聚成一塊一塊(每題)，回傳依閱讀順序排列的方框
+  function answerRegions(hand, w, h) {
+    const f = Math.max(2, Math.round(Math.max(w, h) / 600)), sw = Math.ceil(w / f), sh = Math.ceil(h / f);
+    const small = new Uint8Array(sw * sh), cntS = new Uint32Array(sw * sh);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (hand[y * w + x]) cntS[((y / f) | 0) * sw + ((x / f) | 0)]++;
+    for (let i = 0; i < sw * sh; i++) small[i] = cntS[i] >= 2 ? 1 : 0;
+    const rx = Math.max(1, Math.round(sw * 0.018)), ry = Math.max(1, Math.round(sw * 0.008));
+    // 非方形膨脹：先橫再直
+    const hor = dilateAxis(small, sw, sh, rx, true), grow = dilateAxis(hor, sw, sh, ry, false);
+    let boxes = [];
+    components(grow, sw, sh, (buf, n) => {
+      let x0 = sw, y0 = sh, x1 = 0, y1 = 0, px = 0;
+      for (let j = 0; j < n; j++) { const p = buf[j], x = p % sw, y = (p - x) / sw; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; px += cntS[p]; }
+      if (px < 25) return;
+      boxes.push({ x: x0 * f, y: y0 * f, w: (x1 - x0 + 1) * f, h: (y1 - y0 + 1) * f, px });
+    });
+    // 依列排序
+    boxes.sort((a, b) => a.y - b.y);
+    const rows = [];
+    for (const b of boxes) {
+      const r = rows.find(r => b.y < r.y + r.h * 0.6 && b.y + b.h * 0.4 > r.y);
+      if (r) { r.items.push(b); r.y = Math.min(r.y, b.y); r.h = Math.max(r.y + r.h, b.y + b.h) - r.y; }
+      else rows.push({ y: b.y, h: b.h, items: [b] });
+    }
+    const out = [];
+    rows.forEach(r => r.items.sort((a, b) => a.x - b.x).forEach(b => out.push(b)));
+    return out;
+  }
+  function dilateAxis(src, w, h, r, horiz) {
+    const out = new Uint8Array(w * h);
+    if (horiz) {
+      for (let y = 0; y < h; y++) { let last = -1e9; for (let x = 0; x < w; x++) { if (src[y * w + x]) last = x; if (x - last <= r) out[y * w + x] = 1; } last = 1e9; for (let x = w - 1; x >= 0; x--) { if (src[y * w + x]) last = x; if (last - x <= r) out[y * w + x] = 1; } }
+    } else {
+      for (let x = 0; x < w; x++) { let last = -1e9; for (let y = 0; y < h; y++) { if (src[y * w + x]) last = y; if (y - last <= r) out[y * w + x] = 1; } last = 1e9; for (let y = h - 1; y >= 0; y--) { if (src[y * w + x]) last = y; if (last - y <= r) out[y * w + x] = 1; } }
+    }
+    return out;
+  }
+
+  root.ExamCore = { C, analyze, compose, answerRegions, dilate, components, estimateBackground, hueOf };
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+
+<!-- ================= 介面 ================= -->
+<script id="ui">
+(function () {
+  'use strict';
+  const SHOW_LOG = true;
+  const log = (...a) => { if (SHOW_LOG) console.log('[介面]', ...a); };
+  const $ = id => document.getElementById(id);
+  const EC = window.ExamCore;
+  const pages = [];          // {name, img:{w,h,data}, thumbUrl, manual, undo:[], A?, R?}
+  let cur = -1, view = 'clean', tool = 'pan', holding = false;
+  let analyzed = null;       // 目前頁的分析結果(只保留一頁，省記憶體)
+
+  // ---------- 設定 ----------
+  function settings() {
+    return {
+      tInk: +$('s_ink').value / 100,
+      tCore: +$('s_core').value / 100,
+      colorRatio: +$('s_color').value / 100,
+      darkPen: $('c_dark').checked,
+      lines: $('c_lines').checked, parens: $('c_parens').checked, ticks: $('c_ticks').checked,
+      res: +$('s_res').value,
+      en: { pencil: $('c_pencil').checked, red: $('c_red').checked, blue: $('c_blue').checked, other: $('c_other').checked, dark: $('c_dark').checked, speck: $('c_speck').checked },
+      grow: +$('s_grow').value, ghost: +$('s_ghost').value / 100, white: $('s_bgmode').value === 'white',
+    };
+  }
+  function anaKey(s, p) { return [s.tInk, s.tCore, s.colorRatio, s.darkPen, s.lines, s.parens, s.ticks, p && p.aiBoxes ? p.aiBoxes.length + ':' + (p.aiStamp || 0) : 0].join('|'); }
+  function showVals() {
+    $('v_ink').textContent = (+$('s_ink').value / 100).toFixed(2);
+    $('v_core').textContent = '×' + (+$('s_core').value / 100).toFixed(2);
+    $('v_color').textContent = (+$('s_color').value / 100).toFixed(2);
+    $('v_grow').textContent = $('s_grow').value + 'px';
+    $('v_ghost').textContent = $('s_ghost').value + '%';
+  }
+  function setStatus(t, busy) { $('status').textContent = t; $('status').className = busy ? 'busy' : ''; }
+  const tick = () => new Promise(r => setTimeout(r, 0));
+
+  // ---------- 載入 ----------
+  function loadFiles(files) {
+    const list = [...files].filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|webp|bmp|gif)$/i.test(f.name));
+    if (!list.length) { if (files.length) alert('只支援圖片檔(JPG/PNG/WebP)。iPhone 的 HEIC 請先轉成 JPG。'); return; }
+    let chain = Promise.resolve();
+    list.forEach(f => { chain = chain.then(() => loadOne(f)); });
+    chain.then(() => { if (cur < 0 || cur >= pages.length) select(pages.length - list.length); });
+  }
+  function loadOne(file) {
+    return new Promise(res => {
+      const url = URL.createObjectURL(file), im = new Image();
+      im.onload = () => { addPage(file.name.replace(/\.[^.]+$/, ''), im); URL.revokeObjectURL(url); res(); };
+      im.onerror = () => { alert('讀不了這個檔：' + file.name); res(); };
+      im.src = url;
+    });
+  }
+  function addPage(name, source) {
+    const res = +$('s_res').value;
+    const sw = source.naturalWidth || source.width, sh = source.naturalHeight || source.height;
+    const k = Math.min(1, res / Math.max(sw, sh));
+    const w = Math.max(1, Math.round(sw * k)), h = Math.max(1, Math.round(sh * k));
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const cx = cv.getContext('2d'); cx.imageSmoothingQuality = 'high'; cx.drawImage(source, 0, 0, w, h);
+    const tc = document.createElement('canvas'); const tk = 160 / w; tc.width = 160; tc.height = Math.round(h * tk);
+    tc.getContext('2d').drawImage(cv, 0, 0, tc.width, tc.height);
+    pages.push({ name, img: { w, h, data: cx.getImageData(0, 0, w, h).data }, src: source, thumbUrl: tc.toDataURL('image/jpeg', 0.7), manual: null, undo: [] });
+    log('加入第', pages.length, '頁', name, w + '×' + h);
+    renderThumbs();
+  }
+  function renderThumbs() {
+    const box = $('thumbs'); box.innerHTML = '';
+    pages.forEach((p, i) => {
+      const d = document.createElement('div'); d.className = 'thumb' + (i === cur ? ' cur' : '');
+      d.innerHTML = `<img src="${p.thumbUrl}"><div class="nm">${i + 1}. ${p.name.replace(/</g, '&lt;')}</div><button class="x" title="移除">✕</button>`;
+      d.onclick = e => { if (e.target.classList.contains('x')) { removePage(i); e.stopPropagation(); } else select(i); };
+      box.appendChild(d);
+    });
+  }
+  function removePage(i) {
+    pages.splice(i, 1);
+    if (cur >= pages.length) cur = pages.length - 1;
+    analyzed = null; renderThumbs();
+    if (cur >= 0) { const c = cur; cur = -1; select(c); } else { $('stage').style.display = 'none'; $('cards').style.display = 'none'; $('empty').style.display = ''; setStatus('尚未載入試卷'); }
+  }
+
+  // ---------- 處理 ----------
+  async function process(p, s, forceAna) {
+    if (!p.A || forceAna || p.Akey !== anaKey(s, p)) {
+      setStatus('分析中…', true); await tick();
+      if (analyzed && analyzed !== p) { analyzed.A = null; analyzed.R = null; }   // 只留一頁的分析資料
+      p.A = EC.analyze(p.img, Object.assign({}, s, { aiBoxes: p.aiBoxes || null })); p.Akey = anaKey(s, p); analyzed = p;
+    }
+    setStatus('合成中…', true); await tick();
+    p.R = EC.compose(p.A, s.en, { grow: s.grow, ghost: s.ghost, white: s.white }, p.manual);
+    p.regions = EC.answerRegions(p.R.hand, p.img.w, p.img.h);
+    setStatus(`${p.img.w}×${p.img.h}・答案區塊 ${p.regions.length} 個`);
+    return p;
+  }
+  let pending = null;
+  function refresh(forceAna) {
+    if (cur < 0) return;
+    clearTimeout(pending);
+    pending = setTimeout(async () => { const p = pages[cur]; try { await process(p, settings(), forceAna); draw(); } catch (e) { console.error(e); setStatus('錯誤：' + e.message); } }, 120);
+  }
+  async function select(i) {
+    if (i < 0 || i >= pages.length) return;
+    cur = i; renderThumbs();
+    $('empty').style.display = 'none';
+    const p = pages[i];
+    try { await process(p, settings()); draw(); } catch (e) { console.error(e); setStatus('錯誤：' + e.message); }
+  }
+
+  // ---------- 繪製 ----------
+  function toCanvas(arr, w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').putImageData(new ImageData(arr, w, h), 0, 0); return c; }
+  function markImage(p) {
+    const { w, h } = p.img, A = p.A, R = p.R, s = settings(), N = w * h, out = new Uint8ClampedArray(N * 4);
+    const col = { 2: [58, 154, 74], 3: [200, 50, 60], 4: [45, 85, 181], 5: [155, 77, 202], 6: [224, 138, 0], 7: [58, 154, 74] };
+    const on = { 2: s.en.pencil, 3: s.en.red, 4: s.en.blue, 5: s.en.other, 6: s.en.dark, 7: s.en.speck };
+    const d = p.img.data;
+    for (let i = 0; i < N; i++) {
+      const o = i * 4; out[o + 3] = 255;
+      const l = 0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2], faint = 255 - (255 - l) * 0.18;
+      let c = null;
+      if (p.manual && p.manual[i] === 1) c = [224, 192, 0];
+      else if (p.manual && p.manual[i] === 2) c = null;
+      if (!c && A.D[i] >= A.tInkQ) {
+        const k = A.cls[i];
+        if (A.line[i]) c = R.linePen[i] ? col[k] || [224, 192, 0] : [0, 180, 200];
+        else if (k === 1) c = R.erase[i] ? [224, 192, 0] : [85, 85, 85];
+        else if (col[k]) { c = col[k]; if (!on[k]) c = c.map(v => 255 - (255 - v) * 0.3); }
+      }
+      if (c) { out[o] = c[0]; out[o + 1] = c[1]; out[o + 2] = c[2]; } else { out[o] = out[o + 1] = out[o + 2] = faint; }
+    }
+    return out;
+  }
+  function cardCanvases(p) {
+    const ctx = $('c_cardctx').checked, R = p.R, { w, h } = p.img;
+    const src = toCanvas(ctx ? p.img.data : R.answer, w, h);
+    const W = 1240, PH = 1754, pad = 50, cards = [];
+    let page = null, cx = null, y = 0;
+    const newPage = () => { page = document.createElement('canvas'); page.width = W; page.height = PH; cx = page.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, W, PH); cx.fillStyle = '#222'; cx.font = 'bold 34px "Microsoft JhengHei",sans-serif'; cx.fillText(`${p.name}・答案摘錄${cards.length ? '（續）' : ''}`, pad, 70); y = 100; cards.push(page); };
+    newPage();
+    const m = Math.round(Math.max(w, h) * 0.012);
+    const colW = W - pad * 2 - 60;
+    p.regions.forEach((b, k) => {
+      const sx = Math.max(0, b.x - m * 3), sy = Math.max(0, b.y - m), ex = Math.min(w, b.x + b.w + m * 3), ey = Math.min(h, b.y + b.h + m);
+      let sc = Math.min(1.6, colW / (ex - sx)), dw = (ex - sx) * sc, dh = (ey - sy) * sc;
+      if (dh > PH - 160) { sc = (PH - 160) / (ey - sy); dw = (ex - sx) * sc; dh = (ey - sy) * sc; }
+      if (y + dh + 20 > PH - 30) newPage();
+      cx.fillStyle = '#2f6f5e'; cx.font = 'bold 26px sans-serif'; cx.fillText('#' + (k + 1), pad, y + 30);
+      cx.drawImage(src, sx, sy, ex - sx, ey - sy, pad + 60, y, dw, dh);
+      cx.strokeStyle = '#ccc'; cx.strokeRect(pad + 60, y, dw, dh);
+      y += dh + 18;
+    });
+    if (!p.regions.length) { cx.fillStyle = '#888'; cx.font = '26px sans-serif'; cx.fillText('這頁沒有偵測到筆跡', pad, 160); }
+    return cards;
+  }
+  function draw() {
+    if (cur < 0) return;
+    const p = pages[cur]; if (!p.R) return;
+    $('legend').style.display = view === 'mark' ? '' : 'none';
+    if (view === 'cards' && !holding) {
+      $('stage').style.display = 'none'; const box = $('cards'); box.style.display = 'block'; box.innerHTML = '';
+      cardCanvases(p).forEach(c => box.appendChild(c));
+      return;
+    }
+    $('cards').style.display = 'none'; $('stage').style.display = '';
+    const { w, h } = p.img, v = holding ? 'orig' : view;
+    const arr = v === 'orig' ? p.img.data : v === 'mark' ? markImage(p) : v === 'answer' ? p.R.answer : p.R.clean;
+    const cv = $('view'), ov = $('ovl');
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; ov.width = w; ov.height = h; }
+    const g2 = cv.getContext('2d'); g2.putImageData(new ImageData(new Uint8ClampedArray(arr), w, h), 0, 0);
+    if (v === 'mark' && p.aiBoxes) { g2.strokeStyle = '#ff7a00'; g2.lineWidth = Math.max(1.5, w / 700); p.aiBoxes.forEach(b => g2.strokeRect(b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0)); }
+    applyZoom();
+  }
+  function applyZoom() {
+    const z = $('zoom').value, cv = $('view'), ov = $('ovl');
+    let cw;
+    if (z === 'fit') cw = Math.min(cv.width, $('viewer').clientWidth - 30); else cw = cv.width * +z;
+    cv.style.width = ov.style.width = cw + 'px';
+  }
+
+  // ---------- 手動筆刷 ----------
+  function imgPt(e) { const cv = $('view'), r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height }; }
+  let drag = null;
+  function paintDot(p, x, y, val) {
+    const { w, h } = p.img, r = +$('brush').value * w / $('view').getBoundingClientRect().width / 2;
+    const ov = $('ovl').getContext('2d');
+    ov.fillStyle = val === 1 ? 'rgba(240,200,0,.45)' : 'rgba(0,160,120,.45)';
+    ov.beginPath(); ov.arc(x, y, r, 0, Math.PI * 2); ov.fill();
+    const x0 = Math.max(0, Math.floor(x - r)), x1 = Math.min(w - 1, Math.ceil(x + r)), y0 = Math.max(0, Math.floor(y - r)), y1 = Math.min(h - 1, Math.ceil(y + r));
+    for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) if ((xx - x) ** 2 + (yy - y) ** 2 <= r * r) p.manual[yy * w + xx] = val;
+  }
+  function startEdit(p) {
+    if (!p.manual) p.manual = new Uint8Array(p.img.w * p.img.h);
+    p.undo.push(p.manual.slice()); if (p.undo.length > 15) p.undo.shift();
+  }
+  const view$ = $('view');
+  view$.addEventListener('pointerdown', e => {
+    if (tool === 'pan' || cur < 0) return;
+    const p = pages[cur]; startEdit(p); view$.setPointerCapture(e.pointerId);
+    const pt = imgPt(e); drag = { p, x: pt.x, y: pt.y, lx: pt.x, ly: pt.y };
+    if (tool !== 'rect') paintDot(p, pt.x, pt.y, tool === 'erase' ? 1 : 2);
+    e.preventDefault();
+  });
+  view$.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const pt = imgPt(e), p = drag.p;
+    if (tool === 'rect') {
+      const ov = $('ovl').getContext('2d'); ov.clearRect(0, 0, ov.canvas.width, ov.canvas.height);
+      ov.fillStyle = 'rgba(240,200,0,.35)'; ov.fillRect(Math.min(drag.x, pt.x), Math.min(drag.y, pt.y), Math.abs(pt.x - drag.x), Math.abs(pt.y - drag.y));
+    } else {
+      const steps = Math.max(1, Math.ceil(Math.hypot(pt.x - drag.lx, pt.y - drag.ly) / 3));
+      for (let k = 1; k <= steps; k++) paintDot(p, drag.lx + (pt.x - drag.lx) * k / steps, drag.ly + (pt.y - drag.ly) * k / steps, tool === 'erase' ? 1 : 2);
+      drag.lx = pt.x; drag.ly = pt.y;
+    }
+  });
+  function endDrag(e) {
+    if (!drag) return;
+    const p = drag.p;
+    if (tool === 'rect') {
+      const pt = imgPt(e), { w, h } = p.img;
+      const x0 = Math.max(0, Math.floor(Math.min(drag.x, pt.x))), x1 = Math.min(w - 1, Math.ceil(Math.max(drag.x, pt.x)));
+      const y0 = Math.max(0, Math.floor(Math.min(drag.y, pt.y))), y1 = Math.min(h - 1, Math.ceil(Math.max(drag.y, pt.y)));
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) p.manual[y * w + x] = 1;
+    }
+    drag = null;
+    const ov = $('ovl').getContext('2d'); ov.clearRect(0, 0, ov.canvas.width, ov.canvas.height);
+    refresh();
+  }
+  view$.addEventListener('pointerup', endDrag);
+  view$.addEventListener('pointercancel', endDrag);
+  function undo() { if (cur < 0) return; const p = pages[cur]; if (!p.undo.length) return; p.manual = p.undo.pop(); refresh(); }
+
+  // ---------- 匯出 ----------
+  const canvasBlob = (c, fmt) => new Promise(r => c.toBlob(r, fmt === 'jpg' ? 'image/jpeg' : 'image/png', 0.92));
+  function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+  async function outputs(p, which) {
+    const s = settings(); await process(p, s);
+    const { w, h } = p.img, fmt = $('fmt').value, res = [];
+    if (which.clean) res.push({ name: `${p.name}_清除.${fmt}`, canvas: toCanvas(new Uint8ClampedArray(p.R.clean), w, h) });
+    if (which.ans) res.push({ name: `${p.name}_答案.${fmt}`, canvas: toCanvas(new Uint8ClampedArray(p.R.answer), w, h) });
+    if (which.cards) cardCanvases(p).forEach((c, k) => res.push({ name: `${p.name}_答案卡片${k ? '_' + (k + 1) : ''}.${fmt}`, canvas: c }));
+    return res;
+  }
+  async function dlCurrent(which) {
+    if (cur < 0) return alert('請先載入試卷');
+    for (const o of await outputs(pages[cur], which)) download(await canvasBlob(o.canvas, $('fmt').value), o.name);
+  }
+  // 簡易 ZIP(不壓縮，UTF-8 檔名)
+  const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function makeZip(files) {
+    const enc = new TextEncoder(), parts = [], cent = []; let off = 0;
+    for (const f of files) {
+      const nm = enc.encode(f.name), crc = crc32(f.data), sz = f.data.length;
+      const lh = new DataView(new ArrayBuffer(30));
+      lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
+      lh.setUint32(14, crc, true); lh.setUint32(18, sz, true); lh.setUint32(22, sz, true); lh.setUint16(26, nm.length, true);
+      parts.push(new Uint8Array(lh.buffer), nm, f.data);
+      const ch = new DataView(new ArrayBuffer(46));
+      ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true);
+      ch.setUint32(16, crc, true); ch.setUint32(20, sz, true); ch.setUint32(24, sz, true); ch.setUint16(28, nm.length, true); ch.setUint32(42, off, true);
+      cent.push(new Uint8Array(ch.buffer), nm);
+      off += 30 + nm.length + sz;
+    }
+    const csz = cent.reduce((a, b) => a + b.length, 0), end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, csz, true); end.setUint32(16, off, true);
+    return new Blob([...parts, ...cent, new Uint8Array(end.buffer)], { type: 'application/zip' });
+  }
+  // 分隔頁：空白卷與答案之間
+  function separatorCanvas() {
+    const c = document.createElement('canvas'); c.width = 1240; c.height = 1754;
+    const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+    x.textAlign = 'center'; x.fillStyle = '#222';
+    x.font = '200px "Segoe UI Emoji","Apple Color Emoji",sans-serif'; x.fillText('🙈', 620, 640);
+    x.font = 'bold 120px "Microsoft JhengHei","PingFang TC",sans-serif'; x.fillText('後面是答案', 620, 900);
+    x.fillStyle = '#c8323c'; x.fillText('不要偷看！', 620, 1060);
+    x.fillStyle = '#888'; x.font = '40px "Microsoft JhengHei",sans-serif'; x.fillText('寫完前面的考卷再翻過來對答案', 620, 1200);
+    x.strokeStyle = '#ccc'; x.lineWidth = 6; x.setLineDash([30, 20]); x.strokeRect(100, 300, 1040, 1100);
+    return c;
+  }
+  // 整本的頁序：全部空白卷 → 分隔頁 → 全部答案頁 → 答案卡片(方便印一份給孩子重寫、一份對答案)
+  async function buildBook(which) {
+    const keep = cur, groups = { clean: [], ans: [], cards: [] };
+    for (let i = 0; i < pages.length; i++) {
+      setStatus(`準備第 ${i + 1}/${pages.length} 頁…`, true); cur = i;
+      for (const o of await outputs(pages[i], which)) {
+        const g = /_清除\./.test(o.name) ? 'clean' : /_答案\./.test(o.name) ? 'ans' : 'cards';
+        groups[g].push(o);
+      }
+    }
+    const book = [...groups.clean];
+    if ($('p_sep').checked && groups.clean.length && (groups.ans.length || groups.cards.length)) book.push({ name: '後面是答案不要偷看.' + $('fmt').value, canvas: separatorCanvas() });
+    book.push(...groups.ans, ...groups.cards);
+    cur = keep; await select(keep);
+    log('整本頁序', book.map(b => b.name).join(' / '));
+    return book;
+  }
+  const printWhich = () => ({ clean: $('p_clean').checked, ans: $('p_ans').checked, cards: $('p_cards').checked });
+  async function dlZip() {
+    if (!pages.length) return alert('請先載入試卷');
+    const book = await buildBook(printWhich()), files = [];
+    for (let k = 0; k < book.length; k++) files.push({ name: String(k + 1).padStart(2, '0') + '_' + book[k].name, data: new Uint8Array(await (await canvasBlob(book[k].canvas, $('fmt').value)).arrayBuffer()) });
+    download(makeZip(files), '試卷清除結果.zip');
+  }
+  async function printAll() {
+    if (!pages.length) return alert('請先載入試卷');
+    const book = await buildBook(printWhich()), area = $('printArea'), loads = []; area.innerHTML = '';
+    book.forEach(b => { const im = new Image(); loads.push(new Promise(r => { im.onload = im.onerror = r; })); im.src = b.canvas.toDataURL('image/jpeg', 0.92); area.appendChild(im); });
+    await Promise.all(loads);
+    window.print();
+  }
+  // 自寫 PDF：每頁一張 JPEG(DCTDecode)，A4，直式/橫式自動
+  async function makePdf(canvases) {
+    const enc = new TextEncoder(), parts = [], offs = []; let len = 0;
+    const push = b => { if (typeof b === 'string') b = enc.encode(b); parts.push(b); len += b.length; };
+    const obj = (id, body) => { offs[id] = len; push(id + ' 0 obj\n'); body.forEach(push); push('\nendobj\n'); };
+    const n = canvases.length, max = 2 + n * 3;
+    push(new Uint8Array([37, 80, 68, 70, 45, 49, 46, 52, 10, 37, 226, 227, 207, 211, 10]));   // %PDF-1.4 + 二進位註解
+    obj(1, ['<< /Type /Catalog /Pages 2 0 R >>']);
+    obj(2, ['<< /Type /Pages /Kids [' + canvases.map((_, k) => (3 + k * 3) + ' 0 R').join(' ') + '] /Count ' + n + ' >>']);
+    for (let k = 0; k < n; k++) {
+      const c = canvases[k], jpg = new Uint8Array(await (await canvasBlob(c, 'jpg')).arrayBuffer());
+      const land = c.width > c.height, PW = land ? 841.89 : 595.28, PH = land ? 595.28 : 841.89, m = 14;
+      const sc = Math.min((PW - m * 2) / c.width, (PH - m * 2) / c.height), dw = c.width * sc, dh = c.height * sc;
+      const cs = `q ${dw.toFixed(2)} 0 0 ${dh.toFixed(2)} ${((PW - dw) / 2).toFixed(2)} ${((PH - dh) / 2).toFixed(2)} cm /Im0 Do Q`;
+      const pid = 3 + k * 3, cid = pid + 1, iid = pid + 2;
+      obj(pid, [`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 ${iid} 0 R >> >> /Contents ${cid} 0 R >>`]);
+      obj(cid, [`<< /Length ${cs.length} >>\nstream\n${cs}\nendstream`]);
+      obj(iid, [`<< /Type /XObject /Subtype /Image /Width ${c.width} /Height ${c.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpg.length} >>\nstream\n`, jpg, '\nendstream']);
+    }
+    const xref = len;
+    let x = 'xref\n0 ' + (max + 1) + '\n0000000000 65535 f \n';
+    for (let id = 1; id <= max; id++) x += String(offs[id]).padStart(10, '0') + ' 00000 n \n';
+    push(x + 'trailer\n<< /Size ' + (max + 1) + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF\n');
+    return new Blob(parts, { type: 'application/pdf' });
+  }
+  async function dlPdf() {
+    if (!pages.length) return alert('請先載入試卷');
+    const book = await buildBook(printWhich());
+    setStatus('產生 PDF…', true);
+    const pdf = await makePdf(book.map(b => b.canvas));
+    download(pdf, (pages.length === 1 ? pages[0].name : '試卷') + '_清除.pdf');
+    setStatus(`PDF 完成：${book.length} 頁`);
+  }
+
+  // ---------- AI(Gemini) 找出手寫位置 ----------
+  const KEY_LS = 'examcleaner_gemini_key';
+  try { const k = localStorage.getItem(KEY_LS); if (k) $('apiKey').value = k; } catch (e) { }
+  const MODELS = [
+    { ver: 'v1beta', model: 'gemini-3-flash-preview' },
+    { ver: 'v1', model: 'gemini-3-flash' },
+    { ver: 'v1', model: 'gemini-2.5-pro' },
+    { ver: 'v1', model: 'gemini-2.5-flash' },
+  ];
+  const AI_PROMPT = 'This is a photo of a PRINTED exam paper that a student answered and a teacher graded by hand.\n' +
+    'Find EVERY handwritten mark: pencil or pen answers (often numbers inside printed parentheses), handwritten words/names/numbers, ' +
+    'check marks, crosses, hand-drawn circles, strike-through lines, scores, arrows, doodles — in pencil, black, blue or red ink.\n' +
+    'Do NOT box any printed text, printed parentheses, printed lines/boxes, or printed pictures.\n' +
+    'Return ONLY a JSON array. Each item: {"box_2d":[ymin,xmin,ymax,xmax],"label":"short text"} with coordinates normalized to 0-1000. ' +
+    'Make boxes tight around each handwritten mark; one box per separate mark.';
+  async function callGemini(key, b64) {
+    let lastErr = '';
+    for (const m of MODELS) {
+      const url = `https://generativelanguage.googleapis.com/${m.ver}/models/${m.model}:generateContent?key=${encodeURIComponent(key)}`;
+      const body = { contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: b64 } }, { text: AI_PROMPT }] }], generationConfig: { temperature: 0 } };
+      if (m.ver === 'v1beta') body.generationConfig.responseMimeType = 'application/json';
+      try {
+        log('AI 呼叫', m.model);
+        const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const j = await r.json();
+        if (!r.ok) { lastErr = m.model + '：' + ((j.error && j.error.message) || r.status); if (r.status === 400 && /API key/i.test(lastErr)) throw new Error(lastErr); continue; }
+        const txt = ((((j.candidates || [])[0] || {}).content || {}).parts || []).map(p => p.text || '').join('');
+        return { model: m.model, text: txt };
+      } catch (e) { lastErr = e.message; if (/API key/i.test(lastErr)) break; }
+    }
+    throw new Error(lastErr || 'AI 呼叫失敗');
+  }
+  function parseBoxes(txt, w, h) {
+    const s = txt.indexOf('['), e = txt.lastIndexOf(']');
+    if (s < 0 || e < 0) return [];
+    let arr; try { arr = JSON.parse(txt.slice(s, e + 1)); } catch (err) { return []; }
+    return arr.filter(o => o && Array.isArray(o.box_2d) && o.box_2d.length === 4).map(o => {
+      const [y0, x0, y1, x1] = o.box_2d.map(Number);
+      return { x0: Math.min(x0, x1) / 1000 * w, y0: Math.min(y0, y1) / 1000 * h, x1: Math.max(x0, x1) / 1000 * w, y1: Math.max(y0, y1) / 1000 * h, label: String(o.label || '') };
+    }).filter(b => (b.x1 - b.x0) * (b.y1 - b.y0) < w * h * 0.15);   // 太大的框(整頁)不要
+  }
+  async function aiPage(p) {
+    const key = $('apiKey').value.trim();
+    if (!key) { alert('請先貼上 Gemini API Key'); $('apiKey').focus(); throw new Error('no key'); }
+    try { localStorage.setItem(KEY_LS, key); } catch (e) { }
+    const { w, h } = p.img, k = Math.min(1, 1600 / Math.max(w, h));
+    const c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+    c.getContext('2d').drawImage(toCanvas(new Uint8ClampedArray(p.img.data), w, h), 0, 0, c.width, c.height);
+    const b64 = c.toDataURL('image/jpeg', 0.9).split(',')[1];
+    const res = await callGemini(key, b64);
+    p.aiBoxes = parseBoxes(res.text, w, h); p.aiStamp = Date.now();
+    log('AI 回傳', res.model, '手寫框', p.aiBoxes.length, '個');
+    return res.model;
+  }
+  async function runAI(all) {
+    if (cur < 0) return alert('請先載入試卷');
+    const list = all ? pages.map((_, i) => i) : [cur];
+    try {
+      for (const i of list) {
+        setStatus(`AI 分析第 ${i + 1} 頁…`, true); $('aiInfo').textContent = 'AI 分析中…';
+        const model = await aiPage(pages[i]);
+        $('aiInfo').textContent = `${model}：第 ${i + 1} 頁 ${pages[i].aiBoxes.length} 個手寫框`;
+      }
+      refresh(true);
+    } catch (e) { if (e.message !== 'no key') { setStatus('AI 失敗：' + e.message); $('aiInfo').textContent = '失敗：' + e.message; } }
+  }
+
+  // ---------- 示範試卷(也給自動測試用，回傳真值遮罩) ----------
+  function makeDemo(W = 1400, H = 1900) {
+    let sd = 7; const rnd = () => { sd = (sd * 1664525 + 1013904223) >>> 0; return sd / 4294967296; };
+    const mk = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
+    const pr = mk(), px = pr.getContext('2d');
+    px.fillStyle = '#151515'; px.strokeStyle = '#151515'; px.textBaseline = 'alphabetic';
+    px.font = 'bold 40px "Microsoft JhengHei",sans-serif'; px.textAlign = 'center'; px.fillText('示範國小 四年級 數學 期中測驗', W / 2, 90); px.textAlign = 'left';
+    px.font = '28px "Microsoft JhengHei",sans-serif';
+    px.fillText('班級：', 300, 150); px.fillText('姓名：', 620, 150); px.lineWidth = 2;
+    [[380, 560], [700, 1000]].forEach(([a, b]) => { px.beginPath(); px.moveTo(a, 155); px.lineTo(b, 155); px.stroke(); });
+    px.lineWidth = 3; px.strokeRect(1120, 110, 200, 90); px.font = '22px "Microsoft JhengHei",sans-serif'; px.fillText('得分', 1130, 135);
+    px.font = 'bold 30px "Microsoft JhengHei",sans-serif'; px.fillText('一、選擇題（每題 5 分）', 80, 250);
+    px.font = '27px "Microsoft JhengHei",sans-serif';
+    const qs = ['下列哪一個數最大？ ①0.5 ②1/3 ③0.45 ④2/5', '3 公尺 20 公分等於幾公分？ ①32 ②302 ③320 ④3020', '哪一個圖形有 4 個直角？ ①三角形 ②長方形 ③梯形 ④圓形', '時針從 3 走到 6，經過幾小時？ ①2 ②3 ③4 ④9', '12 × 8 的積是多少？ ①86 ②96 ③108 ④20'];
+    qs.forEach((q, k) => { const y = 310 + k * 66; px.fillText(`${k + 1}.（　　）${q}`, 80, y); });
+    px.font = 'bold 30px "Microsoft JhengHei",sans-serif'; px.fillText('二、填充題', 80, 680);
+    px.font = '27px "Microsoft JhengHei",sans-serif'; px.lineWidth = 2;
+    ['48 ÷ 6 =', '25 + 37 =', '100 − 64 ='].forEach((q, k) => { const y = 740 + k * 70; px.fillText(`${k + 1}. ${q}`, 80, y); px.beginPath(); px.moveTo(300, y + 6); px.lineTo(520, y + 6); px.stroke(); });
+    px.font = 'bold 30px "Microsoft JhengHei",sans-serif'; px.fillText('三、看圖回答', 80, 1000);
+    px.lineWidth = 3; px.beginPath(); px.moveTo(150, 1300); px.lineTo(450, 1300); px.lineTo(300, 1060); px.closePath(); px.stroke();
+    px.beginPath(); px.arc(700, 1180, 110, 0, Math.PI * 2); px.stroke();
+    // 灰階網底插圖
+    const gr = px.createLinearGradient(900, 1060, 1300, 1300); gr.addColorStop(0, '#888'); gr.addColorStop(1, '#ccc'); px.fillStyle = gr; px.fillRect(920, 1070, 360, 230); px.fillStyle = '#151515';
+    px.font = '27px "Microsoft JhengHei",sans-serif'; px.fillText('三角形的周長是多少公分？（邊長各 8 公分）', 80, 1380);
+    px.fillText('答：', 80, 1440); px.beginPath(); px.moveTo(140, 1446); px.lineTo(520, 1446); px.lineWidth = 2; px.stroke();
+    // 表格
+    px.lineWidth = 2; for (let r = 0; r <= 3; r++) { px.beginPath(); px.moveTo(80, 1520 + r * 60); px.lineTo(1300, 1520 + r * 60); px.stroke(); }
+    for (let c = 0; c <= 4; c++) { px.beginPath(); px.moveTo(80 + c * 305, 1520); px.lineTo(80 + c * 305, 1700); px.stroke(); }
+    ['星期', '一', '二', '三'].forEach((t, c) => px.fillText(t, 110 + c * 305, 1560));
+    px.font = '18px "Microsoft JhengHei",sans-serif'; px.fillText('第 1 頁', W / 2 - 30, H - 50);
+
+    // 手寫層
+    const pen = mk(), pc = pen.getContext('2d'), red = mk(), rc = red.getContext('2d'), blue = mk(), bc = blue.getContext('2d');
+    const hand = (c, color, txt, x, y, size, lw) => { c.save(); c.translate(x, y); c.rotate((rnd() - 0.5) * 0.12); c.font = `${size}px "DFKai-SB","KaiTi","標楷體",cursive`; c.fillStyle = color; c.fillText(txt, 0, 0); if (lw) { c.lineWidth = lw; c.strokeStyle = color; c.strokeText(txt, 0, 0); } c.restore(); };
+    const P = 'rgba(80,80,88,0.65)';   // HB 鉛筆
+    ['2', '3', '2', '2', '2'].forEach((a, k) => hand(pc, P, a, 135, 312 + k * 66, 34, 1.2));
+    hand(pc, P, '8', 360, 738, 38, 1.2); hand(pc, P, '62', 350, 808, 38, 1.2); hand(pc, P, '36', 350, 878, 38, 1.2);
+    hand(pc, P, '8+8+8=24', 160, 1440, 34, 1); hand(pc, P, '24 公分', 300, 1470, 32, 1);
+    pc.strokeStyle = P; pc.lineWidth = 2.5; pc.beginPath(); pc.moveTo(500, 1100); for (let k = 0; k < 40; k++) pc.lineTo(500 + k * 4, 1100 + Math.sin(k / 3) * 30); pc.stroke();
+    hand(pc, P, '晴', 420, 1620, 34, 1);
+    // 鉛筆顆粒
+    const id = pc.getImageData(0, 0, W, H); for (let i = 3; i < id.data.length; i += 4) if (id.data[i]) id.data[i] *= 0.55 + 0.45 * rnd(); pc.putImageData(id, 0, 0);
+    hand(bc, '#1f3fa8', '王小明', 720, 148, 40, 1.5); hand(bc, '#1f3fa8', '四年二班', 400, 148, 32, 1);
+    bc.strokeStyle = '#1f3fa8'; bc.lineWidth = 3; bc.beginPath(); bc.moveTo(60, 1630); bc.bezierCurveTo(300, 1560, 600, 1700, 900, 1610); bc.stroke();
+    const R = '#d22a35';
+    hand(rc, R, '85', 1180, 190, 64, 2.5);
+    rc.strokeStyle = R; rc.lineWidth = 4;
+    [0, 2, 3, 4].forEach(k => { const y = 300 + k * 66; rc.beginPath(); rc.moveTo(60, y - 10); rc.lineTo(75, y + 5); rc.lineTo(100, y - 30); rc.stroke(); });
+    rc.beginPath(); rc.ellipse(152, 368, 34, 30, 0, 0, Math.PI * 2); rc.stroke(); hand(rc, R, '−5', 30, 390, 30, 1.5);
+    rc.beginPath(); rc.moveTo(250, 1420); rc.lineTo(560, 1470); rc.stroke();                 // 劃過答案底線
+    rc.beginPath(); rc.moveTo(380, 1500); rc.quadraticCurveTo(450, 1600, 400, 1720); rc.stroke(); // 劃過表格線
+    rc.beginPath(); rc.moveTo(460, 290); rc.lineTo(520, 320); rc.stroke();                    // 劃過印刷字
+
+    // 紙張 + 光線不均 + 合成
+    const out = mk(), oc = out.getContext('2d');
+    const pd = oc.createImageData(W, H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const o = (y * W + x) * 4, n = (rnd() - 0.5) * 10, sh = 1 - 0.22 * ((x / W) * (y / H)) - 0.06 * Math.abs(x / W - 0.3);
+      pd.data[o] = (247 + n) * sh; pd.data[o + 1] = (243 + n) * sh; pd.data[o + 2] = (232 + n) * sh; pd.data[o + 3] = 255;
+    }
+    oc.putImageData(pd, 0, 0);
+    oc.globalCompositeOperation = 'multiply'; [pr, pen, blue, red].forEach(c => oc.drawImage(c, 0, 0)); oc.globalCompositeOperation = 'source-over';
+    const fin = mk(), fc = fin.getContext('2d'); fc.filter = 'blur(0.6px)'; fc.drawImage(out, 0, 0); fc.filter = 'none';
+    // 真值
+    const a = (c) => c.getContext('2d').getImageData(0, 0, W, H).data;
+    const pa = a(pr), ha = [a(pen), a(blue), a(red)], N = W * H, tPrint = new Uint8Array(N), tHand = new Uint8Array(N);
+    for (let i = 0; i < N; i++) { if (pa[i * 4 + 3] > 150) tPrint[i] = 1; if (ha.some(h => h[i * 4 + 3] > 110)) tHand[i] = 1; }
+    return { canvas: fin, tPrint, tHand };
+  }
+  function loadDemo() {
+    const d = makeDemo(); addPage('示範試卷', d.canvas); select(pages.length - 1); return d;
+  }
+
+  // ---------- 事件 ----------
+  $('drop').onclick = () => $('file').click();
+  $('file').onchange = e => { loadFiles(e.target.files); e.target.value = ''; };
+  ['dragover', 'dragenter'].forEach(t => document.addEventListener(t, e => { e.preventDefault(); $('drop').classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(t => document.addEventListener(t, e => { e.preventDefault(); $('drop').classList.remove('over'); }));
+  document.addEventListener('drop', e => loadFiles(e.dataTransfer.files));
+  document.addEventListener('paste', e => { const fs = [...(e.clipboardData || {}).items || []].filter(i => i.kind === 'file').map(i => i.getAsFile()).filter(Boolean); if (fs.length) loadFiles(fs.map((f, k) => new File([f], `貼上${pages.length + k + 1}.png`, { type: f.type }))); });
+  $('btnDemo').onclick = loadDemo;
+  $('tabs').addEventListener('click', e => { const v = e.target.dataset && e.target.dataset.v; if (!v) return; view = v; [...$('tabs').querySelectorAll('[data-v]')].forEach(b => b.classList.toggle('on', b.dataset.v === v)); draw(); });
+  document.querySelector('.tools').addEventListener('click', e => { const t = e.target.dataset && e.target.dataset.t; if (!t) return; tool = t; [...document.querySelectorAll('[data-t]')].forEach(b => b.classList.toggle('on', b.dataset.t === t)); $('view').style.cursor = t === 'pan' ? '' : 'crosshair'; $('view').style.touchAction = t === 'pan' ? '' : 'none'; if (t !== 'pan' && view !== 'clean' && view !== 'mark') $('tabs').querySelector('[data-v=clean]').click(); });
+  const hold = v => { holding = v; draw(); };
+  $('btnHold').addEventListener('pointerdown', () => hold(true)); ['pointerup', 'pointerleave'].forEach(t => $('btnHold').addEventListener(t, () => holding && hold(false)));
+  $('btnUndo').onclick = undo;
+  $('btnClearManual').onclick = () => { if (cur < 0) return; const p = pages[cur]; if (p.manual) { p.undo.push(p.manual.slice()); p.manual = null; refresh(); } };
+  document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'z') { undo(); e.preventDefault(); } });
+  $('zoom').onchange = applyZoom; window.addEventListener('resize', () => $('zoom').value === 'fit' && applyZoom());
+  ['s_ink', 's_core', 's_color', 's_grow', 's_ghost'].forEach(id => $(id).addEventListener('input', () => { showVals(); refresh(); }));
+  ['c_pencil', 'c_red', 'c_blue', 'c_other', 'c_speck', 'c_lines', 'c_parens', 'c_ticks', 'c_cardctx'].forEach(id => $(id).addEventListener('change', () => { showVals(); refresh(); }));
+  $('c_dark').addEventListener('change', () => refresh());
+  $('s_bgmode').addEventListener('change', () => refresh());
+  $('s_res').addEventListener('change', () => {
+    // 重新從原始來源取樣
+    pages.forEach(p => { const old = p; const k = Math.min(1, +$('s_res').value / Math.max(p.src.naturalWidth || p.src.width, p.src.naturalHeight || p.src.height)); const w = Math.round((p.src.naturalWidth || p.src.width) * k), h = Math.round((p.src.naturalHeight || p.src.height) * k); const cv = document.createElement('canvas'); cv.width = w; cv.height = h; cv.getContext('2d').drawImage(p.src, 0, 0, w, h); old.img = { w, h, data: cv.getContext('2d').getImageData(0, 0, w, h).data }; old.A = old.R = null; old.manual = null; old.undo = []; });
+    if (cur >= 0) select(cur);
+  });
+  $('dlClean').onclick = () => dlCurrent({ clean: true });
+  $('dlAns').onclick = () => dlCurrent({ ans: true });
+  $('dlCards').onclick = () => dlCurrent({ cards: true });
+  $('dlZip').onclick = dlZip;
+  $('btnPrint').onclick = printAll;
+  $('dlPdf').onclick = dlPdf;
+  $('btnAI').onclick = () => runAI(false);
+  $('btnAIall').onclick = () => runAI(true);
+  $('btnAIclear').onclick = () => { if (cur < 0) return; pages[cur].aiBoxes = null; pages[cur].aiStamp = Date.now(); $('aiInfo').textContent = '已清除'; refresh(true); };
+  $('btnTheme').onclick = () => { const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = dark ? 'light' : 'dark'; };
+  showVals();
+
+  // ---------- 自動測試掛勾 ----------
+  window.__EXAM = { pages, makeDemo, process, settings, cardCanvases, select, addPage, markImage, toCanvas, buildBook, makePdf, separatorCanvas, parseBoxes, get cur() { return cur; } };
+  const qs = new URLSearchParams(location.search);
+  if (qs.has('demo')) loadDemo();
+})();
+</script>
+</body>
+</html>
