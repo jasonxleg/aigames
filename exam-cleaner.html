@@ -157,6 +157,7 @@ legend{font-weight:bold;padding:0 4px}
       <div class="small">壓很重的鉛筆、黑色原子筆跟印刷字一樣深，光看顏色分不出來。可以請 Gemini 先標出哪裡是手寫，再交給上面的規則擦。照片會送到 Google。</div>
       <div class="row"><input type="password" id="apiKey" placeholder="Gemini API Key" style="flex:1;min-width:0" autocomplete="off"></div>
       <div class="row"><button id="btnAI">🤖 AI 標出這頁的手寫</button><button id="btnAIall">全部頁</button></div>
+      <div class="row"><button id="btnAIans" title="請 Gemini 判斷每題的正確答案(看老師的勾、紅筆訂正；沒訂正的自己解)，填進解答附錄">🤖 AI 讀出正確答案(全部頁)</button></div>
       <div class="row"><button id="btnAIclear">清除 AI 標記</button><span class="small" id="aiInfo"></span></div>
     </fieldset>
     <fieldset>
@@ -170,7 +171,8 @@ legend{font-weight:bold;padding:0 4px}
       <div class="row"><select id="fmt"><option value="png">PNG</option><option value="jpg">JPG</option></select><button id="dlZip">⬇ 全部頁打包 ZIP</button></div>
       <div class="row">
         <label class="chk"><input type="checkbox" id="p_clean" checked>空白卷</label>
-        <label class="chk"><input type="checkbox" id="p_ans" checked>答案頁</label>
+        <label class="chk"><input type="checkbox" id="p_appx" checked>解答附錄</label>
+        <label class="chk"><input type="checkbox" id="p_ans">答案整頁</label>
         <label class="chk"><input type="checkbox" id="p_cards">答案卡片</label>
       </div>
       <label class="chk"><input type="checkbox" id="p_sep" checked>空白卷和答案之間夾一張「後面是答案，不要偷看！」</label>
@@ -540,6 +542,16 @@ legend{font-weight:bold;padding:0 4px}
     });
     hs.sort((a, b) => a - b);
     const charW = hs.length >= 20 ? hs[Math.floor(hs.length * 0.85)] : Math.max(8, Math.round(h * 0.016));
+    // 圈圈數字「③④」：細細淡淡的圓圈裡面包著印刷字 → 是印刷；老師圈題號的圈比字大得多，不受影響
+    // 字旁邊半個字以內的淡色小碎片，多半是印刷字比較細、比較淡的部分(例如照片暗處圈圈數字的細圈)，不當雜點擦
+    const textZone = dilate(core, w, h, Math.max(2, Math.round(charW * 0.5)));
+    function ringAroundPrint(x0, y0, x1, y1) {
+      const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+      if (bw > charW * 1.5 || bh > charW * 1.5 || bw < charW * 0.5 || bh < charW * 0.5) return false;
+      let c = 0;
+      for (let y = Math.round(y0 + bh * 0.25); y <= y1 - bh * 0.25; y++) for (let x = Math.round(x0 + bw * 0.25); x <= x1 - bw * 0.25; x++) if (core[y * w + x]) c++;
+      return c >= 4;
+    }
     function onTextRow(x0, y0, x1, y1) {
       // 只看自己高度的中間一半：文字列上的標點，左右同高度一定有字；跨在行距裡的勾，中段左右是空白
       let cnt = 0;
@@ -594,62 +606,173 @@ legend{font-weight:bold;padding:0 4px}
       // 含有印刷級深色核心的(例如印刷字跟摺痕陰影黏在一起) → 不整筆判鉛筆，交給下面的像素層級
       // 很小但夠深的點(句點「。」、標點) → 印刷
       if (p90 < ld * tCore && nCore <= n * 0.02 && !(n < 50 && p90 >= ld * 0.55 && onTextRow(x0, y0, x1, y1))) {
-        const k = neutralKind(n, x1 - x0 + 1, y1 - y0 + 1, sumD / n);
+        let k = ringAroundPrint(x0, y0, x1, y1) ? C.PRINT : neutralKind(n, x1 - x0 + 1, y1 - y0 + 1, sumD / n);
+        if (k === C.SPECK) { for (let j = 0; j < n; j++) if (textZone[buf[j]]) { k = C.PRINT; break; } }
         if (k !== C.PRINT) { for (let j = 0; j < n; j++) { const p = buf[j]; if (cls[p] === C.PRINT) cls[p] = k; } if (k === C.PENCIL) stat.pencilComp++; else stat.speck++; }
       } else if (opt.ticks !== false && col === 0 && n >= 15 && p90 < ld * 0.92 && Math.max(x1 - x0 + 1, y1 - y0 + 1) <= charW * 0.85 && n <= charW * charW * 0.3 && !onTextRow(x0, y0, x1, y1)) {
         // 行距空白裡孤零零的小記號(老師打的勾 ✓、學生的小註記)：印刷字一定排在文字列上
         for (let j = 0; j < n; j++) { const p = buf[j]; if (cls[p] === C.PRINT) cls[p] = C.PENCIL; }
-        stat.tick++;
+        stat.tick++; if (opt.debug) (opt.debug.ticks = opt.debug.ticks || []).push([x0, y0, x1 - x0 + 1, y1 - y0 + 1, n, p90, Math.round(ld)]);
       }
     });
     log('字高估計', charW, 'px');
     log('步驟5 整筆判定：彩色筆', stat.pen, '筆、鉛筆', stat.pencilComp, '筆、行距小勾', stat.tick, '個、碰邊忽略', stat.border, '、色差邊緣改回', stat.fringe, '點');
 
     const forced = new Uint8Array(N);   // 作答括號 / AI 框判定的，不再被插圖規則改回
+
+    // ---- 打勾黏在題號上(例如「21√」)：同一元件超出「這一列文字上下緣」的部分是手寫 ----
+    // 印刷字不會伸進行距；左右鄰居印刷字的上下緣就是這一列的範圍
+    if (opt.ticks !== false) {
+      const mP = new Uint8Array(N);
+      for (let i = 0; i < N; i++) if (cls[i] === C.PRINT && !line[i] && D[i] >= tInkQ) mP[i] = 1;
+      const rowCnt = new Int32Array(h);
+      let nTrim = 0, nTrimPx = 0;
+      components(mP, w, h, (buf, n) => {
+        let x0 = w, y0 = h, x1 = 0, y1 = 0, nc = 0;
+        for (let j = 0; j < n; j++) { const p = buf[j], x = p % w, y = (p - x) / w; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; if (core[p]) nc++; }
+        const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+        if (bw > charW * 2.5 || bh > charW * 2.6 || bh < charW * 1.25 || nc === 0) return;   // 只看「比一個字還高」的小元件(字+勾)
+        const ya = Math.max(0, y0 - charW), yb = Math.min(h - 1, y1 + charW);
+        const xa1 = Math.max(0, x0 - charW * 5), xb2 = Math.min(w - 1, x1 + charW * 5);
+        for (let y = ya; y <= yb; y++) {
+          let c = 0;
+          for (let x = xa1; x < x0 - 1; x++) if (core[y * w + x]) c++;
+          for (let x = x1 + 2; x <= xb2; x++) if (core[y * w + x]) c++;
+          rowCnt[y] = c;
+        }
+        // 找跟自己重疊最多的那一段「有字的列」
+        let best = null;
+        for (let y = ya; y <= yb;) {
+          if (rowCnt[y] < 2) { y++; continue; }
+          const a = y; while (y <= yb && rowCnt[y] >= 2) y++;
+          const b = y - 1, ov = Math.min(b, y1) - Math.max(a, y0) + 1;
+          if (b - a + 1 >= charW * 0.5 && ov > 0 && (!best || ov > best.ov)) best = { a, b, ov };
+        }
+        if (!best) return;
+        const top = best.a - charW * 0.25, bot = best.b + charW * 0.25;
+        let outT = 0, outB = 0;
+        for (let j = 0; j < n; j++) { const y = (buf[j] - buf[j] % w) / w; if (y < top) outT++; else if (y > bot) outB++; }
+        const out = outT + outB;
+        // 勾只會往「一邊」伸出去、而且伸得夠遠；上下都凸一點點的是比較大的印刷字(例如圈圈數字③④)
+        if (out < 8 || out > n * 0.7 || (outT > 3 && outB > 3)) return;
+        if ((outT ? top - y0 : y1 - bot) < charW * 0.35) return;
+        for (let j = 0; j < n; j++) { const p = buf[j], y = (p - p % w) / w; if ((y < top || y > bot) && cls[p] === C.PRINT) cls[p] = C.PENCIL; }
+        nTrim++; nTrimPx += out;
+      });
+      log('步驟5c 黏在印刷字上、伸進行距的勾', nTrim, '個，', nTrimPx, '點');
+    }
+
     // ---- 作答括號「(　　)」：印刷的左右括號中間留白很寬 → 裡面的筆畫就是作答 ----
     // 手機照片裡壓很重的鉛筆深度跟印刷字一樣，但它「寫在作答括號裡」這件事是確定的
+    const slots = [];
     if (opt.parens !== false) {
-      const m3 = new Uint8Array(N);
-      for (let i = 0; i < N; i++) if (cls[i] !== C.PAPER && cls[i] !== C.EDGE && !line[i] && D[i] >= tInkQ) m3[i] = 1;
+      // 括號外形只看純印刷像素(打勾已經切掉)；內容物看全部墨跡
+      const mP = new Uint8Array(N), m3 = new Uint8Array(N);
+      for (let i = 0; i < N; i++) {
+        if (cls[i] === C.PAPER || cls[i] === C.EDGE || line[i] || D[i] < tInkQ) continue;
+        m3[i] = 1; if (cls[i] === C.PRINT) mP[i] = 1;
+      }
+      const shapes = [];
+      components(mP, w, h, (buf, n) => {
+        if (n < 6 || n > N * 0.003) return;
+        let x0 = w, y0 = h, x1 = 0, y1 = 0;
+        for (let j = 0; j < n; j++) { const p = buf[j], x = p % w, y = (p - x) / w; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+        const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+        if (bh < h * 0.008 || bh > h * 0.05 || n / (bw * bh) >= 0.5) return;
+        // 括號外形：細長、空心、中段往外凸。回傳 1=「(」 2=「)」 0=都不像
+        // 上、下兩端要「各自」往同一邊彎(角括號「」只有一端有橫畫，會被這條排除)
+        const bulge = (xa, xb) => {
+          let st = 0, nt = 0, sb = 0, nb = 0, sm2 = 0, nm = 0;
+          for (let j = 0; j < n; j++) { const p = buf[j], x = p % w; if (x < xa || x > xb) continue; const t = ((p - x) / w - y0) / bh; if (t < 0.25) { st += x; nt++; } else if (t > 0.75) { sb += x; nb++; } else if (t > 0.38 && t < 0.62) { sm2 += x; nm++; } }
+          if (nt < 2 || nb < 2 || nm < 2) return 0;
+          const m = sm2 / nm, dt = m - st / nt, db = m - sb / nb, ww = xb - xa + 1, th = ww * 0.12;
+          return dt < -th && db < -th ? 1 : dt > th && db > th ? 2 : 0;
+        };
+        if (bw / bh >= 0.12 && bw / bh <= 0.55) {
+          const k = bulge(x0, x1); if (k) shapes.push({ x0, y0, x1, y1, kind: k });
+        }
+        // 註：試過把黏在一起的「)(」從中間切開、也試過範本比對找括號 —— 都會在別張考卷上誤配、擦掉印刷字，
+        // 所以這種「(1)( B )」黏住的情形交給 AI 找手寫或擦除筆刷，規則保持保守。
+      });
       const comps = [];
       components(m3, w, h, (buf, n) => {
         if (n < 6 || n > N * 0.003) return;
-        let x0 = w, y0 = h, x1 = 0, y1 = 0, nPrint = 0;
-        for (let j = 0; j < n; j++) { const p = buf[j], x = p % w, y = (p - x) / w; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; if (cls[p] === C.PRINT) nPrint++; }
-        const c = { x0, y0, x1, y1, n, pix: buf.slice(0, n), kind: 0 };
-        const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
-        // 括號外形：細長、空心、中段往外凸
-        if (nPrint >= n * 0.8 && bh >= h * 0.008 && bh <= h * 0.05 && bw / bh >= 0.12 && bw / bh <= 0.55 && n / (bw * bh) < 0.5) {
-          let se = 0, ne = 0, sm2 = 0, nm = 0;
-          for (let j = 0; j < n; j++) { const p = c.pix[j], x = p % w, y = (p - x) / w, t = (y - y0) / bh; if (t < 0.25 || t > 0.75) { se += x; ne++; } else if (t > 0.38 && t < 0.62) { sm2 += x; nm++; } }
-          if (ne && nm) { const d = sm2 / nm - se / ne; if (d < -bw * 0.12) c.kind = 1; else if (d > bw * 0.12) c.kind = 2; }   // 1=「(」 2=「)」
-        }
-        comps.push(c);
+        let x0 = w, y0 = h, x1 = 0, y1 = 0;
+        for (let j = 0; j < n; j++) { const p = buf[j], x = p % w, y = (p - x) / w; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+        comps.push({ x0, y0, x1, y1, n, pix: buf.slice(0, n) });
       });
-      const Ls = comps.filter(c => c.kind === 1), Rs = comps.filter(c => c.kind === 2);
-      let nSlots = 0, nAns = 0;
+      const Ls = shapes.filter(c => c.kind === 1), Rs = shapes.filter(c => c.kind === 2);
+      if (opt.debug) opt.debug.shapes = shapes;
+      const sameRow = (a, b, bh) => Math.abs((a.y0 + a.y1) / 2 - (b.y0 + b.y1) / 2) <= bh * 0.3;
+      const hOf = s => s.y1 - s.y0 + 1;
+      // 1) 左右都認得出來的作答欄
+      const pairs = [], usedL = new Set(), usedR = new Set();
       for (const L of Ls) {
-        const bh = L.y1 - L.y0 + 1, cyL = (L.y0 + L.y1) / 2;
-        let R = null;
-        // 先找同一列「最近的」右括號，再看間距；不能跳過近的去配遠的(否則「(2)( )」會配錯)
-        for (const r of Rs) {
-          const rh = r.y1 - r.y0 + 1;
-          if (r.x0 <= L.x1 || Math.abs((r.y0 + r.y1) / 2 - cyL) > bh * 0.3 || rh / bh < 0.7 || rh / bh > 1.4) continue;
-          if (!R || r.x0 < R.x0) R = r;
-        }
+        const bh = hOf(L);
+        let R = null;   // 同一列「最近的」右括號；不能跳過近的去配遠的(否則「(2)( )」會配錯)
+        for (const r of Rs) { if (r.x0 > L.x1 && sameRow(L, r, bh) && hOf(r) / bh >= 0.7 && hOf(r) / bh <= 1.4 && (!R || r.x0 < R.x0)) R = r; }
         if (!R) continue;
         const gap = R.x0 - L.x1;
+        if (Ls.some(o => o !== L && o.x0 > L.x1 && o.x1 < R.x0 && sameRow(o, L, bh * 1.6))) continue;   // 中間又有左括號 → 不是一組
+        usedL.add(L); usedR.add(R);
         if (gap < bh * 1.2 || gap > bh * 8) continue;
-        if (Ls.some(o => o !== L && o.x0 > L.x1 && o.x1 < R.x0 && Math.abs((o.y0 + o.y1) / 2 - cyL) < bh * 0.5)) continue;   // 中間又有左括號 → 不是一組
-        const ix0 = L.x1 + 1, ix1 = R.x0 - 1, iy0 = Math.min(L.y0, R.y0) - bh * 0.8, iy1 = Math.max(L.y1, R.y1) + bh * 0.8;
-        const inside = comps.filter(c => c.kind === 0 && c.x0 >= ix0 && c.x1 <= ix1 && c.y0 >= iy0 && c.y1 <= iy1);
-        if (!inside.length) continue;
-        let covered = 0; inside.forEach(c => covered += c.x1 - c.x0 + 1);
-        if (inside.length > 3 || covered > (ix1 - ix0 + 1) * 0.6) continue;   // 作答只有一兩個字；括號裡排滿印刷字(例如「(每題 5 分)」) 不算
-        nSlots++;
-        inside.forEach(c => { for (let j = 0; j < c.n; j++) { const p = c.pix[j]; if (cls[p] === C.PRINT || cls[p] === C.SPECK || cls[p] === C.PENCIL) { cls[p] = C.PENCIL; forced[p] = 1; } } nAns++; });
+        pairs.push({ L, R, bh, ix0: L.x1 + 1, ix1: R.x0 - 1 });
       }
-      log('步驟5a 作答括號', Ls.length, '左/', Rs.length, '右 → 配對成作答欄', nSlots, '個，裡面的筆畫', nAns, '筆判為作答');
+      // 2) 作答寫到碰到括號 → 那一邊的括號跟答案黏成一塊認不出來；用另一邊 + 這張考卷作答欄的典型寬度推回來
+      const gaps = pairs.map(p => p.ix1 - p.ix0 + 1).sort((a, b) => a - b);
+      const bhs = shapes.map(hOf).sort((a, b) => a - b), bhMed = bhs.length ? bhs[bhs.length >> 1] : charW;
+      const G = gaps.length >= 2 ? gaps[gaps.length >> 1] : bhMed * 3;
+      // 推回來的欄要跟「已確認的作答欄」上下對齊(作答欄排成一欄)；對不上的不推(例如老師圈題號留下的弧線)
+      const column = (s, key) => pairs.some(p => Math.abs(p[key].x0 - s.x0) <= p.bh);
+      const inferred = [];
+      for (const R of Rs) {
+        if (usedR.has(R)) continue;
+        const bh = hOf(R);
+        if (Ls.some(l => l.x1 < R.x0 && R.x0 - l.x1 < bh * 1.2 && sameRow(l, R, bh))) continue;    // 左邊緊貼著左括號 → 是印刷的「(2)」之類
+        if (!column(R, 'R')) continue;
+        inferred.push({ R, bh, ix0: Math.round(R.x0 - G * 0.9), ix1: R.x0 - 1, side: 'L' });
+      }
+      for (const L of Ls) {
+        if (usedL.has(L)) continue;
+        const bh = hOf(L);
+        if (Rs.some(r => r.x0 > L.x1 && r.x0 - L.x1 < bh * 1.2 && sameRow(r, L, bh))) continue;
+        if (!column(L, 'L')) continue;
+        inferred.push({ L, bh, ix0: L.x1 + 1, ix1: Math.round(L.x1 + G * 0.9), side: 'R' });
+      }
+      let nSlots = 0, nInf = 0, nAns = 0;
+      const take = (s, isInf) => {
+        const ref = s.L || s.R, bh = s.bh;
+        const vr = isInf ? 0.5 : 0.8, iy0 = ref.y0 - bh * vr, iy1 = ref.y1 + bh * vr, ix0 = Math.max(0, s.ix0), ix1 = Math.min(w - 1, s.ix1);
+        if (ix1 - ix0 < bh) return;
+        // 內容物：大部分像素落在作答欄裡的筆畫
+        const inside = [];
+        for (const c of comps) {
+          if (c.x1 < ix0 || c.x0 > ix1 || c.y1 < iy0 || c.y0 > iy1) continue;
+          let k = 0;
+          for (let j = 0; j < c.n; j++) { const p = c.pix[j], x = p % w, y = (p - x) / w; if (x >= ix0 && x <= ix1 && y >= iy0 && y <= iy1) k++; }
+          if (k >= c.n * 0.6) inside.push({ c, whole: true });
+          else if (isInf && k >= 8) inside.push({ c, whole: false });   // 推出來的欄：跟括號黏在一起的那塊，只取欄內的部分
+        }
+        // 算「幾個字」只算夠大的中性筆畫(雜點、彩色筆的碎片不算)，但它們一樣會被擦
+        const big = inside.filter(o => { if (o.c.n < Math.max(15, bh * bh * 0.04)) return false; let neu = 0; for (let j = 0; j < o.c.n; j++) { const k = cls[o.c.pix[j]]; if (k === C.PRINT || k === C.PENCIL || k === C.SPECK) neu++; } return neu >= o.c.n * 0.5; });
+        if (!big.length || big.length > (isInf ? 2 : 3)) return;   // 推出來的欄只容得下黏著括號的那一兩個字
+        let covered = 0; big.forEach(o => covered += Math.min(ix1, o.c.x1) - Math.max(ix0, o.c.x0) + 1);
+        if (covered > (ix1 - ix0 + 1) * 0.6) return;   // 作答只有一兩個字；括號裡排滿印刷字(例如「(每題 5 分)」) 不算
+        const lm = isInf && s.side === 'L' ? ix0 + bh * 0.45 : ix0, rm = isInf && s.side === 'R' ? ix1 - bh * 0.45 : ix1;   // 推出來那側留一點邊給括號本身
+        inside.forEach(o => {
+          for (let j = 0; j < o.c.n; j++) {
+            const p = o.c.pix[j], x = p % w, y = (p - x) / w;
+            if (!o.whole && (x < lm || x > rm || y < iy0 || y > iy1)) continue;
+            if (cls[p] === C.PRINT || cls[p] === C.SPECK || cls[p] === C.PENCIL) { cls[p] = C.PENCIL; forced[p] = 1; }
+          }
+          nAns++;
+        });
+        slots.push({ x0: ix0, y0: Math.round(ref.y0 - bh * 0.3), x1: ix1, y1: Math.round(ref.y1 + bh * 0.3), bh, lx: s.L ? s.L.x0 : Math.round(ix0 - bh * 0.4) });
+        if (isInf) nInf++; else nSlots++;
+      };
+      pairs.forEach(s => take(s, false));
+      inferred.forEach(s => take(s, true));
+      log('步驟5a 作答括號', Ls.length, '左/', Rs.length, '右 → 作答欄', nSlots, '個 + 由單邊推回', nInf, '個(典型欄寬', G, 'px)，裡面的筆畫', nAns, '筆判為作答');
     }
 
     // ---- (選用) AI 標出的手寫框：框內筆畫一律當手寫 ----
@@ -683,7 +806,8 @@ legend{font-weight:bold;padding:0 4px}
         const p = buf[j], x = p % w, y = (p - x) / w;
         if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; dsum += D[p];
       }
-      const k = neutralKind(n, x1 - x0 + 1, y1 - y0 + 1, dsum / n);
+      let k = ringAroundPrint(x0, y0, x1, y1) ? C.PRINT : neutralKind(n, x1 - x0 + 1, y1 - y0 + 1, dsum / n);
+      if (k === C.SPECK) { for (let j = 0; j < n; j++) if (textZone[buf[j]]) { k = C.PRINT; break; } }
       if (k === C.PENCIL) stat.pencil++; else if (k === C.SPECK) stat.speck++;
       if (k !== C.PRINT) for (let j = 0; j < n; j++) cls[buf[j]] = k;
     });
@@ -732,7 +856,7 @@ legend{font-weight:bold;padding:0 4px}
     for (let i = 0; i < N; i += 3) if (core[i]) { pr += data[i * 4]; pg += data[i * 4 + 1]; pb += data[i * 4 + 2]; pn++; }
     const printRGB = pn ? [pr / pn, pg / pn, pb / pn] : [40, 40, 40];
     log('分析完成，耗時', Date.now() - t0, 'ms');
-    return { w, h, data, bg, D, cls, line, near, core, LD, VA, VY, tInkQ, tCoreQ: pixCoreQ, tCore, autoCore, Dp, printRGB, opt };
+    return { w, h, data, bg, D, cls, line, near, core, LD, slots, charW, VA, VY, tInkQ, tCoreQ: pixCoreQ, tCore, autoCore, Dp, printRGB, opt };
   }
 
   // 依手動遮罩與勾選類別，產生清除後影像、答案頁
@@ -1153,24 +1277,107 @@ legend{font-weight:bold;padding:0 4px}
     x.strokeStyle = '#ccc'; x.lineWidth = 6; x.setLineDash([30, 20]); x.strokeRect(100, 300, 1040, 1100);
     return c;
   }
-  // 整本的頁序：全部空白卷 → 分隔頁 → 全部答案頁 → 答案卡片(方便印一份給孩子重寫、一份對答案)
+  // ---------- 解答附錄：每個作答欄 → 一列「題號 | 擦掉的作答(含老師紅筆) | AI 正確答案」 ----------
+  // 這一頁目前的分析結果(p.A/p.R 在手上時才能呼叫)
+  function appendixRows(p, pageNo) {
+    const A = p.A, R = p.R, { w, h } = p.img, rows = [];
+    if (!A || !R || !A.slots) return rows;
+    const cleanC = toCanvas(new Uint8ClampedArray(R.clean), w, h), ansC = toCanvas(new Uint8ClampedArray(R.answer), w, h);
+    const cw = A.charW || 18;
+    const slots = A.slots.slice().sort((a, b) => (Math.abs(a.y0 - b.y0) < a.bh * 0.6 ? a.x0 - b.x0 : a.y0 - b.y0));
+    slots.forEach((s, k) => {
+      // 題號：作答欄左括號再往左約 3.5 個字(「12.(」「(1)(」「甲—(」)，從清除後的卷面切，乾淨沒有勾
+      const qy0 = Math.max(0, s.y0 - 2), qy1 = Math.min(h - 1, s.y1 + 2);
+      const qx1 = Math.max(1, s.lx + Math.round(cw * 0.6)), qx0 = Math.max(0, qx1 - Math.round(cw * 3.8));
+      // 作答：作答欄上下左右再放寬，把寫出框的答案、老師在旁邊的紅筆訂正一起帶進來
+      const ax0 = Math.max(0, s.x0 - Math.round(cw * 1.2)), ax1 = Math.min(w - 1, s.x1 + Math.round(cw * 1.2));
+      const ay0 = Math.max(0, s.y0 - Math.round(cw * 0.8)), ay1 = Math.min(h - 1, s.y1 + Math.round(cw * 0.8));
+      rows.push({ page: pageNo, idx: k + 1, q: [cleanC, qx0, qy0, qx1 - qx0 + 1, qy1 - qy0 + 1], a: [ansC, ax0, ay0, ax1 - ax0 + 1, ay1 - ay0 + 1] });
+    });
+    log('解答附錄 第', pageNo, '頁 作答欄', rows.length, '個', p.aiAnswers ? '(含 AI 答案)' : '');
+    return rows;
+  }
+  function appendixCanvases(rows, aiTables) {
+    const W = 1240, H = 1754, pad = 60, out = [];
+    const F = '"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif';
+    const hasAI = !!(aiTables && aiTables.length);
+    let c, x, y;
+    const newPage = (title) => {
+      c = document.createElement('canvas'); c.width = W; c.height = H; x = c.getContext('2d');
+      x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+      x.fillStyle = '#2f6f5e'; x.fillRect(pad, 48, 10, 46);
+      x.fillStyle = '#222'; x.font = 'bold 38px ' + F; x.textBaseline = 'middle'; x.fillText(title, pad + 26, 72);
+      x.fillStyle = '#888'; x.font = '22px ' + F; x.textAlign = 'right'; x.fillText('附錄 ' + (out.length + 1), W - pad, 72); x.textAlign = 'left';
+      y = 120; out.push(c);
+    };
+    // 1) AI 讀出的「完整解答表」(像參考的解析表)：大題 / 題號 / 標準答案 / 說明
+    if (aiTables && aiTables.length) {
+      newPage('完整解答表（家長與自我檢測對照用）');
+      const cols = [[pad, 170, '頁／大題'], [pad + 170, 120, '題號'], [pad + 290, 170, '標準答案'], [pad + 460, W - pad * 2 - 460, '說明']];
+      const head = () => { x.fillStyle = '#eef3f1'; x.fillRect(pad, y, W - pad * 2, 48); x.fillStyle = '#222'; x.font = 'bold 24px ' + F; cols.forEach(([cx, , t]) => x.fillText(t, cx + 12, y + 24)); y += 48; };
+      head();
+      const wrap = (t, maxW) => { const lines = []; let cur = ''; for (const ch of String(t || '')) { if (x.measureText(cur + ch).width > maxW) { lines.push(cur); cur = ch; } else cur += ch; } if (cur) lines.push(cur); return lines.length ? lines : ['']; };
+      for (const t of aiTables) for (const it of t.items) {
+        x.font = '22px ' + F;
+        const note = wrap(it.note, cols[3][1] - 24), rh = Math.max(46, note.length * 30 + 16);
+        if (y + rh > H - 60) { newPage('完整解答表（續）'); head(); }
+        x.strokeStyle = '#d5ddd9'; x.lineWidth = 1; x.strokeRect(pad, y, W - pad * 2, rh);
+        cols.slice(1).forEach(([cx]) => { x.beginPath(); x.moveTo(cx, y); x.lineTo(cx, y + rh); x.stroke(); });
+        x.fillStyle = '#555'; x.font = '22px ' + F; x.fillText(('第' + t.page + '頁 ' + (it.section || '')).slice(0, 9), cols[0][0] + 10, y + rh / 2);
+        x.fillStyle = '#222'; x.fillText(String(it.q || ''), cols[1][0] + 12, y + rh / 2);
+        x.fillStyle = '#2d55b5'; x.font = 'bold 28px ' + F; x.fillText(String(it.answer || ''), cols[2][0] + 14, y + rh / 2);
+        x.fillStyle = '#444'; x.font = '22px ' + F; note.forEach((l, k) => x.fillText(l, cols[3][0] + 12, y + 8 + 15 + k * 30));
+        y += rh;
+      }
+    }
+    // 2) 作答對照表：從原卷切下來的題號 + 擦掉的作答(含老師紅筆勾/訂正)，兩欄排版
+    if (rows.length) {
+      newPage('解答附錄：作答對照（從原卷擦下來的答案）');
+      x.fillStyle = '#666'; x.font = '22px ' + F;
+      x.fillText(hasAI ? '題號右邊是原本寫的答案與老師批改（紅筆勾＝對、紅筆字＝訂正）；正確答案見前面的完整解答表。' : '題號右邊是原本寫的答案與老師批改（紅筆勾＝對、紅筆字＝訂正）。要列出正確答案可用「🤖 AI 讀出正確答案」。', pad, y + 6);
+      y += 40;
+      const colW = (W - pad * 2 - 30) / 2, rowH = 78, qW = 120, aiW = 0, aW = colW - qW - aiW - 70;
+      let col = 0, top = y;
+      for (const r of rows) {
+        if (y + rowH > H - 50) { if (col === 0) { col = 1; y = top; } else { newPage('解答附錄（續）'); top = y = 140; col = 0; } }
+        const cx = pad + col * (colW + 30);
+        x.strokeStyle = '#dde3e0'; x.lineWidth = 1; x.strokeRect(cx, y, colW, rowH - 6);
+        x.fillStyle = '#2f6f5e'; x.font = 'bold 18px ' + F; x.fillText('P' + r.page, cx + 8, y + 18);
+        x.fillStyle = '#999'; x.font = '16px ' + F; x.fillText('#' + r.idx, cx + 8, y + 50);
+        const fit = (src, bx, by, bw, bh) => { const [img, sx, sy, sw, sh] = src; const k = Math.min(bw / sw, bh / sh, 2.2); const dw = sw * k, dh = sh * k; x.drawImage(img, sx, sy, sw, sh, bx + (bw - dw) / 2, by + (bh - dh) / 2, dw, dh); };
+        fit(r.q, cx + 60, y + 4, qW, rowH - 14);
+        fit(r.a, cx + 60 + qW + aiW + 6, y + 4, aW, rowH - 14);
+        y += rowH;
+      }
+    }
+    if (!out.length) { newPage('解答附錄'); x.fillStyle = '#888'; x.font = '28px ' + F; x.fillText('沒有偵測到作答欄。可以用「🤖 AI 讀出正確答案」或改看「答案整頁」。', pad, 200); }
+    return out;
+  }
+
+  // 整本的頁序：全部空白卷 → 分隔頁 → 解答附錄 → 答案整頁 → 答案卡片(方便印一份給孩子重寫、一份對答案)
   async function buildBook(which) {
-    const keep = cur, groups = { clean: [], ans: [], cards: [] };
+    const keep = cur, groups = { clean: [], ans: [], cards: [] }, appxRows = [];
     for (let i = 0; i < pages.length; i++) {
       setStatus(`準備第 ${i + 1}/${pages.length} 頁…`, true); cur = i;
       for (const o of await outputs(pages[i], which)) {
         const g = /_清除\./.test(o.name) ? 'clean' : /_答案\./.test(o.name) ? 'ans' : 'cards';
         groups[g].push(o);
       }
+      if (which.appx) appxRows.push(...appendixRows(pages[i], i + 1));
+    }
+    const appx = [];
+    if (which.appx) {
+      const aiTables = pages.map((p, i) => p.aiAnswers && p.aiAnswers.length ? { page: i + 1, items: p.aiAnswers } : null).filter(Boolean);
+      appendixCanvases(appxRows, aiTables).forEach((c, k) => appx.push({ name: `解答附錄${k + 1}.${$('fmt').value}`, canvas: c }));
     }
     const book = [...groups.clean];
-    if ($('p_sep').checked && groups.clean.length && (groups.ans.length || groups.cards.length)) book.push({ name: '後面是答案不要偷看.' + $('fmt').value, canvas: separatorCanvas() });
-    book.push(...groups.ans, ...groups.cards);
+    if ($('p_sep').checked && groups.clean.length && (appx.length || groups.ans.length || groups.cards.length)) book.push({ name: '後面是答案不要偷看.' + $('fmt').value, canvas: separatorCanvas() });
+    book.push(...appx, ...groups.ans, ...groups.cards);
     cur = keep; await select(keep);
     log('整本頁序', book.map(b => b.name).join(' / '));
     return book;
   }
-  const printWhich = () => ({ clean: $('p_clean').checked, ans: $('p_ans').checked, cards: $('p_cards').checked });
+  const printWhich = () => ({ clean: $('p_clean').checked, ans: $('p_ans').checked, cards: $('p_cards').checked, appx: $('p_appx').checked });
   async function dlZip() {
     if (!pages.length) return alert('請先載入試卷');
     const book = await buildBook(printWhich()), files = [];
@@ -1233,11 +1440,11 @@ legend{font-weight:bold;padding:0 4px}
     'Do NOT box any printed text, printed parentheses, printed lines/boxes, or printed pictures.\n' +
     'Return ONLY a JSON array. Each item: {"box_2d":[ymin,xmin,ymax,xmax],"label":"short text"} with coordinates normalized to 0-1000. ' +
     'Make boxes tight around each handwritten mark; one box per separate mark.';
-  async function callGemini(key, b64) {
+  async function callGemini(key, b64, prompt) {
     let lastErr = '';
     for (const m of MODELS) {
       const url = `https://generativelanguage.googleapis.com/${m.ver}/models/${m.model}:generateContent?key=${encodeURIComponent(key)}`;
-      const body = { contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: b64 } }, { text: AI_PROMPT }] }], generationConfig: { temperature: 0 } };
+      const body = { contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: b64 } }, { text: prompt || AI_PROMPT }] }], generationConfig: { temperature: 0 } };
       if (m.ver === 'v1beta') body.generationConfig.responseMimeType = 'application/json';
       try {
         log('AI 呼叫', m.model);
@@ -1271,6 +1478,46 @@ legend{font-weight:bold;padding:0 4px}
     p.aiBoxes = parseBoxes(res.text, w, h); p.aiStamp = Date.now();
     log('AI 回傳', res.model, '手寫框', p.aiBoxes.length, '個');
     return res.model;
+  }
+  // AI 讀出每一題的正確答案(給解答附錄用)
+  const AI_ANS_PROMPT = 'This is a photo of a graded Taiwanese elementary-school exam (Traditional Chinese). A student wrote answers by hand ' +
+    '(usually inside printed parentheses "(　　)" before each question, or after 答：), and a teacher graded in red/blue pen ' +
+    '(✓ = correct, a red letter/number written next to it = the correct answer, a red slash or X = wrong).\n' +
+    'For EVERY question on this page that has an answer blank, in reading order (top to bottom, left to right), give the CORRECT answer:\n' +
+    '- if the teacher marked it correct, the correct answer is what the student wrote;\n' +
+    '- if the teacher wrote a correction, use the teacher\'s correction;\n' +
+    '- otherwise solve the question yourself from the printed text.\n' +
+    'Use the exam\'s own answer format (①②③④ choices as 1/2/3/4, ○/× for true-false, letters A-E, 甲乙丙丁戊, etc).\n' +
+    'Return ONLY a JSON array, items: {"section":"大題 like 一、是非題 (short)","q":"question label exactly as printed, e.g. 3 or (2) or 甲","answer":"correct answer",' +
+    '"student":"what the student wrote","note":"one short Traditional Chinese sentence why"}';
+  async function aiAnswersPage(p) {
+    const key = $('apiKey').value.trim();
+    if (!key) { alert('請先貼上 Gemini API Key'); $('apiKey').focus(); throw new Error('no key'); }
+    try { localStorage.setItem(KEY_LS, key); } catch (e) { }
+    const { w, h } = p.img, k = Math.min(1, 2000 / Math.max(w, h));
+    const c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+    c.getContext('2d').drawImage(toCanvas(new Uint8ClampedArray(p.img.data), w, h), 0, 0, c.width, c.height);
+    const res = await callGemini(key, c.toDataURL('image/jpeg', 0.92).split(',')[1], AI_ANS_PROMPT);
+    p.aiAnswers = parseAnswers(res.text);
+    log('AI 正確答案', res.model, p.aiAnswers.length, '題');
+    return res.model;
+  }
+  function parseAnswers(txt) {
+    const s = txt.indexOf('['), e = txt.lastIndexOf(']');
+    if (s < 0 || e < 0) return [];
+    let arr; try { arr = JSON.parse(txt.slice(s, e + 1)); } catch (err) { return []; }
+    return arr.filter(o => o && (o.answer != null)).map(o => ({ section: String(o.section || '').slice(0, 12), q: String(o.q || '').slice(0, 8), answer: String(o.answer).slice(0, 12), student: String(o.student || ''), note: String(o.note || '').slice(0, 120) }));
+  }
+  async function runAIAnswers() {
+    if (!pages.length) return alert('請先載入試卷');
+    try {
+      for (let i = 0; i < pages.length; i++) {
+        setStatus(`AI 讀第 ${i + 1}/${pages.length} 頁的答案…`, true); $('aiInfo').textContent = 'AI 讀答案中…';
+        const model = await aiAnswersPage(pages[i]);
+        $('aiInfo').textContent = `${model}：第 ${i + 1} 頁 ${pages[i].aiAnswers.length} 題`;
+      }
+      setStatus('AI 答案完成，下載 PDF 會放進解答附錄');
+    } catch (e) { if (e.message !== 'no key') { setStatus('AI 失敗：' + e.message); $('aiInfo').textContent = '失敗：' + e.message; } }
   }
   async function runAI(all) {
     if (cur < 0) return alert('請先載入試卷');
@@ -1391,12 +1638,13 @@ legend{font-weight:bold;padding:0 4px}
   $('dlPdf').onclick = dlPdf;
   $('btnAI').onclick = () => runAI(false);
   $('btnAIall').onclick = () => runAI(true);
+  $('btnAIans').onclick = runAIAnswers;
   $('btnAIclear').onclick = () => { if (cur < 0) return; pages[cur].aiBoxes = null; pages[cur].aiStamp = Date.now(); $('aiInfo').textContent = '已清除'; refresh(true); };
   $('btnTheme').onclick = () => { const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = dark ? 'light' : 'dark'; };
   showVals();
 
   // ---------- 自動測試掛勾 ----------
-  window.__EXAM = { pages, makeDemo, process, settings, cardCanvases, select, addPage, markImage, toCanvas, buildBook, makePdf, separatorCanvas, parseBoxes, get cur() { return cur; } };
+  window.__EXAM = { pages, makeDemo, process, settings, cardCanvases, select, addPage, markImage, toCanvas, buildBook, makePdf, separatorCanvas, parseBoxes, parseAnswers, appendixRows, appendixCanvases, get cur() { return cur; } };
   const qs = new URLSearchParams(location.search);
   if (qs.has('demo')) loadDemo();
 })();
