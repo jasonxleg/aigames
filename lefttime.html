@@ -57,7 +57,9 @@
   tr.row.past td.task span.t{text-decoration:line-through}
   tr.row.dragging td{opacity:.45}
   tr.row.target td{background:var(--drag)}
-  td.task .grip{color:#c2bbab;margin-right:8px;cursor:grab}
+  td.task .grip{color:#c2bbab;margin-right:8px;cursor:grab;touch-action:none;display:inline-block;padding:10px 6px;margin:-10px 2px -10px -6px}
+  tr.row{-webkit-touch-callout:none;-webkit-user-select:none}
+  tr.row.dragging td{opacity:.45;box-shadow:inset 0 0 0 2px var(--accent)}
   td.task .cnt{font-size:12px;color:var(--muted);margin-left:6px}
   td.act{width:40px;text-align:center}
   td.act button{border:none;background:none;color:#c2bbab;padding:2px 6px;font-size:16px}
@@ -144,7 +146,7 @@
       <thead><tr><th>時間</th><th>代辦事項</th><th></th></tr></thead>
       <tbody id="tbody"></tbody>
     </table>
-    <div class="hint">點時間可修改該段（後面自動順延）；點事項選取 → 右邊編輯細項；按住拖拉到別列可交換時段；雙擊事項可改名。</div>
+    <div class="hint">點時間可修改該段（後面自動順延）；點事項選取 → 右邊編輯細項；按住拖拉到別列可交換時段（手機：按住 ⋮⋮ 拖，或長按事項）；雙擊事項可改名。</div>
   </section>
   <div id="splitter" title="左右拖拉調整寬度"></div>
   <button id="detToggle" type="button"><span class="arrow">▲ 展開細項</span><span class="name"></span></button>
@@ -348,27 +350,56 @@ function fmtLeft(ms) { const s = Math.max(0, Math.ceil(ms / 1000)); const h = Ma
 function esc(s) { return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 // ===== 點選 / 拖拉交換 =====
+// 滑鼠：按住移動 >6px 就開始拖。
+// 觸控：清單本身要能上下捲動，所以 (1) 按住握把 ⋮⋮ 立刻拖；(2) 其他地方「長按 0.35 秒」才開始拖，
+//      還沒到時間就移動 → 當成捲動。拖曳中用非 passive 的 touchmove.preventDefault() 擋掉捲動。
 let drag = null;
+const LONG_PRESS = 350;
+function startDragging(d) {
+  d.moving = true; d.tr.classList.add('dragging');
+  if (navigator.vibrate) try { navigator.vibrate(30); } catch (e) {}
+  log('3. 開始拖拉', state.items[d.from].title, d.pointerType);
+}
 $('#tbody').addEventListener('pointerdown', e => {
   if (e.target.closest('button')) return;
   const tr = e.target.closest('tr.row'); if (!tr) return;
   // setPointerCapture 之後 pointerup 的 target 會變成 tr，所以點到時間欄要在這裡先記下
-  drag = { from: +tr.dataset.idx, x: e.clientX, y: e.clientY, moving: false, target: null, tr, onTime: !!e.target.closest('td.time') };
-  tr.setPointerCapture(e.pointerId);
+  drag = { from: +tr.dataset.idx, x: e.clientX, y: e.clientY, moving: false, target: null, tr,
+           onTime: !!e.target.closest('td.time'), onGrip: !!e.target.closest('.grip'), pointerType: e.pointerType, timer: null };
+  if (e.pointerType === 'mouse' || drag.onGrip) tr.setPointerCapture(e.pointerId);
+  if (e.pointerType !== 'mouse' && !drag.onGrip) {
+    const d = drag;
+    d.timer = setTimeout(() => { if (drag === d && !d.moving) { tr.setPointerCapture(e.pointerId); startDragging(d); } }, LONG_PRESS);
+  }
 });
 $('#tbody').addEventListener('pointermove', e => {
   if (!drag) return;
-  if (!drag.moving && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) { drag.moving = true; drag.tr.classList.add('dragging'); }
-  if (!drag.moving) return;
+  const dist = Math.hypot(e.clientX - drag.x, e.clientY - drag.y);
+  if (!drag.moving) {
+    if (drag.pointerType === 'mouse' || drag.onGrip) { if (dist > 6) startDragging(drag); }
+    else if (dist > 10) { clearTimeout(drag.timer); drag = null; return; } // 長按前就移動 → 是在捲動
+  }
+  if (!drag || !drag.moving) return;
+  // 拖到清單上/下緣時自動捲動
+  const box = $('#left').getBoundingClientRect(), edge = 50;
+  if (e.clientY < box.top + edge) $('#left').scrollTop -= 12;
+  else if (e.clientY > box.bottom - edge) $('#left').scrollTop += 12;
   const el = document.elementFromPoint(e.clientX, e.clientY);
-  const tr = el && el.closest('tr.row');
+  let tr = el && el.closest('tr.row');
+  if (!tr) { // 手指在表格外(例如最後一列下方的說明文字)：取垂直距離最近的那一列
+    let best = Infinity;
+    document.querySelectorAll('tr.row').forEach(r => { const b = r.getBoundingClientRect(), d = Math.abs(e.clientY - (b.top + b.bottom) / 2); if (d < best) { best = d; tr = r; } });
+  }
   document.querySelectorAll('tr.row.target').forEach(r => r.classList.remove('target'));
   drag.target = tr && +tr.dataset.idx !== drag.from ? +tr.dataset.idx : null;
   if (drag.target !== null) tr.classList.add('target');
 });
+// 拖曳中擋掉頁面捲動（必須 passive:false 才能 preventDefault）
+$('#tbody').addEventListener('touchmove', e => { if (drag && drag.moving && e.cancelable) e.preventDefault(); }, { passive: false });
+$('#tbody').addEventListener('contextmenu', e => { if (drag) e.preventDefault(); }); // 長按不要跳出選單
 $('#tbody').addEventListener('pointerup', e => {
   if (!drag) return;
-  const d = drag; drag = null;
+  const d = drag; drag = null; clearTimeout(d.timer);
   if (!d.moving) {
     state.selectedId = state.items[d.from].id; log('2. 選取', state.items[d.from].title); save(); render();
     if (d.onTime) openSlotEditor(d.from);
@@ -382,7 +413,11 @@ $('#tbody').addEventListener('pointerup', e => {
   }
   render();
 });
-$('#tbody').addEventListener('pointercancel', () => { drag = null; render(); });
+$('#tbody').addEventListener('pointercancel', () => {
+  if (!drag) return;
+  const wasMoving = drag.moving; clearTimeout(drag.timer); drag = null;
+  if (wasMoving) render(); // 只是捲動造成的取消不用重畫
+});
 $('#tbody').addEventListener('click', e => {
   const id = e.target.dataset && e.target.dataset.del; if (!id) return;
   const it = state.items.find(x => x.id === id);
