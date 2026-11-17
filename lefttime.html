@@ -172,6 +172,8 @@
   <label>每段間隔 <input type="number" id="tInterval" min="1" max="600" style="width:90px"> 分鐘</label>
   <label><input type="checkbox" id="tAlign"> 以 XX:00 / XX:30 為切割點（間隔會取 30 分鐘的倍數）</label>
   <div id="tPreview" class="hint" style="margin:0"></div>
+  <label>鈴聲間隔 <input type="range" id="tBeep" min="0.6" max="2.5" step="0.1" style="flex:1"> <span id="tBeepVal" style="width:90px"></span>
+    <button type="button" id="tBeepTest">試聽</button></label>
   <div class="btns"><button data-close>取消</button><button class="primary" id="tOk">套用</button></div>
 </div></div>
 
@@ -190,6 +192,7 @@
   <div id="alarmMsg"></div>
   <div class="big" id="alarmNext"></div>
   <div class="btns" style="justify-content:center"><button class="primary" id="alarmStop">我知道了</button></div>
+  <div class="hint" style="margin:10px 0 0">點畫面任何地方都可以停止鈴聲，計時會繼續</div>
 </div></div>
 
 <script>
@@ -536,7 +539,16 @@ function updatePreview() {
   $('#tPreview').textContent = txt;
 }
 $('#btnTime').onclick = () => { $('#tStart').value = toLocalInput(state.startTs); $('#tInterval').value = state.intervalMin; $('#tAlign').checked = state.align !== false; updatePreview(); openDlg('#timeDlg'); };
-$('#tAlign').onchange = () => { $('#tInterval').value = readIv($('#tAlign').checked); updatePreview(); };
+// 鈴聲速度：每聲「滴」的間隔(秒)，拖動即時生效並存檔
+// 鈴聲：4 聲一組，滑桿調「每組間隔」(秒)
+function showBeep() { $('#tBeepVal').textContent = `每組 ${(+$('#tBeep').value).toFixed(1)} 秒`; }
+$('#tBeep').oninput = () => {
+  state.groupGap = +$('#tBeep').value; save(); showBeep();
+  if (alarmSrcNode) { stopAlarmLoop(); playAlarmLoop(); } // 正在響就直接換速度（計時器不動）
+};
+$('#tBeepTest').onclick = () => { ensureAudio(); if (alarmSrcNode) stopRing(); else startRing(4); };
+$('#btnTime').addEventListener('click', () => { $('#tBeep').value = state.groupGap || 1; showBeep(); });
+$('#tAlign').onchange =() => { $('#tInterval').value = readIv($('#tAlign').checked); updatePreview(); };
 $('#tNow').onclick = () => { $('#tStart').value = toLocalInput(Date.now()); updatePreview(); };
 $('#tStart').oninput = updatePreview; $('#tInterval').oninput = updatePreview;
 $('#tOk').onclick = () => {
@@ -577,9 +589,87 @@ function playAlarmFile() {
   return alarmAudio.play();
 }
 function stopAlarmFile() { alarmAudio.pause(); alarmAudio.currentTime = 0; }
+
+// ===== 無縫循環：用 Web Audio 解碼音檔，找出「一組滴滴聲」的精確週期來 loop =====
+// <audio loop> 會吃到 mp3 頭尾的編碼留白與檔尾靜音，重播時間隔忽長忽短；
+// 這裡偵測第一組聲音的起點 s0 與第二組的起點 s1，loopStart=s0、loopEnd=s1，每組間隔完全一樣。
+let alarmBuf = null, alarmLoop = null, alarmSrcNode = null;
+// 13463.mp3 本身是「滴滴滴滴（每 0.125 秒一聲）＋停 0.5 秒」再一組，停頓那段聽起來像「停下來再播」。
+// 所以改成：找出每一聲「滴」的起點，取聲與聲的間隔 P，只 loop 第一組的 N 聲、長度剛好 N×P，
+// 循環時最後一聲到下一圈第一聲也是 P → 全程同間隔、連續不斷的滴滴聲。
+function detectLoop(buf) {
+  const sr = buf.sampleRate, ch = buf.getChannelData(0);
+  let peak = 0; for (let i = 0; i < ch.length; i++) { const a = Math.abs(ch[i]); if (a > peak) peak = a; }
+  if (!peak) return null;
+  const thr = peak * 0.15, beepGap = Math.round(0.02 * sr); // 安靜 >20ms 就算下一聲
+  const on = []; let last = -1e9;
+  for (let i = 0; i < ch.length; i++) {
+    if (Math.abs(ch[i]) < thr) continue;
+    if (i - last > beepGap) on.push(i);
+    last = i;
+  }
+  if (!on.length) return null;
+  const pre = Math.round(0.004 * sr);              // 起音前留 4ms，避免切到 attack
+  const start = Math.max(0, on[0] - pre);
+  if (on.length === 1) return { start: start / sr, end: Math.min(ch.length, last + Math.round(0.1 * sr)) / sr, beeps: 1, period: 0 };
+  const gaps = on.slice(1).map((x, k) => x - on[k]).sort((a, b) => a - b);
+  const P = gaps[Math.floor(gaps.length / 4)];      // 取偏短的間隔(第一四分位)＝組內滴滴間隔，排除組間長停頓
+  let n = 1; while (n < on.length && Math.abs(on[n] - on[n - 1] - P) < 0.15 * P) n++; // 第一組有幾聲
+  return { start: start / sr, end: (start + n * P) / sr, beeps: n, period: P / sr };
+}
+function prepareAlarmBuffer() {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); // 未經點擊時是 suspended，但可先解碼
+    fetch(ALARM_SRC).then(r => r.arrayBuffer())
+      .then(ab => new Promise((ok, ng) => actx.decodeAudioData(ab, ok, ng)))
+      .then(buf => {
+        alarmBuf = buf; alarmLoop = detectLoop(buf);
+        log('16. 鬧鐘無縫循環', alarmLoop ? `每聲間隔 ${alarmLoop.period.toFixed(4)} 秒，循環 ${alarmLoop.beeps} 聲（${alarmLoop.start.toFixed(3)}~${alarmLoop.end.toFixed(3)}）` : '偵測不到聲音');
+      })
+      .catch(e => log('16. 解碼失敗，改用 <audio>', e && e.message));
+  } catch (e) { log('16. 不支援 Web Audio', e.message); }
+}
+function playAlarmLoop() {
+  // 不要求 actx 已是 running：第一次點擊時 resume() 還在進行中，先排好播放，恢復後就會響
+  // （以前這裡擋 running，結果第一次試聽都退回 <audio loop>，間隔又不平均）
+  if (!alarmBuf || !alarmLoop || !actx || actx.state === 'closed') return false;
+  if (actx.state !== 'running') actx.resume();
+  const src = actx.createBufferSource(), g = actx.createGain();
+  // 只循環「一聲滴」＋靜音，總長 = 使用者設定的間隔 → 速度可調、全程同間隔
+  src.buffer = makeBeepBuffer(state.groupGap || 1); src.loop = true;
+  g.gain.value = 1; src.connect(g).connect(actx.destination);
+  src.start(0);
+  alarmSrcNode = src;
+  return true;
+}
+// 從原音檔切出第一組「滴滴滴滴」(4 聲，到第 5 聲之前)，後面補靜音到 gap 秒，做成一個可循環的小 buffer
+// gap = 每組起點到下一組起點的時間；預設 1 秒＝原音檔的節奏，每組間隔完全一樣
+function groupLen() { return alarmLoop.period ? ((alarmLoop.beeps - 1) + 0.9) * alarmLoop.period : alarmLoop.end - alarmLoop.start; }
+function makeBeepBuffer(gap) {
+  gap = Math.max(groupLen() + 0.05, gap);
+  const sr = alarmBuf.sampleRate, s = Math.round(alarmLoop.start * sr);
+  const seg = Math.round(groupLen() * sr); // 一組滴滴的長度
+  const len = Math.round(gap * sr), out = actx.createBuffer(alarmBuf.numberOfChannels, len, sr);
+  for (let c = 0; c < alarmBuf.numberOfChannels; c++) {
+    const src = alarmBuf.getChannelData(c), dst = out.getChannelData(c);
+    const n = Math.min(seg, len, src.length - s);
+    for (let i = 0; i < n; i++) dst[i] = src[s + i];
+    const fade = Math.min(Math.round(0.003 * sr), n); // 結尾 3ms 淡出，避免喀聲
+    for (let i = 0; i < fade; i++) dst[n - 1 - i] *= i / fade;
+  }
+  return out;
+}
+function stopAlarmLoop() { if (alarmSrcNode) { try { alarmSrcNode.stop(); } catch (e) {} alarmSrcNode = null; } }
+
 function ringOnce() { const t = actx.currentTime + 0.02; [0, 0.2, 0.4, 0.6].forEach((dt, k) => beep(t + dt, k % 2 ? 1320 : 990)); }
 function startRing(seconds = 30) {
   ensureAudio(); stopRing();
+  if (playAlarmLoop()) {
+    log('14. 播放鬧鐘（無縫循環）'); ringTimer = setTimeout(stopRing, seconds * 1000);
+    // 瀏覽器不讓出聲(重開頁面後還沒點過) → 0.4 秒後仍未恢復就改走 <audio>/嗶聲
+    setTimeout(() => { if (alarmSrcNode && actx.state !== 'running') { log('14. 音訊未解鎖，改用備援'); stopAlarmLoop(); playAlarmFile().catch(() => ringOnce()); } }, 400);
+    return;
+  }
   playAlarmFile().then(() => {
     log('14. 播放鬧鐘音檔');
     ringTimer = setTimeout(stopRing, seconds * 1000);
@@ -589,7 +679,8 @@ function startRing(seconds = 30) {
     ringTimer = setInterval(() => { if (++n * 1.2 >= seconds) return stopRing(); ringOnce(); }, 1200);
   });
 }
-function stopRing() { clearInterval(ringTimer); clearTimeout(ringTimer); ringTimer = null; stopAlarmFile(); }
+function stopRing() { clearInterval(ringTimer); clearTimeout(ringTimer); ringTimer = null; stopAlarmFile(); stopAlarmLoop(); }
+prepareAlarmBuffer();
 
 let testing = false;
 $('#btnTest').onclick = () => {
@@ -613,6 +704,27 @@ function fireAlarm(endedIdx) {
   const oldTitle = document.title; document.title = '⏰ 時間到！'; setTimeout(() => document.title = oldTitle, 15000);
 }
 $('#alarmStop').onclick = () => { stopRing(); closeDlg('#alarmDlg'); };
+
+// ===== 響鈴時點畫面任一處（或按任意鍵）就停止鈴聲，計時繼續、等下一段再響 =====
+// 這一下只拿來關鈴聲，不會同時觸發底下的按鈕/選取（吞掉接著的 click）
+const isRinging = () => !!(alarmSrcNode || ringTimer || (!alarmAudio.paused && !alarmAudio.muted)); // muted=開始計時時的靜音解鎖，不算
+let swallowClick = false;
+function silenceByTap(where) {
+  stopRing(); closeDlg('#alarmDlg');
+  testing = false; $('#btnTest').textContent = '🔔 試聽鈴聲';
+  log('17. 點畫面停止鈴聲', where, state.running ? '（計時繼續，等下一段）' : '');
+}
+document.addEventListener('pointerdown', e => {
+  if (!isRinging()) return;
+  if (e.target.closest('#timeDlg')) return; // 在時間設定裡調鈴聲速度時不要被打斷
+  swallowClick = true; e.preventDefault(); e.stopPropagation();
+  silenceByTap('pointer');
+}, true);
+document.addEventListener('click', e => {
+  if (!swallowClick) return;
+  swallowClick = false; e.preventDefault(); e.stopPropagation();
+}, true);
+document.addEventListener('keydown', e => { if (isRinging()) { e.preventDefault(); silenceByTap('key ' + e.key); } }, true);
 
 // ===== 計時 =====
 $('#btnRun').onclick = () => {
