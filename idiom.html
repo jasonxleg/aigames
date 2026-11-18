@@ -8,6 +8,7 @@
 :root{
   --bg:#fff8ec; --card:#ffffff; --ink:#3b2f2a; --sub:#7a6a60; --line:#f0e2cc;
   --accent:#e8743b; --accent2:#2f8f83; --star:#f5b301; --fav:#e8456b;
+  --book:#3f6fd8;
   --g1:#ff8a65; --g2:#ffb74d; --g3:#81c784; --g4:#4fc3f7; --g5:#9575cd; --g6:#f06292;
   --shadow:0 3px 10px rgba(120,80,40,.12);
 }
@@ -34,6 +35,16 @@ header p{margin:4px 0 0;font-size:14px;color:#5a3b2a}
 .tab.on .n{background:rgba(255,255,255,.3);color:#fff}
 .tab[data-k="all"].on{background:var(--accent2)}
 .tab[data-k="fav"].on{background:var(--fav)}
+.tab[data-k="book"].on{background:var(--book)}
+.lessons{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px;padding:10px;background:#eef4ff;border-radius:14px}
+.lchip{padding:6px 11px;border-radius:12px;background:#fff;border:1.5px solid #c9d8f5;font-size:14px;color:#3a4a6b}
+.lchip b{color:var(--book)}
+.lchip.on{background:var(--book);border-color:var(--book);color:#fff}
+.lchip.on b{color:#fff}
+.lhead{grid-column:1/-1;display:flex;align-items:center;gap:6px;margin:10px 0 -2px;padding:8px 14px;border-radius:12px;background:#eef4ff;color:#3a4a6b;font-size:17px;cursor:pointer}
+.lhead b{color:var(--book)}
+.lhead .lprog{margin-left:auto;font-size:13px;color:var(--sub)}
+.lhead:first-child{margin-top:0}
 .tab[data-k="1"].on{background:var(--g1)}.tab[data-k="2"].on{background:var(--g2)}.tab[data-k="3"].on{background:var(--g3)}
 .tab[data-k="4"].on{background:var(--g4)}.tab[data-k="5"].on{background:var(--g5)}.tab[data-k="6"].on{background:var(--g6)}
 
@@ -129,6 +140,7 @@ mark{background:#ffe08a;border-radius:3px;padding:0 1px}
   </div>
 
   <div class="tabs" id="tabs"></div>
+  <div class="lessons" id="lessons" style="display:none"></div>
 
   <div class="tools">
     <div id="cats" style="display:flex;gap:6px;flex-wrap:wrap"></div>
@@ -1207,8 +1219,164 @@ window.IDIOMS = [
  m:"寬廣、遼闊，看不到邊際。",
  s:"「望」是往遠處看，「際」是邊界。|一眼望過去，看不到盡頭，就是一望無際。|常用來形容大海、草原、稻田、沙漠這些非常寬廣的地方。",
  x:"站在海邊，眼前是一望無際的大海。",
- t:"你看過哪裡一望無際的風景？"}
+ t:"你看過哪裡一望無際的風景？"},
+
+// ═════════ 課本課次補充（第 2～6、8 課）═════════
+{w:"赴湯蹈火",zy:"ㄈㄨˋ ㄊㄤ ㄉㄠˇ ㄏㄨㄛˇ",g:5,c:"歷史",e:"🔥",src:"《三國志・魏書・劉表傳》裴松之注引《傅子》",
+ m:"比喻不怕艱難危險，奮不顧身。",
+ s:"東漢末年，荊州的劉表想派部下韓嵩到許都去，打探曹操的虛實。|韓嵩知道這是件很危險、又兩面不討好的差事，就先把話說清楚。|他說：「如果我認定了主人，就一心守節，就算要赴湯蹈火——跳進滾燙的熱水、踩進燃燒的大火，死了也不推辭。」|「湯」在古代是滾燙的熱水。後來就用赴湯蹈火形容為了朋友或理想，再危險也不退縮。",
+ x:"好朋友有困難，我一定赴湯蹈火幫他。",
+ t:"「湯」在這裡是喝的湯嗎？"},
+{w:"拋磚引玉",zy:"ㄆㄠ ㄓㄨㄢ ㄧㄣˇ ㄩˋ",g:5,c:"人物",e:"🧱",src:"宋・道原《景德傳燈錄》；常建、趙嘏的故事為民間傳說",
+ m:"比喻先提出自己粗淺的意見，引出別人更好的想法（多用於謙虛）。",
+ s:"傳說唐朝詩人常建很欣賞另一位詩人趙嘏，很想讀到他的好詩。|他聽說趙嘏要到蘇州的靈巖寺遊玩，就先跑去寺廟，在牆上寫了兩句詩，故意不寫完。|趙嘏看到牆上沒寫完的詩，果然手癢，提筆補上兩句，寫得比常建的還好。|常建用自己的「磚」引出了趙嘏的「玉」。（這個故事是傳說；「拋磚引玉」一詞最早見於宋朝的禪宗書籍。）",
+ x:"我先說說我的想法，拋磚引玉，請大家多提意見。",
+ t:"為什麼說自己的是「磚」、別人的是「玉」？"},
+{w:"力爭上游",zy:"ㄌㄧˋ ㄓㄥ ㄕㄤˋ ㄧㄡˊ",g:5,c:"常用",e:"🐟",k:"由來",src:"常用成語（沒有特定典故）",
+ m:"努力爭取進步、爭取好的表現。",
+ s:"「上游」是河流的上半段，靠近源頭的地方。|魚要往上游游，必須逆著水流，花很大的力氣。|所以用「力爭上游」比喻不怕困難、努力往更好的地方前進。",
+ x:"他雖然起步晚，但力爭上游，成績越來越好。",
+ t:"逆著水流游泳很累，為什麼還要往上游？"},
+{w:"以身作則",zy:"ㄧˇ ㄕㄣ ㄗㄨㄛˋ ㄗㄜˊ",g:5,c:"論語",e:"🧭",k:"由來",src:"常用成語（意近《論語・子路》「其身正，不令而行」）",
+ m:"用自己的行為做別人的榜樣。",
+ s:"「以」是用，「身」是自己，「則」是榜樣、準則。|孔子說：「其身正，不令而行；其身不正，雖令不從。」自己做得正，不用下命令大家也會跟著做；自己做不好，下命令也沒人聽。|所以要別人怎麼做，最好的方法就是自己先做到。",
+ x:"班長以身作則，每天最早到教室打掃。",
+ t:"你希望別人學你的哪一個好習慣？"},
+{w:"捨本逐末",zy:"ㄕㄜˇ ㄅㄣˇ ㄓㄨˊ ㄇㄛˋ",g:5,c:"歷史",e:"🌱",src:"《戰國策・齊策》（趙威后問齊使）；《呂氏春秋・上農》",
+ m:"比喻做事不抓根本重點，只注意枝微末節。",
+ s:"齊王派使者去問候趙國的趙威后。使者把信拿出來，趙威后還沒拆信，就先問：「齊國的收成好嗎？百姓好嗎？齊王好嗎？」|使者不高興：「我是代表齊王來的，您怎麼先問收成和百姓，最後才問齊王？」|趙威后說：「沒有收成，哪來的百姓？沒有百姓，哪來的國王？難道要捨棄根本，去問末節嗎？」|「本」是樹根，「末」是樹梢。後來就用捨本逐末形容不重視最重要的事。",
+ x:"只顧著把筆記畫得漂亮，卻沒讀懂內容，是捨本逐末。",
+ t:"讀書時，什麼是「本」？什麼是「末」？"},
+{w:"束手無策",zy:"ㄕㄨˋ ㄕㄡˇ ㄨˊ ㄘㄜˋ",g:5,c:"常用",e:"🙅",k:"由來",src:"常用成語（沒有特定典故）",
+ m:"遇到問題時毫無辦法。",
+ s:"「束手」是兩手像被綁住一樣，「策」是計策、辦法。|手被綁住、又想不出辦法，就只能乾著急。|遇到束手無策的時候，可以先冷靜下來、找人商量。",
+ x:"電腦突然當機，我束手無策，只好請哥哥幫忙。",
+ t:"束手無策的時候，你會找誰幫忙？"},
+{w:"無與倫比",zy:"ㄨˊ ㄩˇ ㄌㄨㄣˊ ㄅㄧˇ",g:5,c:"文學",e:"🏆",k:"由來",src:"唐・韓愈〈上襄陽于相公書〉",
+ m:"沒有能比得上的，形容非常好、非常突出。",
+ s:"「倫」是同類，「比」是比較。|沒有任何同類的東西可以跟它相比，就是無與倫比。|韓愈在信中用它稱讚對方的文章和品德。現在常用來形容美景、表演或成就非常了不起。",
+ x:"阿里山的日出美得無與倫比。",
+ t:"你覺得什麼東西美得無與倫比？"},
+{w:"五體投地",zy:"ㄨˇ ㄊㄧˇ ㄊㄡˊ ㄉㄧˋ",g:5,c:"文學",e:"🙇",k:"由來",src:"佛教禮節（見唐・玄奘《大唐西域記》等）",
+ m:"比喻非常佩服、敬仰。",
+ s:"「五體」是兩手、兩膝和頭。|這原本是佛教最恭敬的禮拜方式：兩手、兩膝和額頭都碰到地上，表示最高的敬意。|後來就用「佩服得五體投地」，形容對一個人佩服到了極點。",
+ x:"他能一口氣背出圓周率一百位，我佩服得五體投地。",
+ t:"你對誰佩服得五體投地？"},
+{w:"耳熟能詳",zy:"ㄦˇ ㄕㄡˊ ㄋㄥˊ ㄒㄧㄤˊ",g:5,c:"人物",e:"👂",src:"宋・歐陽脩〈瀧岡阡表〉「吾耳熟焉，故能詳也」",
+ m:"聽得多了，就能詳細地說出來。",
+ s:"歐陽脩四歲時父親就過世了，家裡很窮，靠母親撫養長大。|母親常常告訴他：「你父親做官時很清廉，又很有愛心，審案時總是想辦法替犯人找活路。」|歐陽脩長大後，為父親寫墓碑文章時說：「這些事，我從小聽了很多遍，所以能說得很詳細。」|這就是「耳熟能詳」：聽得熟了，就能說得清清楚楚。",
+ x:"龜兔賽跑是大家耳熟能詳的故事。",
+ t:"有什麼故事是你耳熟能詳的？"},
+{w:"弄巧成拙",zy:"ㄋㄨㄥˋ ㄑㄧㄠˇ ㄔㄥˊ ㄓㄨㄛˊ",g:5,c:"文學",e:"🤦",k:"由來",src:"宋・黃庭堅〈拙軒頌〉「弄巧成拙，為蛇畫足」",
+ m:"本來想耍聰明，結果反而把事情弄糟。",
+ s:"「巧」是聰明、靈巧，「拙」是笨拙。|黃庭堅說：「弄巧成拙，為蛇畫足。」想表現自己很聰明，卻像畫蛇添足一樣，反而弄巧成拙。|做事要實在，太愛耍小聰明，往往會出錯。",
+ x:"他想抄捷徑，結果迷路了，真是弄巧成拙。",
+ t:"這個成語和一年級的哪個成語很像？"},
+{w:"借題發揮",zy:"ㄐㄧㄝˋ ㄊㄧˊ ㄈㄚ ㄏㄨㄟ",g:5,c:"常用",e:"🎤",k:"由來",src:"常用成語（沒有特定典故）",
+ m:"藉著某件事為理由，來表達自己真正想說的意見。",
+ s:"「借題」是借用一個題目，「發揮」是盡情表達。|原本是寫文章時，借一個題目來寫自己真正想說的道理。|現在也常指找一個藉口發脾氣、或趁機說出藏在心裡的話。",
+ x:"他明明是為別的事生氣，卻借題發揮罵弟弟。",
+ t:"借題發揮什麼時候是好的？什麼時候不好？"},
+{w:"耳提面命",zy:"ㄦˇ ㄊㄧˊ ㄇㄧㄢˋ ㄇㄧㄥˋ",g:5,c:"文學",e:"👂",k:"由來",src:"《詩經・大雅・抑》「匪面命之，言提其耳」",
+ m:"形容長輩懇切、殷勤地教導。",
+ s:"《詩經》裡有一首詩，是一位老臣勸告年輕君王的話。|他說：我不只當面告訴你（面命），還拉著你的耳朵叮嚀你（提其耳）。|意思是非常用心、一再叮嚀。現在常用來形容父母、老師不厭其煩地教導。",
+ x:"媽媽常耳提面命，要我過馬路一定要看紅綠燈。",
+ t:"大人對你耳提面命的話，你記得哪一句？"},
+{w:"良藥苦口",zy:"ㄌㄧㄤˊ ㄧㄠˋ ㄎㄨˇ ㄎㄡˇ",g:5,c:"歷史",e:"💊",src:"《史記・留侯世家》「忠言逆耳利於行，毒藥苦口利於病」；《孔子家語》",
+ m:"好藥吃起來苦，卻能治病；比喻真心的勸告雖然不好聽，卻有益處。",
+ s:"劉邦帶兵攻進秦朝的都城，看到宮殿裡有華麗的房子、珍貴的寶物和許多美女，就想住下來享受。|大將樊噲勸他不要這樣，劉邦不聽。|謀士張良說：「忠言逆耳利於行，良藥苦口利於病。請您聽樊噲的話吧！」|劉邦聽懂了，馬上封好寶庫、退兵駐紮，贏得了百姓的心。",
+ x:"老師的批評雖然刺耳，但良藥苦口，我會好好改進。",
+ t:"別人指出你的錯時，你會生氣嗎？"},
+{w:"天翻地覆",zy:"ㄊㄧㄢ ㄈㄢ ㄉㄧˋ ㄈㄨˋ",g:5,c:"文學",e:"🌪️",k:"由來",src:"唐・劉商〈胡笳十八拍〉「天翻地覆誰得知」",
+ m:"形容變化非常巨大；也形容鬧得非常厲害。",
+ s:"唐朝詩人劉商寫〈胡笳十八拍〉，描寫東漢才女蔡文姬在戰亂中被擄到遠方，生活完全改變。|詩裡說「天翻地覆誰得知」——天地好像翻了過來，這樣巨大的變化，誰能料到呢？|現在也常用來形容家裡或教室被鬧得亂七八糟。",
+ x:"兩隻小狗在客廳追來追去，把家裡鬧得天翻地覆。",
+ t:"「天翻地覆」可以形容哪兩種情況？"},
+{w:"打退堂鼓",zy:"ㄉㄚˇ ㄊㄨㄟˋ ㄊㄤˊ ㄍㄨˇ",g:5,c:"常用",e:"🥁",k:"由來",src:"常用俗語（源自古代官府退堂擊鼓）",
+ m:"比喻做事中途退縮、放棄。",
+ s:"古時候縣官在公堂上審案，結束的時候會打鼓，表示「退堂」了，大家可以離開。|「打退堂鼓」本來是下班的訊號。|後來就比喻事情還沒做完，就想放棄、想退出。",
+ x:"比賽前他一度想打退堂鼓，最後還是勇敢上場。",
+ t:"想打退堂鼓的時候，有什麼方法給自己打氣？"},
+{w:"懸崖勒馬",zy:"ㄒㄩㄢˊ ㄧㄞˊ ㄌㄜˋ ㄇㄚˇ",g:5,c:"常用",e:"🐎",k:"由來",src:"清・紀昀《閱微草堂筆記》等",
+ m:"比喻在危險的邊緣及時醒悟回頭。",
+ s:"騎馬跑到懸崖邊，再往前一步就會掉下去。|這時候趕快拉緊韁繩（勒馬），讓馬停下來，才能保住性命。|所以用「懸崖勒馬」比喻快要犯下大錯時，及時停止、回頭。",
+ x:"他差點跟著同學去做壞事，幸好懸崖勒馬。",
+ t:"「勒」在這裡是什麼意思？"},
+{w:"兢兢業業",zy:"ㄐㄧㄥ ㄐㄧㄥ ㄧㄝˋ ㄧㄝˋ",g:5,c:"文學",e:"📋",k:"由來",src:"《尚書・皋陶謨》「兢兢業業，一日二日萬幾」",
+ m:"形容做事小心謹慎、認真負責。",
+ s:"《尚書》記載，古代的賢臣皋陶勸告大禹：治理國家每天都有上萬件事要處理，一定要兢兢業業。|「兢兢」是小心謹慎，「業業」是擔心害怕、不敢鬆懈。|現在用來稱讚做事認真負責、不敢馬虎的人。",
+ x:"警衛伯伯兢兢業業，每天都把校門守得好好的。",
+ t:"你身邊有誰做事兢兢業業？"},
+{w:"雞犬不寧",zy:"ㄐㄧ ㄑㄩㄢˇ ㄅㄨˋ ㄋㄧㄥˊ",g:5,c:"文學",e:"🐕",src:"唐・柳宗元〈捕蛇者說〉「譁然而駭者，雖雞狗不得寧焉」",
+ m:"形容騷擾得很厲害，連雞狗都不得安寧。",
+ s:"柳宗元在永州遇到一個姓蔣的捕蛇人。當地規定，捕毒蛇來繳就可以不用繳稅。|蔣先生的祖父、父親都被毒蛇咬死了，他自己也差點死掉，卻還是不願意改回繳稅。|他說：「那些收稅的官吏來到村子，到處吵鬧，嚇得連雞狗都不得安寧。比起來，捕蛇還好一點。」|柳宗元聽了很感慨：「苛政猛於虎啊！」",
+ x:"弟弟找不到玩具，把家裡吵得雞犬不寧。",
+ t:"捕蛇人為什麼寧願冒生命危險捕蛇？"},
+{w:"孤注一擲",zy:"ㄍㄨ ㄓㄨˋ ㄧ ㄓˋ",g:5,c:"歷史",e:"🎲",src:"《宋史・寇準傳》",
+ m:"比喻在危急時用盡全部力量，做最後一次冒險。",
+ s:"北宋時，遼國大軍南下，宰相寇準力勸宋真宗親自到前線澶州督戰，士氣大振，最後和遼國訂下盟約。|可是大臣王欽若嫉妒寇準，對真宗說：「賭博的人錢快輸光時，會把剩下的全部押上，叫做『孤注』。」|「寇準讓陛下親征，就是把陛下當成他的孤注啊！」真宗聽了，從此疏遠寇準。|「孤注」是最後的賭本，「擲」是丟出去。現在用來形容拿出全部、做最後的冒險。",
+ x:"最後一球，他孤注一擲地從半場投籃。",
+ t:"孤注一擲有什麼風險？"},
+{w:"盡善盡美",zy:"ㄐㄧㄣˋ ㄕㄢˋ ㄐㄧㄣˋ ㄇㄟˇ",g:5,c:"論語",e:"🎼",src:"《論語・八佾》",
+ m:"形容非常完美，沒有一點缺點。",
+ s:"孔子非常喜歡音樂。有一次他聽到古代舜帝時的〈韶〉樂，說：「盡美矣，又盡善也。」——好聽到極點，內容也好到極點。|後來他聽了周武王時的〈武〉樂，說：「盡美矣，未盡善也。」好聽是好聽，但內容還不夠好。|孔子認為，真正好的作品，不只外表要美，內在也要善。",
+ x:"她做事要求盡善盡美，每個細節都不放過。",
+ t:"「美」和「善」有什麼不一樣？"},
+{w:"秀外慧中",zy:"ㄒㄧㄡˋ ㄨㄞˋ ㄏㄨㄟˋ ㄓㄨㄥ",g:5,c:"文學",e:"🌷",k:"由來",src:"唐・韓愈〈送李愿歸盤谷序〉",
+ m:"外表秀麗，內心聰慧。",
+ s:"「秀」是秀麗、好看，「慧」是聰明。|「外」是外表，「中」是內心。|韓愈在文章中用這個詞形容女子外表美麗、內心又很聰明。現在常用來稱讚女孩子。",
+ x:"姊姊秀外慧中，大家都很喜歡她。",
+ t:"你覺得外表和內在，哪一個比較重要？"},
+{w:"額手稱慶",zy:"ㄜˊ ㄕㄡˇ ㄔㄥ ㄑㄧㄥˋ",g:5,c:"歷史",e:"🙌",src:"《宋史・司馬光傳》等",
+ m:"把手放在額頭上表示慶賀，形容非常高興。",
+ s:"北宋的司馬光是一位正直的大臣，百姓都很敬愛他。|有一段時間，他離開朝廷，住在洛陽寫書。後來新皇帝即位，請他回京城當宰相。|消息傳開，百姓們都把手舉到額頭上，互相慶賀說：「好人終於要回來治理國家了！」|「額手」是把手放在額頭上，是古人表示慶幸的動作。",
+ x:"聽到失蹤的登山客平安獲救，大家都額手稱慶。",
+ t:"你們班曾經為什麼事額手稱慶？"},
+{w:"豁然開朗",zy:"ㄏㄨㄛˋ ㄖㄢˊ ㄎㄞ ㄌㄤˇ",g:5,c:"文學",e:"🏞️",k:"由來",src:"晉・陶淵明〈桃花源記〉「復行數十步，豁然開朗」",
+ m:"形容眼前突然變得開闊明亮；也比喻心裡突然想通了。",
+ s:"〈桃花源記〉裡，漁夫發現山上有一個小洞口，洞裡很窄，只能讓一個人通過。|他往裡走了幾十步，眼前突然一下子變得寬闊明亮，看到了田地、房屋和村莊。|「豁然」是突然開闊的樣子。後來也用來形容想不通的事，突然一下子明白了。",
+ x:"聽了媽媽的話，我心裡豁然開朗，不再煩惱了。",
+ t:"這個成語和「世外桃源」出自同一篇文章，你發現了嗎？"},
+{w:"登峰造極",zy:"ㄉㄥ ㄈㄥ ㄗㄠˋ ㄐㄧˊ",g:5,c:"文學",e:"🏔️",k:"由來",src:"南朝宋・劉義慶《世說新語・文學》",
+ m:"比喻學問、技藝達到最高的境界。",
+ s:"「登峰」是登上山頂，「造極」是到達最高點，「造」在這裡是到達的意思。|《世說新語》裡用這個詞形容學問研究到最高深的地步。|爬山要一步一步爬，才能登上山頂；學習也是這樣，要不斷努力，才能登峰造極。",
+ x:"這位雕刻師的技藝已經登峰造極。",
+ t:"你希望在哪方面登峰造極？"},
+{w:"虛懷若谷",zy:"ㄒㄩ ㄏㄨㄞˊ ㄖㄨㄛˋ ㄍㄨˇ",g:5,c:"文學",e:"🏜️",k:"由來",src:"《老子》「曠兮其若谷」",
+ m:"形容非常謙虛，能接納別人的意見。",
+ s:"老子說，有道的人心胸「曠兮其若谷」——寬廣得像山谷一樣。|山谷是空的，所以能裝下溪水、雲霧和回聲。|「虛懷」是謙虛的胸懷。一個人心裡不自滿，才能裝得下別人的意見，學到更多東西。",
+ x:"教授學問淵博，卻虛懷若谷，常向學生請教。",
+ t:"為什麼「空」反而能裝更多？"},
+{w:"不同凡響",zy:"ㄅㄨˋ ㄊㄨㄥˊ ㄈㄢˊ ㄒㄧㄤˇ",g:5,c:"常用",e:"🎺",k:"由來",src:"常用成語（沒有特定典故）",
+ m:"形容事物非常出色，和一般的不一樣。",
+ s:"「凡響」是平凡的聲音、一般的音樂。|一首曲子和普通的音樂不一樣，特別動聽，就是不同凡響。|後來不只形容音樂，也形容人或作品很傑出、很特別。",
+ x:"這部電影的特效不同凡響，看得大家目瞪口呆。",
+ t:"你覺得誰的表現不同凡響？"},
+{w:"吉人天相",zy:"ㄐㄧˊ ㄖㄣˊ ㄊㄧㄢ ㄒㄧㄤˋ",g:5,c:"常用",e:"🌈",k:"由來",src:"常用成語（「天相」見《左傳》等古籍）",
+ m:"好人自然會得到上天的幫助（多用來安慰遇到困難的人）。",
+ s:"「吉人」是善良的好人，「相」在這裡念ㄒㄧㄤˋ，是幫助的意思。|古人相信，善良的人遇到危險時，上天會保佑他平安度過。|現在多用來安慰、祝福生病或遇到困難的人。",
+ x:"爺爺住院了，大家都說他吉人天相，一定會很快康復。",
+ t:"「相」有哪兩個讀音？在這裡念哪一個？"}
 ];
+
+// ═════════ 課本課次對照 ═════════
+// 依使用者提供的課本目錄（第 2～12 課）。同一個成語可以出現在多課。
+window.BOOK = {
+  title: "國語課本",
+  lessons: [
+    {n:"第 2 課", t:"放學後",         w:["赴湯蹈火","拋磚引玉","力爭上游","以身作則","捨本逐末","束手無策"]},
+    {n:"第 3 課", t:"我的籃球夢",     w:["無與倫比","五體投地","耳熟能詳","弄巧成拙","對牛彈琴","借題發揮"]},
+    {n:"第 4 課", t:"永遠的馬偕",     w:["耳提面命","借花獻佛","精衛填海","良藥苦口","天翻地覆","打退堂鼓"]},
+    {n:"第 5 課", t:"假如給我三天光明", w:["懸崖勒馬","兢兢業業","雞犬不寧","一視同仁","孤注一擲","盡善盡美"]},
+    {n:"第 6 課", t:"攀登生命的高峰", w:["秀外慧中","額手稱慶","豁然開朗","登峰造極","虛懷若谷","不同凡響"]},
+    {n:"第 7 課", t:"美味的一堂課",   w:["妄自菲薄","沾沾自喜","心心相印","因材施教","義不容辭","壽比南山"]},
+    {n:"第 8 課", t:"建築界的長頸鹿", w:["同舟共濟","風雨無阻","器宇軒昂","震耳欲聾","聚沙成塔","吉人天相"]},
+    {n:"第 9 課", t:"請到我的家鄉來", w:["借花獻佛","否極泰來","門可羅雀","勢均力敵","防微杜漸","心血來潮"]},
+    {n:"第 10 課", t:"奇幻旋律",      w:["咬牙切齒","拾人牙慧","掩耳盜鈴","困獸猶鬥","欣欣向榮","哀鴻遍野"]},
+    {n:"第 11 課", t:"兔子先生等等我", w:["汗流浹背","背水一戰","深思熟慮","根深蒂固","從容不迫","姍姍來遲"]},
+    {n:"第 12 課", t:"老鞋匠與小精靈", w:["洗心革面","事半功倍","旁敲側擊","福至心靈","心滿意足","循規蹈矩"]}
+  ]
+};
 
 </script>
 <script>
@@ -1220,14 +1388,21 @@ function log(){ if(SHOW_LOG) console.log.apply(console, ['[成語館]'].concat([
 var DATA = (window.IDIOMS || []).map(function(d,i){ d.id = i; return d; });
 var GCOLOR = {1:'var(--g1)',2:'var(--g2)',3:'var(--g3)',4:'var(--g4)',5:'var(--g5)',6:'var(--g6)'};
 var GNAME = {1:'一年級',2:'二年級',3:'三年級',4:'四年級',5:'五年級',6:'六年級'};
-log('步驟1 載入資料', DATA.length, '則成語');
+var BOOK = window.BOOK || { title:'', lessons:[] };
+var LESSONS = BOOK.lessons || [];
+var BYWORD = {}; DATA.forEach(function(d){ BYWORD[d.w] = d; });
+var LESSON_OF = {};   // 成語 → [課次索引]
+LESSONS.forEach(function(l,i){ l.w.forEach(function(w){ (LESSON_OF[w] = LESSON_OF[w] || []).push(i); if(!BYWORD[w]) console.warn('[成語館] 課次裡的成語找不到資料：', l.n, w); }); });
+log('步驟1 載入資料', DATA.length, '則成語、', LESSONS.length, '課課次');
 
 // ── 本機儲存（失敗也不影響使用）──
 function load(k, def){ try{ var v = localStorage.getItem(k); return v ? JSON.parse(v) : def; }catch(e){ return def; } }
 function save(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){ log('儲存失敗', k, e.message); } }
 var favs = load('idiom.favs', []);       // 存成語文字，資料增刪時不會錯位
 var learned = load('idiom.learned', []);
-var state = { tab: load('idiom.tab', 'all'), cat: '全部', q: '' };
+var state = { tab: load('idiom.tab', LESSONS.length ? 'book' : 'all'), lesson: load('idiom.lesson', 'all'), cat: '全部', q: '' };
+if(state.tab==='book' && !LESSONS.length) state.tab = 'all';
+if(state.lesson!=='all' && !LESSONS[state.lesson]) state.lesson = 'all';
 log('步驟2 讀取紀錄 最愛=', favs.length, '已學會=', learned.length, '分頁=', state.tab);
 
 function isFav(d){ return favs.indexOf(d.w) >= 0; }
@@ -1267,21 +1442,45 @@ function hlText(s, q){
 }
 
 // ── 篩選 ──
-function inTab(d, tab){ return tab==='all' ? true : tab==='fav' ? isFav(d) : String(d.g)===String(tab); }
+function inTab(d, tab){
+  if(tab==='book') return !!LESSON_OF[d.w];
+  return tab==='all' ? true : tab==='fav' ? isFav(d) : String(d.g)===String(tab);
+}
 function matchQ(d, q){
   if(!q) return true;
   return d.w.indexOf(q)>=0 || d.m.indexOf(q)>=0 || d.s.indexOf(q)>=0 || d.src.indexOf(q)>=0 || d.x.indexOf(q)>=0 || d.c===q;
 }
+function passFilter(d){ return (state.cat==='全部' || d.c===state.cat) && matchQ(d, state.q); }
+// 課本分頁：依課次順序排列（同一個成語出現在多課時只列一次）
+function bookList(){
+  var ls = state.lesson==='all' ? LESSONS : [LESSONS[state.lesson]];
+  var seen = {}, out = [];
+  ls.forEach(function(l){ l.w.forEach(function(w){ var d = BYWORD[w]; if(d && !seen[w] && passFilter(d)){ seen[w]=1; out.push(d); } }); });
+  return out;
+}
 function currentList(){
-  return DATA.filter(function(d){
-    return inTab(d, state.tab) && (state.cat==='全部' || d.c===state.cat) && matchQ(d, state.q);
-  });
+  if(state.tab==='book') return bookList();
+  return DATA.filter(function(d){ return inTab(d, state.tab) && passFilter(d); });
+}
+function lessonLabel(d){
+  var ix = LESSON_OF[d.w]; if(!ix) return '';
+  return ix.map(function(i){ return LESSONS[i].n.replace(/\s/g,''); }).join('、');
+}
+
+function renderLessons(){
+  var box = $('lessons');
+  if(state.tab!=='book' || !LESSONS.length){ box.style.display='none'; return; }
+  box.style.display='';
+  box.innerHTML = '<button class="lchip'+(state.lesson==='all'?' on':'')+'" data-l="all">📘 全部課次</button>' +
+    LESSONS.map(function(l,i){
+      return '<button class="lchip'+(String(state.lesson)===String(i)?' on':'')+'" data-l="'+i+'"><b>'+l.n+'</b> '+esc(l.t)+'</button>';
+    }).join('');
 }
 
 function renderTabs(){
-  var keys = ['all','1','2','3','4','5','6','fav'];
+  var keys = (LESSONS.length ? ['book'] : []).concat(['all','1','2','3','4','5','6','fav']);
   $('tabs').innerHTML = keys.map(function(k){
-    var label = k==='all' ? '🌈 全部' : k==='fav' ? '❤️ 我的最愛' : GNAME[k];
+    var label = k==='book' ? '📘 '+BOOK.title+'課次' : k==='all' ? '🌈 全部' : k==='fav' ? '❤️ 我的最愛' : GNAME[k];
     var n = DATA.filter(function(d){ return inTab(d,k); }).length;
     return '<button class="tab'+(state.tab===k?' on':'')+'" data-k="'+k+'">'+label+' <span class="n">'+n+'</span></button>';
   }).join('');
@@ -1296,7 +1495,8 @@ function renderCats(){
 function renderGrid(){
   var list = currentList();
   var q = state.q;
-  var where = state.tab==='all' ? '全部年級' : state.tab==='fav' ? '我的最愛' : GNAME[state.tab];
+  var where = state.tab==='book' ? (state.lesson==='all' ? BOOK.title+'・全部課次' : LESSONS[state.lesson].n+'「'+LESSONS[state.lesson].t+'」')
+    : state.tab==='all' ? '全部年級' : state.tab==='fav' ? '我的最愛' : GNAME[state.tab];
   $('status').textContent = where + (state.cat!=='全部' ? '・'+state.cat : '') + (q ? '・搜尋「'+q+'」' : '') + '：共 ' + list.length + ' 則';
   if(!list.length){
     var tip = state.tab==='fav' && !favs.length
@@ -1305,18 +1505,30 @@ function renderGrid(){
     $('grid').innerHTML = '<div class="empty" style="grid-column:1/-1">'+tip+'</div>';
     return;
   }
-  $('grid').innerHTML = list.map(function(d){
-    return '<div class="card" data-id="'+d.id+'" style="--gc:'+GCOLOR[d.g]+'">'+
-      '<span class="gb">'+GNAME[d.g]+'</span>'+
+  var inBook = state.tab==='book';
+  function card(d){
+    return '<div class="card" data-id="'+d.id+'" style="--gc:'+(inBook?'var(--book)':GCOLOR[d.g])+'">'+
+      '<span class="gb">'+(inBook ? lessonLabel(d) : GNAME[d.g])+'</span>'+
       '<button class="fv'+(isFav(d)?' on':'')+'" data-fav="'+d.id+'" title="加入／移除我的最愛">'+(isFav(d)?'❤':'♡')+'</button>'+
       '<div class="emo">'+d.e+'</div>'+
       '<div class="word">'+ruby(d, q)+'</div>'+
       '<div class="m">'+hlText(d.m, q)+'</div>'+
       (isLearned(d)?'<span class="learned" title="我學會了">⭐</span>':'')+
     '</div>';
-  }).join('');
+  }
+  // 課本「全部課次」且沒有搜尋/分類篩選時，按課分組顯示
+  if(inBook && state.lesson==='all' && !q && state.cat==='全部'){
+    $('grid').innerHTML = LESSONS.map(function(l,i){
+      var ds = l.w.map(function(w){ return BYWORD[w]; }).filter(Boolean);
+      var done = ds.filter(isLearned).length;
+      return '<div class="lhead" data-l="'+i+'"><b>'+l.n+'</b>｜'+esc(l.t)+'<span class="lprog">⭐ '+done+' / '+ds.length+'</span></div>'+
+        ds.map(card).join('');
+    }).join('');
+    return;
+  }
+  $('grid').innerHTML = list.map(card).join('');
 }
-function renderAll(){ renderTabs(); renderCats(); renderGrid(); }
+function renderAll(){ renderTabs(); renderLessons(); renderCats(); renderGrid(); }
 
 // ── 朗讀 ──
 var TTS = { ok: 'speechSynthesis' in window, voice: null, rate: load('idiom.rate', 0.9), queue: [], idx: 0, playing: false, paused: false, onEl: null };
@@ -1385,7 +1597,8 @@ function openDetail(d){
       '<button class="mclose" id="dclose" title="關閉">✕</button>'+
       '<div class="emo">'+d.e+'</div>'+
       '<div class="word">'+ruby(d)+'</div>'+
-      '<div class="meta">'+GNAME[d.g]+'・'+d.c+'・出處：'+esc(d.src)+'</div>'+
+      '<div class="meta">'+(LESSON_OF[d.w] ? '📘 '+LESSON_OF[d.w].map(function(i){return LESSONS[i].n+'「'+esc(LESSONS[i].t)+'」';}).join('、')+'<br>' : '')+
+        GNAME[d.g]+'・'+d.c+'・出處：'+esc(d.src)+'</div>'+
     '</div>'+
     '<div class="mbody">'+
       '<div class="player">'+
@@ -1443,7 +1656,7 @@ function closeDetail(){ ttsStop(true); $('dm').classList.remove('show'); documen
 // ── 小測驗 ──
 function shuffle(a){ a=a.slice(); for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
 function quizPool(){
-  var pool = DATA.filter(function(d){ return inTab(d, state.tab); });
+  var pool = state.tab==='book' ? bookList() : DATA.filter(function(d){ return inTab(d, state.tab); });
   return pool.length >= 4 ? pool : DATA;
 }
 function startQuiz(pool, title){
@@ -1580,6 +1793,8 @@ $('cats').onclick = function(e){
 $('grid').onclick = function(e){
   var f = e.target.closest('[data-fav]');
   if(f){ e.stopPropagation(); toggleFav(DATA[f.dataset.fav]); renderGrid(); return; }
+  var h = e.target.closest('.lhead');
+  if(h){ state.lesson = h.dataset.l; save('idiom.lesson', state.lesson); log('從標題切換課次', state.lesson); renderLessons(); renderGrid(); window.scrollTo({top:0,behavior:'smooth'}); return; }
   var c = e.target.closest('.card'); if(c) openDetail(DATA[c.dataset.id]);
 };
 var qT;
@@ -1590,7 +1805,18 @@ $('q').oninput = function(){
 };
 $('qclr').onclick = function(){ $('q').value=''; this.style.display='none'; state.q=''; renderGrid(); $('q').focus(); };
 $('zyT').onchange = function(){ document.body.classList.toggle('nozy', !this.checked); save('idiom.zy', this.checked); };
-$('quizBtn').onclick = function(){ startQuiz(null, state.tab==='fav' ? '❤️ 我的最愛測驗' : '🎯 小測驗（'+(state.tab==='all'?'全部':GNAME[state.tab]||'我的最愛')+'）'); };
+$('lessons').onclick = function(e){
+  var b = e.target.closest('.lchip'); if(!b) return;
+  state.lesson = b.dataset.l; save('idiom.lesson', state.lesson);
+  log('切換課次', state.lesson==='all' ? '全部' : LESSONS[state.lesson].n);
+  renderLessons(); renderGrid();
+};
+$('quizBtn').onclick = function(){
+  var t = state.tab==='fav' ? '❤️ 我的最愛測驗'
+    : state.tab==='book' ? '📘 課本測驗（'+(state.lesson==='all' ? '全部課次' : LESSONS[state.lesson].n+' '+LESSONS[state.lesson].t)+'）'
+    : '🎯 小測驗（'+(state.tab==='all'?'全部':GNAME[state.tab])+'）';
+  startQuiz(null, t);
+};
 $('reviewBtn').onclick = startReview;
 $('dm').onclick = function(e){ if(e.target===this) closeDetail(); };
 $('qm').onclick = function(e){ if(e.target===this) closeQuiz(); };
