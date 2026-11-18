@@ -88,6 +88,10 @@
   .dlg textarea{width:100%;min-height:150px;font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:6px}
   .dlg label{display:flex;align-items:center;gap:8px;margin:10px 0}
   .dlg input{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px}
+  #quickPick{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+  #quickPick label{margin:0;gap:4px;padding:5px 10px;border:1px solid var(--line);border-radius:16px;cursor:pointer;user-select:none;font-size:15px}
+  #quickPick label.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  #quickPick input{display:none}
   .dlg .btns{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
   #alarmDlg .dlg{text-align:center;border:4px solid var(--accent)}
   #alarmDlg .big{font-size:30px;font-weight:700;color:var(--accent);margin:10px 0}
@@ -161,6 +165,8 @@
 <!-- 填入代辦 -->
 <div class="mask" id="addDlg"><div class="dlg">
   <h3>填入代辦事項</h3>
+  <div class="hint" style="margin:0 0 6px">常用事項（勾選即加入，依勾選順序排）：</div>
+  <div id="quickPick"></div>
   <textarea id="addText" placeholder="可用 空格、逗號、換行 或「和」分隔&#10;例：吃飯 讀myview 寫作業&#10;例：吃飯和洗澡和寫作業"></textarea>
   <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
     <button id="micBtn" type="button">🎤 錄音輸入</button>
@@ -523,8 +529,24 @@ document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => b.close
 
 // 切割代辦：換行、空白(含全形)、逗號、頓號、分號、句號，以及「和」
 function splitTodos(s) { return s.split(/[\s,，、;；。！？]+|和/).map(x => x.trim()).filter(Boolean); }
+// 常用事項快速勾選：依勾選順序排在前面，再接文字框內容(重複的略過)
+const QUICK_TODOS = ['吃飯', '練鋼琴', '洗澡', 'MyOn', 'Epop', 'IXL', '寫作業', '複習'];
+let quickPicked = [];
+function renderQuickPick() {
+  $('#quickPick').innerHTML = QUICK_TODOS.map(t => `<label class="${quickPicked.includes(t) ? 'on' : ''}"><input type="checkbox" value="${t}"${quickPicked.includes(t) ? ' checked' : ''}>${quickPicked.includes(t) ? '☑' : '☐'} ${t}</label>`).join('');
+}
+$('#quickPick').addEventListener('change', e => {
+  const t = e.target.value;
+  quickPicked = e.target.checked ? [...quickPicked.filter(x => x !== t), t] : quickPicked.filter(x => x !== t);
+  log('5a. 常用事項勾選', t, e.target.checked ? '勾選' : '取消', '目前', quickPicked);
+  renderQuickPick(); updateAddPreview();
+});
+function collectTodos() {
+  const typed = splitTodos($('#addText').value);
+  return [...quickPicked, ...typed.filter(x => !quickPicked.includes(x))];
+}
 function updateAddPreview() {
-  const n = splitTodos($('#addText').value);
+  const n = collectTodos();
   $('#addPreview').textContent = n.length ? `會排入 ${n.length} 件：` + n.map(x => `【${x}】`).join('') : '';
 }
 $('#addText').addEventListener('input', updateAddPreview);
@@ -671,11 +693,11 @@ async function startMic() {
 }
 document.querySelector('#addDlg [data-close]').addEventListener('click', () => { stopMic(); hideMicHelp(); });
 
-$('#btnAdd').onclick = () => { $('#addText').value = ''; updateAddPreview(); $('#micState').textContent = ''; hideMicHelp(); $('#addReplace').checked = !state.items.length; openDlg('#addDlg'); setTimeout(() => $('#addText').focus(), 50); };
+$('#btnAdd').onclick = () => { $('#addText').value = ''; quickPicked = []; renderQuickPick(); updateAddPreview(); $('#micState').textContent = ''; hideMicHelp(); $('#addReplace').checked = !state.items.length; openDlg('#addDlg'); setTimeout(() => $('#addText').focus(), 50); };
 $('#addOk').onclick = () => {
   stopMic();
-  const names = splitTodos($('#addText').value);
-  if (!names.length) { alert('請至少填一件事'); return; }
+  const names = collectTodos();
+  if (!names.length) { alert('請至少勾選或填一件事'); return; }
   if ($('#addReplace').checked) { state.items = []; state.durs = []; state.startTs = floorMin(Date.now()); state.lastFiredIdx = -1; }
   const news = names.map(t => ({ id: uid(), title: t, details: [], note: '' }));
   state.items.push(...news); syncDurs();
