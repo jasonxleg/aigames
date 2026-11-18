@@ -535,6 +535,25 @@ let rec = null, micOn = false;
 function setMicUi() {
   $('#micBtn').textContent = micOn ? '⏹ 停止錄音' : '🎤 錄音輸入';
   $('#micBtn').className = micOn ? 'primary' : '';
+  if (!micOn) restoreOutputAfterMic();
+}
+// ===== 防爆音 =====
+// 按過「開始計時/試聽」後鬧鐘的 AudioContext 一直開著輸出(雖然是靜音)；
+// 這時語音辨識打開麥克風，Windows/Chrome 會把開著的輸出切成通話模式重開 → 喇叭「啪」一聲。
+// (speech-to-text 沒爆音就是因為按開始時沒有任何輸出在跑) → 開麥克風前先暫停輸出，錄完再恢復。
+let actxPausedForMic = false;
+async function quietOutputForMic() {
+  if (typeof actx === 'undefined' || !actx || actx.state !== 'running') { log('17. 防爆音：沒有音訊輸出在跑，直接開麥克風'); return; }
+  if (alarmSrcNode || ringTimer) { log('17. 防爆音：鬧鐘正在響，不暫停輸出'); return; }
+  try {
+    await Promise.race([actx.suspend(), new Promise(ok => setTimeout(ok, 300))]);
+    actxPausedForMic = true; log('17. 防爆音：開麥克風前暫停音訊輸出', actx.state);
+  } catch (e) { log('17. 防爆音：暫停失敗', e.message); }
+}
+function restoreOutputAfterMic() {
+  if (!actxPausedForMic) return;
+  actxPausedForMic = false;
+  if (actx && actx.state === 'suspended') { actx.resume(); log('17. 防爆音：錄音結束，恢復音訊輸出'); }
 }
 function stopMic() { if (rec && micOn) { micOn = false; try { rec.stop(); } catch (e) {} setMicUi(); } }
 
@@ -613,9 +632,13 @@ $('#micBtn').onclick = async () => {
   if (!SR) { $('#micState').textContent = '這個瀏覽器不支援語音辨識，請用 Chrome / Edge'; return; }
   if (!window.isSecureContext) { $('#micState').textContent = '請用「開啟代辦時間表.bat」開啟（直接雙擊 html 無法使用麥克風）'; return; }
   $('#micBtn').disabled = true;
-  try { showFileTip(); if (await ensureMic()) startMic(); } finally { $('#micBtn').disabled = false; }
+  try { showFileTip(); if (await ensureMic()) await startMic(); } finally { $('#micBtn').disabled = false; }
 };
-function startMic() {
+let micStarting = false;
+async function startMic() {
+  if (micOn || micStarting) return;
+  micStarting = true;
+  try { await quietOutputForMic(); } finally { micStarting = false; }
   if (micOn) return;
   rec = new SR(); rec.lang = 'zh-TW'; rec.continuous = true; rec.interimResults = true;
   const base = $('#addText').value.replace(/\s*$/, '');
