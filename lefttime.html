@@ -24,6 +24,9 @@
   button.go{background:var(--accent2);color:#fff;border-color:var(--accent2)}
   #status{width:100%;font-size:15px;color:var(--muted);min-height:22px}
   #status b{color:var(--accent);font-size:20px}
+  /* 剩餘時間大字倒數，一眼看得到 */
+  #status .cd{display:inline-block;font-size:46px;font-weight:800;line-height:1.05;color:var(--accent);font-variant-numeric:tabular-nums;letter-spacing:1px;vertical-align:middle;margin:0 4px}
+  #status .cd.warn{color:#e8590c}
   main{display:grid;grid-template-columns:var(--leftW,55%) 8px 1fr;gap:0;margin:0 18px 18px;
        background:var(--paper);border:2px solid var(--ink);border-radius:6px;min-height:calc(100vh - 140px)}
   table{width:100%;border-collapse:collapse;user-select:none}
@@ -120,6 +123,7 @@
     th{padding:8px 6px}
     #status{font-size:13px}
     #status b{font-size:16px}
+    #status .cd{font-size:38px}
     .zoom{font-size:13px}
     #detToggle{display:flex;align-items:center;gap:8px;flex:none;width:100%;border:none;border-top:2px solid var(--ink);border-radius:0;
                background:var(--sel);padding:10px 14px;font-size:15px;text-align:left}
@@ -133,6 +137,7 @@
 <header>
   <div id="dateLabel"></div>
   <button id="btnAdd">＋ 填入代辦</button>
+  <button id="btnClear" title="清除全部代辦事項">🗑 清除全部</button>
   <button id="btnTime">⏱ 時間設定</button>
   <label class="zoom">列高 <input type="range" id="rowH" min="40" max="200" step="4"> <button id="btnFit" title="讓所有時段剛好填滿畫面">填滿</button></label>
   <button id="btnTest">🔔 試聽鈴聲</button>
@@ -160,6 +165,14 @@
   <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
     <button id="micBtn" type="button">🎤 錄音輸入</button>
     <span id="micState" class="hint" style="margin:0"></span>
+  </div>
+  <div id="micHelp" hidden style="margin-top:8px;padding:10px 12px;border:2px solid #e0a400;border-radius:10px;background:rgba(255,200,0,.12);font-size:15px;line-height:1.6">
+    <b>🎤 需要開啟麥克風權限</b>
+    <ol id="micHelpSteps" style="margin:6px 0;padding-left:22px"></ol>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button id="micRetry" type="button" class="primary">我開好了，重新檢查</button>
+      <button id="micHelpClose" type="button">先不用</button>
+    </div>
   </div>
   <div id="addPreview" class="hint" style="margin:8px 0 0"></div>
   <label><input type="checkbox" id="addReplace"> 取代目前所有事項（從現在重新排）</label>
@@ -255,8 +268,13 @@ function syncDurs() { // durs 長度跟 items 一致
 }
 
 // ===== 畫表格 =====
+// 上方日期一律顯示「今天」(不是排程開始那天)；tick 每秒呼叫，過午夜自動換日
+function updateDateLabel() {
+  const el = $('#dateLabel'), t = ymd(Date.now());
+  if (el.textContent !== t) { el.textContent = t; log('日期更新為今天', t); }
+}
 function render() {
-  $('#dateLabel').textContent = ymd(state.startTs);
+  updateDateLabel();
   const tb = $('#tbody'); tb.innerHTML = '';
   const now = Date.now(), cur = currentIdx(now);
   if (!state.items.length) {
@@ -338,14 +356,16 @@ function renderStatus() {
   if (!state.running) {
     const c = currentIdx(), ci = state.items[c];
     st.innerHTML = `共 ${state.items.length} 件，${hm(state.startTs)} ~ ${hm(endTs)}，每段 ${state.intervalMin} 分鐘` +
-      (ci ? `　｜　現在應該做：<b>${esc(ci.title)}</b>（還剩 ${fmtLeft(slotEnd(c) - Date.now())}）` : '');
+      (ci ? `　｜　現在應該做：<b>${esc(ci.title)}</b>還剩 ${bigLeft(slotEnd(c) - Date.now())}` : '');
     return;
   }
   const now = Date.now(), cur = currentIdx(now);
-  if (cur < 0) { st.innerHTML = `計時中：距離開始還有 <b>${fmtLeft(state.startTs - now)}</b>`; return; }
+  if (cur < 0) { st.innerHTML = `計時中：距離開始還有 ${bigLeft(state.startTs - now)}`; return; }
   if (cur >= state.items.length) { st.textContent = '全部時段已結束'; return; }
-  st.innerHTML = `計時中：現在做「${esc(state.items[cur].title)}」，距離下一個鬧鐘 <b>${fmtLeft(slotEnd(cur) - now)}</b>`;
+  st.innerHTML = `計時中：現在做「${esc(state.items[cur].title)}」，還剩 ${bigLeft(slotEnd(cur) - now)}`;
 }
+// 大字倒數：剩 5 分鐘內變橘色
+const bigLeft = ms => `<span class="cd${ms <= 5 * 60000 ? " warn" : ""}">${fmtLeft(ms)}</span>`;
 function fmtLeft(ms) { const s = Math.max(0, Math.ceil(ms / 1000)); const h = Math.floor(s / 3600); return (h ? h + ':' : '') + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60); }
 function esc(s) { return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
@@ -517,10 +537,86 @@ function setMicUi() {
   $('#micBtn').className = micOn ? 'primary' : '';
 }
 function stopMic() { if (rec && micOn) { micOn = false; try { rec.stop(); } catch (e) {} setMicUi(); } }
-$('#micBtn').onclick = () => {
+
+// ===== 麥克風權限檢查 =====
+// 回傳 'granted' | 'prompt' | 'denied' | 'unknown'（iOS 等不支援 permissions.query 的就是 unknown）
+let micPermWatch = null;
+async function queryMicPerm() {
+  try {
+    const st = await navigator.permissions.query({ name: 'microphone' });
+    if (!micPermWatch) { // 使用者在設定裡改成允許 → 自動收起說明並開始錄
+      micPermWatch = st;
+      st.onchange = () => { log('13. 麥克風權限變更為', st.state); if (st.state === 'granted' && !$('#micHelp').hidden) { hideMicHelp(); startMic(); } };
+    }
+    return st.state;
+  } catch (e) { return 'unknown'; }
+}
+// 注意：不要另外用 getUserMedia「先要一次」權限——語音辨識自己還會再要一次，會跳兩次允許視窗。
+// 只讓語音辨識去要權限(只問一次)，被拒/沒麥克風由 rec.onerror 接手秀說明。
+// 直接雙擊開 html(file://)時 Chrome 不會記住麥克風權限，每次 start 都會再問 → 提示改用 .bat 開(127.0.0.1:8125 會記住)
+const IS_FILE = location.protocol === 'file:';
+const SERVER_URL = 'http://localhost:8125/'; // 跟 server.js 開瀏覽器的網址一致(localStorage 依網址分開存)
+function micHelpSteps(kind) {
+  const ua = navigator.userAgent, android = /Android/i.test(ua), ios = /iPhone|iPad|iPod/i.test(ua) || (/Mac/.test(ua) && navigator.maxTouchPoints > 1);
+  if (kind === 'nodevice') return ['找不到麥克風，或麥克風正被其他 App 使用（通話、錄音、視訊會議）', '確認麥克風接好、關掉佔用的 App 後，按「重新檢查」'];
+  if (android) return [
+    '點網址列左邊的 <b>⚙ / 🔒 圖示</b> →「權限」或「網站設定」',
+    '找到 <b>麥克風</b> → 改成 <b>允許</b>',
+    '如果還是不行：開手機 <b>設定 → 應用程式 → Chrome → 權限 → 麥克風</b> → 選「使用應用程式時允許」',
+    '回到這裡按「我開好了，重新檢查」'
+  ];
+  if (ios) return [
+    '點網址列的 <b>「aA」</b>（Safari）或 <b>⋯</b>（Chrome）→「網站設定」→ 麥克風 → <b>允許</b>',
+    '如果還是不行：開 iPhone <b>設定 → Chrome（或 Safari）→ 麥克風</b> 打開',
+    '回到這裡按「我開好了，重新檢查」'
+  ];
+  return [
+    '點網址列左邊的 <b>🔒 / ⚙ 圖示</b> → 麥克風 → <b>允許</b>',
+    '如果 Windows 擋住：開 <b>設定 → 隱私權與安全性 → 麥克風</b>，打開「讓桌面應用程式存取麥克風」',
+    '回到這裡按「我開好了，重新檢查」（不行就重新整理頁面）'
+  ];
+}
+function showMicHelp(kind) {
+  $('#micHelpSteps').innerHTML = micHelpSteps(kind).map(s => '<li>' + s + '</li>').join('');
+  $('#micHelp').hidden = false;
+  $('#micState').textContent = '⚠ 麥克風還沒開啟，請照下面步驟';
+  log('13. 顯示麥克風權限說明', kind);
+}
+function hideMicHelp() { $('#micHelp').hidden = true; }
+// 檢查權限，可以錄就回傳 true；不行就秀說明並回傳 false
+async function ensureMic() {
+  const st = await queryMicPerm();
+  log('13. 麥克風權限狀態', st);
+  if (st === 'denied') { showMicHelp('denied'); return false; }
+  hideMicHelp(); return true; // granted / prompt / unknown → 交給語音辨識(要權限只會跳一次)
+}
+// 直接開檔時的提示：Chrome 不記權限；若本機伺服器有開，給一個連結直接切過去
+let fileTipShown = false;
+async function showFileTip() {
+  if (!IS_FILE || fileTipShown) return;
+  fileTipShown = true;
+  let up = false;
+  try { await fetch(SERVER_URL, { mode: 'no-cors', cache: 'no-store' }); up = true; } catch (e) {}
+  log('13. 直接開檔，Chrome 不會記住麥克風權限；本機伺服器', up ? '有開' : '沒開');
+  const tip = document.createElement('div');
+  tip.id = 'fileTip'; tip.className = 'hint'; tip.style.cssText = 'margin-top:6px;color:#b45309';
+  tip.innerHTML = '💡 直接開檔時 Chrome 不會記住麥克風權限，每次錄音都會再問。' +
+    (up ? `<a href="${SERVER_URL}">改用這個網址開啟</a>（只問一次就記住；注意：兩邊的代辦資料是分開存的）`
+        : '請改用「開啟代辦時間表.bat」開啟，允許一次之後就不會再問。');
+  $('#micHelp').before(tip);
+}
+$('#micRetry').onclick = async () => { $('#micState').textContent = '檢查中…'; if (await ensureMic()) startMic(); };
+$('#micHelpClose').onclick = () => { hideMicHelp(); $('#micState').textContent = ''; };
+
+$('#micBtn').onclick = async () => {
   if (micOn) { stopMic(); $('#micState').textContent = '已停止'; return; }
   if (!SR) { $('#micState').textContent = '這個瀏覽器不支援語音辨識，請用 Chrome / Edge'; return; }
   if (!window.isSecureContext) { $('#micState').textContent = '請用「開啟代辦時間表.bat」開啟（直接雙擊 html 無法使用麥克風）'; return; }
+  $('#micBtn').disabled = true;
+  try { showFileTip(); if (await ensureMic()) startMic(); } finally { $('#micBtn').disabled = false; }
+};
+function startMic() {
+  if (micOn) return;
   rec = new SR(); rec.lang = 'zh-TW'; rec.continuous = true; rec.interimResults = true;
   const base = $('#addText').value.replace(/\s*$/, '');
   let finals = '';
@@ -538,14 +634,21 @@ $('#micBtn').onclick = () => {
   rec.onerror = ev => {
     const msg = { 'not-allowed': '麥克風被拒絕，請在網址列左邊允許麥克風', 'no-speech': '沒聽到聲音', network: '語音辨識需要連網', 'audio-capture': '找不到麥克風' }[ev.error] || ev.error;
     $('#micState').textContent = '⚠ ' + msg; log('12. 語音錯誤', ev.error);
+    if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') { micOn = false; setMicUi(); showMicHelp('denied'); }
+    if (ev.error === 'audio-capture') { micOn = false; setMicUi(); showMicHelp('nodevice'); }
   };
-  rec.onend = () => { if (micOn) { try { rec.start(); } catch (e) { micOn = false; setMicUi(); } } }; // Chrome 會自己停，持續錄就重啟
+  // Chrome 停頓後會自己停，持續錄就重啟；但直接開檔時每次重啟都會再跳允許視窗，所以不自動重啟
+  rec.onend = () => {
+    if (!micOn) return;
+    if (IS_FILE) { micOn = false; setMicUi(); $('#micState').textContent = '已停止（要繼續說請再按一次錄音）'; log('12. 直接開檔：辨識結束不自動重啟，避免重複詢問權限'); return; }
+    try { rec.start(); } catch (e) { micOn = false; setMicUi(); }
+  };
   micOn = true; setMicUi(); $('#micState').textContent = '聆聽中…';
   try { rec.start(); } catch (e) { micOn = false; setMicUi(); $('#micState').textContent = '⚠ ' + e.message; }
-};
-document.querySelector('#addDlg [data-close]').addEventListener('click', stopMic);
+}
+document.querySelector('#addDlg [data-close]').addEventListener('click', () => { stopMic(); hideMicHelp(); });
 
-$('#btnAdd').onclick = () => { $('#addText').value = ''; updateAddPreview(); $('#micState').textContent = ''; $('#addReplace').checked = !state.items.length; openDlg('#addDlg'); setTimeout(() => $('#addText').focus(), 50); };
+$('#btnAdd').onclick = () => { $('#addText').value = ''; updateAddPreview(); $('#micState').textContent = ''; hideMicHelp(); $('#addReplace').checked = !state.items.length; openDlg('#addDlg'); setTimeout(() => $('#addText').focus(), 50); };
 $('#addOk').onclick = () => {
   stopMic();
   const names = splitTodos($('#addText').value);
@@ -762,6 +865,17 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => { if (isRinging()) { e.preventDefault(); silenceByTap('key ' + e.key); } }, true);
 
 // ===== 計時 =====
+// 清除全部代辦：先確認，同時停止計時/鈴聲，開始時間重設為現在
+$('#btnClear').onclick = () => {
+  if (!state.items.length) { alert('目前沒有代辦事項'); return; }
+  if (!confirm(`確定要清除全部 ${state.items.length} 件代辦事項（含細項與備註）？\n清除後無法復原。`)) return;
+  log('14. 清除全部代辦，原本', state.items.length, '件');
+  stopRing();
+  state.items = []; state.durs = []; state.selectedId = null; state.running = false; state.lastFiredIdx = -1;
+  state.startTs = floorMin(Date.now());
+  save(); render();
+  log('14. 清除完成，剩', state.items.length, '件');
+};
 $('#btnRun').onclick = () => {
   if (!state.items.length) { alert('請先填入代辦事項'); return; }
   state.running = !state.running;
@@ -776,6 +890,7 @@ $('#btnRun').onclick = () => {
 
 let lastCur = null;
 function tick() {
+  updateDateLabel();
   if (state.running && state.items.length) {
     const cur = currentIdx();
     // 剛跨過某段的結束點：cur-1 是剛結束的那段
