@@ -1,0 +1,2744 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>濾鏡相機 Face Cam</title>
+<style>
+:root { --pink: #fe2c55; --cyan: #25f4ee; --bg: #000; --panel: rgba(22, 22, 28, .94); --txt: #fff; --dim: rgba(255, 255, 255, .65); }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--txt); font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif; overflow: hidden; overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+input, select { font: inherit; }
+
+#stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #000; touch-action: none; }
+#out { max-width: 100%; max-height: 100%; width: auto; height: auto; display: block; background: #111; }
+#cam, #still { position: absolute; width: 2px; height: 2px; opacity: 0; pointer-events: none; left: 0; top: 0; }
+#flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+#flash.on { animation: flash .35s ease-out; }
+@keyframes flash { 0% { opacity: .9 } 100% { opacity: 0 } }
+#countdown { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 34vmin; font-weight: 900; text-shadow: 0 0 30px rgba(0, 0, 0, .6); pointer-events: none; opacity: 0; }
+#countdown.on { opacity: 1; animation: pop 1s ease-out infinite; }
+@keyframes pop { 0% { transform: scale(1.4); opacity: 0 } 20% { opacity: 1 } 100% { transform: scale(.9); opacity: .2 } }
+#toast { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); background: rgba(0, 0, 0, .6); padding: 8px 16px; border-radius: 20px; font-size: 15px; opacity: 0; transition: opacity .25s; pointer-events: none; white-space: nowrap; max-width: 90vw; overflow: hidden; text-overflow: ellipsis; }
+#toast.on { opacity: 1; }
+#filterName { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); font-size: 30px; font-weight: 800; letter-spacing: 4px; text-shadow: 0 2px 12px rgba(0, 0, 0, .7); opacity: 0; transition: opacity .3s; pointer-events: none; }
+#filterName.on { opacity: 1; }
+#hearts { position: absolute; right: 60px; bottom: 200px; width: 80px; height: 50vh; pointer-events: none; }
+#hearts span { position: absolute; bottom: 0; left: 30px; font-size: 28px; animation: rise 2.2s ease-out forwards; }
+@keyframes rise { 0% { transform: translate(0, 0) scale(.5); opacity: 0 } 15% { opacity: 1 } 100% { transform: translate(var(--dx), -45vh) scale(1.3); opacity: 0 } }
+
+#boot { position: absolute; inset: 0; background: radial-gradient(circle at 50% 35%, #2a1030, #000 70%); display: flex; align-items: center; justify-content: center; z-index: 5; padding: 20px; }
+#boot.hide { display: none; }
+.bootBox { text-align: center; max-width: 360px; }
+.logo { font-size: 72px; filter: drop-shadow(3px 0 0 var(--cyan)) drop-shadow(-3px 0 0 var(--pink)); }
+.bootBox h1 { margin: 8px 0 6px; font-size: 30px; letter-spacing: 3px; }
+.bootBox p { color: var(--dim); min-height: 3em; line-height: 1.6; white-space: pre-line; }
+#bootBtns { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 12px 18px; border-radius: 12px; background: rgba(255, 255, 255, .12); font-weight: 700; font-size: 15px; flex: 1; min-width: 0; white-space: nowrap; }
+.btn.pri { background: var(--pink); }
+.btn.danger { background: rgba(255, 60, 60, .25); }
+.btn.big { padding: 15px; font-size: 17px; }
+.btn:active { transform: scale(.97); }
+
+#top { position: fixed; top: 0; left: 0; right: 0; padding: calc(10px + env(safe-area-inset-top)) 12px 0; display: flex; gap: 8px; align-items: center; z-index: 3; pointer-events: none; font-size: 13px; flex-wrap: wrap; }
+#status, #liveBadge, #recBadge { background: rgba(0, 0, 0, .45); padding: 5px 10px; border-radius: 14px; display: flex; gap: 8px; align-items: center; }
+#liveBadge, #recBadge { background: var(--pink); font-weight: 800; }
+#liveBadge[hidden], #recBadge[hidden], #chat[hidden] { display: none; }
+#fps { color: var(--dim); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: .2 } }
+
+#side { position: fixed; right: 8px; top: calc(52px + env(safe-area-inset-top)); display: flex; flex-direction: column; gap: 12px; z-index: 3; }
+#side button { display: flex; flex-direction: column; align-items: center; width: 50px; flex-shrink: 0; text-shadow: 0 1px 4px rgba(0, 0, 0, .8); }
+#side i { font-style: normal; font-size: 24px; width: 42px; height: 42px; border-radius: 50%; background: rgba(0, 0, 0, .35); display: flex; align-items: center; justify-content: center; }
+#side span { font-size: 11px; margin-top: 2px; }
+#side button.on i { background: var(--pink); }
+#side button.off i { opacity: .45; }
+
+#bottom { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; padding-bottom: calc(8px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, rgba(0, 0, 0, .7) 45%); }
+#fxBar { display: flex; gap: 10px; overflow-x: auto; padding: 8px 14px 6px; scrollbar-width: none; touch-action: pan-x; }
+#fxBar::-webkit-scrollbar { display: none; }
+.fx { flex: 0 0 auto; width: 58px; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; color: var(--dim); }
+.fx i { font-style: normal; width: 52px; height: 52px; border-radius: 50%; background: rgba(255, 255, 255, .14); display: flex; align-items: center; justify-content: center; font-size: 27px; border: 3px solid transparent; transition: transform .15s; }
+.fx.on { color: #fff; font-weight: 700; }
+.fx.on i { border-color: var(--pink); background: rgba(254, 44, 85, .25); transform: scale(1.08); box-shadow: 0 0 14px rgba(254, 44, 85, .7); }
+#ctrl { display: flex; align-items: center; justify-content: space-around; padding: 6px 24px; max-width: 520px; margin: 0 auto; }
+#btnGallery { width: 50px; height: 50px; position: relative; flex-shrink: 0; }
+#galThumb { width: 46px; height: 46px; border-radius: 10px; border: 2px solid #fff; background: #222 center/cover; display: flex; align-items: center; justify-content: center; font-size: 22px; overflow: hidden; }
+#galCount { position: absolute; top: -6px; right: -6px; background: var(--pink); border-radius: 10px; font-size: 11px; padding: 1px 6px; font-weight: 700; }
+#galCount:empty { display: none; }
+#btnFlip2 { width: 50px; height: 50px; font-size: 26px; border-radius: 50%; background: rgba(255, 255, 255, .14); flex-shrink: 0; }
+#shutter { width: 78px; height: 78px; position: relative; flex-shrink: 0; }
+#shutter .ring { position: absolute; inset: 0; border-radius: 50%; border: 5px solid #fff; }
+#shutter .core { position: absolute; inset: 9px; border-radius: 50%; background: #fff; transition: all .2s; }
+body[data-mode=video] #shutter .core, body[data-mode=live] #shutter .core { background: var(--pink); }
+body.busy #shutter .core { inset: 24px; border-radius: 8px; background: var(--pink); }
+body.busy #shutter .ring { border-color: rgba(254, 44, 85, .6); animation: pulse 1.2s infinite; }
+@keyframes pulse { 50% { transform: scale(1.1) } }
+#modes { display: flex; justify-content: center; gap: 6px; padding-top: 4px; }
+#modes button { padding: 6px 16px; border-radius: 16px; font-size: 14px; color: var(--dim); font-weight: 700; }
+#modes button.on { color: #fff; background: rgba(255, 255, 255, .18); }
+body.busy #modes, body.busy #btnGallery { opacity: .3; pointer-events: none; }
+
+#chat { position: fixed; left: 10px; bottom: 215px; width: min(70vw, 320px); z-index: 3; }
+#chatList { max-height: 28vh; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; font-size: 14px; mask-image: linear-gradient(transparent, #000 30%); -webkit-mask-image: linear-gradient(transparent, #000 30%); }
+#chatList div { background: rgba(0, 0, 0, .4); border-radius: 12px; padding: 4px 10px; align-self: flex-start; max-width: 100%; word-break: break-all; user-select: text; }
+#chatList b { color: var(--cyan); margin-right: 6px; }
+#chatForm { display: flex; gap: 6px; margin-top: 6px; }
+#chatForm input { flex: 1; min-width: 0; border-radius: 16px; border: 0; padding: 7px 12px; background: rgba(0, 0, 0, .5); color: #fff; outline: none; }
+#chatForm button { background: var(--pink); border-radius: 16px; padding: 0 12px; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: var(--panel); backdrop-filter: blur(12px); border-radius: 18px 18px 0 0; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); transform: translateY(105%); transition: transform .25s ease; max-width: 560px; margin: 0 auto; max-height: 70vh; overflow-y: auto; }
+.sheet.tall { max-height: 88vh; }
+.sheet.on { transform: none; }
+.sheetHead { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.sheetHead b { font-size: 17px; }
+.sheetHead .tip { color: var(--dim); font-size: 12px; flex: 1; }
+.sheetHead .x { margin-left: auto; width: 34px; height: 34px; border-radius: 50%; background: rgba(255, 255, 255, .12); flex-shrink: 0; }
+.row { display: flex; gap: 10px; margin-top: 12px; }
+.sl { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.sl span { width: 44px; flex-shrink: 0; }
+.sl input { flex: 1; accent-color: var(--pink); height: 28px; }
+.sl em { width: 34px; text-align: right; font-style: normal; color: var(--dim); font-size: 13px; }
+#colorGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+#colorGrid button { padding: 14px 0; border-radius: 12px; background: rgba(255, 255, 255, .1); font-size: 14px; font-weight: 700; }
+#colorGrid button.on { background: var(--pink); }
+#galGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+#galGrid .it { position: relative; aspect-ratio: 3/4; border-radius: 10px; overflow: hidden; background: #111; cursor: pointer; }
+#galGrid img, #galGrid video { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+#galGrid .it span { position: absolute; left: 6px; bottom: 4px; font-size: 12px; text-shadow: 0 1px 3px #000; }
+#galEmpty { color: var(--dim); text-align: center; padding: 30px 0; }
+#pvBox { display: flex; justify-content: center; background: #000; border-radius: 12px; overflow: hidden; }
+#pvBox img, #pvBox video { max-width: 100%; max-height: 56vh; display: block; }
+.note { color: var(--dim); font-size: 13px; line-height: 1.6; margin: 6px 0 10px; }
+.tabs { display: flex; gap: 8px; margin-bottom: 6px; }
+.tabs button { flex: 1; padding: 10px; border-radius: 10px; background: rgba(255, 255, 255, .1); font-weight: 700; }
+.tabs button.on { background: rgba(254, 44, 85, .35); outline: 2px solid var(--pink); }
+.fld { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+.fld span { width: 84px; flex-shrink: 0; font-size: 14px; }
+.fld input, .fld select { flex: 1; min-width: 0; padding: 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .2); background: rgba(0, 0, 0, .4); color: #fff; }
+.url { display: flex; gap: 8px; align-items: center; background: rgba(0, 0, 0, .4); border-radius: 10px; padding: 8px 10px; margin: 6px 0; }
+.url code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: var(--cyan); user-select: text; }
+.url button { background: rgba(255, 255, 255, .15); border-radius: 8px; padding: 6px 10px; font-size: 13px; flex-shrink: 0; }
+.logBox { font: 12px/1.5 Consolas, monospace; color: var(--dim); min-height: 1.5em; word-break: break-all; }
+
+@media (min-width: 900px) {
+  #side { right: 18px; }
+  #chat { bottom: 230px; left: 20px; }
+}
+@media (max-height: 520px) {
+  #side { flex-direction: row; top: calc(8px + env(safe-area-inset-top)); right: 8px; gap: 4px; }
+  #side span { display: none; }
+  .fx i { width: 42px; height: 42px; font-size: 22px; } .fx { width: 48px; }
+  #shutter { width: 60px; height: 60px; }
+  #chat { bottom: 170px; }
+}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="out"></canvas>
+  <video id="cam" playsinline muted autoplay></video>
+  <img id="still" alt="">
+  <div id="flash"></div>
+  <div id="countdown"></div>
+  <div id="toast"></div>
+  <div id="filterName"></div>
+  <div id="hearts"></div>
+
+  <!-- 啟動 / 錯誤畫面 -->
+  <div id="boot">
+    <div class="bootBox">
+      <div class="logo">🎭</div>
+      <h1>濾鏡相機</h1>
+      <p id="bootMsg">載入人臉偵測模型中…</p>
+      <div id="bootBtns" hidden>
+        <button class="btn pri" id="btnStart">📷 開啟相機</button>
+        <label class="btn">🖼️ 用照片 / 影片試玩<input type="file" id="filePick" accept="image/*,video/*" hidden></label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 上方狀態 -->
+<div id="top">
+  <div id="status"><span id="faceBadge">👤 0</span><span id="fps"></span></div>
+  <div id="liveBadge" hidden><span class="dot"></span>LIVE <span id="liveTime">00:00</span> · 👁 <span id="liveViewers">0</span></div>
+  <div id="recBadge" hidden><span class="dot"></span><span id="recTime">00:00</span></div>
+</div>
+
+<!-- 右側工具列 -->
+<div id="side">
+  <button id="btnFlip" title="切換鏡頭"><i>🔄</i><span>翻轉</span></button>
+  <button id="btnBeauty" title="美顏"><i>💆</i><span>美顏</span></button>
+  <button id="btnColor" title="濾鏡"><i>🎨</i><span>濾鏡</span></button>
+  <button id="btnTimer" title="倒數計時"><i>⏱️</i><span id="timerLbl">計時</span></button>
+  <button id="btnAspect" title="畫面比例"><i>📐</i><span id="aspectLbl">原始</span></button>
+  <button id="btnMic" title="麥克風"><i>🎤</i><span id="micLbl">收音</span></button>
+  <button id="btnSource" title="換成照片/影片"><i>🖼️</i><span>素材</span></button>
+</div>
+
+<!-- 直播聊天 -->
+<div id="chat" hidden>
+  <div id="chatList"></div>
+  <form id="chatForm"><input id="chatInput" maxlength="80" placeholder="說點什麼…" autocomplete="off"><button>送出</button></form>
+</div>
+
+<!-- 下方操作 -->
+<div id="bottom">
+  <div id="fxBar"></div>
+  <div id="ctrl">
+    <button id="btnGallery" title="作品"><div id="galThumb">🖼️</div><span id="galCount"></span></button>
+    <button id="shutter" title="拍攝"><div class="ring"></div><div class="core"></div></button>
+    <button id="btnFlip2" title="切換鏡頭">🔄</button>
+  </div>
+  <div id="modes">
+    <button data-mode="photo" class="on">拍照</button>
+    <button data-mode="video">錄影</button>
+    <button data-mode="live">直播</button>
+  </div>
+</div>
+
+<!-- 面板：美顏 -->
+<div class="sheet" id="sheetBeauty">
+  <div class="sheetHead"><b>💆 美顏</b><button class="x" data-close>✕</button></div>
+  <label class="sl"><span>磨皮</span><input type="range" id="bSmooth" min="0" max="100" value="40"><em></em></label>
+  <label class="sl"><span>美白</span><input type="range" id="bWhiten" min="0" max="100" value="25"><em></em></label>
+  <label class="sl"><span>大眼</span><input type="range" id="bEye" min="0" max="100" value="20"><em></em></label>
+  <label class="sl"><span>瘦臉</span><input type="range" id="bSlim" min="0" max="100" value="20"><em></em></label>
+  <div class="row"><button class="btn" id="bReset">全部歸零</button><button class="btn" id="bDefault">自然預設</button></div>
+</div>
+
+<!-- 面板：濾鏡 -->
+<div class="sheet" id="sheetColor">
+  <div class="sheetHead"><b>🎨 濾鏡</b><span class="tip">在畫面上左右滑也能切換</span><button class="x" data-close>✕</button></div>
+  <div id="colorGrid"></div>
+</div>
+
+<!-- 面板：作品 -->
+<div class="sheet tall" id="sheetGallery">
+  <div class="sheetHead"><b>🖼️ 這次拍的作品</b><span class="tip">關閉分頁後會清空，請記得儲存</span><button class="x" data-close>✕</button></div>
+  <div id="galGrid"></div>
+  <div id="galEmpty">還沒有作品，按下方大按鈕拍一張吧！</div>
+</div>
+
+<!-- 面板：預覽 -->
+<div class="sheet tall" id="sheetPreview">
+  <div class="sheetHead"><b id="pvTitle">預覽</b><button class="x" data-close>✕</button></div>
+  <div id="pvBox"></div>
+  <div class="row">
+    <button class="btn pri" id="pvSave">💾 儲存</button>
+    <button class="btn" id="pvShare">📤 分享</button>
+    <button class="btn danger" id="pvDel">🗑️ 刪除</button>
+  </div>
+</div>
+
+<!-- 面板：直播 -->
+<div class="sheet tall" id="sheetLive">
+  <div class="sheetHead"><b>📡 開始直播</b><button class="x" data-close>✕</button></div>
+  <div id="liveNoServer" hidden class="note">直播需要本機伺服器協助。請在電腦上雙擊「<b>開啟濾鏡相機.bat</b>」，再用它顯示的網址開啟本頁。拍照與錄影不受影響。</div>
+  <div id="liveBody">
+    <div class="tabs"><button data-live="lan" class="on">📶 區網直播</button><button data-live="rtmp">🌐 推流到平台</button></div>
+    <div id="liveLan">
+      <p class="note">同一個 WiFi／區網的人用瀏覽器開下面網址就能看你的濾鏡直播，還能聊天、送愛心。</p>
+      <div id="lanUrls"></div>
+    </div>
+    <div id="liveRtmp" hidden>
+      <p class="note">把濾鏡畫面推到 YouTube／Twitch／Facebook 等平台。到平台的直播後台複製「串流金鑰」貼到下面。金鑰只會傳給這台電腦上的 ffmpeg，不會被儲存。</p>
+      <label class="fld"><span>平台</span>
+        <select id="rtmpPreset">
+          <option value="rtmp://a.rtmp.youtube.com/live2">YouTube</option>
+          <option value="rtmp://live.twitch.tv/app">Twitch</option>
+          <option value="rtmps://live-api-s.facebook.com:443/rtmp">Facebook</option>
+          <option value="">自訂</option>
+        </select></label>
+      <label class="fld"><span>伺服器網址</span><input id="rtmpUrl" placeholder="rtmp://..." autocomplete="off"></label>
+      <label class="fld"><span>串流金鑰</span><input id="rtmpKey" type="password" placeholder="貼上串流金鑰" autocomplete="off"></label>
+      <div id="rtmpLog" class="logBox"></div>
+    </div>
+    <div class="row"><button class="btn pri big" id="liveGo">🔴 開始直播</button></div>
+  </div>
+</div>
+
+<script>window.FACECAM_CDN = {"lib":"https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14","model":"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"};</script>
+<script type="module">
+// js/gl.js
+var MAX_WARPS = 24;
+var MAX_FACES = 4;
+var VS = `
+attribute vec2 aPos;
+varying vec2 vUv;
+void main(){ vUv = aPos*0.5+0.5; gl_Position = vec4(aPos,0.0,1.0); }`;
+var FS = `
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D uTex;
+uniform vec4 uCrop;        // 來源裁切: xy=位移, zw=縮放 (視訊 uv)
+uniform float uMirror;
+uniform float uAspect;     // 輸出寬/高
+uniform vec2 uPx;          // 1/輸出尺寸
+uniform float uTime;
+
+uniform int uWarpN;
+uniform vec4 uWarpA[${MAX_WARPS}];   // cx, cy, 半徑(以畫面高為1), 強度
+uniform vec4 uWarpB[${MAX_WARPS}];   // dirx, diry, 類型(0放大縮小 1推移 2漩渦), 0
+
+uniform int uFaceN;
+uniform vec4 uFaceA[${MAX_FACES}];   // cx, cy, rx, ry (輸出 uv；rx/ry 以畫面高為1)
+uniform vec2 uFaceR[${MAX_FACES}];   // cos, sin (臉的旋轉)
+uniform float uSmooth;     // 磨皮 0..1
+uniform float uWhiten;     // 美白 0..1
+uniform float uMosaic;     // 臉部馬賽克 0/1
+uniform vec3 uSkinTint;    // 臉部染色 (外星人等)
+uniform float uSkinTintAmt;
+
+uniform int uMode;         // 調色模式
+uniform float uBright, uContrast, uSat, uWarm, uVig, uGrain, uFade;
+uniform vec3 uTint; uniform float uTintAmt;
+
+// 輸出 uv(左上為原點) → 視訊貼圖 uv
+vec2 srcUv(vec2 p){
+  vec2 q = p;
+  if(uMirror > 0.5) q.x = 1.0 - q.x;
+  q = uCrop.xy + q * uCrop.zw;
+  return vec2(q.x, q.y);
+}
+vec3 samp(vec2 p){ return texture2D(uTex, srcUv(clamp(p,0.0,1.0))).rgb; }
+
+float faceMask(vec2 p){
+  float m = 0.0;
+  for(int i=0;i<${MAX_FACES};i++){
+    if(i>=uFaceN) break;
+    vec2 d = (p - uFaceA[i].xy) * vec2(uAspect,1.0);
+    vec2 r = vec2(d.x*uFaceR[i].x + d.y*uFaceR[i].y, -d.x*uFaceR[i].y + d.y*uFaceR[i].x);
+    float e = length(r / uFaceA[i].zw);
+    m = max(m, 1.0 - smoothstep(0.78, 1.05, e));
+  }
+  return m;
+}
+float luma(vec3 c){ return dot(c, vec3(0.299,0.587,0.114)); }
+float rnd(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
+
+vec2 warp(vec2 p){
+  for(int i=0;i<${MAX_WARPS};i++){
+    if(i>=uWarpN) break;
+    vec4 a = uWarpA[i]; vec4 b = uWarpB[i];
+    vec2 d = (p - a.xy) * vec2(uAspect,1.0);
+    float r = length(d) / a.z;
+    if(r < 1.0){
+      float f = (1.0-r)*(1.0-r);
+      if(b.z < 0.5){            // 放大(+)/縮小(-)
+        p = a.xy + (p - a.xy) * (1.0 - a.w * f);
+      } else if(b.z < 1.5){     // 推移：把畫面往 dir 方向推
+        p -= b.xy * a.w * f * a.z / vec2(uAspect,1.0);
+      } else {                  // 漩渦
+        float ang = a.w * f * 3.0; float c = cos(ang), s = sin(ang);
+        d = vec2(d.x*c - d.y*s, d.x*s + d.y*c);
+        p = a.xy + d / vec2(uAspect,1.0);
+      }
+    }
+  }
+  return p;
+}
+
+vec3 thermal(float t){
+  vec3 a = vec3(0.0,0.0,0.35), b = vec3(0.55,0.0,0.7), c = vec3(1.0,0.25,0.0), d = vec3(1.0,0.95,0.2), e = vec3(1.0);
+  if(t<0.25) return mix(a,b,t/0.25);
+  if(t<0.5) return mix(b,c,(t-0.25)/0.25);
+  if(t<0.8) return mix(c,d,(t-0.5)/0.3);
+  return mix(d,e,(t-0.8)/0.2);
+}
+
+void main(){
+  vec2 p = vec2(vUv.x, 1.0 - vUv.y);   // 左上原點
+  // 整張畫面型的幾何效果
+  if(uMode == 6){ vec2 g = vec2(90.0*uAspect, 90.0); p = (floor(p*g)+0.5)/g; }   // 像素風
+  if(uMode == 11){ if(p.x > 0.5) p.x = 1.0 - p.x; }                               // 鏡像對稱
+  if(uMode == 7){ float j = step(0.93, rnd(vec2(floor(p.y*40.0), floor(uTime*12.0)))); p.x += j*0.04*sin(uTime*50.0); }
+  p = warp(p);
+
+  float fm = faceMask(p);
+  if(uMosaic > 0.5 && fm > 0.3){ vec2 g = vec2(34.0*uAspect, 34.0); p = (floor(p*g)+0.5)/g; }
+
+  vec3 c = samp(p);
+  if(uMode == 7){ c.r = samp(p + vec2(0.008,0.0)).r; c.b = samp(p - vec2(0.008,0.0)).b; }
+
+  // 磨皮：臉部範圍內做保邊模糊
+  if(uSmooth > 0.01 && fm > 0.01){
+    vec3 acc = c; float w = 1.0;
+    for(int k=0;k<12;k++){
+      float an = float(k) * 0.5236;
+      float rad = (mod(float(k),2.0) < 0.5 ? 3.0 : 6.5);
+      vec3 s = samp(p + vec2(cos(an), sin(an)) * rad * uPx);
+      float dw = exp(-dot(s-c, s-c) * 90.0);
+      acc += s*dw; w += dw;
+    }
+    c = mix(c, acc/w, uSmooth * fm);
+  }
+  if(uWhiten > 0.01){
+    vec3 wv = c + (1.0-c)*c*0.9;
+    c = mix(c, wv, uWhiten * (0.35 + 0.65*fm));
+  }
+  if(uSkinTintAmt > 0.01){ c = mix(c, vec3(luma(c))*uSkinTint*1.5, uSkinTintAmt*fm); }
+
+  // 調色
+  c += uBright;
+  c = (c - 0.5) * uContrast + 0.5;
+  c.r += uWarm*0.08; c.b -= uWarm*0.08;
+  float l = luma(c);
+  c = mix(vec3(l), c, uSat);
+  c = mix(c, c*uTint*1.6, uTintAmt);
+  c = mix(c, c*0.82 + 0.13, uFade);
+
+  if(uMode == 2){ c = vec3(dot(c,vec3(0.393,0.769,0.189)), dot(c,vec3(0.349,0.686,0.168)), dot(c,vec3(0.272,0.534,0.131))); }
+  else if(uMode == 3){   // 漫畫：色階化 + 描邊
+    float gx = luma(samp(p+vec2(uPx.x*1.5,0.0))) - luma(samp(p-vec2(uPx.x*1.5,0.0)));
+    float gy = luma(samp(p+vec2(0.0,uPx.y*1.5))) - luma(samp(p-vec2(0.0,uPx.y*1.5)));
+    float e = smoothstep(0.06, 0.2, length(vec2(gx,gy)));
+    c = floor(c*5.0+0.5)/5.0; c = mix(c, vec3(0.05), e);
+  }
+  else if(uMode == 4){ float n = luma(c)*1.5 + (rnd(p+uTime)-0.5)*0.18; c = vec3(0.1,1.0,0.25)*n; c *= 0.85+0.15*sin(p.y*700.0); }
+  else if(uMode == 5){ c = thermal(clamp(luma(c)*1.15,0.0,1.0)); }
+  else if(uMode == 8){ float l2 = luma(c); c = mix(vec3(0.1,0.0,0.4), vec3(0.0,0.9,1.0), l2); c = mix(c, vec3(1.0,0.1,0.8), smoothstep(0.6,1.0,l2)); }
+  else if(uMode == 9){   // 夢幻柔焦
+    vec3 b = vec3(0.0);
+    for(int k=0;k<8;k++){ float an = float(k)*0.7854; b += samp(p + vec2(cos(an),sin(an))*9.0*uPx); }
+    b /= 8.0; c = 1.0 - (1.0-c)*(1.0-b*0.55);
+  }
+  else if(uMode == 10){  // 素描
+    float gx = luma(samp(p+vec2(uPx.x*1.5,0.0))) - luma(samp(p-vec2(uPx.x*1.5,0.0)));
+    float gy = luma(samp(p+vec2(0.0,uPx.y*1.5))) - luma(samp(p-vec2(0.0,uPx.y*1.5)));
+    float e = 1.0 - smoothstep(0.02, 0.16, length(vec2(gx,gy)));
+    c = vec3(e*0.92 + 0.08*luma(c)) * vec3(1.0,0.98,0.93);
+  }
+
+  if(uVig > 0.0){ vec2 v = vUv - 0.5; c *= 1.0 - uVig * smoothstep(0.25, 0.8, length(v)); }
+  if(uGrain > 0.0){ c += (rnd(p*vec2(uAspect,1.0)*600.0 + uTime) - 0.5) * uGrain; }
+  gl_FragColor = vec4(clamp(c,0.0,1.0), 1.0);
+}`;
+function createPipeline(canvas) {
+  const gl = canvas.getContext("webgl", { premultipliedAlpha: false, antialias: false, preserveDrawingBuffer: true });
+  if (!gl)
+    throw new Error("此瀏覽器不支援 WebGL");
+  function compile(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
+      throw new Error("Shader 編譯失敗: " + gl.getShaderInfoLog(s));
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS))
+    throw new Error("Shader 連結失敗: " + gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, "aPos");
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const U = {};
+  const u = (n) => U[n] ??= gl.getUniformLocation(prog, n);
+  const warpA = new Float32Array(MAX_WARPS * 4), warpB = new Float32Array(MAX_WARPS * 4);
+  const faceA = new Float32Array(MAX_FACES * 4), faceR = new Float32Array(MAX_FACES * 2);
+  function render(source, p) {
+    const { width: W, height: H } = canvas;
+    gl.viewport(0, 0, W, H);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, source);
+    gl.uniform1i(u("uTex"), 0);
+    gl.uniform4fv(u("uCrop"), p.crop);
+    gl.uniform1f(u("uMirror"), p.mirror ? 1 : 0);
+    gl.uniform1f(u("uAspect"), W / H);
+    gl.uniform2f(u("uPx"), 1 / W, 1 / H);
+    gl.uniform1f(u("uTime"), p.time % 1000);
+    const nW = Math.min(p.warps.length, MAX_WARPS);
+    warpA.fill(0);
+    warpB.fill(0);
+    for (let i = 0;i < nW; i++) {
+      const w = p.warps[i];
+      warpA.set([w.x, w.y, Math.max(w.r, 0.0001), w.s], i * 4);
+      warpB.set([w.dx || 0, w.dy || 0, w.type || 0, 0], i * 4);
+    }
+    gl.uniform1i(u("uWarpN"), nW);
+    gl.uniform4fv(u("uWarpA[0]"), warpA);
+    gl.uniform4fv(u("uWarpB[0]"), warpB);
+    const nF = Math.min(p.faces.length, MAX_FACES);
+    faceA.fill(0);
+    faceR.fill(0);
+    for (let i = 0;i < nF; i++) {
+      const f = p.faces[i];
+      faceA.set([f.x, f.y, Math.max(f.rx, 0.0001), Math.max(f.ry, 0.0001)], i * 4);
+      faceR.set([f.cos, f.sin], i * 2);
+    }
+    gl.uniform1i(u("uFaceN"), nF);
+    gl.uniform4fv(u("uFaceA[0]"), faceA);
+    gl.uniform2fv(u("uFaceR[0]"), faceR);
+    gl.uniform1f(u("uSmooth"), p.smooth || 0);
+    gl.uniform1f(u("uWhiten"), p.whiten || 0);
+    gl.uniform1f(u("uMosaic"), p.mosaic ? 1 : 0);
+    gl.uniform3fv(u("uSkinTint"), p.skinTint || [1, 1, 1]);
+    gl.uniform1f(u("uSkinTintAmt"), p.skinTintAmt || 0);
+    const c = p.color || {};
+    gl.uniform1i(u("uMode"), c.mode || 0);
+    gl.uniform1f(u("uBright"), c.bright || 0);
+    gl.uniform1f(u("uContrast"), c.contrast ?? 1);
+    gl.uniform1f(u("uSat"), c.sat ?? 1);
+    gl.uniform1f(u("uWarm"), c.warm || 0);
+    gl.uniform1f(u("uVig"), c.vig || 0);
+    gl.uniform1f(u("uGrain"), c.grain || 0);
+    gl.uniform1f(u("uFade"), c.fade || 0);
+    gl.uniform3fv(u("uTint"), c.tint || [1, 1, 1]);
+    gl.uniform1f(u("uTintAmt"), c.tintAmt || 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+  return { gl, render };
+}
+var COLOR_FILTERS = [
+  { id: "none", name: "原色", color: {} },
+  { id: "fresh", name: "清新", color: { bright: 0.04, contrast: 1.05, sat: 1.15, warm: -0.15 } },
+  { id: "warm", name: "暖陽", color: { bright: 0.03, contrast: 1.05, sat: 1.15, warm: 0.7, vig: 0.25 } },
+  { id: "cool", name: "冷調", color: { contrast: 1.08, sat: 0.9, warm: -0.8, tint: [0.75, 0.9, 1.1], tintAmt: 0.2 } },
+  { id: "peach", name: "蜜桃", color: { bright: 0.05, sat: 1.1, warm: 0.3, tint: [1.1, 0.82, 0.86], tintAmt: 0.3, fade: 0.25 } },
+  { id: "film", name: "底片", color: { contrast: 1.12, sat: 0.85, warm: 0.35, fade: 0.55, grain: 0.09, vig: 0.4 } },
+  { id: "bw", name: "黑白", color: { contrast: 1.2, sat: 0, vig: 0.3, grain: 0.05 } },
+  { id: "sepia", name: "復古", color: { mode: 2, contrast: 1.05, vig: 0.45, grain: 0.07 } },
+  { id: "vivid", name: "鮮豔", color: { contrast: 1.15, sat: 1.6 } },
+  { id: "dreamy", name: "夢幻", color: { mode: 9, bright: 0.03, sat: 1.1, tint: [1.05, 0.9, 1.1], tintAmt: 0.15 } },
+  { id: "comic", name: "漫畫", color: { mode: 3, sat: 1.4, contrast: 1.1 } },
+  { id: "sketch", name: "素描", color: { mode: 10 } },
+  { id: "cyber", name: "賽博", color: { mode: 8, contrast: 1.1 } },
+  { id: "glitch", name: "故障", color: { mode: 7, contrast: 1.1, sat: 1.2 } },
+  { id: "night", name: "夜視", color: { mode: 4, vig: 0.7 } },
+  { id: "thermal", name: "熱感", color: { mode: 5 } },
+  { id: "pixel", name: "像素", color: { mode: 6, sat: 1.2 } },
+  { id: "mirror", name: "對稱", color: { mode: 11 } }
+];
+
+// js/effects.js
+var TAU = Math.PI * 2;
+var LIPS_OUT = [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 409, 270, 269, 267, 0, 37, 39, 40, 185];
+var LIPS_IN = [78, 95, 88, 178, 87, 14, 317, 402, 318, 324, 308, 415, 310, 311, 312, 13, 82, 81, 80, 191];
+var EYE_UP_A = [33, 246, 161, 160, 159, 158, 157, 173, 133];
+var EYE_UP_B = [263, 466, 388, 387, 386, 385, 384, 398, 362];
+var particles = [];
+function spawn(p) {
+  if (particles.length > 500)
+    return;
+  particles.push(Object.assign({ vx: 0, vy: 0, g: 0, life: 0, max: 1, size: 20, rot: 0, vr: 0, drag: 0 }, p));
+}
+function stepParticles(ctx, dt) {
+  for (let i = particles.length - 1;i >= 0; i--) {
+    const p = particles[i];
+    p.life += dt;
+    if (p.life >= p.max) {
+      particles.splice(i, 1);
+      continue;
+    }
+    p.vy += p.g * dt;
+    p.vx *= 1 - p.drag * dt;
+    p.vy *= 1 - p.drag * dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.rot += p.vr * dt;
+    const k = p.life / p.max;
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot);
+    if (p.ch) {
+      ctx.globalAlpha = Math.min(1, (1 - k) * 2.2) * Math.min(1, k * 8);
+      const s = p.size * (p.grow ? 0.6 + k * p.grow : 1);
+      ctx.font = `${s}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(p.ch, 0, 0);
+    } else {
+      ctx.globalCompositeOperation = "lighter";
+      const s = p.size * (1 + k * 1.4);
+      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s);
+      const a = (1 - k) * 0.5;
+      const c = k < 0.35 ? `255,${230 - k * 200 | 0},90` : `255,${150 - k * 140 | 0},30`;
+      g.addColorStop(0, `rgba(${c},${a})`);
+      g.addColorStop(1, `rgba(${c},0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(0, 0, s, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+var mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+var dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+function at(ctx, F, anchor, fn, ox = 0, oy = 0, rot = 0) {
+  const p = typeof anchor === "number" ? F.pts[anchor] : anchor;
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.rotate(F.ang);
+  ctx.scale(F.w, F.w);
+  ctx.translate(ox, oy);
+  if (rot)
+    ctx.rotate(rot);
+  fn(ctx);
+  ctx.restore();
+}
+function poly(ctx, F, idx, close = true) {
+  ctx.beginPath();
+  idx.forEach((i, k) => {
+    const p = F.pts[i];
+    k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
+  });
+  if (close)
+    ctx.closePath();
+}
+function heartPath(ctx, s) {
+  ctx.beginPath();
+  ctx.moveTo(0, s * 0.35);
+  ctx.bezierCurveTo(-s * 1.1, -s * 0.3, -s * 0.45, -s * 0.95, 0, -s * 0.4);
+  ctx.bezierCurveTo(s * 0.45, -s * 0.95, s * 1.1, -s * 0.3, 0, s * 0.35);
+  ctx.closePath();
+}
+function starPath(ctx, r, n = 4, inner = 0.3) {
+  ctx.beginPath();
+  for (let i = 0;i < n * 2; i++) {
+    const a = i / (n * 2) * TAU - Math.PI / 2, rr = i % 2 ? r * inner : r;
+    i ? ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
+  }
+  ctx.closePath();
+}
+function ell(ctx, x, y, rx, ry, rot = 0) {
+  ctx.beginPath();
+  ctx.ellipse(x, y, rx, ry, rot, 0, TAU);
+}
+function emoji(ctx, ch, size) {
+  ctx.font = `${size}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(ch, 0, 0);
+}
+function gaze(F) {
+  const c = mid(F.pts[234], F.pts[454]), n = F.pts[4];
+  let dx = (n.x - c.x) / F.w, dy = (n.y - c.y) / F.w - 0.08;
+  const l = Math.hypot(dx, dy);
+  if (l < 0.05)
+    return { x: -Math.sin(F.ang), y: Math.cos(F.ang) };
+  return { x: dx / l, y: dy / l };
+}
+function W(F, env, pt, rW, s, type = 0, dir = null) {
+  const p = typeof pt === "number" ? F.pts[pt] : pt;
+  return { x: p.x / env.W, y: p.y / env.H, r: rW * F.w / env.H, s, type, dx: dir ? dir.x : 0, dy: dir ? dir.y : 0 };
+}
+function toward(F, from, to) {
+  const a = F.pts[from], b = typeof to === "number" ? F.pts[to] : to;
+  const l = dist(a, b) || 1;
+  return { x: (b.x - a.x) / l, y: (b.y - a.y) / l };
+}
+function beautyWarps(F, env, bigEye, slim) {
+  const out = [];
+  if (bigEye > 0.01) {
+    out.push(W(F, env, 468, 0.17, 0.42 * bigEye), W(F, env, 473, 0.17, 0.42 * bigEye));
+  }
+  if (slim > 0.01) {
+    const c = F.pts[164];
+    out.push(W(F, env, 172, 0.34, 0.3 * slim, 1, toward(F, 172, c)), W(F, env, 397, 0.34, 0.3 * slim, 1, toward(F, 397, c)));
+    out.push(W(F, env, 136, 0.26, 0.2 * slim, 1, toward(F, 136, c)), W(F, env, 365, 0.26, 0.2 * slim, 1, toward(F, 365, c)));
+  }
+  return out;
+}
+function catEar(c, flip) {
+  c.scale(flip, 1);
+  c.fillStyle = "#2f2b33";
+  c.beginPath();
+  c.moveTo(-0.15, 0.06);
+  c.quadraticCurveTo(-0.12, -0.26, 0.04, -0.34);
+  c.quadraticCurveTo(0.14, -0.14, 0.16, 0.06);
+  c.closePath();
+  c.fill();
+  c.fillStyle = "#ff9bb8";
+  c.beginPath();
+  c.moveTo(-0.08, 0.04);
+  c.quadraticCurveTo(-0.07, -0.17, 0.03, -0.25);
+  c.quadraticCurveTo(0.09, -0.1, 0.1, 0.04);
+  c.closePath();
+  c.fill();
+}
+function whiskers(c, col = "#fff") {
+  c.strokeStyle = col;
+  c.lineWidth = 0.008;
+  c.lineCap = "round";
+  for (const s of [-1, 1])
+    for (const a of [-0.18, 0, 0.18]) {
+      c.beginPath();
+      c.moveTo(s * 0.1, 0.03);
+      c.lineTo(s * 0.36, 0.03 + a * 0.5);
+      c.stroke();
+    }
+}
+var EFFECTS = [
+  { id: "none", name: "無", icon: "\uD83D\uDEAB" },
+  { id: "swap", name: "換臉", icon: "\uD83D\uDD01", swap: true },
+  {
+    id: "cat",
+    name: "貓咪",
+    icon: "\uD83D\uDC31",
+    draw(ctx, F) {
+      at(ctx, F, 10, (c) => catEar(c, 1), -0.3, -0.1, -0.35);
+      at(ctx, F, 10, (c) => catEar(c, -1), 0.3, -0.1, 0.35);
+      at(ctx, F, 4, (c) => {
+        whiskers(c);
+        c.fillStyle = "#ff7fa5";
+        c.beginPath();
+        c.moveTo(-0.045, -0.02);
+        c.lineTo(0.045, -0.02);
+        c.quadraticCurveTo(0, 0.06, 0, 0.045);
+        c.closePath();
+        c.fill();
+        c.fillStyle = "rgba(255,255,255,.7)";
+        ell(c, -0.015, -0.008, 0.012, 0.006);
+        c.fill();
+      });
+    }
+  },
+  {
+    id: "dog",
+    name: "狗狗",
+    icon: "\uD83D\uDC36",
+    hint: "張開嘴巴吐舌頭",
+    draw(ctx, F, env) {
+      for (const s of [-1, 1])
+        at(ctx, F, 10, (c) => {
+          const g = c.createLinearGradient(0, -0.2, 0, 0.3);
+          g.addColorStop(0, "#8a5a34");
+          g.addColorStop(1, "#5d3a1f");
+          c.fillStyle = g;
+          ell(c, 0, 0.08, 0.13, 0.27);
+          c.fill();
+          c.fillStyle = "rgba(40,20,5,.25)";
+          ell(c, 0.02 * s, 0.12, 0.07, 0.19);
+          c.fill();
+        }, s * 0.5, 0, s * -0.45 + Math.sin(env.t * 3) * 0.03);
+      at(ctx, F, 4, (c) => {
+        c.fillStyle = "#1b1416";
+        ell(c, 0, 0, 0.085, 0.06);
+        c.fill();
+        c.fillStyle = "rgba(255,255,255,.55)";
+        ell(c, -0.025, -0.022, 0.025, 0.012, -0.3);
+        c.fill();
+      });
+      if (F.open > 0.25)
+        at(ctx, F, 14, (c) => {
+          const L = 0.1 + 0.26 * Math.min(1, F.open);
+          const g = c.createLinearGradient(0, 0, 0, L);
+          g.addColorStop(0, "#e4476b");
+          g.addColorStop(1, "#ff7f9c");
+          c.fillStyle = g;
+          c.beginPath();
+          c.moveTo(-0.075, 0);
+          c.lineTo(-0.075, L - 0.075);
+          c.arc(0, L - 0.075, 0.075, Math.PI, 0, true);
+          c.lineTo(0.075, 0);
+          c.closePath();
+          c.fill();
+          c.strokeStyle = "rgba(160,20,60,.5)";
+          c.lineWidth = 0.008;
+          c.beginPath();
+          c.moveTo(0, 0.01);
+          c.lineTo(0, L - 0.05);
+          c.stroke();
+        }, 0, 0, Math.sin(env.t * 9) * 0.06);
+    }
+  },
+  {
+    id: "bunny",
+    name: "兔子",
+    icon: "\uD83D\uDC30",
+    draw(ctx, F, env) {
+      for (const s of [-1, 1])
+        at(ctx, F, 10, (c) => {
+          c.fillStyle = "#fff";
+          ell(c, 0, -0.3, 0.095, 0.33);
+          c.fill();
+          c.fillStyle = "#ffb3c7";
+          ell(c, 0, -0.28, 0.045, 0.25);
+          c.fill();
+        }, s * 0.17, -0.14, s * 0.2 + Math.sin(env.t * 2.5 + s) * 0.05);
+      at(ctx, F, 4, (c) => {
+        c.fillStyle = "#ff8fb0";
+        ell(c, 0, 0, 0.04, 0.03);
+        c.fill();
+        whiskers(c, "rgba(255,255,255,.9)");
+      });
+      at(ctx, F, 13, (c) => {
+        c.fillStyle = "#fff";
+        c.strokeStyle = "rgba(0,0,0,.25)";
+        c.lineWidth = 0.004;
+        for (const s of [-1, 0]) {
+          c.beginPath();
+          c.roundRect(s * 0.042 + 0.002, -0.005, 0.038, 0.07, 0.01);
+          c.fill();
+          c.stroke();
+        }
+      });
+    }
+  },
+  {
+    id: "shades",
+    name: "墨鏡",
+    icon: "\uD83D\uDE0E",
+    draw(ctx, F) {
+      at(ctx, F, 168, (c) => {
+        c.strokeStyle = "#111";
+        c.lineWidth = 0.022;
+        c.lineCap = "round";
+        c.beginPath();
+        c.moveTo(-0.06, 0.02);
+        c.quadraticCurveTo(0, -0.01, 0.06, 0.02);
+        c.stroke();
+        c.beginPath();
+        c.moveTo(-0.42, 0);
+        c.lineTo(-0.52, -0.03);
+        c.moveTo(0.42, 0);
+        c.lineTo(0.52, -0.03);
+        c.stroke();
+        for (const s of [-1, 1]) {
+          const g = c.createLinearGradient(0, -0.1, 0, 0.18);
+          g.addColorStop(0, "#15151c");
+          g.addColorStop(0.55, "#3a2a5c");
+          g.addColorStop(1, "#ff6ac1");
+          c.fillStyle = g;
+          c.beginPath();
+          c.roundRect(s * 0.24 - 0.185, -0.085, 0.37, 0.24, [0.05, 0.05, 0.12, 0.12]);
+          c.fill();
+          c.lineWidth = 0.014;
+          c.strokeStyle = "#0a0a0e";
+          c.stroke();
+          c.fillStyle = "rgba(255,255,255,.28)";
+          c.beginPath();
+          c.moveTo(s * 0.24 - 0.13, -0.06);
+          c.lineTo(s * 0.24 - 0.05, -0.06);
+          c.lineTo(s * 0.24 - 0.12, 0.1);
+          c.lineTo(s * 0.24 - 0.16, 0.06);
+          c.closePath();
+          c.fill();
+        }
+      }, 0, 0.02);
+    }
+  },
+  {
+    id: "crown",
+    name: "皇冠",
+    icon: "\uD83D\uDC51",
+    draw(ctx, F, env) {
+      at(ctx, F, 10, (c) => {
+        c.scale(1.25, 1.25);
+        const g = c.createLinearGradient(0, -0.34, 0, 0);
+        g.addColorStop(0, "#fff3a6");
+        g.addColorStop(0.5, "#ffc928");
+        g.addColorStop(1, "#d48a00");
+        c.fillStyle = g;
+        c.strokeStyle = "#9a6200";
+        c.lineWidth = 0.008;
+        c.lineJoin = "round";
+        c.beginPath();
+        c.moveTo(-0.36, 0);
+        c.lineTo(-0.4, -0.27);
+        c.lineTo(-0.2, -0.13);
+        c.lineTo(0, -0.36);
+        c.lineTo(0.2, -0.13);
+        c.lineTo(0.4, -0.27);
+        c.lineTo(0.36, 0);
+        c.closePath();
+        c.fill();
+        c.stroke();
+        c.fillStyle = "#b87400";
+        c.fillRect(-0.36, -0.06, 0.72, 0.06);
+        [["#ff3b6b", 0], ["#32d6ff", -0.2], ["#7dff6b", 0.2]].forEach(([col, x]) => {
+          c.fillStyle = col;
+          ell(c, x, -0.03, 0.028, 0.022);
+          c.fill();
+        });
+        for (const [x, y] of [[-0.4, -0.27], [0, -0.36], [0.4, -0.27]]) {
+          c.fillStyle = "#fff6c9";
+          ell(c, x, y, 0.03, 0.03);
+          c.fill();
+        }
+        c.save();
+        c.translate(0.17, -0.2);
+        c.rotate(env.t * 2);
+        c.globalAlpha = 0.6 + 0.4 * Math.sin(env.t * 6);
+        c.fillStyle = "#fff";
+        starPath(c, 0.06);
+        c.fill();
+        c.restore();
+      }, 0, -0.2);
+    }
+  },
+  {
+    id: "hearts",
+    name: "愛心",
+    icon: "\uD83D\uDE0D",
+    hint: "微笑放送更多愛心",
+    draw(ctx, F, env) {
+      const pulse = 1 + 0.12 * Math.sin(env.t * 8);
+      for (const i of [468, 473])
+        at(ctx, F, i, (c) => {
+          c.shadowColor = "rgba(255,40,100,.8)";
+          c.shadowBlur = 12;
+          const g = c.createLinearGradient(0, -0.1, 0, 0.08);
+          g.addColorStop(0, "#ff7aa8");
+          g.addColorStop(1, "#ff1654");
+          c.fillStyle = g;
+          heartPath(c, 0.105 * pulse);
+          c.fill();
+          c.shadowBlur = 0;
+          c.fillStyle = "rgba(255,255,255,.6)";
+          ell(c, -0.035, -0.045, 0.018, 0.011, -0.6);
+          c.fill();
+        }, 0, 0.02);
+      F.st.acc = (F.st.acc || 0) + env.dt * (2.5 + F.smile * 14);
+      while (F.st.acc > 1) {
+        F.st.acc -= 1;
+        const a = Math.random() * TAU, r = F.w * (0.55 + Math.random() * 0.25);
+        spawn({ x: F.cx + Math.cos(a) * r, y: F.cy + Math.sin(a) * r * 0.9, vx: (Math.random() - 0.5) * 40, vy: -F.w * (0.25 + Math.random() * 0.3), max: 1.6, size: F.w * (0.08 + Math.random() * 0.1), ch: ["❤️", "\uD83D\uDC96", "\uD83D\uDC95", "\uD83D\uDC97"][Math.random() * 4 | 0], vr: (Math.random() - 0.5) * 1.5 });
+      }
+    }
+  },
+  {
+    id: "gent",
+    name: "紳士",
+    icon: "\uD83C\uDFA9",
+    draw(ctx, F) {
+      at(ctx, F, 10, (c) => {
+        c.scale(1.3, 1.3);
+        c.fillStyle = "#16161a";
+        c.beginPath();
+        c.roundRect(-0.3, -0.56, 0.6, 0.5, 0.03);
+        c.fill();
+        c.fillStyle = "#b3122b";
+        c.fillRect(-0.3, -0.16, 0.6, 0.08);
+        c.fillStyle = "#0d0d10";
+        ell(c, 0, -0.06, 0.5, 0.055);
+        c.fill();
+        c.fillStyle = "rgba(255,255,255,.12)";
+        c.fillRect(-0.24, -0.53, 0.07, 0.36);
+      }, 0, -0.15);
+      at(ctx, F, 164, (c) => {
+        c.fillStyle = "#1a1210";
+        for (const s of [-1, 1]) {
+          c.beginPath();
+          c.moveTo(0, -0.01);
+          c.bezierCurveTo(s * 0.08, -0.07, s * 0.2, -0.03, s * 0.26, -0.09);
+          c.bezierCurveTo(s * 0.25, 0.02, s * 0.12, 0.06, 0, 0.03);
+          c.closePath();
+          c.fill();
+        }
+      }, 0, 0);
+      at(ctx, F, 473, (c) => {
+        c.strokeStyle = "#e2b84a";
+        c.lineWidth = 0.014;
+        ell(c, 0, 0, 0.115, 0.115);
+        c.stroke();
+        c.fillStyle = "rgba(200,230,255,.16)";
+        c.fill();
+        c.lineWidth = 0.005;
+        c.beginPath();
+        c.moveTo(0.08, 0.08);
+        c.quadraticCurveTo(0.22, 0.4, 0.12, 0.62);
+        c.stroke();
+      });
+    }
+  },
+  {
+    id: "devil",
+    name: "小惡魔",
+    icon: "\uD83D\uDE08",
+    draw(ctx, F, env) {
+      for (const s of [-1, 1])
+        at(ctx, F, 10, (c) => {
+          c.scale(s, 1);
+          const g = c.createLinearGradient(0, 0, 0.1, -0.3);
+          g.addColorStop(0, "#6d0010");
+          g.addColorStop(1, "#ff2a3c");
+          c.fillStyle = g;
+          c.beginPath();
+          c.moveTo(-0.07, 0.04);
+          c.quadraticCurveTo(-0.06, -0.2, 0.13, -0.32);
+          c.quadraticCurveTo(0.1, -0.1, 0.09, 0.04);
+          c.closePath();
+          c.fill();
+        }, s * 0.25, -0.12);
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      for (const i of [468, 473]) {
+        const p = F.pts[i], r = F.w * (0.07 + 0.01 * Math.sin(env.t * 10));
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+        g.addColorStop(0, "rgba(255,60,40,.9)");
+        g.addColorStop(1, "rgba(255,0,0,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, TAU);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  },
+  {
+    id: "angel",
+    name: "天使",
+    icon: "\uD83D\uDE07",
+    draw(ctx, F, env) {
+      at(ctx, F, 10, (c) => {
+        c.shadowColor = "#ffe680";
+        c.shadowBlur = 25;
+        c.strokeStyle = "#ffe98a";
+        c.lineWidth = 0.04;
+        ell(c, 0, 0, 0.3, 0.075);
+        c.stroke();
+        c.shadowBlur = 0;
+        c.strokeStyle = "rgba(255,255,255,.85)";
+        c.lineWidth = 0.012;
+        ell(c, 0, -0.005, 0.3, 0.07);
+        c.stroke();
+      }, 0, -0.33 + Math.sin(env.t * 2.4) * 0.02);
+      F.st.acc = (F.st.acc || 0) + env.dt * 5;
+      while (F.st.acc > 1) {
+        F.st.acc -= 1;
+        spawn({ x: F.cx + (Math.random() - 0.5) * F.w * 1.5, y: F.cy - F.h * (0.2 + Math.random() * 0.8), vy: F.w * 0.12, max: 1.2, size: F.w * 0.09, ch: "✨" });
+      }
+    }
+  },
+  {
+    id: "rainbow",
+    name: "彩虹",
+    icon: "\uD83C\uDF08",
+    hint: "張開嘴巴吐彩虹",
+    draw(ctx, F, env) {
+      const target = F.open > 0.3 ? 1 : 0;
+      F.st.len = (F.st.len || 0) + (target - (F.st.len || 0)) * Math.min(1, env.dt * 7);
+      if (F.st.len < 0.03)
+        return;
+      const mw = dist(F.pts[78], F.pts[308]) / F.w * 0.9;
+      at(ctx, F, mid(F.pts[13], F.pts[14]), (c) => {
+        const cols = ["#ff3b3b", "#ff9d2e", "#ffe63b", "#4be06a", "#3ba9ff", "#9a5bff"];
+        const L = F.st.len * 2.6, bw = mw / cols.length;
+        cols.forEach((col, i) => {
+          c.fillStyle = col;
+          c.beginPath();
+          const x0 = -mw / 2 + i * bw;
+          c.moveTo(x0, 0);
+          for (let y = 0;y <= L; y += 0.05)
+            c.lineTo(x0 + Math.sin(y * 9 - env.t * 9) * 0.012 * (1 + y), y);
+          for (let y = L;y >= 0; y -= 0.05)
+            c.lineTo(x0 + bw + 0.002 + Math.sin(y * 9 - env.t * 9) * 0.012 * (1 + y), y);
+          c.closePath();
+          c.fill();
+        });
+        c.fillStyle = "rgba(255,255,255,.25)";
+        c.fillRect(-mw / 2, 0, mw * 0.12, L);
+      });
+      for (const i of [468, 473])
+        at(ctx, F, i, (c) => {
+          c.fillStyle = "#fff";
+          c.rotate(env.t * 3);
+          starPath(c, 0.05 + 0.02 * Math.sin(env.t * 10));
+          c.fill();
+        });
+    }
+  },
+  {
+    id: "fire",
+    name: "噴火",
+    icon: "\uD83D\uDD25",
+    hint: "張開嘴巴噴火",
+    draw(ctx, F, env) {
+      if (F.open < 0.3)
+        return;
+      const m = mid(F.pts[13], F.pts[14]), d = gaze(F);
+      const n = Math.ceil(env.dt * 240);
+      for (let i = 0;i < n; i++) {
+        const sp = (Math.random() - 0.5) * 0.7, sp2 = F.w * (2.2 + Math.random() * 1.6);
+        const c = Math.cos(sp), s = Math.sin(sp);
+        spawn({ x: m.x, y: m.y, vx: (d.x * c - d.y * s) * sp2, vy: (d.x * s + d.y * c) * sp2, g: -F.w * 1.2, drag: 1.2, max: 0.45 + Math.random() * 0.35, size: F.w * (0.05 + Math.random() * 0.05) });
+      }
+    }
+  },
+  {
+    id: "laser",
+    name: "雷射眼",
+    icon: "⚡",
+    hint: "轉頭改變雷射方向",
+    draw(ctx, F, env) {
+      const d = gaze(F), L = Math.max(env.W, env.H) * 1.5;
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.lineCap = "round";
+      for (const i of [468, 473]) {
+        const p = F.pts[i], fl = 0.85 + 0.15 * Math.sin(env.t * 40 + i);
+        for (const [w, col] of [[0.11, "rgba(255,0,40,.25)"], [0.055, "rgba(255,60,60,.55)"], [0.02, "rgba(255,240,230,.95)"]]) {
+          ctx.strokeStyle = col;
+          ctx.lineWidth = F.w * w * fl;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x + d.x * L, p.y + d.y * L);
+          ctx.stroke();
+        }
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, F.w * 0.12);
+        g.addColorStop(0, "rgba(255,255,255,.95)");
+        g.addColorStop(0.4, "rgba(255,60,60,.7)");
+        g.addColorStop(1, "rgba(255,0,0,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, F.w * 0.12, 0, TAU);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  },
+  {
+    id: "mask",
+    name: "面具",
+    icon: "\uD83C\uDFAD",
+    draw(ctx, F) {
+      at(ctx, F, 168, (c) => {
+        const g = c.createLinearGradient(-0.5, 0, 0.5, 0);
+        g.addColorStop(0, "#5b1fa8");
+        g.addColorStop(0.5, "#c13bd6");
+        g.addColorStop(1, "#2b7bff");
+        c.beginPath();
+        c.moveTo(0, -0.07);
+        c.bezierCurveTo(0.14, -0.22, 0.46, -0.24, 0.56, -0.16);
+        c.bezierCurveTo(0.52, 0.06, 0.4, 0.2, 0.24, 0.2);
+        c.bezierCurveTo(0.12, 0.2, 0.06, 0.12, 0, 0.1);
+        c.bezierCurveTo(-0.06, 0.12, -0.12, 0.2, -0.24, 0.2);
+        c.bezierCurveTo(-0.4, 0.2, -0.52, 0.06, -0.56, -0.16);
+        c.bezierCurveTo(-0.46, -0.24, -0.14, -0.22, 0, -0.07);
+        c.closePath();
+        for (const s of [-1, 1]) {
+          c.moveTo(s * 0.33, 0.03);
+          c.ellipse(s * 0.22, 0.03, 0.11, 0.062, s * -0.12, 0, TAU);
+        }
+        c.fillStyle = g;
+        c.fill("evenodd");
+        c.strokeStyle = "#ffd766";
+        c.lineWidth = 0.012;
+        c.stroke();
+        c.fillStyle = "#ffd766";
+        for (const s of [-1, 1])
+          for (let k = 0;k < 4; k++) {
+            ell(c, s * (0.12 + k * 0.1), -0.13 - Math.sin(k * 0.9) * 0.02, 0.012, 0.012);
+            c.fill();
+          }
+        c.save();
+        c.translate(0, -0.1);
+        c.fillStyle = "#ff5fa2";
+        starPath(c, 0.05, 4, 0.45);
+        c.fill();
+        c.restore();
+      }, 0, 0);
+    }
+  },
+  {
+    id: "clown",
+    name: "小丑",
+    icon: "\uD83E\uDD21",
+    draw(ctx, F, env) {
+      at(ctx, F, 10, (c) => {
+        const cols = ["#ff4d4d", "#ffa62b", "#ffe14d", "#57e389", "#4dabff", "#b06bff"];
+        for (let k = 0;k < 13; k++) {
+          const a = Math.PI + k / 12 * Math.PI, r = 0.5;
+          c.fillStyle = cols[k % cols.length];
+          ell(c, Math.cos(a) * r, 0.25 + Math.sin(a) * 0.48, 0.13, 0.13);
+          c.fill();
+        }
+        for (let k = 0;k < 9; k++) {
+          const a = Math.PI + k / 8 * Math.PI;
+          c.fillStyle = cols[(k + 3) % cols.length];
+          ell(c, Math.cos(a) * 0.36, 0.1 + Math.sin(a) * 0.33, 0.11, 0.11);
+          c.fill();
+        }
+      }, 0, -0.02);
+      at(ctx, F, 4, (c) => {
+        const g = c.createRadialGradient(-0.025, -0.03, 0.005, 0, 0, 0.1);
+        g.addColorStop(0, "#ff9a9a");
+        g.addColorStop(0.4, "#ff2020");
+        g.addColorStop(1, "#a80000");
+        c.fillStyle = g;
+        ell(c, 0, 0, 0.095 + 0.006 * Math.sin(env.t * 6), 0.095);
+        c.fill();
+      });
+      ctx.save();
+      ctx.globalCompositeOperation = "multiply";
+      for (const i of [205, 425]) {
+        const p = F.pts[i];
+        ctx.fillStyle = "rgba(255,60,80,.75)";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, F.w * 0.075, 0, TAU);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  },
+  {
+    id: "santa",
+    name: "聖誕",
+    icon: "\uD83C\uDF85",
+    draw(ctx, F, env) {
+      at(ctx, F, 10, (c) => {
+        c.scale(1.2, 1.2);
+        c.fillStyle = "#d81e2c";
+        c.beginPath();
+        c.moveTo(-0.42, 0);
+        c.quadraticCurveTo(-0.2, -0.55, 0.3, -0.6);
+        c.quadraticCurveTo(0.6, -0.5, 0.62, -0.12);
+        c.quadraticCurveTo(0.45, -0.35, 0.42, 0);
+        c.closePath();
+        c.fill();
+        c.fillStyle = "#fff";
+        c.beginPath();
+        c.roundRect(-0.48, -0.07, 0.96, 0.15, 0.075);
+        c.fill();
+        ell(c, 0.62, -0.1, 0.085, 0.085);
+        c.fill();
+      }, 0, -0.17);
+      F.st.acc = (F.st.acc || 0) + env.dt * 8;
+      while (F.st.acc > 1) {
+        F.st.acc -= 1;
+        spawn({ x: Math.random() * env.W, y: -10, vx: (Math.random() - 0.5) * 30, vy: env.H * (0.2 + Math.random() * 0.2), max: 4, size: env.H * 0.03, ch: "❄️", vr: 1 });
+      }
+    }
+  },
+  {
+    id: "makeup",
+    name: "彩妝",
+    icon: "\uD83D\uDC84",
+    draw(ctx, F) {
+      ctx.save();
+      ctx.globalCompositeOperation = "multiply";
+      ctx.beginPath();
+      LIPS_OUT.forEach((i, k) => {
+        const p = F.pts[i];
+        k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
+      });
+      ctx.closePath();
+      LIPS_IN.forEach((i, k) => {
+        const p = F.pts[i];
+        k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
+      });
+      ctx.closePath();
+      ctx.fillStyle = "rgba(215,30,75,.62)";
+      ctx.fill("evenodd");
+      for (const i of [205, 425]) {
+        const p = F.pts[i], r = F.w * 0.15, g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+        g.addColorStop(0, "rgba(255,95,130,.5)");
+        g.addColorStop(1, "rgba(255,95,130,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, TAU);
+        ctx.fill();
+      }
+      for (const [lid, brow] of [[EYE_UP_A, 105], [EYE_UP_B, 334]]) {
+        const b = F.pts[brow];
+        ctx.beginPath();
+        lid.forEach((i, k) => {
+          const p = F.pts[i];
+          k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
+        });
+        for (let k = lid.length - 1;k >= 0; k--) {
+          const p = F.pts[lid[k]];
+          ctx.lineTo(p.x + (b.x - p.x) * 0.3, p.y + (b.y - p.y) * 0.5);
+        }
+        ctx.closePath();
+        ctx.fillStyle = "rgba(170,80,190,.4)";
+        ctx.fill();
+      }
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = "rgba(20,10,15,.85)";
+      ctx.lineWidth = Math.max(1.2, F.w * 0.012);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      for (const lid of [EYE_UP_A, EYE_UP_B]) {
+        poly(ctx, F, lid, false);
+        const a = F.pts[lid[0]], b = F.pts[lid[1]];
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(a.x + (a.x - b.x) * 1.3, a.y + (a.y - b.y) * 1.3 - F.w * 0.012);
+        ctx.stroke();
+      }
+      const u = F.pts[0], l = F.pts[17];
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = "rgba(255,255,255,.22)";
+      ctx.beginPath();
+      ctx.ellipse(l.x + (u.x - l.x) * 0.3, l.y + (u.y - l.y) * 0.3, F.w * 0.035, F.w * 0.01, F.ang, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+  },
+  {
+    id: "sparkle",
+    name: "閃亮",
+    icon: "✨",
+    draw(ctx, F, env) {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      for (let k = 0;k < 14; k++) {
+        const a = k * 2.399 + F.id, r = F.w * (0.5 + k * 37 % 10 / 22), tw = Math.max(0, Math.sin(env.t * (2.5 + k % 5) + k * 1.7));
+        const x = F.cx + Math.cos(a) * r, y = F.cy + Math.sin(a) * r * 1.05;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(env.t * 0.8 + k);
+        ctx.globalAlpha = tw;
+        ctx.fillStyle = k % 3 ? "#fff" : "#ffe9a0";
+        ctx.shadowColor = "#fff";
+        ctx.shadowBlur = 12;
+        starPath(ctx, F.w * (0.035 + k % 4 * 0.014), 4, 0.22);
+        ctx.fill();
+        ctx.restore();
+      }
+      for (const i of [468, 473]) {
+        const p = F.pts[i];
+        ctx.save();
+        ctx.translate(p.x - F.w * 0.02, p.y - F.w * 0.02);
+        ctx.fillStyle = "#fff";
+        ctx.globalAlpha = 0.6 + 0.4 * Math.sin(env.t * 7);
+        starPath(ctx, F.w * 0.04, 4, 0.2);
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+  },
+  {
+    id: "emoji",
+    name: "表情臉",
+    icon: "\uD83E\uDD2A",
+    hint: "做表情：張嘴、微笑、眨眼、嘟嘴",
+    draw(ctx, F) {
+      let ch = "\uD83D\uDE42";
+      if (F.open > 0.55)
+        ch = "\uD83D\uDE31";
+      else if (F.open > 0.3)
+        ch = "\uD83D\uDE2E";
+      else if (F.pucker > 0.6)
+        ch = "\uD83D\uDE18";
+      else if (F.blinkL > 0.55 && F.blinkR > 0.55)
+        ch = "\uD83D\uDE0C";
+      else if (Math.abs(F.blinkL - F.blinkR) > 0.35)
+        ch = "\uD83D\uDE09";
+      else if (F.smile > 0.55)
+        ch = "\uD83D\uDE04";
+      else if (F.browUp > 0.6)
+        ch = "\uD83D\uDE33";
+      at(ctx, F, mid(F.pts[234], F.pts[454]), (c) => emoji(c, ch, 1.25), 0, 0.03);
+    }
+  },
+  {
+    id: "mesh",
+    name: "科技網格",
+    icon: "\uD83D\uDD78️",
+    draw(ctx, F, env) {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.lineWidth = Math.max(0.6, F.w * 0.003);
+      ctx.strokeStyle = "rgba(0,255,220,.33)";
+      ctx.beginPath();
+      for (const c of env.conn.tess) {
+        const a = F.pts[c.start], b = F.pts[c.end];
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+      }
+      ctx.stroke();
+      ctx.lineWidth = Math.max(1.5, F.w * 0.008);
+      ctx.strokeStyle = "rgba(255,80,220,.9)";
+      ctx.shadowColor = "#f0f";
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      for (const c of env.conn.contours) {
+        const a = F.pts[c.start], b = F.pts[c.end];
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+      }
+      ctx.stroke();
+      const k = env.t * 0.6 % 1, top = F.pts[10], bot = F.pts[152];
+      const sx = top.x + (bot.x - top.x) * k, sy = top.y + (bot.y - top.y) * k;
+      ctx.strokeStyle = "rgba(120,255,255,.9)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx - Math.cos(F.ang) * F.w * 0.6, sy - Math.sin(F.ang) * F.w * 0.6);
+      ctx.lineTo(sx + Math.cos(F.ang) * F.w * 0.6, sy + Math.sin(F.ang) * F.w * 0.6);
+      ctx.stroke();
+      ctx.restore();
+    }
+  },
+  { id: "mosaic", name: "馬賽克", icon: "\uD83D\uDFEA", shader: { mosaic: true } },
+  { id: "bigeye", name: "大眼娃娃", icon: "\uD83D\uDC40", warps: (F, e) => [W(F, e, 468, 0.2, 0.62), W(F, e, 473, 0.2, 0.62), W(F, e, 152, 0.4, -0.3), W(F, e, mid(F.pts[13], F.pts[14]), 0.2, -0.25)] },
+  { id: "bighead", name: "大頭", icon: "\uD83C\uDF88", warps: (F, e) => [W(F, e, 168, 1.15, 0.5)] },
+  { id: "tiny", name: "小臉", icon: "\uD83E\uDD0F", warps: (F, e) => [W(F, e, 4, 0.95, -0.75)] },
+  {
+    id: "alien",
+    name: "外星人",
+    icon: "\uD83D\uDC7D",
+    shader: { skinTint: [0.45, 1, 0.5], skinTintAmt: 0.7 },
+    warps: (F, e) => [W(F, e, 468, 0.25, 0.75), W(F, e, 473, 0.25, 0.75), W(F, e, 10, 0.6, 0.35), W(F, e, 152, 0.5, -0.6), W(F, e, mid(F.pts[13], F.pts[14]), 0.22, -0.5)]
+  },
+  { id: "funny", name: "哈哈鏡", icon: "\uD83E\uDD23", warps: (F, e) => [W(F, e, 4, 0.42, 0.7), W(F, e, 10, 0.5, -0.5), W(F, e, 152, 0.4, 0.4)] },
+  {
+    id: "chubby",
+    name: "胖嘟嘟",
+    icon: "\uD83D\uDC37",
+    warps: (F, e) => {
+      const c = F.pts[4];
+      const o = (i) => {
+        const d = toward(F, i, c);
+        return { x: -d.x, y: -d.y };
+      };
+      return [W(F, e, 205, 0.36, 0.55), W(F, e, 425, 0.36, 0.55), W(F, e, 172, 0.4, 0.3, 1, o(172)), W(F, e, 397, 0.4, 0.3, 1, o(397))];
+    }
+  },
+  { id: "bigmouth", name: "大嘴巴", icon: "\uD83D\uDC44", warps: (F, e) => [W(F, e, mid(F.pts[13], F.pts[14]), 0.36, 0.7)] },
+  { id: "swirl", name: "漩渦", icon: "\uD83C\uDF00", warps: (F, e) => [W(F, e, 4, 0.8, Math.sin(e.t * 1.5) * 0.8, 2)] }
+];
+
+// js/live.js
+var $ = (id) => document.getElementById(id);
+function initLive({ getStream, toast, log, openSheet, fmtTime, onState }) {
+  let info = null, kind = "lan";
+  let ws = null, stream = null, peers = new Map, rec = null, rtmpWs = null, t0 = 0, tick = 0, stopping = false;
+  const wsUrl = (p) => (location.protocol === "https:" ? "wss://" : "ws://") + location.host + p;
+  document.querySelectorAll("[data-live]").forEach((b) => b.onclick = () => {
+    kind = b.dataset.live;
+    document.querySelectorAll("[data-live]").forEach((x) => x.classList.toggle("on", x === b));
+    $("liveLan").hidden = kind !== "lan";
+    $("liveRtmp").hidden = kind !== "rtmp";
+  });
+  const preset = $("rtmpPreset"), urlIn = $("rtmpUrl");
+  const saved = (() => {
+    try {
+      return localStorage.getItem("facecam.rtmpUrl");
+    } catch {
+      return null;
+    }
+  })();
+  urlIn.value = saved || preset.value;
+  if (saved && ![...preset.options].some((o) => o.value === saved))
+    preset.value = "";
+  else if (saved)
+    preset.value = saved;
+  preset.onchange = () => {
+    if (preset.value)
+      urlIn.value = preset.value;
+    else
+      urlIn.focus();
+  };
+  async function openSetup() {
+    openSheet("sheetLive");
+    try {
+      const r = await fetch("/api/info", { cache: "no-store" });
+      info = r.ok ? await r.json() : null;
+      if (!info || !info.server)
+        info = null;
+    } catch {
+      info = null;
+    }
+    $("liveNoServer").hidden = !!info;
+    $("liveBody").hidden = !info;
+    if (!info)
+      return;
+    const box = $("lanUrls");
+    box.textContent = "";
+    const hosts = info.lan.length ? info.lan : ["localhost"];
+    for (const ip of hosts) {
+      const u = `http://${ip}:${info.httpPort}/watch.html`;
+      const d = document.createElement("div");
+      d.className = "url";
+      const c = document.createElement("code");
+      c.textContent = u;
+      const b = document.createElement("button");
+      b.textContent = "複製";
+      b.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(u);
+          toast("已複製觀眾網址");
+        } catch {
+          toast("請長按網址手動複製");
+        }
+      };
+      d.append(c, b);
+      box.append(d);
+    }
+    if (!info.rtmp)
+      $("rtmpLog").textContent = "⚠️ 伺服器找不到 ffmpeg，無法推流到平台。";
+  }
+  $("liveGo").onclick = async () => {
+    try {
+      if (kind === "lan")
+        await startLan();
+      else
+        await startRtmp();
+    } catch (e) {
+      log("直播啟動失敗", e);
+      toast("直播啟動失敗：" + e.message, 3500);
+      await stop();
+    }
+  };
+  function began() {
+    t0 = performance.now();
+    stopping = false;
+    $("liveBadge").hidden = false;
+    $("liveViewers").textContent = kind === "lan" ? "0" : "—";
+    $("chat").hidden = kind !== "lan";
+    $("chatList").textContent = "";
+    tick = setInterval(() => {
+      $("liveTime").textContent = fmtTime((performance.now() - t0) / 1000);
+    }, 500);
+    onState(true);
+    openSheet(null);
+  }
+  async function startLan() {
+    log("區網直播 步驟1 取得濾鏡畫面串流");
+    stream = await getStream();
+    log("區網直播 步驟2 連線訊號伺服器");
+    ws = new WebSocket(wsUrl("/ws"));
+    await new Promise((res, rej) => {
+      ws.onopen = res;
+      ws.onerror = () => rej(new Error("連不上伺服器"));
+    });
+    ws.onmessage = (e) => onSignal(JSON.parse(e.data));
+    ws.onclose = () => {
+      if (!stopping) {
+        toast("與伺服器斷線，直播已結束");
+        stop();
+      }
+    };
+    ws.send(JSON.stringify({ t: "host" }));
+    began();
+    toast("\uD83D\uDD34 直播中，把觀眾網址給同 WiFi 的朋友", 3500);
+    log("區網直播 步驟3 已開播，等待觀眾");
+  }
+  async function onSignal(m) {
+    if (m.t === "viewer") {
+      log("觀眾 #" + m.id + " 加入，建立連線");
+      const old = peers.get(m.id);
+      if (old)
+        old.close();
+      const pc = new RTCPeerConnection({ iceServers: [] });
+      peers.set(m.id, pc);
+      stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+      pc.onicecandidate = (e) => {
+        if (e.candidate && ws && ws.readyState === 1)
+          ws.send(JSON.stringify({ t: "ice", to: m.id, cand: e.candidate }));
+      };
+      pc.onconnectionstatechange = () => log("觀眾 #" + m.id + " 連線狀態:", pc.connectionState);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      ws.send(JSON.stringify({ t: "offer", to: m.id, sdp: pc.localDescription }));
+    } else if (m.t === "answer") {
+      const pc = peers.get(m.from);
+      if (pc)
+        await pc.setRemoteDescription(m.sdp);
+    } else if (m.t === "ice") {
+      const pc = peers.get(m.from);
+      if (pc && m.cand)
+        pc.addIceCandidate(m.cand).catch(() => {});
+    } else if (m.t === "bye") {
+      const pc = peers.get(m.id);
+      if (pc) {
+        pc.close();
+        peers.delete(m.id);
+      }
+    } else if (m.t === "count")
+      $("liveViewers").textContent = m.n;
+    else if (m.t === "like")
+      heart();
+    else if (m.t === "chat")
+      addChat(m.name, m.text);
+    else if (m.t === "kicked") {
+      toast("另一個視窗開始了直播，這裡已停止");
+      stop();
+    }
+  }
+  function heart() {
+    const box = $("hearts");
+    if (box.childElementCount > 30)
+      return;
+    const s = document.createElement("span");
+    s.textContent = ["❤️", "\uD83D\uDC96", "\uD83D\uDC97", "\uD83E\uDDE1", "\uD83D\uDC9C"][Math.random() * 5 | 0];
+    s.style.setProperty("--dx", Math.random() * 60 - 30 + "px");
+    box.append(s);
+    setTimeout(() => s.remove(), 2300);
+  }
+  function addChat(name, text) {
+    const list = $("chatList"), d = document.createElement("div"), b = document.createElement("b");
+    b.textContent = name;
+    d.append(b, document.createTextNode(text));
+    list.append(d);
+    while (list.childElementCount > 30)
+      list.firstChild.remove();
+  }
+  $("chatForm").onsubmit = (e) => {
+    e.preventDefault();
+    const inp = $("chatInput"), text = inp.value.trim();
+    if (text && ws && ws.readyState === 1)
+      ws.send(JSON.stringify({ t: "chat", text }));
+    inp.value = "";
+  };
+  async function startRtmp() {
+    const url = urlIn.value.trim(), key = $("rtmpKey").value.trim();
+    if (!/^rtmps?:\/\//i.test(url))
+      throw new Error("伺服器網址要以 rtmp:// 或 rtmps:// 開頭");
+    if (!info || !info.rtmp)
+      throw new Error("伺服器沒有 ffmpeg");
+    if (!window.MediaRecorder)
+      throw new Error("瀏覽器不支援 MediaRecorder");
+    try {
+      localStorage.setItem("facecam.rtmpUrl", url);
+    } catch {}
+    log("推流 步驟1 取得濾鏡畫面串流");
+    stream = await getStream();
+    const hasAudio = stream.getAudioTracks().length > 0;
+    const a = hasAudio ? ",opus" : "";
+    const mime = ["video/webm;codecs=h264" + a, "video/x-matroska;codecs=avc1" + a, "video/webm;codecs=vp8" + a, "video/webm"].find((m) => MediaRecorder.isTypeSupported(m)) || "";
+    log("推流 步驟2 連線本機伺服器，編碼格式:", mime, "聲音:", hasAudio ? "有" : "無（補靜音）");
+    rtmpWs = new WebSocket(wsUrl("/rtmp"));
+    rtmpWs.binaryType = "arraybuffer";
+    await new Promise((res, rej) => {
+      rtmpWs.onopen = res;
+      rtmpWs.onerror = () => rej(new Error("連不上伺服器"));
+    });
+    const started = new Promise((res, rej) => {
+      rtmpWs.onmessage = (e) => {
+        const m = JSON.parse(e.data);
+        if (m.t === "started")
+          res(m);
+        else if (m.t === "error")
+          rej(new Error(m.msg));
+        else if (m.t === "log") {
+          $("rtmpLog").textContent = m.line;
+          if (/error|failed|refused/i.test(m.line))
+            log("ffmpeg:", m.line);
+        } else if (m.t === "end") {
+          if (!stopping) {
+            toast(m.code === 0 ? "推流已結束" : "推流中斷（請檢查網址與金鑰），代碼 " + m.code, 4000);
+            stop();
+          }
+        }
+      };
+    });
+    rtmpWs.onclose = () => {
+      if (!stopping)
+        stop();
+    };
+    rtmpWs.send(JSON.stringify({ t: "start", url, key, mime, hasAudio }));
+    await started;
+    rec = new MediaRecorder(stream, { mimeType: mime || undefined, videoBitsPerSecond: 2500000, audioBitsPerSecond: 128000 });
+    rec.ondataavailable = async (e) => {
+      if (e.data.size && rtmpWs && rtmpWs.readyState === 1)
+        rtmpWs.send(await e.data.arrayBuffer());
+    };
+    rec.start(250);
+    began();
+    toast("\uD83D\uDD34 推流中，到平台後台確認畫面（約需 10~20 秒）", 4000);
+    log("推流 步驟3 開始傳送影音片段");
+  }
+  async function stop() {
+    if (stopping)
+      return;
+    stopping = true;
+    log("結束直播");
+    clearInterval(tick);
+    if (rec && rec.state !== "inactive") {
+      try {
+        rec.stop();
+      } catch {}
+    }
+    rec = null;
+    if (rtmpWs) {
+      try {
+        if (rtmpWs.readyState === 1)
+          rtmpWs.send(JSON.stringify({ t: "stop" }));
+      } catch {}
+      const w = rtmpWs;
+      rtmpWs = null;
+      setTimeout(() => {
+        try {
+          w.close();
+        } catch {}
+      }, 500);
+    }
+    for (const pc of peers.values())
+      pc.close();
+    peers.clear();
+    if (ws) {
+      try {
+        if (ws.readyState === 1)
+          ws.send(JSON.stringify({ t: "stop" }));
+        ws.close();
+      } catch {}
+      ws = null;
+    }
+    if (stream) {
+      stream.getVideoTracks().forEach((t) => t.stop());
+      stream = null;
+    }
+    $("liveBadge").hidden = true;
+    $("chat").hidden = true;
+    onState(false);
+  }
+  return { openSetup, stop, startLan: async () => {
+    kind = "lan";
+    await startLan();
+  } };
+}
+
+// js/faceswap.js
+var LIPS_IN2 = new Set([78, 95, 88, 178, 87, 14, 317, 402, 318, 324, 308, 415, 310, 311, 312, 13, 82, 81, 80, 191]);
+var OVAL = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109];
+var N = 468;
+var VS2 = `
+attribute vec2 aPos; attribute vec2 aUv; attribute float aA;
+varying vec2 vUv; varying float vA;
+void main(){ vUv = aUv; vA = aA; gl_Position = vec4(aPos, 0.0, 1.0); }`;
+var FS2 = `
+precision mediump float;
+varying vec2 vUv; varying float vA;
+uniform sampler2D uTex; uniform vec3 uGain; uniform float uOpacity;
+void main(){
+  vec3 c = clamp(texture2D(uTex, vUv).rgb * uGain, 0.0, 1.0);
+  float a = smoothstep(0.0, 1.0, vA) * uOpacity;
+  gl_FragColor = vec4(c * a, a);
+}`;
+function trianglesFromEdges(edges) {
+  const adj = Array.from({ length: N }, () => new Set);
+  for (const e of edges) {
+    if (e.start < N && e.end < N) {
+      adj[e.start].add(e.end);
+      adj[e.end].add(e.start);
+    }
+  }
+  const tris = [];
+  for (let a = 0;a < N; a++)
+    for (const b of adj[a])
+      if (b > a) {
+        for (const c of adj[b])
+          if (c > b && adj[a].has(c)) {
+            if (LIPS_IN2.has(a) && LIPS_IN2.has(b) && LIPS_IN2.has(c))
+              continue;
+            tris.push(a, b, c);
+          }
+      }
+  return { tris, adj };
+}
+function createSwap(tessEdges) {
+  const canvas = document.createElement("canvas");
+  const gl = canvas.getContext("webgl", { premultipliedAlpha: true, alpha: true, antialias: true, preserveDrawingBuffer: true });
+  if (!gl)
+    throw new Error("此瀏覽器不支援 WebGL");
+  const sh = (t, s) => {
+    const o = gl.createShader(t);
+    gl.shaderSource(o, s);
+    gl.compileShader(o);
+    if (!gl.getShaderParameter(o, gl.COMPILE_STATUS))
+      throw new Error(gl.getShaderInfoLog(o));
+    return o;
+  };
+  const prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS2));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS2));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+  const { tris, adj } = trianglesFromEdges(tessEdges);
+  const alpha = new Float32Array(N).fill(1);
+  const ring0 = new Set(OVAL), ring1 = new Set, ring2 = new Set;
+  for (const i of ring0)
+    for (const j of adj[i])
+      if (!ring0.has(j))
+        ring1.add(j);
+  for (const i of ring1)
+    for (const j of adj[i])
+      if (!ring0.has(j) && !ring1.has(j))
+        ring2.add(j);
+  for (const i of ring0)
+    alpha[i] = 0;
+  for (const i of ring1)
+    alpha[i] = 0.5;
+  for (const i of ring2)
+    alpha[i] = 0.9;
+  const pos = new Float32Array(N * 2), uv = new Float32Array(N * 2);
+  const bPos = gl.createBuffer(), bUv = gl.createBuffer(), bA = gl.createBuffer(), bIdx = gl.createBuffer();
+  const attr = (buf, name, size, data, usage) => {
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, data, usage);
+    const l = gl.getAttribLocation(prog, name);
+    gl.enableVertexAttribArray(l);
+    gl.vertexAttribPointer(l, size, gl.FLOAT, false, 0, 0);
+  };
+  attr(bPos, "aPos", 2, pos, gl.DYNAMIC_DRAW);
+  attr(bUv, "aUv", 2, uv, gl.DYNAMIC_DRAW);
+  attr(bA, "aA", 1, alpha, gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bIdx);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(tris), gl.STATIC_DRAW);
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]])
+    gl.texParameteri(gl.TEXTURE_2D, k, v);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  const uGain = gl.getUniformLocation(prog, "uGain"), uOpacity = gl.getUniformLocation(prog, "uOpacity");
+  const tiny = document.createElement("canvas");
+  tiny.width = tiny.height = 8;
+  const tctx = tiny.getContext("2d", { willReadFrequently: true });
+  function meanColor(image, pts) {
+    const x0 = Math.min(pts[234].x, pts[454].x), x1 = Math.max(pts[234].x, pts[454].x), w = x1 - x0;
+    const y0 = Math.min(pts[168].y, pts[13].y), h = Math.abs(pts[13].y - pts[168].y);
+    if (w < 4 || h < 4)
+      return null;
+    try {
+      tctx.drawImage(image, x0 + w * 0.22, y0, w * 0.56, h, 0, 0, 8, 8);
+      const d = tctx.getImageData(0, 0, 8, 8).data;
+      let r = 0, g = 0, b = 0;
+      for (let i = 0;i < d.length; i += 4) {
+        r += d[i];
+        g += d[i + 1];
+        b += d[i + 2];
+      }
+      return [r / 64 + 1, g / 64 + 1, b / 64 + 1];
+    } catch {
+      return null;
+    }
+  }
+  const api = { canvas, ready: false, opacity: 0.94, triangles: tris.length / 3 };
+  let srcMean = null, gains = [], tickN = 0;
+  api.setSource = (image, lm) => {
+    const k = Math.min(1, 1024 / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round((image.naturalWidth || image.width) * k);
+    c.height = Math.round((image.naturalHeight || image.height) * k);
+    c.getContext("2d").drawImage(image, 0, 0, c.width, c.height);
+    for (let i = 0;i < N; i++) {
+      uv[i * 2] = lm[i].x;
+      uv[i * 2 + 1] = lm[i].y;
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, bUv);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, uv);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+    srcMean = meanColor(c, lm.map((p) => ({ x: p.x * c.width, y: p.y * c.height })));
+    gains = [];
+    api.ready = true;
+  };
+  api.render = (faces, W2, H, frameCanvas) => {
+    if (canvas.width !== W2 || canvas.height !== H) {
+      canvas.width = W2;
+      canvas.height = H;
+    }
+    gl.viewport(0, 0, W2, H);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    if (!api.ready)
+      return;
+    tickN++;
+    for (const F of faces) {
+      if (srcMean && (tickN % 6 === 0 || !gains[F.id])) {
+        const m = meanColor(frameCanvas, F.pts);
+        if (m) {
+          const g = m.map((v, i) => Math.max(0.55, Math.min(1.7, v / srcMean[i])));
+          gains[F.id] = gains[F.id] ? gains[F.id].map((v, i) => v + (g[i] - v) * 0.3) : g;
+        }
+      }
+      for (let i = 0;i < N; i++) {
+        pos[i * 2] = F.pts[i].x / W2 * 2 - 1;
+        pos[i * 2 + 1] = 1 - F.pts[i].y / H * 2;
+      }
+      gl.bindBuffer(gl.ARRAY_BUFFER, bPos);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, pos);
+      gl.uniform3fv(uGain, gains[F.id] || [1, 1, 1]);
+      gl.uniform1f(uOpacity, api.opacity);
+      gl.drawElements(gl.TRIANGLES, tris.length, gl.UNSIGNED_SHORT, 0);
+    }
+  };
+  return api;
+}
+
+// js/app.js
+var CDN = window.FACECAM_CDN || null;
+var VENDOR = CDN ? "" : new URL("../vendor/", import.meta.url).href;
+var VISION_URL = CDN ? CDN.lib + "/vision_bundle.mjs" : VENDOR + "vision_bundle.mjs";
+var WASM_URL = CDN ? CDN.lib + "/wasm" : VENDOR + "wasm";
+var MODEL_URL = CDN ? CDN.model : VENDOR + "face_landmarker.task";
+var FaceLandmarker = null;
+var FilesetResolver = null;
+var Q = new URLSearchParams(location.search);
+var SHOW_LOG = Q.get("log") !== "0";
+var SELFTEST = Q.get("selftest") === "1";
+var log = (...a) => {
+  if (SHOW_LOG)
+    console.log("[FaceCam]", ...a);
+};
+var $2 = (id) => document.getElementById(id);
+var out = $2("out");
+var ctx = out.getContext("2d");
+var cam = $2("cam");
+var still = $2("still");
+var glCanvas = document.createElement("canvas");
+var pipe = null;
+var landmarker = null;
+var conn = { tess: [], contours: [] };
+var fileset = null;
+var imageLandmarker = null;
+var swap = null;
+var S = {
+  mode: "photo",
+  effect: EFFECTS[0],
+  color: COLOR_FILTERS[0],
+  beauty: { smooth: 0.4, whiten: 0.25, eye: 0.2, slim: 0.2 },
+  facing: "user",
+  deviceIdx: 0,
+  mirror: true,
+  aspect: 0,
+  timer: 0,
+  mic: true,
+  src: null,
+  srcKind: null,
+  busy: false,
+  recorder: null,
+  live: false
+};
+var ASPECTS = [["原始", 0], ["9:16", 9 / 16], ["3:4", 3 / 4], ["1:1", 1], ["16:9", 16 / 9]];
+var TIMERS = [0, 3, 10];
+var gallery = [];
+var stream = null;
+var micTrack = null;
+var faces = [];
+var faceStates = [];
+var smoothPts = [];
+var crop = [0, 0, 1, 1];
+var lastT = performance.now();
+var fpsAcc = 0;
+var fpsN = 0;
+var lastDetect = 0;
+var errors = [];
+window.addEventListener("error", (e) => {
+  errors.push(String(e.message));
+  log("錯誤:", e.message);
+});
+window.addEventListener("unhandledrejection", (e) => {
+  errors.push("promise: " + (e.reason && e.reason.message || e.reason));
+});
+var toastTimer = 0;
+function toast(msg, ms = 2000) {
+  const t = $2("toast");
+  t.textContent = msg;
+  t.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("on"), ms);
+}
+function fmtTime(s) {
+  s = Math.floor(s);
+  return String(s / 60 | 0).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+}
+function stamp() {
+  const d = new Date, p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function openSheet(id) {
+  document.querySelectorAll(".sheet.on").forEach((s) => s.classList.remove("on"));
+  if (id)
+    $2(id).classList.add("on");
+}
+document.querySelectorAll("[data-close]").forEach((b) => b.onclick = () => openSheet(null));
+async function initModel() {
+  log("步驟1 載入人臉偵測模型，來源:", CDN ? "CDN（單檔版）" : "本機 vendor/（離線）");
+  ({ FaceLandmarker, FilesetResolver } = await import(VISION_URL));
+  fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+  const opt = (delegate) => ({
+    baseOptions: { modelAssetPath: MODEL_URL, delegate },
+    runningMode: "VIDEO",
+    numFaces: 4,
+    outputFaceBlendshapes: true
+  });
+  try {
+    landmarker = await FaceLandmarker.createFromOptions(fileset, opt("GPU"));
+    log("步驟2 模型就緒（GPU 加速）");
+  } catch (e) {
+    log("GPU 模式失敗，改用 CPU：", e.message);
+    landmarker = await FaceLandmarker.createFromOptions(fileset, opt("CPU"));
+    log("步驟2 模型就緒（CPU）");
+  }
+  conn.tess = FaceLandmarker.FACE_LANDMARKS_TESSELATION;
+  conn.contours = [].concat(FaceLandmarker.FACE_LANDMARKS_FACE_OVAL, FaceLandmarker.FACE_LANDMARKS_LIPS, FaceLandmarker.FACE_LANDMARKS_LEFT_EYE, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE, FaceLandmarker.FACE_LANDMARKS_LEFT_EYEBROW, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYEBROW);
+}
+async function startCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    throw new Error(`這個網址無法使用相機（需要 https 或 localhost）。
+手機請改開伺服器顯示的 https 網址。`);
+  }
+  stopCamera();
+  const video = { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } };
+  const devs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput" && d.deviceId);
+  const mobile = navigator.maxTouchPoints > 0 && /Android|iPhone|iPad/i.test(navigator.userAgent);
+  if (!mobile && devs.length > 1)
+    video.deviceId = { exact: devs[S.deviceIdx % devs.length].deviceId };
+  else
+    video.facingMode = S.facing;
+  log("開啟相機，條件:", JSON.stringify(video));
+  stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
+  cam.srcObject = stream;
+  await cam.play();
+  const st = stream.getVideoTracks()[0].getSettings();
+  S.mirror = st.facingMode ? st.facingMode !== "environment" : S.facing === "user";
+  S.src = cam;
+  S.srcKind = "cam";
+  log("相機已開啟", cam.videoWidth + "x" + cam.videoHeight, "鏡像:", S.mirror);
+}
+function stopCamera() {
+  if (stream) {
+    stream.getTracks().forEach((t) => t.stop());
+    stream = null;
+  }
+}
+async function useFile(file) {
+  if (!file)
+    return;
+  const url = URL.createObjectURL(file);
+  stopCamera();
+  if (file.type.startsWith("video")) {
+    cam.srcObject = null;
+    cam.src = url;
+    cam.loop = true;
+    cam.muted = true;
+    await cam.play();
+    S.src = cam;
+    S.srcKind = "file";
+  } else {
+    await new Promise((res, rej) => {
+      still.onload = res;
+      still.onerror = () => rej(new Error("圖片讀取失敗"));
+      still.src = url;
+    });
+    S.src = still;
+    S.srcKind = "image";
+  }
+  S.mirror = false;
+  $2("boot").classList.add("hide");
+  log("改用檔案當畫面來源:", file.type);
+}
+async function flip() {
+  if (S.srcKind !== "cam") {
+    try {
+      await startCamera();
+    } catch (e) {
+      toast(e.message);
+    }
+    return;
+  }
+  S.facing = S.facing === "user" ? "environment" : "user";
+  S.deviceIdx++;
+  try {
+    await startCamera();
+  } catch (e) {
+    toast("切換鏡頭失敗：" + e.message);
+  }
+}
+async function getMicTrack() {
+  if (!S.mic)
+    return null;
+  if (micTrack && micTrack.readyState === "live")
+    return micTrack;
+  try {
+    const a = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    micTrack = a.getAudioTracks()[0];
+    log("麥克風已開啟");
+    return micTrack;
+  } catch (e) {
+    log("麥克風無法使用:", e.message);
+    toast("麥克風無法使用，將沒有聲音");
+    return null;
+  }
+}
+async function getOutputStream() {
+  const s = out.captureStream(30);
+  const a = await getMicTrack();
+  if (a)
+    s.addTrack(a);
+  return s;
+}
+function layout() {
+  const sw = S.src === still ? still.naturalWidth : cam.videoWidth, sh = S.src === still ? still.naturalHeight : cam.videoHeight;
+  if (!sw || !sh)
+    return false;
+  const want = ASPECTS[S.aspect][1] || sw / sh, have = sw / sh;
+  let cw = 1, ch = 1;
+  if (want < have)
+    cw = want / have;
+  else
+    ch = have / want;
+  crop = [(1 - cw) / 2, (1 - ch) / 2, cw, ch];
+  let W2 = sw * cw, H = sh * ch;
+  const k = Math.min(1, 1280 / Math.max(W2, H));
+  W2 = Math.round(W2 * k / 2) * 2;
+  H = Math.round(H * k / 2) * 2;
+  if (out.width !== W2 || out.height !== H) {
+    out.width = glCanvas.width = W2;
+    out.height = glCanvas.height = H;
+    log("畫布大小", W2 + "x" + H, "裁切", crop.map((v) => v.toFixed(2)).join(","));
+  }
+  return true;
+}
+function buildFaces(res) {
+  const { width: W2, height: H } = out, list = [];
+  const n = res && res.faceLandmarks ? res.faceLandmarks.length : 0;
+  for (let i = 0;i < n; i++) {
+    const lm = res.faceLandmarks[i];
+    let pts = lm.map((p) => {
+      let u = (p.x - crop[0]) / crop[2];
+      if (S.mirror)
+        u = 1 - u;
+      return { x: u * W2, y: (p.y - crop[1]) / crop[3] * H };
+    });
+    const prev = smoothPts[i];
+    if (prev && prev.length === pts.length && Math.hypot(prev[4].x - pts[4].x, prev[4].y - pts[4].y) < W2 * 0.08) {
+      const a2 = 0.62;
+      pts = pts.map((p, k) => ({ x: prev[k].x + (p.x - prev[k].x) * a2, y: prev[k].y + (p.y - prev[k].y) * a2 }));
+    }
+    smoothPts[i] = pts;
+    const bs = {};
+    if (res.faceBlendshapes && res.faceBlendshapes[i])
+      for (const c of res.faceBlendshapes[i].categories)
+        bs[c.categoryName] = c.score;
+    const a = S.mirror ? pts[263] : pts[33], b = S.mirror ? pts[33] : pts[263];
+    const w = Math.hypot(pts[454].x - pts[234].x, pts[454].y - pts[234].y), h = Math.hypot(pts[152].x - pts[10].x, pts[152].y - pts[10].y);
+    const geoOpen = Math.min(1, Math.hypot(pts[13].x - pts[14].x, pts[13].y - pts[14].y) / h / 0.11);
+    const F = {
+      id: i,
+      pts,
+      bs,
+      w,
+      h,
+      ang: Math.atan2(b.y - a.y, b.x - a.x),
+      cx: (pts[10].x + pts[152].x) / 2,
+      cy: (pts[10].y + pts[152].y) / 2,
+      open: Math.max(geoOpen, Math.min(1, (bs.jawOpen || 0) * 1.3)),
+      smile: Math.min(1, ((bs.mouthSmileLeft || 0) + (bs.mouthSmileRight || 0)) * 0.75),
+      blinkL: bs.eyeBlinkLeft || 0,
+      blinkR: bs.eyeBlinkRight || 0,
+      browUp: bs.browInnerUp || 0,
+      pucker: bs.mouthPucker || 0,
+      st: faceStates[i] ??= {}
+    };
+    if (Q.get("force") === "1") {
+      F.open = 1;
+      F.smile = 1;
+    }
+    list.push(F);
+  }
+  smoothPts.length = n;
+  return list;
+}
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.1, (now - lastT) / 1000);
+  lastT = now;
+  if (!S.src || !pipe || !layout())
+    return;
+  if (S.src === cam && cam.readyState < 2)
+    return;
+  if (landmarker) {
+    try {
+      const ts = Math.max(now, lastDetect + 1);
+      lastDetect = ts;
+      faces = buildFaces(landmarker.detectForVideo(S.src, ts));
+    } catch (e) {
+      if (!frame.warned) {
+        frame.warned = true;
+        log("偵測失敗:", e.message);
+        errors.push("detect: " + e.message);
+      }
+    }
+  }
+  const { width: W2, height: H } = out, t = now / 1000;
+  const env = { t, dt, W: W2, H, conn };
+  const fx = S.effect, sh = fx.shader || {};
+  let warps = [];
+  for (const F of faces) {
+    warps = warps.concat(beautyWarps(F, env, S.beauty.eye, S.beauty.slim));
+    if (fx.warps)
+      warps = warps.concat(fx.warps(F, env));
+  }
+  pipe.render(S.src, {
+    crop,
+    mirror: S.mirror,
+    time: t,
+    warps,
+    faces: faces.map((F) => ({ x: F.cx / W2, y: F.cy / H, rx: F.w * 0.56 / H, ry: F.h * 0.62 / H, cos: Math.cos(F.ang), sin: Math.sin(F.ang) })),
+    smooth: S.beauty.smooth,
+    whiten: S.beauty.whiten * 0.6,
+    mosaic: sh.mosaic,
+    skinTint: sh.skinTint,
+    skinTintAmt: sh.skinTintAmt,
+    color: S.color.color
+  });
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+  ctx.drawImage(glCanvas, 0, 0);
+  if (fx.swap && swap && swap.ready && faces.length) {
+    swap.render(faces, W2, H, glCanvas);
+    ctx.drawImage(swap.canvas, 0, 0);
+  }
+  if (fx.draw)
+    for (const F of faces) {
+      ctx.save();
+      try {
+        fx.draw(ctx, F, env);
+      } finally {
+        ctx.restore();
+      }
+    }
+  stepParticles(ctx, dt);
+  fpsAcc += dt;
+  fpsN++;
+  if (fpsAcc >= 1) {
+    $2("fps").textContent = Math.round(fpsN / fpsAcc) + " fps";
+    $2("faceBadge").textContent = "\uD83D\uDC64 " + faces.length;
+    fpsAcc = 0;
+    fpsN = 0;
+  }
+}
+async function loadSwapSource(src) {
+  if (!fileset)
+    throw new Error("人臉偵測模型尚未載入");
+  log("換臉 步驟1 讀取人像");
+  const url = typeof src === "string" ? src : URL.createObjectURL(src);
+  const img = new Image;
+  await new Promise((res2, rej) => {
+    img.onload = res2;
+    img.onerror = () => rej(new Error("人像讀取失敗"));
+    img.src = url;
+  });
+  if (!imageLandmarker) {
+    imageLandmarker = await FaceLandmarker.createFromOptions(fileset, {
+      baseOptions: { modelAssetPath: MODEL_URL, delegate: "CPU" },
+      runningMode: "IMAGE",
+      numFaces: 1
+    });
+  }
+  const res = imageLandmarker.detect(img);
+  if (!res.faceLandmarks || !res.faceLandmarks.length)
+    throw new Error("這張圖裡找不到臉，請換一張正面、清楚的人像");
+  log("換臉 步驟2 人像偵測到臉，特徵點", res.faceLandmarks[0].length);
+  if (!swap)
+    swap = createSwap(conn.tess);
+  swap.setSource(img, res.faceLandmarks[0]);
+  log("換臉 步驟3 就緒，網格三角形數", swap.triangles);
+}
+var swapPick = document.createElement("input");
+swapPick.type = "file";
+swapPick.accept = "image/*";
+swapPick.onchange = async () => {
+  const f = swapPick.files[0];
+  swapPick.value = "";
+  if (!f)
+    return;
+  try {
+    await loadSwapSource(f);
+    setEffect(EFFECTS.find((e) => e.swap), true);
+    toast("\uD83D\uDD01 換臉已套用（再點一次「換臉」可換人像）", 2600);
+  } catch (e) {
+    toast(e.message, 3500);
+    log("換臉失敗:", e.message);
+  }
+};
+function setEffect(fx, quiet) {
+  log("切換特效:", S.effect.name, "→", fx.name);
+  S.effect = fx;
+  particles.length = 0;
+  faceStates = [];
+  document.querySelectorAll(".fx").forEach((b) => b.classList.toggle("on", b.dataset.id === fx.id));
+  if (!quiet)
+    toast(fx.hint ? `${fx.icon} ${fx.name}：${fx.hint}` : `${fx.icon} ${fx.name}`, fx.hint ? 2800 : 1200);
+}
+function setColor(c, quiet) {
+  log("切換濾鏡:", S.color.name, "→", c.name);
+  S.color = c;
+  document.querySelectorAll("#colorGrid button").forEach((b) => b.classList.toggle("on", b.dataset.id === c.id));
+  if (!quiet) {
+    const n = $2("filterName");
+    n.textContent = c.name;
+    n.classList.add("on");
+    clearTimeout(setColor.t);
+    setColor.t = setTimeout(() => n.classList.remove("on"), 900);
+  }
+}
+function buildUi() {
+  const bar = $2("fxBar");
+  for (const fx of EFFECTS) {
+    const b = document.createElement("button");
+    b.className = "fx";
+    b.dataset.id = fx.id;
+    const i = document.createElement("i");
+    i.textContent = fx.icon;
+    const s = document.createElement("span");
+    s.textContent = fx.name;
+    b.append(i, s);
+    bar.append(b);
+    b.onclick = () => {
+      if (fx.swap && (!swap || !swap.ready || S.effect === fx)) {
+        toast("請選一張正面清楚的人像（請使用自己或已取得同意的照片）", 3000);
+        swapPick.click();
+        return;
+      }
+      setEffect(fx);
+    };
+  }
+  const grid = $2("colorGrid");
+  for (const c of COLOR_FILTERS) {
+    const b = document.createElement("button");
+    b.textContent = c.name;
+    b.dataset.id = c.id;
+    b.onclick = () => setColor(c);
+    grid.append(b);
+  }
+  setEffect(S.effect, true);
+  setColor(S.color, true);
+  const map = { bSmooth: "smooth", bWhiten: "whiten", bEye: "eye", bSlim: "slim" };
+  const sync = () => {
+    for (const [id, k] of Object.entries(map)) {
+      $2(id).value = Math.round(S.beauty[k] * 100);
+      $2(id).nextElementSibling.textContent = $2(id).value;
+    }
+  };
+  for (const [id, k] of Object.entries(map))
+    $2(id).oninput = (e) => {
+      S.beauty[k] = e.target.value / 100;
+      e.target.nextElementSibling.textContent = e.target.value;
+    };
+  $2("bReset").onclick = () => {
+    S.beauty = { smooth: 0, whiten: 0, eye: 0, slim: 0 };
+    sync();
+  };
+  $2("bDefault").onclick = () => {
+    S.beauty = { smooth: 0.4, whiten: 0.25, eye: 0.2, slim: 0.2 };
+    sync();
+  };
+  sync();
+  $2("btnBeauty").onclick = () => openSheet("sheetBeauty");
+  $2("btnColor").onclick = () => openSheet("sheetColor");
+  $2("btnGallery").onclick = () => {
+    renderGallery();
+    openSheet("sheetGallery");
+  };
+  $2("btnFlip").onclick = $2("btnFlip2").onclick = flip;
+  $2("btnTimer").onclick = () => {
+    S.timer = TIMERS[(TIMERS.indexOf(S.timer) + 1) % TIMERS.length];
+    $2("timerLbl").textContent = S.timer ? S.timer + " 秒" : "計時";
+    $2("btnTimer").classList.toggle("on", !!S.timer);
+  };
+  $2("btnAspect").onclick = () => {
+    S.aspect = (S.aspect + 1) % ASPECTS.length;
+    $2("aspectLbl").textContent = ASPECTS[S.aspect][0];
+    smoothPts = [];
+    if (S.busy)
+      toast("比例會在這段錄影/直播結束後更換較穩定");
+  };
+  $2("btnMic").onclick = () => {
+    S.mic = !S.mic;
+    $2("btnMic").classList.toggle("off", !S.mic);
+    $2("micLbl").textContent = S.mic ? "收音" : "靜音";
+    if (micTrack)
+      micTrack.enabled = S.mic;
+  };
+  const pick = document.createElement("input");
+  pick.type = "file";
+  pick.accept = "image/*,video/*";
+  pick.onchange = () => useFile(pick.files[0]).catch((e) => toast(e.message));
+  $2("btnSource").onclick = () => pick.click();
+  $2("filePick").onchange = (e) => useFile(e.target.files[0]).catch((err) => {
+    $2("bootMsg").textContent = err.message;
+  });
+  document.querySelectorAll("#modes button").forEach((b) => b.onclick = () => {
+    if (S.busy)
+      return;
+    S.mode = b.dataset.mode;
+    document.body.dataset.mode = S.mode;
+    document.querySelectorAll("#modes button").forEach((x) => x.classList.toggle("on", x === b));
+  });
+  document.body.dataset.mode = S.mode;
+  $2("shutter").onclick = onShutter;
+  let sx = null;
+  const stage = $2("stage");
+  stage.addEventListener("pointerdown", (e) => {
+    sx = e.clientX;
+  });
+  stage.addEventListener("pointerup", (e) => {
+    if (sx === null)
+      return;
+    const dx = e.clientX - sx;
+    sx = null;
+    if (Math.abs(dx) < 60 || !$2("boot").classList.contains("hide"))
+      return;
+    const i = COLOR_FILTERS.indexOf(S.color), n = COLOR_FILTERS.length;
+    setColor(COLOR_FILTERS[(i + (dx < 0 ? 1 : -1) + n) % n]);
+  });
+  window.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "INPUT")
+      return;
+    if (e.code === "Space") {
+      e.preventDefault();
+      onShutter();
+    }
+    const i = EFFECTS.indexOf(S.effect), n = EFFECTS.length;
+    if (e.code === "ArrowRight")
+      setEffect(EFFECTS[(i + 1) % n]);
+    if (e.code === "ArrowLeft")
+      setEffect(EFFECTS[(i - 1 + n) % n]);
+  });
+}
+async function countdown() {
+  if (!S.timer)
+    return;
+  const c = $2("countdown");
+  c.classList.add("on");
+  for (let i = S.timer;i > 0; i--) {
+    c.textContent = i;
+    await sleep(1000);
+  }
+  c.classList.remove("on");
+}
+function addToGallery(item) {
+  item.url = URL.createObjectURL(item.blob);
+  gallery.unshift(item);
+  $2("galCount").textContent = gallery.length;
+  const th = $2("galThumb");
+  th.textContent = "";
+  if (item.type === "photo")
+    th.style.backgroundImage = `url(${item.url})`;
+  else {
+    th.style.backgroundImage = "";
+    th.textContent = "\uD83C\uDFAC";
+  }
+}
+async function takePhoto() {
+  await countdown();
+  log("拍照 步驟1 擷取畫布", out.width + "x" + out.height);
+  const blob = await new Promise((r) => out.toBlob(r, "image/jpeg", 0.93));
+  const f = $2("flash");
+  f.classList.remove("on");
+  f.offsetWidth;
+  f.classList.add("on");
+  const item = { type: "photo", blob, name: `facecam_${stamp()}.jpg` };
+  addToGallery(item);
+  log("拍照 步驟2 完成", (blob.size / 1024).toFixed(0) + " KB");
+  toast("\uD83D\uDCF8 已拍下，點左下角查看");
+  return item;
+}
+function pickMime(list) {
+  return list.find((m) => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || "";
+}
+async function startRecording() {
+  if (!window.MediaRecorder)
+    return toast("這個瀏覽器不支援錄影");
+  await countdown();
+  const s = await getOutputStream();
+  const mime = pickMime(["video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"]);
+  const rec = new MediaRecorder(s, { mimeType: mime || undefined, videoBitsPerSecond: 5000000 });
+  const chunks = [];
+  const t0 = performance.now();
+  rec.ondataavailable = (e) => {
+    if (e.data.size)
+      chunks.push(e.data);
+  };
+  const tick = setInterval(() => {
+    $2("recTime").textContent = fmtTime((performance.now() - t0) / 1000);
+  }, 300);
+  rec.done = new Promise((res) => rec.onstop = () => {
+    clearInterval(tick);
+    const type = (rec.mimeType || mime || "video/webm").split(";")[0];
+    const blob = new Blob(chunks, { type });
+    const item = { type: "video", blob, name: `facecam_${stamp()}.${type.includes("mp4") ? "mp4" : "webm"}` };
+    addToGallery(item);
+    log("錄影 步驟2 結束", ((performance.now() - t0) / 1000).toFixed(1) + " 秒", (blob.size / 1048576).toFixed(2) + " MB", type);
+    s.getVideoTracks().forEach((t) => t.stop());
+    res(item);
+  });
+  rec.start(500);
+  S.recorder = rec;
+  S.busy = true;
+  document.body.classList.add("busy");
+  $2("recBadge").hidden = false;
+  $2("recTime").textContent = "00:00";
+  log("錄影 步驟1 開始，格式:", rec.mimeType || mime, "聲音:", s.getAudioTracks().length ? "有" : "無");
+}
+async function stopRecording() {
+  const rec = S.recorder;
+  if (!rec)
+    return null;
+  S.recorder = null;
+  rec.stop();
+  const item = await rec.done;
+  S.busy = false;
+  document.body.classList.remove("busy");
+  $2("recBadge").hidden = true;
+  showPreview(item);
+  return item;
+}
+async function onShutter() {
+  if (!S.src)
+    return;
+  if (onShutter.lock)
+    return;
+  onShutter.lock = true;
+  try {
+    if (S.mode === "photo")
+      await takePhoto();
+    else if (S.mode === "video") {
+      if (S.recorder)
+        await stopRecording();
+      else
+        await startRecording();
+    } else if (S.mode === "live") {
+      if (S.live)
+        await live.stop();
+      else
+        live.openSetup();
+    }
+  } catch (e) {
+    toast("失敗：" + e.message);
+    log("快門錯誤", e);
+  } finally {
+    onShutter.lock = false;
+  }
+}
+var pvItem = null;
+function showPreview(item) {
+  pvItem = item;
+  const box = $2("pvBox");
+  box.textContent = "";
+  $2("pvTitle").textContent = (item.type === "photo" ? "\uD83D\uDCF8 照片 " : "\uD83C\uDFAC 影片 ") + (item.blob.size / 1048576).toFixed(2) + " MB";
+  const el = document.createElement(item.type === "photo" ? "img" : "video");
+  el.src = item.url;
+  if (item.type === "video") {
+    el.controls = true;
+    el.playsInline = true;
+    el.loop = true;
+    el.autoplay = true;
+  }
+  box.append(el);
+  $2("pvShare").style.display = navigator.canShare ? "" : "none";
+  openSheet("sheetPreview");
+}
+function renderGallery() {
+  const g = $2("galGrid");
+  g.textContent = "";
+  $2("galEmpty").style.display = gallery.length ? "none" : "";
+  for (const item of gallery) {
+    const d = document.createElement("div");
+    d.className = "it";
+    const el = document.createElement(item.type === "photo" ? "img" : "video");
+    el.src = item.url;
+    if (item.type === "video") {
+      el.muted = true;
+      el.preload = "metadata";
+    }
+    const s = document.createElement("span");
+    s.textContent = item.type === "photo" ? "\uD83D\uDCF8" : "\uD83C\uDFAC";
+    d.append(el, s);
+    d.onclick = () => showPreview(item);
+    g.append(d);
+  }
+}
+$2("pvSave").onclick = () => {
+  if (!pvItem)
+    return;
+  const a = document.createElement("a");
+  a.href = pvItem.url;
+  a.download = pvItem.name;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  toast("已儲存到下載資料夾：" + pvItem.name, 2500);
+};
+$2("pvShare").onclick = async () => {
+  if (!pvItem)
+    return;
+  const file = new File([pvItem.blob], pvItem.name, { type: pvItem.blob.type });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] }))
+      await navigator.share({ files: [file], title: "濾鏡相機" });
+    else
+      toast("這個裝置不支援直接分享，請先儲存");
+  } catch {}
+};
+$2("pvDel").onclick = () => {
+  if (!pvItem)
+    return;
+  const i = gallery.indexOf(pvItem);
+  if (i >= 0)
+    gallery.splice(i, 1);
+  URL.revokeObjectURL(pvItem.url);
+  pvItem = null;
+  $2("galCount").textContent = gallery.length || "";
+  const th = $2("galThumb");
+  const first = gallery[0];
+  th.style.backgroundImage = first && first.type === "photo" ? `url(${first.url})` : "";
+  th.textContent = first ? first.type === "photo" ? "" : "\uD83C\uDFAC" : "\uD83D\uDDBC️";
+  renderGallery();
+  openSheet(gallery.length ? "sheetGallery" : null);
+};
+var live = initLive({
+  getStream: getOutputStream,
+  toast,
+  log,
+  openSheet,
+  fmtTime,
+  onState(on) {
+    S.live = on;
+    S.busy = on;
+    document.body.classList.toggle("busy", on);
+  }
+});
+async function boot() {
+  buildUi();
+  try {
+    pipe = createPipeline(glCanvas);
+  } catch (e) {
+    $2("bootMsg").textContent = e.message;
+    return;
+  }
+  try {
+    await initModel();
+  } catch (e) {
+    log("模型載入失敗", e);
+    errors.push("model: " + e.message);
+    $2("bootMsg").textContent = `人臉偵測模型載入失敗（臉部特效無法使用，調色濾鏡仍可用）：
+` + e.message;
+  }
+  requestAnimationFrame(frame);
+  const tryStart = async () => {
+    $2("bootMsg").textContent = "正在開啟相機…請允許使用相機";
+    try {
+      await startCamera();
+      $2("boot").classList.add("hide");
+      toast("左右滑換濾鏡 · 下方選臉部特效", 3000);
+    } catch (e) {
+      log("相機開啟失敗", e);
+      const why = e.name === "NotAllowedError" ? "相機權限被拒絕，請在網址列旁允許相機後再試。" : e.name === "NotFoundError" ? "找不到相機。" : e.message;
+      $2("bootMsg").textContent = why + `
+也可以改用照片或影片試玩。`;
+      $2("bootBtns").hidden = false;
+    }
+  };
+  $2("btnStart").onclick = tryStart;
+  await tryStart();
+  if (SELFTEST)
+    selftest();
+  if (Q.get("selftest") === "live")
+    liveTest();
+}
+async function liveTest() {
+  const rep = { errors };
+  try {
+    await sleep(2000);
+    await live.startLan();
+    const f = document.createElement("iframe");
+    f.src = "watch.html";
+    f.allow = "autoplay";
+    f.style.cssText = "position:fixed;left:0;top:0;width:320px;height:240px;z-index:99";
+    document.body.append(f);
+    for (let i = 0;i < 40; i++) {
+      await sleep(500);
+      const v2 = f.contentDocument && f.contentDocument.getElementById("v");
+      if (v2 && v2.videoWidth > 0 && v2.currentTime > 0.5) {
+        rep.viewer = { w: v2.videoWidth, h: v2.videoHeight, t: v2.currentTime };
+        break;
+      }
+    }
+    f.contentWindow.document.getElementById("like").click();
+    f.contentWindow.document.getElementById("t").value = "哈囉主播";
+    f.contentWindow.document.getElementById("f").requestSubmit();
+    await sleep(800);
+    rep.viewers = $2("liveViewers").textContent;
+    rep.chat = $2("chatList").textContent;
+    rep.hearts = $2("hearts").childElementCount;
+    const v = f.contentDocument.getElementById("v"), c = document.createElement("canvas");
+    c.width = v.videoWidth;
+    c.height = v.videoHeight;
+    c.getContext("2d").drawImage(v, 0, 0);
+    await fetch("/__report?name=viewer.jpg", { method: "POST", body: await new Promise((r) => c.toBlob(r, "image/jpeg", 0.85)) });
+    await live.stop();
+    await sleep(500);
+    rep.stopped = !S.live && $2("liveBadge").hidden;
+  } catch (e) {
+    errors.push("liveTest: " + (e.stack || e.message));
+  }
+  rep.done = true;
+  await fetch("/__report?name=live.json", { method: "POST", body: JSON.stringify(rep, null, 2) });
+}
+async function selftest() {
+  const post = (name, body) => fetch("/__report?name=" + encodeURIComponent(name), { method: "POST", body });
+  const rep = { ua: navigator.userAgent, canvas: "", effects: {}, colors: [], errors };
+  try {
+    await sleep(2500);
+    rep.canvas = out.width + "x" + out.height;
+    rep.source = S.srcKind;
+    rep.model = !!landmarker;
+    for (const fx of EFFECTS) {
+      setEffect(fx, true);
+      await sleep(700);
+      rep.effects[fx.id] = { faces: faces.length, particles: particles.length };
+      await post(`fx-${fx.id}.jpg`, await new Promise((r) => out.toBlob(r, "image/jpeg", 0.85)));
+    }
+    await loadSwapSource("test/business-person.png");
+    setEffect(EFFECTS.find((e) => e.swap), true);
+    await sleep(1200);
+    rep.swap = { ready: swap.ready, triangles: swap.triangles, faces: faces.length };
+    await post("fx-swap.jpg", await new Promise((r) => out.toBlob(r, "image/jpeg", 0.9)));
+    setEffect(EFFECTS[0], true);
+    for (const c of COLOR_FILTERS) {
+      setColor(c, true);
+      await sleep(250);
+      rep.colors.push(c.id);
+      await post(`color-${c.id}.jpg`, await new Promise((r) => out.toBlob(r, "image/jpeg", 0.85)));
+    }
+    setColor(COLOR_FILTERS[0], true);
+    S.aspect = 1;
+    await sleep(400);
+    rep.portrait = out.width + "x" + out.height;
+    rep.portraitFaces = faces.length;
+    setEffect(EFFECTS.find((e) => e.id === "shades"), true);
+    await sleep(500);
+    await post("aspect-9x16.jpg", await new Promise((r) => out.toBlob(r, "image/jpeg", 0.85)));
+    S.aspect = 0;
+    await sleep(300);
+    const p = await takePhoto();
+    rep.photo = { size: p.blob.size, type: p.blob.type };
+    S.mode = "video";
+    await startRecording();
+    await sleep(2500);
+    const v = await stopRecording();
+    rep.video = { size: v.blob.size, type: v.blob.type };
+    await post("record." + v.name.split(".").pop(), v.blob);
+    rep.fps = $2("fps").textContent;
+  } catch (e) {
+    errors.push("selftest: " + (e.stack || e.message));
+  }
+  rep.done = true;
+  await post("report.json", JSON.stringify(rep, null, 2));
+}
+boot();
+</script>
+</body>
+</html>
