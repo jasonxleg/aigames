@@ -74,12 +74,28 @@
   .stat.conflict, .stat.typeConflict, .stat.caseConflict, .stat.badName { background: #fee2e2; color: #b91c1c; }
   .stat.gdoc { background: #fef9c3; color: #854d0e; }
   .note { color: var(--mut); font-size: 12px; margin-left: 6px; }
+  .ign { margin-top: 14px; border: 1px dashed #d1d5db; border-radius: 12px; padding: 10px 12px; background: #fafafa; }
+  .ign .ttl { font-size: 14px; font-weight: 700; margin-bottom: 8px; color: #374151; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+  .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; padding: 3px 4px 3px 10px; border-radius: 14px; background: #fff; border: 1px solid #e5e7eb; font-family: Consolas, monospace; }
+  .tag.dir { border-color: #fcd34d; background: #fffbeb; } .tag.ext { border-color: #c4b5fd; background: #f5f3ff; } .tag.path { border-color: #fca5a5; background: #fef2f2; }
+  .tag button { padding: 0 7px; font-size: 13px; line-height: 18px; background: transparent; color: #9ca3af; border-radius: 10px; }
+  .tag button:hover { background: #fee2e2; color: var(--bad); }
+  .tag.def { opacity: .6; }
+  td.ig { padding: 2px 4px; }
+  .tw, .tw0 { display: inline-block; width: 16px; font-size: 10px; color: #6b7280; text-align: center; }
+  .cnt { font-size: 11.5px; color: #6b7280; background: #f3f4f6; border-radius: 9px; padding: 0 7px; margin-left: 6px; }
+  .igb { padding: 2px 6px; font-size: 12px; background: transparent; color: #c0c4cc; border-radius: 6px; }
+  tr:hover .igb { color: #6b7280; } .igb:hover { background: #fee2e2; color: var(--bad) !important; }
+  .menu .sep { height: 1px; padding: 0; margin: 4px 6px; background: #e5e7eb; cursor: default; }
+  code { background: #f3f4f6; border-radius: 4px; padding: 0 4px; font-size: 12px; }
   .menu { position: absolute; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.15); padding: 4px; z-index: 50; }
   .menu div { padding: 7px 14px; font-size: 13.5px; cursor: pointer; border-radius: 6px; white-space: nowrap; }
   .menu div:hover { background: #f3f4f6; }
   .planbar { position: fixed; left: 0; right: 0; bottom: 0; background: #111827; color: #fff; padding: 12px 18px; display: none; z-index: 40; }
   .planbar .in { max-width: 1280px; margin: 0 auto; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 14px; }
   .planbar .sp { flex: 1; }
+  .btn-quick { background: rgba(255,255,255,.14); color: #fff; }
   .bar { height: 12px; background: #e5e7eb; border-radius: 6px; overflow: hidden; }
   .bar > div { height: 100%; width: 0; background: linear-gradient(90deg, #1a73e8, #0d9488); transition: width .3s; }
   .logbox { background: #0f172a; color: #cbd5e1; font-family: Consolas, monospace; font-size: 12px; border-radius: 10px; padding: 10px 12px; max-height: 260px; overflow: auto; white-space: pre-wrap; margin-top: 10px; }
@@ -151,17 +167,30 @@
       <label class="opt"><input type="radio" name="mode" value="update-left"><span>← Drive 更新到本機<small>只下載 Drive 新增/較新的檔，不刪任何東西</small></span></label>
       <label class="opt"><input type="radio" name="mode" value="mirror-left"><span>⇇ Drive 鏡像到本機<small>本機變成跟 Drive 一模一樣；本機多的移到 .sync-trash</small></span></label>
     </div>
+    <div class="ign">
+      <div class="ttl">🚫 忽略清單 <span class="hint">（這個組合專用，自動儲存；之後每次比對都不會再顯示這些項目）</span></div>
+      <div class="row" style="gap:8px">
+        <input type="text" id="ignDir" placeholder="忽略資料夾，例：.git、node_modules、docs/old" style="flex:1;min-width:200px" onkeydown="if(event.key==='Enter')addIgnore('dir')">
+        <button class="btn-sm" onclick="addIgnore('dir')">＋ 加入資料夾</button>
+        <input type="text" id="ignExt" placeholder="忽略檔案格式，例：*.git、.log、psd" style="flex:1;min-width:200px" onkeydown="if(event.key==='Enter')addIgnore('ext')">
+        <button class="btn-sm" onclick="addIgnore('ext')">＋ 加入格式</button>
+      </div>
+      <div class="tags" id="ignTags"></div>
+      <div class="hint">也可以在比對結果每一列右邊按 <b>🚫</b>（或在該列按右鍵），直接忽略那個檔案／資料夾／同格式的檔。</div>
+    </div>
     <details>
-      <summary>進階：比對方式、排除清單</summary>
+      <summary>進階：比對方式、直接編輯忽略規則</summary>
       <div class="row" style="margin:6px 0">
         <label class="opt"><input type="radio" name="cmp" value="fast" checked> 快速：大小 + 修改時間</label>
         <label class="opt"><input type="radio" name="cmp" value="md5"> 精確：大小相同時再算 MD5 內容</label>
       </div>
-      <div class="hint">排除清單（一行一個，可用 * ?；含「/」的規則比對相對路徑）</div>
-      <textarea id="excludes" rows="5"></textarea>
+      <div class="hint">忽略規則（一行一個，可用 * ?，不分大小寫）：<code>名稱</code> 任何位置的同名檔案/資料夾；<code>名稱/</code> 只限資料夾；<code>*.副檔名</code> 檔案格式；<code>/路徑</code> 從根目錄算的完整路徑；<code>#</code> 開頭是註解</div>
+      <textarea id="excludes" rows="6" oninput="onRulesTyped()"></textarea>
     </details>
     <div class="row" style="margin-top:14px">
       <button class="btn-pri" id="btnCompare" onclick="doCompare()">🔍 開始比對</button>
+      <button id="qUp" onclick="quickAll('up')" title="比對後把本機所有不同的檔案上傳到 Drive（不刪、不下載任何東西）">⬆ 一鍵全部上傳</button>
+      <button id="qDown" onclick="quickAll('down')" title="比對後把 Drive 所有不同的檔案下載到本機（不刪、不上傳任何東西）">⬇ 一鍵全部下載</button>
       <span class="hint" id="cmpMsg"></span>
     </div>
   </div>
@@ -177,10 +206,13 @@
       <button class="btn-sm" onclick="bulk('down')">← 下載</button>
       <button class="btn-sm" onclick="bulk('skip')">— 略過</button>
       <button class="btn-sm" onclick="bulk('default')">↺ 恢復預設</button>
+      <span style="flex:1"></span>
+      <button class="btn-sm" onclick="expandAll(true)">▼ 全部展開</button>
+      <button class="btn-sm" onclick="expandAll(false)">▶ 全部收合</button>
     </div>
     <div class="tbl">
       <table>
-        <thead><tr><th>名稱（相對路徑）</th><th>💻 本機大小</th><th>本機修改時間</th><th style="text-align:center">動作</th><th>☁️ Drive 大小</th><th>Drive 修改時間</th><th>狀態</th></tr></thead>
+        <thead><tr><th>名稱（相對路徑）</th><th>💻 本機大小</th><th>本機修改時間</th><th style="text-align:center">動作</th><th>☁️ Drive 大小</th><th>Drive 修改時間</th><th>狀態</th><th title="忽略">🚫</th></tr></thead>
         <tbody id="tb"></tbody>
       </table>
     </div>
@@ -209,6 +241,8 @@
 
 <div class="planbar" id="planbar"><div class="in">
   <span id="planTxt"></span><span class="sp"></span>
+  <button class="btn-quick" id="qUp2" onclick="quickAll('up')">⬆ 一鍵全部上傳</button>
+  <button class="btn-quick" id="qDown2" onclick="quickAll('down')">⬇ 一鍵全部下載</button>
   <button class="btn-go" id="btnRun" onclick="doRun()">✅ 開始同步</button>
 </div></div>
 
@@ -322,12 +356,31 @@ const MD5 = (() => {
 })();
 
 /* ---------- 排除規則 ---------- */
+// 規則語法（一行一個，* ? 萬用字元，不分大小寫）：
+//   node_modules   → 任何位置叫這個名字的檔案或資料夾
+//   node_modules/  → 結尾「/」= 只比對資料夾
+//   *.git          → 檔案格式（副檔名）；也會比對到名叫「.git」的資料夾
+//   /docs/old.txt  → 開頭「/」或中間含「/」= 從根目錄算起的完整相對路徑
 function parseExcludes(text) {
-  return String(text).split(/[\r\n,]+/).map((s) => s.trim()).filter(Boolean).map((p) => ({
-    re: new RegExp('^' + p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$', 'i'), slash: p.includes('/')
-  }));
+  return String(text).split(/[\r\n,]+/).map((s) => s.trim()).filter((s) => s && !s.startsWith('#')).map((p) => {
+    const dirOnly = p.length > 1 && p.endsWith('/');
+    let s = dirOnly ? p.slice(0, -1) : p;
+    const slash = s.includes('/');
+    s = s.replace(/^\/+/, '');
+    return { src: p, dirOnly, slash, re: new RegExp('^' + s.normalize('NFC').replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$', 'i') };
+  });
 }
-const isExcluded = (name, rel, rules) => rules.some((r) => r.re.test(r.slash ? rel : name));
+const isExcluded = (name, rel, rules, isDir) => rules.some((r) => (!r.dirOnly || isDir) && r.re.test((r.slash ? rel : name).normalize('NFC')));
+// 比對結果裡的某一列（含它所在的上層資料夾）是否被規則忽略
+function keyExcluded(key, isDir, rules) {
+  const seg = key.split('/');
+  for (let i = 1; i <= seg.length; i++) if (isExcluded(seg[i - 1], seg.slice(0, i).join('/'), rules, i < seg.length || isDir)) return true;
+  return false;
+}
+// 把使用者輸入的「格式」正規化成規則：git / .git / *.git → *.git
+function extRule(s) { s = s.trim(); if (!s) return ''; if (s.includes('*') || s.includes('?')) return s; return '*.' + s.replace(/^\.+/, ''); }
+// 把資料夾輸入正規化：node_modules → node_modules/；含「/」的視為從根目錄算的路徑
+function dirRule(s) { s = s.trim().replace(/\\/g, '/').replace(/\/+$/, ''); if (!s) return ''; return (s.includes('/') && !s.startsWith('/') ? '/' : '') + s + '/'; }
 
 const WIN_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
 function badLocalName(name) {
@@ -495,7 +548,7 @@ async function scanLocal(root, rules, onP) {
     for await (const [name, h] of dir.entries()) {
       const r = rel ? rel + '/' + name : name;
       if (!rel && name === TRASH) continue;              // 工具自己的備份區不同步
-      if (isExcluded(name, r, rules)) continue;
+      if (isExcluded(name, r, rules, h.kind === 'directory')) continue;
       if (h.kind === 'directory') subs.push([h, r]); else files.push([h, r]);
     }
     await Promise.all(files.map(async ([h, r]) => {
@@ -519,7 +572,7 @@ async function scanDrive(rootId, rules, onP, isCancel) {
         listChildren(it.id).then((kids) => {
           for (const f of kids) {
             const r = it.rel ? it.rel + '/' + f.name : f.name;
-            if (isExcluded(f.name, r, rules)) continue;
+            if (isExcluded(f.name, r, rules, f.mimeType === FOLDER_MIME)) continue;
             if (!it.rel && f.name === TRASH) continue;
             if (f.name.includes('/')) { issues.push({ side: 'Drive', path: r, error: '名稱含「/」無法對應本機路徑，略過' }); continue; }
             const key = r.normalize('NFC');
@@ -811,12 +864,12 @@ function showPair() {
   $('rPath').textContent = cur.drivePath || '尚未選擇'; $('rPath').classList.toggle('empty', !cur.drivePath);
   document.querySelector(`input[name=mode][value="${cur.mode}"]`).checked = true;
   document.querySelector(`input[name=cmp][value="${cur.cmp}"]`).checked = true;
-  $('excludes').value = cur.excludes;
+  $('excludes').value = cur.excludes; renderIgnTags();
   const nb = Object.keys(cur.base || {}).length;
   $('cmpMsg').textContent = nb ? `已記住上次同步狀態（${nb} 項），可偵測兩邊的修改與刪除` : '';
   fillPairSel();
 }
-async function loadPair(id) { cur = pairs.find((p) => p.id === id); localStorage.setItem('dsync_last', id); resetResult(); showPair(); }
+async function loadPair(id) { expanded = new Set(); cur = pairs.find((p) => p.id === id); localStorage.setItem('dsync_last', id); resetResult(); showPair(); }
 async function newPair() { cur = newPairObj(); pairs.push(cur); await savePair(); resetResult(); showPair(); }
 async function renamePair() { const n = prompt('組合名稱', cur.name); if (n) { cur.name = n.trim(); await savePair(); fillPairSel(); } }
 async function deletePair() {
@@ -912,6 +965,7 @@ async function doCompare() {
   btn.disabled = false;
 }
 function applyDefaults() {
+  manual = new Set();
   actions = new Map(cmp.rows.map((r) => [r.key, defaultAction(r, mode())]));
   // 資料夾預設要刪，但裡面有新東西要保留 → 資料夾改成略過（裡面的新檔照常傳）
   for (const r of cmp.rows) {
@@ -932,26 +986,53 @@ function visibleRows() {
   const f = FILTERS.find((x) => x[0] === filter), q = $('q').value.trim().toLowerCase();
   return cmp.rows.filter((r) => (f[2] ? f[2](r) : r.status === f[0]) && (!q || r.key.toLowerCase().includes(q)));
 }
+// 樹狀顯示：資料夾預設收合。符合篩選的列 + 它們的上層資料夾（當目錄用），再依展開狀態決定要不要畫出來
+let expanded = new Set();
+function treeRows() {
+  const match = visibleRows(), searching = !!$('q').value.trim();
+  const inside = new Map(), hasKids = new Set();
+  if (searching) return { rows: match, inside, hasKids, searching };   // 搜尋時直接攤平列出全部符合的
+  const need = new Set(match.map((r) => r.key));
+  for (const r of match) {
+    let d = dirOf(r.key);
+    while (d) { need.add(d); hasKids.add(d); if (r.key !== d) inside.set(d, (inside.get(d) || 0) + 1); d = dirOf(d); }
+  }
+  const rows = cmp.rows.filter((r) => {
+    if (!need.has(r.key)) return false;
+    for (let d = dirOf(r.key); d; d = dirOf(d)) if (!expanded.has(d)) return false;
+    return true;
+  });
+  return { rows, inside, hasKids, searching };
+}
+function toggleDir(k) { if (expanded.has(k)) { for (const e of [...expanded]) if (e === k || isUnder(e, k)) expanded.delete(e); } else expanded.add(k); render(); }
+function expandAll(on) { expanded = new Set(on ? cmp.rows.filter((r) => (r.l || r.r).type === 'dir').map((r) => r.key) : []); render(); }
 function render() {
   if (!cmp) return;
   $('chips').innerHTML = FILTERS.map(([k, label, fn]) => {
     const n = cmp.rows.filter((r) => fn ? fn(r) : r.status === k).length;
     return n || k === 'diff' || k === 'all' ? `<span class="chip ${filter === k ? 'on' : ''}" onclick="filter='${k}';renderLimit=1500;render()">${label}<b>${n}</b></span>` : '';
   }).join('');
-  const rows = visibleRows(), shown = rows.slice(0, renderLimit);
+  const { rows, inside, hasKids, searching } = treeRows(), shown = rows.slice(0, renderLimit);
   $('tb').innerHTML = shown.map((r, i) => {
     const depth = r.key.split('/').length - 1, isDir = (r.l || r.r).type === 'dir';
-    const icon = isDir ? '📁' : r.r && r.r.type === 'gdoc' ? '📄' : '　';
+    const open = searching || expanded.has(r.key);
+    const tw = isDir && hasKids.has(r.key) && !searching ? `<span class="tw" data-t="${i}">${open ? '▼' : '▶'}</span>` : '<span class="tw0"></span>';
+    const icon = tw + (isDir ? (open && hasKids.has(r.key) ? '📂' : '📁') : r.r && r.r.type === 'gdoc' ? '📄' : '　');
+    const cnt = isDir && !open && inside.get(r.key) ? `<span class="cnt">${inside.get(r.key)} 項</span>` : '';
     const a = actions.get(r.key), lN = r.status === 'leftNewer', rN = r.status === 'rightNewer';
     const lsz = r.l ? (r.l.type === 'dir' ? '' : human(r.l.size)) : '', rsz = r.r ? (r.r.type === 'file' ? human(r.r.size) : '') : '';
     return `<tr class="st-${r.status}" title="${esc(r.key)}">
-      <td class="name" style="padding-left:${8 + depth * 16}px">${icon} ${esc(baseOf(r.key))}${r.note ? `<span class="note">${esc(r.note)}</span>` : ''}</td>
+      <td class="name" style="padding-left:${8 + depth * 16}px">${icon} ${esc(baseOf(r.key))}${cnt}${r.note ?`<span class="note">${esc(r.note)}</span>` : ''}</td>
       <td class="num Lc">${r.l ? lsz : '<span class="muted">—</span>'}</td><td class="Lc ${lN ? 'newer' : ''}">${r.l && r.l.type === 'file' ? fmtTime(r.l.mtime) : ''}</td>
       <td class="act"><button class="ab ${a}" data-i="${i}" ${r.allowed.length < 2 ? 'disabled' : ''}>${ACT[a]}</button></td>
       <td class="num Rc">${r.r ? rsz : '<span class="muted">—</span>'}</td><td class="Rc ${rN ? 'newer' : ''}">${r.r && r.r.type !== 'dir' ? fmtTime(r.r.mtime) : ''}</td>
-      <td><span class="stat ${r.status}">${STATUS[r.status]}</span></td></tr>`;
-  }).join('') || '<tr><td colspan="7" class="hint" style="text-align:center;padding:24px">沒有符合的項目 🎉</td></tr>';
+      <td><span class="stat ${r.status}">${STATUS[r.status]}</span></td>
+      <td class="ig"><button class="igb" data-g="${i}" title="忽略這個項目（以後不再比對）">🚫</button></td></tr>`;
+  }).join('') || '<tr><td colspan="8" class="hint" style="text-align:center;padding:24px">沒有符合的項目 🎉</td></tr>';
   $('tb').querySelectorAll('.ab').forEach((b) => b.onclick = (e) => openMenu(e, shown[+b.dataset.i]));
+  $('tb').querySelectorAll('.igb').forEach((b) => b.onclick = (e) => openIgnoreMenu(e, shown[+b.dataset.g]));
+  $('tb').querySelectorAll('.tw').forEach((t) => { const k = shown[+t.dataset.t].key; t.closest('td').onclick = (e) => { if (e.target.closest('.note')) return; toggleDir(k); }; t.closest('td').style.cursor = 'pointer'; });
+  $('tb').querySelectorAll('tr').forEach((tr, i) => { if (shown[i]) tr.oncontextmenu = (e) => { e.preventDefault(); openIgnoreMenu(e, shown[i]); }; });
   $('more').innerHTML = rows.length > renderLimit ? `只顯示前 ${renderLimit} 筆（共 ${rows.length}）<button class="btn-sm" onclick="renderLimit+=3000;render()">顯示更多</button>` : '';
   const iss = cmp.issues;
   $('issuesBox').style.display = iss.length ? '' : 'none';
@@ -973,28 +1054,160 @@ function renderPlan() {
     (dR ? `　🗑 Drive 刪除 <b style="color:#fca5a5">${dR}</b>` : '') + (dL ? `　🗑 本機刪除 <b style="color:#fca5a5">${dL}</b>` : '')
     : '兩邊已一致，沒有要做的事 ✔';
   $('btnRun').disabled = !n || !!running;
+  ['qUp', 'qDown', 'qUp2', 'qDown2'].forEach((id) => $(id).disabled = !!running);
 }
 let menuEl = null;
 function openMenu(e, row) {
   e.stopPropagation(); closeMenu();
   menuEl = document.createElement('div'); menuEl.className = 'menu';
-  menuEl.innerHTML = row.allowed.map((a) => `<div data-a="${a}">${ACT_MENU[a]}</div>`).join('') + `<div data-a="@def" class="hint">↺ 恢復預設（${ACT[defaultAction(row, mode())]}）</div>`;
-  const rc = e.target.getBoundingClientRect();
-  menuEl.style.left = Math.max(8, Math.min(window.innerWidth - 320, rc.left + scrollX - 100)) + 'px'; menuEl.style.top = (rc.bottom + scrollY + 4) + 'px';
-  menuEl.querySelectorAll('[data-a]').forEach((d) => d.onclick = () => { setAction(row, d.dataset.a === '@def' ? defaultAction(row, mode()) : d.dataset.a); closeMenu(); render(); });
+  menuEl.innerHTML = row.allowed.map((a) => `<div data-a="${a}">${ACT_MENU[a]}</div>`).join('') + `<div data-a="@def" class="hint">↺ 恢復預設（${ACT[defaultAction(row, mode())]}）</div>`
+    + '<div class="sep"></div>' + ignoreChoices(row).map((c, j) => `<div data-ig="${j}">${esc(c.label)}</div>`).join('');
+  placeMenu(e);
+  menuEl.querySelectorAll('[data-a]').forEach((d) => d.onclick = () => { setAction(row, d.dataset.a === '@def' ? defaultAction(row, mode()) : d.dataset.a); if (d.dataset.a === '@def') manual.delete(row.key); closeMenu(); render(); });
+  bindIgnoreChoices(row);
+}
+function placeMenu(e) {
+  const rc = e.type === 'contextmenu' ? { left: e.clientX, bottom: e.clientY } : e.target.getBoundingClientRect();
+  menuEl.style.left = Math.max(8, Math.min(window.innerWidth - 340, rc.left + scrollX - 100)) + 'px'; menuEl.style.top = (rc.bottom + scrollY + 4) + 'px';
   document.body.appendChild(menuEl);
+}
+/* ---------- 點選忽略 ---------- */
+// 一列可以怎麼忽略：這一個（完整路徑）／所有同名資料夾／所有同格式檔案
+function ignoreChoices(row) {
+  const isDir = (row.l || row.r).type === 'dir', name = baseOf(row.key), out = [];
+  if (isDir) {
+    out.push({ rule: '/' + row.key + '/', label: `🚫 忽略這個資料夾「${row.key}」（含裡面全部）` });
+    if (row.key.includes('/')) out.push({ rule: name + '/', label: `🚫 忽略所有叫「${name}」的資料夾` });
+  } else {
+    out.push({ rule: '/' + row.key, label: `🚫 忽略這個檔案「${row.key}」` });
+    const m = /^.+(\.[^.]+)$/.exec(name) || /^(\.[^.]+)$/.exec(name);
+    if (m) out.push({ rule: '*' + m[1], label: `🚫 忽略所有 *${m[1]} 格式的檔案` });
+    if (row.key.includes('/')) out.push({ rule: '/' + dirOf(row.key) + '/', label: `🚫 忽略它所在的資料夾「${dirOf(row.key)}」` });
+  }
+  return out;
+}
+function bindIgnoreChoices(row) {
+  const ch = ignoreChoices(row);
+  menuEl.querySelectorAll('[data-ig]').forEach((d) => d.onclick = async () => { closeMenu(); await addRules([ch[+d.dataset.ig].rule]); });
+}
+function openIgnoreMenu(e, row) {
+  e.stopPropagation(); closeMenu();
+  menuEl = document.createElement('div'); menuEl.className = 'menu';
+  menuEl.innerHTML = ignoreChoices(row).map((c, j) => `<div data-ig="${j}">${esc(c.label)}</div>`).join('');
+  placeMenu(e); bindIgnoreChoices(row);
+}
+const ruleLines = () => String(cur.excludes || '').split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+// 加規則：存進組合（IndexedDB）→ 立刻從目前結果拿掉
+async function addRules(list) {
+  const have = new Set(ruleLines().map((s) => s.toLowerCase()));
+  const add = list.map((s) => s.trim()).filter((s) => s && !have.has(s.toLowerCase()));
+  if (!add.length) return toast('這條規則已經在忽略清單裡了');
+  cur.excludes = [...ruleLines(), ...add].join('\n');
+  plog('加入忽略規則', add, '→ 共', ruleLines().length, '條');
+  await savePair(); $('excludes').value = cur.excludes; renderIgnTags();
+  const n = applyIgnoreToResult();
+  toast(`已忽略 ${add.join('、')}${n ? `（從結果移除 ${n} 項）` : ''}，下次比對也會略過`);
+}
+async function removeRule(idx) {
+  const lines = ruleLines(), gone = lines.splice(idx, 1);
+  cur.excludes = lines.join('\n'); plog('移除忽略規則', gone);
+  await savePair(); $('excludes').value = cur.excludes; renderIgnTags();
+  if (cmp) toast(`已移除「${gone[0]}」，重新比對後會再顯示`);
+}
+function addIgnore(kind) {
+  const el = $(kind === 'dir' ? 'ignDir' : 'ignExt');
+  const rules = el.value.split(/[,，;；\s]+/).map(kind === 'dir' ? dirRule : extRule).filter(Boolean);
+  if (!rules.length) return toast(kind === 'dir' ? '請輸入資料夾名稱' : '請輸入檔案格式，例如 *.git', true);
+  el.value = ''; addRules(rules);
+}
+let rulesTypedT;
+function onRulesTyped() {
+  clearTimeout(rulesTypedT);
+  rulesTypedT = setTimeout(async () => { cur.excludes = $('excludes').value; await savePair(); renderIgnTags(); applyIgnoreToResult(); }, 400);
+}
+function renderIgnTags() {
+  const def = new Set(DEFAULT_EXCLUDES.split('\n').map((s) => s.toLowerCase()));
+  const lines = ruleLines();
+  $('ignTags').innerHTML = lines.map((s, i) => {
+    if (s.startsWith('#')) return '';
+    const k = s.endsWith('/') ? 'dir' : s.slice(0, -1).includes('/') || s.startsWith('/') ? 'path' : /^\*\.[^*?/]+$/.test(s) ? 'ext' : '';
+    const ico = k === 'dir' ? '📁' : k === 'ext' ? '📄' : k === 'path' ? '📍' : '•';
+    return `<span class="tag ${k} ${def.has(s.toLowerCase()) ? 'def' : ''}" title="${def.has(s.toLowerCase()) ? '預設規則' : ''}">${ico} ${esc(s)}<button onclick="removeRule(${i})" title="移除">✕</button></span>`;
+  }).join('') || '<span class="hint">（目前沒有忽略任何東西）</span>';
+}
+// 用目前規則把比對結果中被忽略的列（含資料夾底下的）拿掉，不用重掃
+function applyIgnoreToResult() {
+  if (!cmp) return 0;
+  const rules = parseExcludes(cur.excludes), before = cmp.rows.length;
+  cmp.rows = cmp.rows.filter((r) => !keyExcluded(r.key, (r.l || r.r).type === 'dir', rules));
+  const n = before - cmp.rows.length;
+  if (n) { const keep = new Set(cmp.rows.map((r) => r.key)); for (const k of [...actions.keys()]) if (!keep.has(k)) actions.delete(k); cmp.counts = {}; cmp.rows.forEach((r) => cmp.counts[r.status] = (cmp.counts[r.status] || 0) + 1); render(); }
+  plog('套用忽略規則，結果移除', n, '項');
+  return n;
 }
 function closeMenu() { if (menuEl) { menuEl.remove(); menuEl = null; } }
 document.addEventListener('click', closeMenu);
 // 改資料夾的動作時，底下的項目跟著改（刪除/上傳/下載整個資料夾）
 function setAction(row, a) {
-  actions.set(row.key, a);
+  actions.set(row.key, a); manual.add(row.key);
   if ((row.l || row.r).type === 'dir' && a !== 'skip') for (const r of cmp.rows) if (isUnder(r.key, row.key) && r.allowed.includes(a)) actions.set(r.key, a);
 }
 function bulk(a) {
   let n = 0;
-  for (const r of visibleRows()) { const v = a === 'default' ? defaultAction(r, mode()) : a; if (r.allowed.includes(v)) { actions.set(r.key, v); n++; } }
+  for (const r of visibleRows()) { const v = a === 'default' ? defaultAction(r, mode()) : a; if (r.allowed.includes(v)) { actions.set(r.key, v); if (a === 'default') manual.delete(r.key); else manual.add(r.key); n++; } }
   toast(`已設定 ${n} 列`); render();
+}
+
+/* ---------- 一鍵全部上傳 / 下載 ---------- */
+// 'up'：本機有、且跟 Drive 不同的全部上傳（Drive 較新/衝突也用本機覆蓋）；其他一律略過，不刪、不反向傳
+// 'down'：反過來。已忽略的項目本來就不在結果裡，不會動到
+// 使用者手動改過動作的列（含整批設定）；重新比對或切模式時清空
+let manual = new Set();
+// 範圍：已經比對過 → 只針對「目前篩選＋搜尋顯示的列」（忽略清單的早已拿掉）；
+//       手動設成「略過」的列（或在手動略過的資料夾底下）一律不動
+// 'up'：範圍內本機有、且跟 Drive 不同的全部上傳（Drive 較新/衝突也用本機覆蓋）；'down' 反過來。不刪、不反向傳
+function quickPlan(dir, scopeRows) {
+  const plan = new Map(), cnt = { n: 0, bytes: 0, overwrite: 0, userSkip: 0 };
+  const mine = dir === 'up' ? ['leftOnly', 'leftNewer', 'rightNewer', 'conflict'] : ['rightOnly', 'leftNewer', 'rightNewer', 'conflict'];
+  const theirsNewer = dir === 'up' ? ['rightNewer', 'conflict'] : ['leftNewer', 'conflict'];
+  const inScope = new Set(scopeRows.map((r) => r.key));
+  const skipDirs = cmp.rows.filter((r) => (r.l || r.r).type === 'dir' && manual.has(r.key) && actions.get(r.key) === 'skip').map((r) => r.key);
+  for (const r of cmp.rows) {
+    let a = 'skip';
+    const userSkip = (manual.has(r.key) && actions.get(r.key) === 'skip') || skipDirs.some((d) => isUnder(r.key, d));
+    if (inScope.has(r.key) && r.allowed.includes(dir)) {
+      if (userSkip) { if (mine.includes(r.status)) cnt.userSkip++; }
+      else if (mine.includes(r.status) || (manual.has(r.key) && actions.get(r.key) === dir)) a = dir;
+    }
+    plan.set(r.key, a);
+    if (a === 'skip') continue;
+    cnt.n++;
+    const f = dir === 'up' ? r.l : r.r;
+    if (f && f.type === 'file') cnt.bytes += f.size || 0;
+    if (theirsNewer.includes(r.status)) cnt.overwrite++;
+  }
+  return { plan, cnt };
+}
+async function quickAll(dir) {
+  if (running) return;
+  const word = dir === 'up' ? '上傳到 Drive' : '下載到本機', other = dir === 'up' ? 'Drive' : '本機';
+  plog('一鍵全部', dir, '開始，已有比對結果：', !!cmp);
+  const fresh = !cmp;
+  if (fresh) { await doCompare(); if (!cmp) return; }   // 還沒比對才先比對；比對過就照使用者整理好的結果
+  const scope = fresh ? cmp.rows : visibleRows();
+  const f = FILTERS.find((x) => x[0] === filter), q = $('q').value.trim();
+  const narrowed = !fresh && (scope.length < cmp.rows.length) && !(filter === 'diff' && !q);
+  const { plan, cnt } = quickPlan(dir, scope);
+  plog('   一鍵計畫', JSON.stringify(cnt), '範圍列數', scope.length, '篩選', filter, '搜尋', q);
+  if (!cnt.n) return toast(`目前的比對結果中沒有需要${word}的檔案 ✔`);
+  const msg = `一鍵全部${word}：共 ${cnt.n} 項（${human(cnt.bytes)}）` +
+    (narrowed ? `\n📋 只針對目前篩選「${f[1]}」${q ? `＋搜尋「${q}」` : ''}顯示的項目` : '') +
+    (cnt.userSkip ? `\n— 你手動設成略過的 ${cnt.userSkip} 項不會動` : '') +
+    (cnt.overwrite ? `\n⚠️ 其中 ${cnt.overwrite} 項是${other}較新或兩邊都改過，會被覆蓋` + (dir === 'up' ? '（Drive 有版本記錄可還原）' : '（舊檔會備份到 .sync-trash）') : '') +
+    `\n\n已忽略的項目不會動，也不會刪除任何東西或反向${dir === 'up' ? '下載' : '上傳'}。確定開始？`;
+  if (!confirm(msg)) return;
+  actions = plan; render();
+  await doRun();
 }
 
 /* ---------- 執行 ---------- */
