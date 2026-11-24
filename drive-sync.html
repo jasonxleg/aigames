@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drive 資料夾同步</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root { --bg:#f4f6fb; --card:#fff; --fg:#1f2937; --mut:#6b7280; --line:#eceef3; --pri:#1a73e8; --ok:#16a34a; --warn:#d97706; --bad:#dc2626;
+          --L:#2563eb; --R:#0d9488; --Lbg:#eff6ff; --Rbg:#f0fdfa; --cfbg:#fef2f2; }
+  * { box-sizing: border-box; }
+  body { font-family: "Microsoft JhengHei", "PingFang TC", "Segoe UI", sans-serif; margin: 0; background: var(--bg); color: var(--fg); }
+  header { background: linear-gradient(135deg, #1a73e8, #0d9488); color: #fff; padding: 16px 22px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 20px; flex: 1; min-width: 200px; }
+  header .who { font-size: 13px; opacity: .95; }
+  header button { background: rgba(255,255,255,.18); color: #fff; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 18px 18px 120px; }
+  .card { background: var(--card); border-radius: 14px; box-shadow: 0 2px 10px rgba(0,0,0,.06); padding: 18px 20px; margin-bottom: 16px; }
+  .card h2 { margin: 0 0 12px; font-size: 16px; color: #374151; }
+  button { font-family: inherit; cursor: pointer; border: none; border-radius: 8px; padding: 9px 16px; font-size: 14px; font-weight: 600; background: #eef2ff; color: #4338ca; }
+  button:disabled { opacity: .5; cursor: default; }
+  .btn-pri { background: var(--pri); color: #fff; }
+  .btn-go { background: var(--ok); color: #fff; }
+  .btn-bad { background: #fee2e2; color: var(--bad); }
+  .btn-sm { padding: 5px 10px; font-size: 13px; }
+  input[type=text], select, textarea { font-family: inherit; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; }
+  textarea { width: 100%; font-family: Consolas, monospace; font-size: 12.5px; }
+  .hint { font-size: 12.5px; color: var(--mut); line-height: 1.6; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .pairs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: stretch; margin-top: 8px; }
+  .side { border: 2px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .side.L { border-color: #bfdbfe; background: var(--Lbg); }
+  .side.R { border-color: #99f6e4; background: var(--Rbg); }
+  .side .ttl { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+  .side.L .ttl { color: var(--L); } .side.R .ttl { color: var(--R); }
+  .side .path { font-size: 15px; font-weight: 600; word-break: break-all; min-height: 22px; margin-bottom: 8px; }
+  .side .path.empty { color: #9ca3af; font-weight: 400; }
+  .mid { display: flex; align-items: center; font-size: 26px; color: #9ca3af; }
+  .opt { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; cursor: pointer; padding: 7px 11px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
+  .opt:has(input:checked) { border-color: var(--pri); background: #eff6ff; }
+  .opt input { accent-color: var(--pri); }
+  .modes { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+  .modes .opt { align-items: flex-start; }
+  .modes small { display: block; color: var(--mut); font-weight: 400; font-size: 12px; margin-top: 2px; }
+  details summary { cursor: pointer; font-size: 14px; color: #4b5563; margin: 6px 0; }
+  .banner { padding: 12px 14px; border-radius: 10px; font-size: 14px; line-height: 1.6; margin-bottom: 14px; }
+  .banner.warn { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+  .banner.info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+  .chip { border: 1px solid #e5e7eb; background: #fff; border-radius: 20px; padding: 4px 12px; font-size: 13px; cursor: pointer; font-weight: 500; color: #374151; }
+  .chip.on { background: #1f2937; color: #fff; border-color: #1f2937; }
+  .chip b { margin-left: 4px; }
+  .tbl { border: 1px solid var(--line); border-radius: 10px; overflow: auto; max-height: 62vh; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 5px 8px; border-bottom: 1px solid #f3f4f6; white-space: nowrap; }
+  th { position: sticky; top: 0; background: #f9fafb; color: var(--mut); font-weight: 600; z-index: 1; text-align: left; }
+  td.name { max-width: 460px; overflow: hidden; text-overflow: ellipsis; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; color: #4b5563; }
+  td.Lc { background: #f8fbff; } td.Rc { background: #f7fdfc; }
+  td.act { text-align: center; }
+  tr.st-same td { color: #9ca3af; }
+  tr.st-leftOnly td.name { color: var(--L); }
+  tr.st-rightOnly td.name { color: var(--R); }
+  tr.st-conflict td, tr.st-typeConflict td, tr.st-caseConflict td { background: var(--cfbg); }
+  .newer { color: var(--bad) !important; font-weight: 700; }
+  .ab { min-width: 74px; padding: 3px 8px; font-size: 12.5px; border-radius: 6px; border: 1px solid #e5e7eb; background: #fff; color: #9ca3af; font-weight: 700; }
+  .ab.up { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
+  .ab.down { background: #ccfbf1; color: #0f766e; border-color: #5eead4; }
+  .ab.delL, .ab.delR { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+  .ab:disabled { opacity: .45; }
+  .stat { font-size: 12px; padding: 1px 8px; border-radius: 10px; background: #f3f4f6; color: #4b5563; }
+  .stat.leftOnly, .stat.leftNewer { background: #dbeafe; color: #1d4ed8; }
+  .stat.rightOnly, .stat.rightNewer { background: #ccfbf1; color: #0f766e; }
+  .stat.conflict, .stat.typeConflict, .stat.caseConflict, .stat.badName { background: #fee2e2; color: #b91c1c; }
+  .stat.gdoc { background: #fef9c3; color: #854d0e; }
+  .note { color: var(--mut); font-size: 12px; margin-left: 6px; }
+  .menu { position: absolute; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.15); padding: 4px; z-index: 50; }
+  .menu div { padding: 7px 14px; font-size: 13.5px; cursor: pointer; border-radius: 6px; white-space: nowrap; }
+  .menu div:hover { background: #f3f4f6; }
+  .planbar { position: fixed; left: 0; right: 0; bottom: 0; background: #111827; color: #fff; padding: 12px 18px; display: none; z-index: 40; }
+  .planbar .in { max-width: 1280px; margin: 0 auto; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 14px; }
+  .planbar .sp { flex: 1; }
+  .bar { height: 12px; background: #e5e7eb; border-radius: 6px; overflow: hidden; }
+  .bar > div { height: 100%; width: 0; background: linear-gradient(90deg, #1a73e8, #0d9488); transition: width .3s; }
+  .logbox { background: #0f172a; color: #cbd5e1; font-family: Consolas, monospace; font-size: 12px; border-radius: 10px; padding: 10px 12px; max-height: 260px; overflow: auto; white-space: pre-wrap; margin-top: 10px; }
+  .modal { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none; align-items: center; justify-content: center; z-index: 60; padding: 16px; }
+  .modal.show { display: flex; }
+  .modal .box { background: #fff; border-radius: 14px; width: min(640px, 100%); max-height: 88vh; display: flex; flex-direction: column; padding: 18px 20px; }
+  .modal h3 { margin: 0 0 10px; }
+  .crumbs { font-size: 13px; margin: 6px 0; display: flex; flex-wrap: wrap; gap: 2px; }
+  .crumbs a { color: var(--pri); cursor: pointer; text-decoration: none; }
+  .flist { flex: 1; overflow: auto; border: 1px solid var(--line); border-radius: 10px; min-height: 240px; }
+  .flist div { padding: 9px 12px; border-bottom: 1px solid #f3f4f6; cursor: pointer; font-size: 14px; }
+  .flist div:hover { background: #f0f9ff; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 6px; }
+  .toast { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); background: #111827; color: #fff; padding: 11px 20px; border-radius: 10px; font-size: 14px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 99; max-width: 90vw; }
+  .toast.show { opacity: .96; }
+  .toast.bad { background: var(--bad); }
+  @media (max-width: 760px) { .pairs { grid-template-columns: 1fr; } .mid { justify-content: center; transform: rotate(90deg); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>🔄 Drive 資料夾同步 <span style="font-size:13px;font-weight:400;opacity:.85">本機 ⇄ Google Drive</span></h1>
+  <span class="who" id="who">未登入</span>
+  <button id="btnLogin" onclick="signIn()">登入 Google</button>
+  <button onclick="openSettings()" title="設定">⚙️</button>
+</header>
+
+<div class="wrap">
+  <div id="noFsa" class="banner warn" style="display:none">
+    ⚠️ 這個瀏覽器不支援「讀寫本機資料夾」。請改用 <b>Chrome</b> 或 <b>Edge</b>（Windows、macOS 都可以）。Safari / Firefox 目前不支援。
+  </div>
+  <div id="noCid" class="banner info" style="display:none">
+    第一次使用：請按右上角 ⚙️ 填入 Google OAuth <b>Client ID</b>（網頁應用程式類型），設定方式在設定視窗裡。
+  </div>
+
+  <!-- ① 選資料夾 -->
+  <div class="card">
+    <h2>① 選擇要比對的兩個資料夾</h2>
+    <div class="row">
+      <span class="hint">已存組合：</span>
+      <select id="pairSel" onchange="loadPair(this.value)"></select>
+      <button class="btn-sm" onclick="newPair()">＋ 新組合</button>
+      <button class="btn-sm" onclick="renamePair()">✏️ 改名</button>
+      <button class="btn-sm btn-bad" onclick="deletePair()">刪除組合</button>
+    </div>
+    <div class="pairs">
+      <div class="side L">
+        <div class="ttl">💻 左邊：本機資料夾（Windows / Mac）</div>
+        <div class="path empty" id="lPath">尚未選擇</div>
+        <button class="btn-sm" onclick="pickLocal()">📁 選擇本機資料夾…</button>
+      </div>
+      <div class="mid">⇄</div>
+      <div class="side R">
+        <div class="ttl">☁️ 右邊：Google Drive 資料夾</div>
+        <div class="path empty" id="rPath">尚未選擇</div>
+        <div class="row">
+          <button class="btn-sm" onclick="openDrivePicker()">☁️ 瀏覽 Drive…</button>
+          <input type="text" id="driveUrl" placeholder="或貼上 Drive 資料夾網址" style="flex:1;min-width:160px">
+          <button class="btn-sm" onclick="useDriveUrl()">使用</button>
+        </div>
+      </div>
+    </div>
+
+    <h2 style="margin-top:18px">② 同步方式</h2>
+    <div class="modes" id="modes">
+      <label class="opt"><input type="radio" name="mode" value="both" checked><span>⇄ 雙向同步<small>兩邊新增/修改都互相補上；記得上次同步狀態，一邊刪掉另一邊也刪</small></span></label>
+      <label class="opt"><input type="radio" name="mode" value="update-right"><span>→ 本機更新到 Drive<small>只上傳本機新增/較新的檔，不刪任何東西</small></span></label>
+      <label class="opt"><input type="radio" name="mode" value="mirror-right"><span>⇉ 本機鏡像到 Drive<small>Drive 變成跟本機一模一樣；Drive 多的移到垃圾桶</small></span></label>
+      <label class="opt"><input type="radio" name="mode" value="update-left"><span>← Drive 更新到本機<small>只下載 Drive 新增/較新的檔，不刪任何東西</small></span></label>
+      <label class="opt"><input type="radio" name="mode" value="mirror-left"><span>⇇ Drive 鏡像到本機<small>本機變成跟 Drive 一模一樣；本機多的移到 .sync-trash</small></span></label>
+    </div>
+    <details>
+      <summary>進階：比對方式、排除清單</summary>
+      <div class="row" style="margin:6px 0">
+        <label class="opt"><input type="radio" name="cmp" value="fast" checked> 快速：大小 + 修改時間</label>
+        <label class="opt"><input type="radio" name="cmp" value="md5"> 精確：大小相同時再算 MD5 內容</label>
+      </div>
+      <div class="hint">排除清單（一行一個，可用 * ?；含「/」的規則比對相對路徑）</div>
+      <textarea id="excludes" rows="5"></textarea>
+    </details>
+    <div class="row" style="margin-top:14px">
+      <button class="btn-pri" id="btnCompare" onclick="doCompare()">🔍 開始比對</button>
+      <span class="hint" id="cmpMsg"></span>
+    </div>
+  </div>
+
+  <!-- ③ 比對結果 -->
+  <div class="card" id="resCard" style="display:none">
+    <h2>③ 比對結果 <span class="hint" id="resInfo"></span></h2>
+    <div class="chips" id="chips"></div>
+    <div class="row" style="margin-bottom:8px">
+      <input type="text" id="q" placeholder="🔎 搜尋檔名/路徑" oninput="render()" style="width:220px">
+      <span class="hint">把目前顯示的列設成：</span>
+      <button class="btn-sm" onclick="bulk('up')">→ 上傳</button>
+      <button class="btn-sm" onclick="bulk('down')">← 下載</button>
+      <button class="btn-sm" onclick="bulk('skip')">— 略過</button>
+      <button class="btn-sm" onclick="bulk('default')">↺ 恢復預設</button>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>名稱（相對路徑）</th><th>💻 本機大小</th><th>本機修改時間</th><th style="text-align:center">動作</th><th>☁️ Drive 大小</th><th>Drive 修改時間</th><th>狀態</th></tr></thead>
+        <tbody id="tb"></tbody>
+      </table>
+    </div>
+    <div class="hint" id="more" style="margin-top:6px"></div>
+    <details id="issuesBox" style="display:none"><summary id="issuesSum"></summary><div class="hint" id="issues"></div></details>
+  </div>
+
+  <!-- ④ 進度 -->
+  <div class="card" id="runCard" style="display:none">
+    <h2>④ 同步進度</h2>
+    <div id="reauth" class="banner warn" style="display:none">Google 登入已過期，<button class="btn-sm btn-pri" onclick="resumeAuth()">重新登入並繼續</button></div>
+    <div class="bar"><div id="barIn"></div></div>
+    <div class="row" style="margin-top:8px">
+      <span id="runMsg" style="flex:1;font-size:14px"></span>
+      <button class="btn-sm btn-bad" id="btnCancel" onclick="cancelRun()">停止</button>
+    </div>
+    <div class="logbox" id="logbox"></div>
+  </div>
+
+  <p class="hint">
+    🔒 安全設計：Drive 端的「刪除」是移到 Drive 垃圾桶（30 天內可救回），被覆蓋的 Drive 檔有版本記錄；
+    本機端被刪除或被覆蓋的檔案，會先備份到同步資料夾裡的 <code>.sync-trash/時間/</code>。
+    所有資料只在你的瀏覽器與 Google 之間傳輸，不經過其他伺服器。
+  </p>
+</div>
+
+<div class="planbar" id="planbar"><div class="in">
+  <span id="planTxt"></span><span class="sp"></span>
+  <button class="btn-go" id="btnRun" onclick="doRun()">✅ 開始同步</button>
+</div></div>
+
+<!-- Drive 資料夾瀏覽 -->
+<div class="modal" id="dpModal"><div class="box">
+  <h3>選擇 Google Drive 資料夾</h3>
+  <div class="tabs">
+    <button class="btn-sm" onclick="dpGo('root')">我的雲端硬碟</button>
+    <button class="btn-sm" onclick="dpGo('@shared')">與我共用</button>
+    <button class="btn-sm" onclick="dpGo('@drives')">共用雲端硬碟</button>
+  </div>
+  <div class="crumbs" id="dpCrumbs"></div>
+  <div class="flist" id="dpList"></div>
+  <div class="row" style="margin-top:12px">
+    <span class="hint" style="flex:1" id="dpCur"></span>
+    <button onclick="closeModal('dpModal')">取消</button>
+    <button class="btn-pri" id="dpOk" onclick="dpChoose()">選這個資料夾</button>
+  </div>
+</div></div>
+
+<!-- 設定 -->
+<div class="modal" id="setModal"><div class="box">
+  <h3>⚙️ 設定</h3>
+  <label class="hint">Google OAuth Client ID（網頁應用程式類型）</label>
+  <input type="text" id="cidIn" placeholder="xxxxxxxx.apps.googleusercontent.com" style="width:100%">
+  <div class="hint" style="margin-top:10px">
+    取得方式：Google Cloud Console → API 和服務 → 憑證 → 建立憑證 → OAuth 用戶端 ID → 類型選「<b>網頁應用程式</b>」→
+    「已授權的 JavaScript 來源」加入本頁網址的來源（例如 <code id="originHint"></code>）。
+    並在「已啟用的 API」開啟 <b>Google Drive API</b>。<br>
+    因為要讀寫你 Drive 裡「既有」的檔案，本工具要求完整的 Drive 權限（<code>auth/drive</code>）。
+    若 OAuth 應用程式在「測試」狀態，使用者的 Gmail 要先加入測試使用者清單。<br>
+    Client ID 只存在這台瀏覽器（localStorage），不會寫進程式碼。
+  </div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end">
+    <button onclick="closeModal('setModal')">取消</button>
+    <button class="btn-pri" onclick="saveSettings()">儲存</button>
+  </div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+ *  設定 / 小工具
+ * ===================================================================== */
+const SHOW_LOG = true;                       // 主控台 log 開關
+const plog = (...a) => { if (SHOW_LOG) console.log('[同步]', ...a); };
+const $ = (id) => document.getElementById(id);
+const FOLDER_MIME = 'application/vnd.google-apps.folder';
+const SCOPE = 'https://www.googleapis.com/auth/drive';
+const TRASH = '.sync-trash';
+const TOL = 2000;  // 修改時間容許誤差（FAT/exFAT 只有 2 秒精度）
+const DEFAULT_EXCLUDES = ['.DS_Store', 'Thumbs.db', 'desktop.ini', '~$*', '*.tmp', '*.crswap', '.~lock.*', '$RECYCLE.BIN', 'System Volume Information', '.Trashes', '.Spotlight-V100', '.fseventsd', '.TemporaryItems'].join('\n');
+const PLATFORM = /Mac/i.test(navigator.platform) ? 'darwin' : /Win/i.test(navigator.platform) ? 'win32' : 'linux';
+
+// 測試掛勾：只有頁面本身跑在 localhost 才允許把 API 指向本機假 Drive（避免惡意連結把 token 導去別處）
+const IS_LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
+const QS = new URLSearchParams(location.search);
+const FAKE_PORT = IS_LOCAL && /^\d+$/.test(QS.get('fakeapi') || '') ? QS.get('fakeapi') : null;
+const API = FAKE_PORT ? `http://127.0.0.1:${FAKE_PORT}` : 'https://www.googleapis.com';
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const human = (n) => n == null ? '' : n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : n < 1073741824 ? (n / 1048576).toFixed(1) + ' MB' : (n / 1073741824).toFixed(2) + ' GB';
+const fmtTime = (t) => { if (!t) return ''; const d = new Date(t), p = (x) => String(x).padStart(2, '0'); return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const dirOf = (k) => { const i = k.lastIndexOf('/'); return i < 0 ? '' : k.slice(0, i); };
+const baseOf = (k) => k.slice(k.lastIndexOf('/') + 1);
+const isUnder = (k, d) => k.startsWith(d + '/');
+let toastT;
+function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.className = 'toast show' + (bad ? ' bad' : ''); clearTimeout(toastT); toastT = setTimeout(() => t.className = 'toast', bad ? 5000 : 2600); if (bad) console.error(msg); }
+function closeModal(id) { $(id).classList.remove('show'); }
+
+/* ---------- MD5（瀏覽器沒有內建，用來跟 Drive 的 md5Checksum 比對內容） ---------- */
+const MD5 = (() => {
+  const S = [7, 12, 17, 22, 5, 9, 14, 20, 4, 11, 16, 23, 6, 10, 15, 21];
+  const K = new Int32Array(64); for (let i = 0; i < 64; i++) K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) | 0;
+  const M = new Int32Array(16);
+  function block(h, b, o) {
+    for (let i = 0; i < 16; i++) { const j = o + i * 4; M[i] = b[j] | (b[j + 1] << 8) | (b[j + 2] << 16) | (b[j + 3] << 24); }
+    let a = h[0], B = h[1], c = h[2], d = h[3];
+    for (let i = 0; i < 64; i++) {
+      let f, g;
+      if (i < 16) { f = (B & c) | (~B & d); g = i; } else if (i < 32) { f = (d & B) | (~d & c); g = (5 * i + 1) & 15; }
+      else if (i < 48) { f = B ^ c ^ d; g = (3 * i + 5) & 15; } else { f = c ^ (B | ~d); g = (7 * i) & 15; }
+      const s = S[(i >> 4) * 4 + (i & 3)], x = (a + f + K[i] + M[g]) | 0;
+      a = d; d = c; c = B; B = (B + ((x << s) | (x >>> (32 - s)))) | 0;
+    }
+    h[0] = (h[0] + a) | 0; h[1] = (h[1] + B) | 0; h[2] = (h[2] + c) | 0; h[3] = (h[3] + d) | 0;
+  }
+  function create() { return { h: new Int32Array([0x67452301, 0xefcdab89 | 0, 0x98badcfe | 0, 0x10325476]), buf: new Uint8Array(64), bl: 0, len: 0 }; }
+  function feed(st, data) {
+    let i = 0;
+    if (st.bl) { const n = Math.min(64 - st.bl, data.length); st.buf.set(data.subarray(0, n), st.bl); st.bl += n; i = n; if (st.bl === 64) { block(st.h, st.buf, 0); st.bl = 0; } }
+    for (; i + 64 <= data.length; i += 64) block(st.h, data, i);
+    if (i < data.length) { st.buf.set(data.subarray(i), 0); st.bl = data.length - i; }
+  }
+  function update(st, data) { st.len += data.length; feed(st, data); }
+  function finish(st) {
+    const len = st.len, padLen = (st.bl < 56 ? 56 : 120) - st.bl, p = new Uint8Array(padLen + 8);
+    p[0] = 0x80;
+    const lo = (len * 8) >>> 0, hi = Math.floor(len / 0x20000000) >>> 0;
+    for (let i = 0; i < 4; i++) { p[padLen + i] = (lo >>> (8 * i)) & 255; p[padLen + 4 + i] = (hi >>> (8 * i)) & 255; }
+    feed(st, p);
+    let out = ''; for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) out += ((st.h[i] >>> (8 * j)) & 255).toString(16).padStart(2, '0');
+    return out;
+  }
+  async function ofBlob(blob) { const st = create(), rd = blob.stream().getReader(); for (;;) { const { done, value } = await rd.read(); if (done) break; update(st, value); } return finish(st); }
+  function ofBytes(u8) { const st = create(); update(st, u8); return finish(st); }
+  return { ofBlob, ofBytes };
+})();
+
+/* ---------- 排除規則 ---------- */
+function parseExcludes(text) {
+  return String(text).split(/[\r\n,]+/).map((s) => s.trim()).filter(Boolean).map((p) => ({
+    re: new RegExp('^' + p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$', 'i'), slash: p.includes('/')
+  }));
+}
+const isExcluded = (name, rel, rules) => rules.some((r) => r.re.test(r.slash ? rel : name));
+
+const WIN_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
+function badLocalName(name) {
+  if (name.includes('/') || name === '.' || name === '..') return '檔名含「/」';
+  // 檔案可能會被 Windows 和 Mac 兩邊同步，一律用最嚴格的規則檢查
+  if (/[<>:"\\|?*\x00-\x1f]/.test(name)) return '含 Windows/Mac 不允許的字元 < > : " \\ | ? *';
+  if (PLATFORM === 'win32' && /[. ]$/.test(name)) return 'Windows 檔名不能以空白或句點結尾';
+  if (PLATFORM === 'win32' && WIN_RESERVED.test(name)) return 'Windows 保留名稱';
+  return null;
+}
+function pathCompare(a, b) {
+  const A = a.split('/'), B = b.split('/');
+  for (let i = 0; i < Math.min(A.length, B.length); i++) if (A[i] !== B[i]) return A[i].localeCompare(B[i], 'zh-Hant', { numeric: true }) || (A[i] < B[i] ? -1 : 1);
+  return A.length - B.length;
+}
+
+/* =====================================================================
+ *  IndexedDB：存「同步組合」（本機資料夾 handle + Drive 資料夾 + 上次同步基準）
+ * ===================================================================== */
+let db;
+function openDB() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('driveSync', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('pairs', { keyPath: 'id' });
+    r.onsuccess = () => { db = r.result; res(db); };
+    r.onerror = () => rej(r.error);
+  });
+}
+const idb = (mode, fn) => new Promise((res, rej) => { const q = fn(db.transaction('pairs', mode).objectStore('pairs')); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+const pairPut = (p) => idb('readwrite', (s) => s.put(p));
+const pairDel = (id) => idb('readwrite', (s) => s.delete(id));
+const pairAll = () => idb('readonly', (s) => s.getAll());
+
+/* =====================================================================
+ *  Google 登入（GIS token client）
+ * ===================================================================== */
+let accessToken = FAKE_PORT ? 'fake-token' : null, tokenExp = FAKE_PORT ? Infinity : 0, tokenClient = null, authWaiters = [];
+const clientId = () => localStorage.getItem('dsync_client_id') || '';
+function initTokenClient() {
+  if (!clientId() || !window.google?.accounts?.oauth2) return false;
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: clientId(), scope: SCOPE,
+    callback: (resp) => {
+      if (resp.error) { toast('登入失敗：' + resp.error, true); authWaiters.splice(0).forEach((w) => w.rej(new Error('登入失敗'))); return; }
+      accessToken = resp.access_token; tokenExp = Date.now() + (resp.expires_in - 120) * 1000;
+      plog('取得 token，有效到', new Date(tokenExp).toLocaleTimeString());
+      $('reauth').style.display = 'none';
+      authWaiters.splice(0).forEach((w) => w.res(accessToken));
+      showWho();
+    },
+    error_callback: (e) => { authWaiters.splice(0).forEach((w) => w.rej(new Error('登入視窗被關閉或被擋：' + (e.type || '')))); }
+  });
+  return true;
+}
+function signIn() {
+  if (FAKE_PORT) return;
+  if (!clientId()) return openSettings();
+  if (!tokenClient && !initTokenClient()) return toast('Google 登入元件還在載入，稍候再按', true);
+  tokenClient.requestAccessToken({ prompt: accessToken ? '' : 'consent' });
+}
+// 取得有效 token；過期時：若在使用者點擊中就直接跳登入，否則在畫面上顯示「重新登入並繼續」等使用者按
+function getToken(interactive) {
+  if (accessToken && Date.now() < tokenExp) return Promise.resolve(accessToken);
+  return new Promise((res, rej) => {
+    authWaiters.push({ res, rej });
+    if (interactive) signIn(); else { $('reauth').style.display = ''; plog('token 過期，等待使用者重新登入'); }
+  });
+}
+function resumeAuth() { signIn(); }
+async function showWho() {
+  try {
+    const j = await api('GET', '/drive/v3/about', { fields: 'user(emailAddress,displayName)' });
+    $('who').textContent = '已登入：' + (j.user.displayName || '') + ' ' + (j.user.emailAddress || '');
+    $('btnLogin').textContent = '切換帳號';
+  } catch (_) {}
+}
+
+/* =====================================================================
+ *  Drive REST
+ * ===================================================================== */
+async function driveFetch(url, opts = {}) {
+  for (let attempt = 0; ; attempt++) {
+    const tok = await getToken(false);
+    let r;
+    try { r = await fetch(url, { ...opts, headers: { Authorization: 'Bearer ' + tok, ...(opts.headers || {}) } }); }
+    catch (e) { if (attempt < 4) { await sleep(800 * 2 ** attempt); continue; } throw new Error('網路錯誤：' + e.message); }
+    if (r.status === 401 && attempt < 2) { accessToken = null; continue; }
+    if (r.status === 429 || r.status >= 500 || r.status === 403) {
+      const txt = await r.clone().text();
+      if ((r.status !== 403 || /rateLimitExceeded|userRateLimitExceeded/.test(txt)) && attempt < 5) { plog(`API 忙碌(${r.status})，第 ${attempt + 1} 次重試`); await sleep(700 * 2 ** attempt); continue; }
+    }
+    return r;
+  }
+}
+async function api(method, path, query, body) {
+  const qs = query ? '?' + new URLSearchParams(query) : '';
+  const r = await driveFetch(API + path + qs, { method, headers: body ? { 'Content-Type': 'application/json; charset=UTF-8' } : {}, body: body ? JSON.stringify(body) : undefined });
+  const txt = await r.text();
+  if (!r.ok) throw new Error(`Drive ${method} ${path} → ${r.status}：${txt.slice(0, 250)}`);
+  return txt ? JSON.parse(txt) : {};
+}
+async function listChildren(folderId, foldersOnly) {
+  const out = []; let pageToken = '';
+  do {
+    const q = { q: `'${folderId}' in parents and trashed=false` + (foldersOnly ? ` and mimeType='${FOLDER_MIME}'` : ''), pageSize: 1000,
+      fields: 'nextPageToken,files(id,name,mimeType,size,modifiedTime,md5Checksum)', supportsAllDrives: true, includeItemsFromAllDrives: true };
+    if (foldersOnly) q.orderBy = 'name';
+    if (pageToken) q.pageToken = pageToken;
+    const j = await api('GET', '/drive/v3/files', q);
+    out.push(...(j.files || [])); pageToken = j.nextPageToken || '';
+  } while (pageToken);
+  return out;
+}
+function parseDriveId(s) {
+  s = String(s || '').trim();
+  const m = s.match(/\/folders\/([\w-]+)/) || s.match(/[?&]id=([\w-]+)/);
+  if (m) return m[1];
+  if (/^[\w-]{10,}$/.test(s) || s === 'root') return s;
+  return null;
+}
+async function driveFolderInfo(id) {
+  const f = await api('GET', `/drive/v3/files/${id}`, { fields: 'id,name,mimeType,parents', supportsAllDrives: true });
+  if (f.mimeType !== FOLDER_MIME) throw new Error(`「${f.name}」不是資料夾`);
+  const names = [f.name]; let cur = f;
+  for (let i = 0; i < 12 && cur.parents && cur.parents.length; i++) {
+    try { cur = await api('GET', `/drive/v3/files/${cur.parents[0]}`, { fields: 'id,name,parents', supportsAllDrives: true }); names.unshift(cur.name); } catch (_) { break; }
+  }
+  return { id: f.id, path: names.join(' / ') };
+}
+
+/* =====================================================================
+ *  本機檔案系統（File System Access API）
+ * ===================================================================== */
+async function getDir(root, rel, create) {
+  let d = root;
+  for (const seg of rel.split('/').filter(Boolean)) d = await d.getDirectoryHandle(seg, { create: !!create });
+  return d;
+}
+async function getFileH(root, rel, create) { return (await getDir(root, dirOf(rel), create)).getFileHandle(baseOf(rel), { create: !!create }); }
+async function ensurePerm(h) {
+  const o = { mode: 'readwrite' };
+  if (await h.queryPermission(o) === 'granted') return true;
+  return (await h.requestPermission(o)) === 'granted';
+}
+// 複製檔案/資料夾到 .sync-trash（本機的「刪除」與「覆蓋前備份」都走這裡）
+async function copyToTrash(root, srcHandle, rel, stamp) {
+  const destRel = `${TRASH}/${stamp}/${rel}`;
+  if (srcHandle.kind === 'file') {
+    const fh = await getFileH(root, destRel, true), w = await fh.createWritable();
+    await w.write(await srcHandle.getFile()); await w.close();
+  } else {
+    await getDir(root, destRel, true);
+    for await (const [name, h] of srcHandle.entries()) await copyToTrash(root, h, rel + '/' + name, stamp);
+  }
+  return destRel;
+}
+
+/* =====================================================================
+ *  掃描
+ * ===================================================================== */
+async function scanLocal(root, rules, onP) {
+  const map = new Map(), issues = []; let n = 0;
+  async function walk(dir, rel) {
+    const subs = [], files = [];
+    for await (const [name, h] of dir.entries()) {
+      const r = rel ? rel + '/' + name : name;
+      if (!rel && name === TRASH) continue;              // 工具自己的備份區不同步
+      if (isExcluded(name, r, rules)) continue;
+      if (h.kind === 'directory') subs.push([h, r]); else files.push([h, r]);
+    }
+    await Promise.all(files.map(async ([h, r]) => {
+      try { const f = await h.getFile(); map.set(r.normalize('NFC'), { type: 'file', rel: r, size: f.size, mtime: f.lastModified }); if (++n % 300 === 0 && onP) onP(n); }
+      catch (e) { issues.push({ side: '本機', path: r, error: '讀不到：' + e.name }); }
+    }));
+    for (const [h, r] of subs) { map.set(r.normalize('NFC'), { type: 'dir', rel: r }); await walk(h, r); }
+  }
+  await walk(root, '');
+  return { map, issues };
+}
+async function scanDrive(rootId, rules, onP, isCancel) {
+  const map = new Map(), issues = [], queue = [{ id: rootId, rel: '' }];
+  let active = 0, failed = null;
+  await new Promise((resolve) => {
+    const pump = () => {
+      if (failed || isCancel()) { if (!active) resolve(); return; }
+      if (!queue.length && !active) return resolve();
+      while (active < 4 && queue.length) {
+        const it = queue.shift(); active++;
+        listChildren(it.id).then((kids) => {
+          for (const f of kids) {
+            const r = it.rel ? it.rel + '/' + f.name : f.name;
+            if (isExcluded(f.name, r, rules)) continue;
+            if (!it.rel && f.name === TRASH) continue;
+            if (f.name.includes('/')) { issues.push({ side: 'Drive', path: r, error: '名稱含「/」無法對應本機路徑，略過' }); continue; }
+            const key = r.normalize('NFC');
+            if (map.has(key)) { issues.push({ side: 'Drive', path: r, error: '同資料夾內有同名項目，只比對第一個' }); continue; }
+            if (f.mimeType === FOLDER_MIME) { map.set(key, { type: 'dir', rel: r, id: f.id }); queue.push({ id: f.id, rel: r }); }
+            else if (f.mimeType.startsWith('application/vnd.google-apps.')) map.set(key, { type: 'gdoc', rel: r, id: f.id, mime: f.mimeType, mtime: Date.parse(f.modifiedTime) });
+            else map.set(key, { type: 'file', rel: r, id: f.id, size: Number(f.size || 0), mtime: Date.parse(f.modifiedTime), md5: f.md5Checksum || '' });
+          }
+          onP && onP(map.size);
+        }).catch((e) => { failed = e; }).finally(() => { active--; pump(); });
+      }
+    };
+    pump();
+  });
+  if (failed) throw failed;
+  return { map, issues };
+}
+
+/* =====================================================================
+ *  比對（有「上次同步基準」時用三方比對，沒有時用大小+時間）
+ *  base[key] = { dir:true } 或 { ls, lm, rid, rm, rmd5 }
+ * ===================================================================== */
+const localSame = (l, b) => b && !b.dir && l.size === b.ls && Math.abs(l.mtime - b.lm) <= TOL;
+const driveSame = (r, b) => b && !b.dir && r.id === b.rid && r.mtime === b.rm && (r.md5 || '') === (b.rmd5 || '');
+async function compareMaps(L, R, base, { useMd5, root }, onP) {
+  const keys = [...new Set([...L.keys(), ...R.keys()])].sort(pathCompare);
+  const lowL = new Map([...L.keys()].map((k) => [k.toLowerCase(), k])), lowR = new Map([...R.keys()].map((k) => [k.toLowerCase(), k]));
+  const rows = []; let md5n = 0;
+  const md5Local = async (l) => { md5n++; onP && onP('計算 MD5：' + l.rel); return MD5.ofBlob(await (await getFileH(root, l.rel)).getFile()); };
+  for (const key of keys) {
+    const l = L.get(key) || null, r = R.get(key) || null, b = base[key];
+    const row = { key, l, r, status: 'same', note: '', gone: '' };
+    if (l && r) {
+      if (r.type === 'gdoc') { row.status = 'gdoc'; row.note = 'Drive 端是 Google 文件格式，無法比對'; }
+      else if (l.type !== r.type) { row.status = 'typeConflict'; row.note = '一邊是資料夾、一邊是檔案'; }
+      else if (l.type === 'dir') row.status = 'same';
+      else if (b && !b.dir && b.rid === r.id) {
+        // 三方比對：各自跟上次同步時比，看誰改過
+        const lc = !localSame(l, b), rc = !driveSame(r, b);
+        if (!lc && !rc) row.status = 'same';
+        else if (lc && !rc) { row.status = 'leftNewer'; row.note = '上次同步後本機有修改'; }
+        else if (!lc && rc) { row.status = 'rightNewer'; row.note = '上次同步後 Drive 有修改'; }
+        else if (l.size === r.size && r.md5 && await md5Local(l) === r.md5) { row.status = 'same'; row.note = '兩邊都改過但內容一樣'; }
+        else { row.status = 'conflict'; row.note = '上次同步後兩邊都改過'; }
+      } else {
+        const sameSize = l.size === r.size, dt = l.mtime - r.mtime, sameTime = Math.abs(dt) <= TOL;
+        if (useMd5 && sameSize && r.md5) {
+          if (await md5Local(l) === r.md5) { row.status = 'same'; if (!sameTime) row.note = '內容相同，只有時間不同'; }
+          else row.status = sameTime ? 'conflict' : dt > 0 ? 'leftNewer' : 'rightNewer';
+        } else if (sameSize && sameTime) row.status = 'same';
+        else if (sameTime) { row.status = 'conflict'; row.note = '時間相同但大小不同'; }
+        else row.status = dt > 0 ? 'leftNewer' : 'rightNewer';
+      }
+    } else if (l) {
+      const o = lowR.get(key.toLowerCase());
+      if (o) { row.status = 'caseConflict'; row.note = `Drive 有只差大小寫的「${o}」，請手動改名`; }
+      else {
+        row.status = 'leftOnly';
+        if (b && (l.type === 'dir' ? b.dir : localSame(l, b))) { row.gone = 'R'; row.note = '上次同步後在 Drive 被刪除'; }
+        else if (b && !b.dir) row.note = 'Drive 已刪除，但本機之後又改過';
+      }
+    } else {
+      const o = lowL.get(key.toLowerCase()), bad = badLocalName(baseOf(r.rel));
+      if (r.type === 'gdoc') { row.status = 'gdoc'; row.note = 'Google 文件/試算表/簡報等雲端格式，不下載'; }
+      else if (o) { row.status = 'caseConflict'; row.note = `本機有只差大小寫的「${o}」，請手動改名`; }
+      else if (bad) { row.status = 'badName'; row.note = '無法存到本機：' + bad; }
+      else {
+        row.status = 'rightOnly';
+        if (b && (r.type === 'dir' ? b.dir : driveSame(r, b))) { row.gone = 'L'; row.note = '上次同步後在本機被刪除'; }
+        else if (b && !b.dir) row.note = '本機已刪除，但 Drive 之後又改過';
+      }
+    }
+    rows.push(row);
+  }
+  // 上層有問題（類型衝突/名稱不合法）時，底下的項目一起略過
+  const blocked = rows.filter((x) => x.status === 'badName' || x.status === 'typeConflict').map((x) => x.key);
+  if (blocked.length) for (const row of rows) {
+    const p = blocked.find((k) => isUnder(row.key, k));
+    if (p && row.status !== 'same') { row.status = 'badName'; row.note = `上層「${p}」無法同步，連帶略過`; row.gone = ''; }
+  }
+  rows.forEach((row) => { row.allowed = allowedActions(row); });
+  return { rows, md5n };
+}
+function allowedActions(row) {
+  switch (row.status) {
+    case 'leftOnly': return ['up', 'delL', 'skip'];
+    case 'rightOnly': return ['down', 'delR', 'skip'];
+    case 'leftNewer': case 'rightNewer': case 'conflict': return ['up', 'down', 'skip'];
+    case 'same': return row.l.type === 'dir' ? ['skip'] : ['up', 'down', 'skip'];
+    default: return ['skip'];
+  }
+}
+function defaultAction(row, mode) {
+  const s = row.status;
+  const toR = mode === 'update-right' || mode === 'mirror-right' || mode === 'both';
+  const toL = mode === 'update-left' || mode === 'mirror-left' || mode === 'both';
+  if (mode === 'both') {
+    if (s === 'leftOnly') return row.gone === 'R' ? 'delL' : 'up';
+    if (s === 'rightOnly') return row.gone === 'L' ? 'delR' : 'down';
+  }
+  switch (s) {
+    case 'leftOnly': return toR ? 'up' : mode === 'mirror-left' ? 'delL' : 'skip';
+    case 'rightOnly': return toL ? 'down' : mode === 'mirror-right' ? 'delR' : 'skip';
+    case 'leftNewer': return toR ? 'up' : mode === 'mirror-left' ? 'down' : 'skip';
+    case 'rightNewer': return toL ? 'down' : mode === 'mirror-right' ? 'up' : 'skip';
+    case 'conflict': return mode === 'mirror-right' ? 'up' : mode === 'mirror-left' ? 'down' : 'skip';
+    default: return 'skip';
+  }
+}
+
+/* =====================================================================
+ *  執行同步
+ * ===================================================================== */
+async function runSync(ctx, rows, actions, ui) {
+  const { root, driveId, base, driveDirs } = ctx;
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const st = { done: 0, total: 0, bytes: 0, totalBytes: 0, errors: [], cancel: false, ok: 0 };
+  ui.state = st;
+  const log = (s) => { plog(s); ui.log && ui.log(s); };
+
+  // 1) 驗證動作、刪資料夾時底下所有項目都要也是刪除才整個刪（否則保留資料夾）
+  let plan = [];
+  for (const row of rows) {
+    const a = actions.get(row.key) || 'skip';
+    if (a === 'skip') continue;
+    if (!row.allowed.includes(a)) throw new Error(`「${row.key}」不能執行 ${a}`);
+    plan.push({ row, action: a, isDir: (row.l || row.r).type === 'dir' });
+  }
+  const byKey = new Map(plan.map((p) => [p.row.key, p]));
+  plan = plan.filter((p) => {
+    if (!p.isDir || (p.action !== 'delL' && p.action !== 'delR')) return true;
+    const ok = rows.filter((r) => isUnder(r.key, p.row.key)).every((k) => byKey.get(k.key)?.action === p.action);
+    if (!ok) log(`⚠ 「${p.row.key}」底下有項目沒設成刪除，資料夾保留`);
+    return ok;
+  });
+  const xfer = plan.filter((p) => p.action === 'up' || p.action === 'down');
+  const dels = plan.filter((p) => p.action === 'delL' || p.action === 'delR');
+  st.total = plan.length;
+  st.totalBytes = xfer.reduce((s, p) => s + (p.isDir ? 0 : (p.action === 'up' ? p.row.l.size : p.row.r.size) || 0), 0);
+  log(`開始同步：上傳 ${xfer.filter((p) => p.action === 'up').length}、下載 ${xfer.filter((p) => p.action === 'down').length}、刪除 ${dels.length}，共 ${human(st.totalBytes)}`);
+
+  // Drive 資料夾 id（相對路徑 → id），缺的就建
+  const dirIds = new Map(driveDirs); dirIds.set('', driveId);
+  const dirPending = new Map();
+  const ensureDriveDir = (rel) => {
+    if (dirIds.has(rel)) return Promise.resolve(dirIds.get(rel));
+    if (!dirPending.has(rel)) dirPending.set(rel, (async () => {
+      const pid = await ensureDriveDir(dirOf(rel));
+      const f = await api('POST', '/drive/v3/files', { fields: 'id', supportsAllDrives: true }, { name: baseOf(rel), mimeType: FOLDER_MIME, parents: [pid] });
+      dirIds.set(rel, f.id); log(`📁 Drive 建立資料夾：${rel}`);
+      base[rel] = { dir: true };
+      return f.id;
+    })());
+    return dirPending.get(rel);
+  };
+  const localRel = (row) => (row.l && row.l.rel) || row.r.rel;
+
+  async function upload(row) {
+    const file = await (await getFileH(root, row.l.rel)).getFile();
+    const exist = row.r && row.r.type === 'file';
+    const meta = { modifiedTime: new Date(file.lastModified).toISOString() };
+    if (!exist) { meta.name = baseOf(row.key); meta.parents = [await ensureDriveDir(dirOf(row.key))]; }
+    const fields = 'id,size,md5Checksum,modifiedTime';
+    for (let attempt = 0; ; attempt++) {
+      const init = await driveFetch(`${API}/upload/drive/v3/files${exist ? '/' + row.r.id : ''}?uploadType=resumable&supportsAllDrives=true&fields=${fields}`, {
+        method: exist ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json; charset=UTF-8' }, body: JSON.stringify(meta) });
+      const loc = init.headers.get('Location');
+      if (!init.ok || !loc) throw new Error(`上傳初始化失敗 ${init.status}：${(await init.text()).slice(0, 200)}`);
+      let sent = 0;
+      const res = await new Promise((resolve) => {
+        const x = new XMLHttpRequest();
+        x.open('PUT', loc);
+        x.upload.onprogress = (e) => { st.bytes += e.loaded - sent; sent = e.loaded; };
+        x.onload = () => resolve({ status: x.status, text: x.responseText });
+        x.onerror = () => resolve({ status: 0, text: '網路中斷' });
+        x.send(file);
+      });
+      if (res.status === 200 || res.status === 201) {
+        st.bytes += file.size - sent;
+        const f = JSON.parse(res.text);
+        if (ctx.verify && f.md5Checksum && file.size < 300 * 1048576 && await MD5.ofBlob(file) !== f.md5Checksum) throw new Error('上傳後 MD5 不符');
+        base[row.key] = { ls: file.size, lm: file.lastModified, rid: f.id, rm: Date.parse(f.modifiedTime), rmd5: f.md5Checksum || '' };
+        return;
+      }
+      st.bytes -= sent;
+      if ((res.status === 0 || res.status >= 500 || res.status === 429) && attempt < 4) { log(`   重試上傳(${res.status || res.text})：${row.key}`); await sleep(1000 * 2 ** attempt); continue; }
+      throw new Error(`上傳失敗 ${res.status}：${String(res.text).slice(0, 200)}`);
+    }
+  }
+
+  async function download(row) {
+    const rel = localRel(row);
+    if (row.l) { const bak = await copyToTrash(root, await getFileH(root, rel), rel, stamp); log(`   舊檔已備份到 ${bak}`); }
+    for (let attempt = 0; ; attempt++) {
+      const res = await driveFetch(`${API}/drive/v3/files/${row.r.id}?alt=media&supportsAllDrives=true`);
+      if (!res.ok) throw new Error(`下載失敗 ${res.status}：${(await res.text()).slice(0, 200)}`);
+      const fh = await getFileH(root, rel, true);
+      const w = await fh.createWritable();   // 寫進暫存檔，close() 時才一次換上，中斷不會留下半個檔
+      let got = 0;
+      try {
+        const rd = res.body.getReader();
+        for (;;) { const { done, value } = await rd.read(); if (done) break; await w.write(value); got += value.length; st.bytes += value.length; if (st.cancel) throw new Error('已停止'); }
+        if (row.r.size && got !== row.r.size) throw new Error(`下載大小不符 ${got}≠${row.r.size}`);
+        await w.close();
+      } catch (e) {
+        try { await w.abort(); } catch (_) {}
+        st.bytes -= got;
+        if (!st.cancel && attempt < 3) { log(`   重試下載(${e.message})：${row.key}`); await sleep(1000 * 2 ** attempt); continue; }
+        throw e;
+      }
+      const f = await fh.getFile();
+      // 瀏覽器無法改本機檔案的修改時間 → 記在基準裡，下次比對才知道兩邊是一樣的
+      base[row.key] = { ls: f.size, lm: f.lastModified, rid: row.r.id, rm: row.r.mtime, rmd5: row.r.md5 || '' };
+      return;
+    }
+  }
+
+  async function doOp(p) {
+    const { row, action, isDir } = p;
+    ui.msg && ui.msg(`${{ up: '上傳', down: '下載', delR: '刪除 Drive', delL: '移除本機' }[action]}：${row.key}`);
+    if (action === 'up') {
+      if (isDir) { await ensureDriveDir(row.key); base[row.key] = { dir: true }; }
+      else { await upload(row); log(`⬆ 上傳 ${row.key}（${human(row.l.size)}）`); }
+    } else if (action === 'down') {
+      if (isDir) { await getDir(root, localRel(row), true); base[row.key] = { dir: true }; log(`📁 本機建立資料夾：${row.key}`); }
+      else { await download(row); log(`⬇ 下載 ${row.key}（${human(row.r.size)}）`); }
+    } else if (action === 'delR') {
+      await api('PATCH', `/drive/v3/files/${row.r.id}`, { supportsAllDrives: true, fields: 'id' }, { trashed: true });
+      log(`🗑 Drive 移到垃圾桶：${row.key}`);
+    } else if (action === 'delL') {
+      const rel = row.l.rel, h = isDir ? await getDir(root, rel) : await getFileH(root, rel);
+      const bak = await copyToTrash(root, h, rel, stamp);
+      await (await getDir(root, dirOf(rel))).removeEntry(baseOf(rel), { recursive: true });
+      log(`🗑 本機已移除（備份在 ${bak}）：${row.key}`);
+    }
+    if (action === 'delL' || action === 'delR') for (const k of Object.keys(base)) if (k === row.key || isUnder(k, row.key)) delete base[k];
+  }
+  const run = async (p) => {
+    if (st.cancel) return;
+    try { await doOp(p); st.ok++; }
+    catch (e) { st.errors.push({ key: p.row.key, action: p.action, error: e.message }); log(`✖ ${p.row.key}：${e.message}`); }
+    st.done++;
+  };
+
+  // 相同的列也記進基準（之後才能判斷「誰改過/誰刪了」）
+  for (const row of rows) {
+    if (row.status !== 'same') continue;
+    if (row.l.type === 'dir') base[row.key] = { dir: true };
+    else base[row.key] = { ls: row.l.size, lm: row.l.mtime, rid: row.r.id, rm: row.r.mtime, rmd5: row.r.md5 || '' };
+  }
+  // a) 資料夾（由上往下）  b) 檔案 3 個並行  c) 刪除最後做
+  for (const p of xfer.filter((p) => p.isDir)) await run(p);
+  const files = xfer.filter((p) => !p.isDir); let i = 0;
+  await Promise.all([0, 1, 2].map(async () => { while (i < files.length && !st.cancel) await run(files[i++]); }));
+  const deleted = [];
+  for (const p of dels) {
+    if (st.cancel) break;
+    if (deleted.some((d) => isUnder(p.row.key, d))) { st.done++; st.ok++; continue; }  // 上層資料夾已一起處理
+    const before = st.errors.length; await run(p);
+    if (p.isDir && st.errors.length === before) deleted.push(p.row.key);
+  }
+  log(st.cancel ? '已停止（已完成的部分保留）' : `完成：成功 ${st.ok} 項、失敗 ${st.errors.length} 項`);
+  return st;
+}
+
+/* =====================================================================
+ *  畫面狀態
+ * ===================================================================== */
+let pairs = [], cur = null;           // 目前組合
+let cmp = null;                       // 比對結果 { rows, ctx, counts }
+let actions = new Map();              // key → 動作
+let filter = 'diff', renderLimit = 1500, running = null;
+const mode = () => document.querySelector('input[name=mode]:checked').value;
+const cmpMode = () => document.querySelector('input[name=cmp]:checked').value;
+const STATUS = {
+  same: '相同', leftOnly: '只在本機', rightOnly: '只在 Drive', leftNewer: '本機較新', rightNewer: 'Drive 較新',
+  conflict: '衝突', gdoc: 'Google 格式', typeConflict: '類型衝突', caseConflict: '大小寫衝突', badName: '名稱不合法'
+};
+const ACT = { up: '→ 上傳', down: '← 下載', delL: '✕ 刪本機', delR: '刪 Drive ✕', skip: '—' };
+const ACT_MENU = { up: '→ 用本機覆蓋 Drive（上傳）', down: '← 用 Drive 覆蓋本機（下載）', delL: '✕ 刪除本機這個（備份到 .sync-trash）', delR: '✕ 刪除 Drive 這個（移到垃圾桶）', skip: '— 略過不處理' };
+
+function newPairObj() { return { id: 'p' + Date.now(), name: '新組合', local: null, localName: '', driveId: '', drivePath: '', mode: 'both', cmp: 'fast', excludes: DEFAULT_EXCLUDES, base: {} }; }
+async function savePair() { if (cur) await pairPut(cur); }
+function fillPairSel() {
+  $('pairSel').innerHTML = pairs.map((p) => `<option value="${p.id}" ${cur && p.id === cur.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
+}
+function showPair() {
+  $('lPath').textContent = cur.localName || '尚未選擇'; $('lPath').classList.toggle('empty', !cur.localName);
+  $('rPath').textContent = cur.drivePath || '尚未選擇'; $('rPath').classList.toggle('empty', !cur.drivePath);
+  document.querySelector(`input[name=mode][value="${cur.mode}"]`).checked = true;
+  document.querySelector(`input[name=cmp][value="${cur.cmp}"]`).checked = true;
+  $('excludes').value = cur.excludes;
+  const nb = Object.keys(cur.base || {}).length;
+  $('cmpMsg').textContent = nb ? `已記住上次同步狀態（${nb} 項），可偵測兩邊的修改與刪除` : '';
+  fillPairSel();
+}
+async function loadPair(id) { cur = pairs.find((p) => p.id === id); localStorage.setItem('dsync_last', id); resetResult(); showPair(); }
+async function newPair() { cur = newPairObj(); pairs.push(cur); await savePair(); resetResult(); showPair(); }
+async function renamePair() { const n = prompt('組合名稱', cur.name); if (n) { cur.name = n.trim(); await savePair(); fillPairSel(); } }
+async function deletePair() {
+  if (!confirm(`刪除組合「${cur.name}」？（只是刪掉這組設定，不會動到任何檔案）`)) return;
+  await pairDel(cur.id); pairs = pairs.filter((p) => p !== cur);
+  if (!pairs.length) { pairs.push(newPairObj()); await pairPut(pairs[0]); }
+  loadPair(pairs[0].id);
+}
+function autoName() { if (cur.name === '新組合' && cur.localName && cur.drivePath) { cur.name = `${cur.localName} ⇄ ${cur.drivePath.split(' / ').pop()}`; fillPairSel(); } }
+function resetResult() { cmp = null; $('resCard').style.display = 'none'; $('planbar').style.display = 'none'; }
+
+async function pickLocal() {
+  try {
+    const h = await window.showDirectoryPicker({ id: 'dsync', mode: 'readwrite' });
+    if (cur.local && !(await cur.local.isSameEntry(h))) cur.base = {};   // 換資料夾 → 舊基準作廢
+    cur.local = h; cur.localName = h.name; autoName(); await savePair(); showPair(); resetResult();
+  } catch (e) { if (e.name !== 'AbortError') toast('無法開啟資料夾：' + e.message, true); }
+}
+async function setDrive(id) {
+  const info = await driveFolderInfo(id);
+  if (cur.driveId && cur.driveId !== info.id) cur.base = {};
+  cur.driveId = info.id; cur.drivePath = info.path; autoName(); await savePair(); showPair(); resetResult();
+}
+async function useDriveUrl() {
+  const id = parseDriveId($('driveUrl').value);
+  if (!id) return toast('看不懂這個網址，請貼 https://drive.google.com/drive/folders/... 格式', true);
+  try { await getToken(true); await setDrive(id); $('driveUrl').value = ''; } catch (e) { toast(e.message, true); }
+}
+
+/* ---------- Drive 資料夾瀏覽器 ---------- */
+let dpStack = [], dpSel = null;
+async function openDrivePicker() {
+  try { await getToken(true); } catch (e) { return toast(e.message, true); }
+  $('dpModal').classList.add('show'); dpGo('root');
+}
+async function dpGo(id, name, push) {
+  if (!push) dpStack = [];
+  if (id === 'root') { dpStack = [{ id: 'root', name: '我的雲端硬碟' }]; }
+  else if (id === '@shared') dpStack = [{ id: '@shared', name: '與我共用' }];
+  else if (id === '@drives') dpStack = [{ id: '@drives', name: '共用雲端硬碟' }];
+  else if (push) dpStack.push({ id, name });
+  dpSel = id.startsWith('@') ? null : id;
+  $('dpCrumbs').innerHTML = dpStack.map((s, i) => `<a onclick="dpBack(${i})">${esc(s.name)}</a>`).join(' › ');
+  $('dpCur').textContent = dpSel ? '目前：' + dpStack.map((s) => s.name).join(' / ') : '請點進要的資料夾';
+  $('dpOk').disabled = !dpSel;
+  $('dpList').innerHTML = '<div class="hint">載入中…</div>';
+  try {
+    let items;
+    if (id === '@shared') items = (await api('GET', '/drive/v3/files', { q: `sharedWithMe and mimeType='${FOLDER_MIME}' and trashed=false`, fields: 'files(id,name)', pageSize: 500, orderBy: 'name' })).files;
+    else if (id === '@drives') items = ((await api('GET', '/drive/v3/drives', { pageSize: 100 })).drives || []).map((d) => ({ id: d.id, name: '🏢 ' + d.name }));
+    else items = await listChildren(id, true);
+    $('dpList').innerHTML = items.length ? items.map((f) => `<div data-id="${esc(f.id)}" data-name="${esc(f.name)}">📁 ${esc(f.name)}</div>`).join('') : '<div class="hint">（沒有子資料夾）</div>';
+    $('dpList').querySelectorAll('[data-id]').forEach((el) => el.onclick = () => dpGo(el.dataset.id, el.dataset.name, true));
+  } catch (e) { $('dpList').innerHTML = `<div class="hint" style="color:#dc2626">${esc(e.message)}</div>`; }
+}
+function dpBack(i) { const s = dpStack[i]; dpStack = dpStack.slice(0, i); if (i === 0) dpGo(s.id); else dpGo(s.id, s.name, true); }
+async function dpChoose() { if (!dpSel) return; closeModal('dpModal'); try { await setDrive(dpSel); } catch (e) { toast(e.message, true); } }
+
+/* ---------- 比對 ---------- */
+async function doCompare() {
+  if (!window.showDirectoryPicker && !FAKE_PORT) return toast('請用 Chrome 或 Edge', true);
+  if (!cur.local) return toast('請先選擇本機資料夾', true);
+  if (!cur.driveId) return toast('請先選擇 Drive 資料夾', true);
+  cur.mode = mode(); cur.cmp = cmpMode(); cur.excludes = $('excludes').value; await savePair();
+  try {
+    if (!(await ensurePerm(cur.local))) return toast('需要允許讀寫這個本機資料夾才能同步', true);
+    await getToken(true);
+  } catch (e) { return toast(e.message, true); }
+  const btn = $('btnCompare'); btn.disabled = true; resetResult();
+  const msg = (s) => { $('cmpMsg').textContent = s; };
+  try {
+    const rules = parseExcludes(cur.excludes), t0 = Date.now();
+    plog('① 掃描本機', cur.localName);
+    msg('掃描本機資料夾…');
+    const L = await scanLocal(cur.local, rules, (n) => msg(`掃描本機… ${n} 個檔案`));
+    plog('   本機項目數', L.map.size);
+    msg('掃描 Google Drive…');
+    plog('② 掃描 Drive', cur.drivePath);
+    const R = await scanDrive(cur.driveId, rules, (n) => msg(`掃描 Drive… ${n} 個項目`), () => false);
+    plog('   Drive 項目數', R.map.size);
+    plog('③ 比對，模式', cur.cmp, '基準項目', Object.keys(cur.base).length);
+    const { rows, md5n } = await compareMaps(L.map, R.map, cur.base, { useMd5: cur.cmp === 'md5', root: cur.local }, msg);
+    const counts = {}; rows.forEach((r) => counts[r.status] = (counts[r.status] || 0) + 1);
+    plog('   比對結果', counts);
+    cmp = { rows, counts, issues: [...L.issues, ...R.issues],
+      ctx: { root: cur.local, driveId: cur.driveId, base: cur.base, driveDirs: new Map([...R.map].filter(([, v]) => v.type === 'dir').map(([k, v]) => [k, v.id])), verify: true } };
+    applyDefaults();
+    msg(`比對完成：本機 ${L.map.size} 項、Drive ${R.map.size} 項，${((Date.now() - t0) / 1000).toFixed(1)} 秒${md5n ? `，計算 ${md5n} 個 MD5` : ''}`);
+    filter = rows.some((r) => r.status !== 'same') ? 'diff' : 'all';
+    $('resCard').style.display = '';
+    render();
+  } catch (e) { msg(''); toast('比對失敗：' + e.message, true); console.error(e); }
+  btn.disabled = false;
+}
+function applyDefaults() {
+  actions = new Map(cmp.rows.map((r) => [r.key, defaultAction(r, mode())]));
+  // 資料夾預設要刪，但裡面有新東西要保留 → 資料夾改成略過（裡面的新檔照常傳）
+  for (const r of cmp.rows) {
+    const a = actions.get(r.key);
+    if ((a === 'delL' || a === 'delR') && (r.l || r.r).type === 'dir' && cmp.rows.some((k) => isUnder(k.key, r.key) && actions.get(k.key) !== a)) actions.set(r.key, 'skip');
+  }
+}
+document.querySelectorAll('input[name=mode]').forEach((el) => el.onchange = async () => { cur.mode = mode(); await savePair(); if (cmp) { applyDefaults(); render(); } });
+
+/* ---------- 結果表 ---------- */
+const FILTERS = [
+  ['diff', '有差異', (r) => r.status !== 'same'], ['all', '全部', () => true],
+  ['leftOnly', '只在本機'], ['rightOnly', '只在 Drive'], ['leftNewer', '本機較新'], ['rightNewer', 'Drive 較新'],
+  ['conflict', '衝突'], ['same', '相同'], ['other', '無法同步', (r) => ['gdoc', 'typeConflict', 'caseConflict', 'badName'].includes(r.status)],
+  ['act', '有動作', (r) => actions.get(r.key) !== 'skip']
+];
+function visibleRows() {
+  const f = FILTERS.find((x) => x[0] === filter), q = $('q').value.trim().toLowerCase();
+  return cmp.rows.filter((r) => (f[2] ? f[2](r) : r.status === f[0]) && (!q || r.key.toLowerCase().includes(q)));
+}
+function render() {
+  if (!cmp) return;
+  $('chips').innerHTML = FILTERS.map(([k, label, fn]) => {
+    const n = cmp.rows.filter((r) => fn ? fn(r) : r.status === k).length;
+    return n || k === 'diff' || k === 'all' ? `<span class="chip ${filter === k ? 'on' : ''}" onclick="filter='${k}';renderLimit=1500;render()">${label}<b>${n}</b></span>` : '';
+  }).join('');
+  const rows = visibleRows(), shown = rows.slice(0, renderLimit);
+  $('tb').innerHTML = shown.map((r, i) => {
+    const depth = r.key.split('/').length - 1, isDir = (r.l || r.r).type === 'dir';
+    const icon = isDir ? '📁' : r.r && r.r.type === 'gdoc' ? '📄' : '　';
+    const a = actions.get(r.key), lN = r.status === 'leftNewer', rN = r.status === 'rightNewer';
+    const lsz = r.l ? (r.l.type === 'dir' ? '' : human(r.l.size)) : '', rsz = r.r ? (r.r.type === 'file' ? human(r.r.size) : '') : '';
+    return `<tr class="st-${r.status}" title="${esc(r.key)}">
+      <td class="name" style="padding-left:${8 + depth * 16}px">${icon} ${esc(baseOf(r.key))}${r.note ? `<span class="note">${esc(r.note)}</span>` : ''}</td>
+      <td class="num Lc">${r.l ? lsz : '<span class="muted">—</span>'}</td><td class="Lc ${lN ? 'newer' : ''}">${r.l && r.l.type === 'file' ? fmtTime(r.l.mtime) : ''}</td>
+      <td class="act"><button class="ab ${a}" data-i="${i}" ${r.allowed.length < 2 ? 'disabled' : ''}>${ACT[a]}</button></td>
+      <td class="num Rc">${r.r ? rsz : '<span class="muted">—</span>'}</td><td class="Rc ${rN ? 'newer' : ''}">${r.r && r.r.type !== 'dir' ? fmtTime(r.r.mtime) : ''}</td>
+      <td><span class="stat ${r.status}">${STATUS[r.status]}</span></td></tr>`;
+  }).join('') || '<tr><td colspan="7" class="hint" style="text-align:center;padding:24px">沒有符合的項目 🎉</td></tr>';
+  $('tb').querySelectorAll('.ab').forEach((b) => b.onclick = (e) => openMenu(e, shown[+b.dataset.i]));
+  $('more').innerHTML = rows.length > renderLimit ? `只顯示前 ${renderLimit} 筆（共 ${rows.length}）<button class="btn-sm" onclick="renderLimit+=3000;render()">顯示更多</button>` : '';
+  const iss = cmp.issues;
+  $('issuesBox').style.display = iss.length ? '' : 'none';
+  $('issuesSum').textContent = `⚠️ ${iss.length} 個項目無法讀取或略過`;
+  $('issues').innerHTML = iss.slice(0, 300).map((x) => `${x.side}：${esc(x.path)} — ${esc(x.error)}`).join('<br>');
+  $('resInfo').textContent = `共 ${cmp.rows.length} 項`;
+  renderPlan();
+}
+function renderPlan() {
+  let up = 0, upB = 0, down = 0, downB = 0, dR = 0, dL = 0;
+  for (const r of cmp.rows) {
+    const a = actions.get(r.key), file = (r.l || r.r).type !== 'dir';
+    if (a === 'up') { up++; if (file) upB += r.l.size; } else if (a === 'down') { down++; if (file) downB += r.r.size; }
+    else if (a === 'delR') dR++; else if (a === 'delL') dL++;
+  }
+  const n = up + down + dR + dL;
+  $('planbar').style.display = '';
+  $('planTxt').innerHTML = n ? `準備：⬆ 上傳 <b>${up}</b>（${human(upB)}）　⬇ 下載 <b>${down}</b>（${human(downB)}）` +
+    (dR ? `　🗑 Drive 刪除 <b style="color:#fca5a5">${dR}</b>` : '') + (dL ? `　🗑 本機刪除 <b style="color:#fca5a5">${dL}</b>` : '')
+    : '兩邊已一致，沒有要做的事 ✔';
+  $('btnRun').disabled = !n || !!running;
+}
+let menuEl = null;
+function openMenu(e, row) {
+  e.stopPropagation(); closeMenu();
+  menuEl = document.createElement('div'); menuEl.className = 'menu';
+  menuEl.innerHTML = row.allowed.map((a) => `<div data-a="${a}">${ACT_MENU[a]}</div>`).join('') + `<div data-a="@def" class="hint">↺ 恢復預設（${ACT[defaultAction(row, mode())]}）</div>`;
+  const rc = e.target.getBoundingClientRect();
+  menuEl.style.left = Math.max(8, Math.min(window.innerWidth - 320, rc.left + scrollX - 100)) + 'px'; menuEl.style.top = (rc.bottom + scrollY + 4) + 'px';
+  menuEl.querySelectorAll('[data-a]').forEach((d) => d.onclick = () => { setAction(row, d.dataset.a === '@def' ? defaultAction(row, mode()) : d.dataset.a); closeMenu(); render(); });
+  document.body.appendChild(menuEl);
+}
+function closeMenu() { if (menuEl) { menuEl.remove(); menuEl = null; } }
+document.addEventListener('click', closeMenu);
+// 改資料夾的動作時，底下的項目跟著改（刪除/上傳/下載整個資料夾）
+function setAction(row, a) {
+  actions.set(row.key, a);
+  if ((row.l || row.r).type === 'dir' && a !== 'skip') for (const r of cmp.rows) if (isUnder(r.key, row.key) && r.allowed.includes(a)) actions.set(r.key, a);
+}
+function bulk(a) {
+  let n = 0;
+  for (const r of visibleRows()) { const v = a === 'default' ? defaultAction(r, mode()) : a; if (r.allowed.includes(v)) { actions.set(r.key, v); n++; } }
+  toast(`已設定 ${n} 列`); render();
+}
+
+/* ---------- 執行 ---------- */
+async function doRun() {
+  if (!cmp || running) return;
+  const dels = cmp.rows.filter((r) => ['delL', 'delR'].includes(actions.get(r.key)));
+  if (dels.length) {
+    const sample = dels.slice(0, 8).map((r) => `  ${actions.get(r.key) === 'delR' ? '[Drive]' : '[本機]'} ${r.key}`).join('\n');
+    if (!confirm(`這次會刪除 ${dels.length} 個項目：\n${sample}${dels.length > 8 ? '\n  …' : ''}\n\nDrive 的會移到垃圾桶、本機的會備份到 .sync-trash。確定繼續？`)) return;
+  }
+  try { if (!(await ensurePerm(cmp.ctx.root))) return toast('需要本機資料夾的讀寫權限', true); await getToken(true); } catch (e) { return toast(e.message, true); }
+  $('runCard').style.display = ''; $('logbox').textContent = ''; $('btnCancel').disabled = false;
+  $('runCard').scrollIntoView({ behavior: 'smooth' });
+  const ui = { log: (s) => { const lb = $('logbox'); lb.textContent += new Date().toLocaleTimeString('zh-TW', { hour12: false }) + '  ' + s + '\n'; lb.scrollTop = lb.scrollHeight; }, msg: (s) => $('runMsg').textContent = s };
+  running = ui; renderPlan();
+  const tick = setInterval(() => {
+    const s = ui.state; if (!s) return;
+    const pct = s.totalBytes ? s.bytes / s.totalBytes : s.total ? s.done / s.total : 1;
+    $('barIn').style.width = (Math.min(1, pct) * 100).toFixed(1) + '%';
+  }, 300);
+  let st;
+  try { st = await runSync(cmp.ctx, cmp.rows, actions, ui); }
+  catch (e) { ui.log('✖ ' + e.message); toast(e.message, true); }
+  clearInterval(tick); $('barIn').style.width = '100%'; $('btnCancel').disabled = true;
+  await savePair();                    // 存「這次同步後」的基準
+  running = null;
+  if (st) {
+    $('runMsg').textContent = st.cancel ? '已停止' : st.errors.length ? `完成，但有 ${st.errors.length} 項失敗（看下方紀錄）` : '✅ 同步完成，正在重新比對…';
+    if (!st.cancel) { await doCompare(); if (!st.errors.length) $('runMsg').textContent = '✅ 同步完成，已重新比對確認'; }
+  }
+  window.__lastRun = st;
+}
+function cancelRun() { if (running && running.state) { running.state.cancel = true; $('btnCancel').disabled = true; $('runMsg').textContent = '停止中（等目前的檔案傳完）…'; } }
+
+/* ---------- 設定 ---------- */
+function openSettings() { $('cidIn').value = clientId(); $('originHint').textContent = location.origin; $('setModal').classList.add('show'); }
+function saveSettings() {
+  const v = $('cidIn').value.trim();
+  if (v && !/\.apps\.googleusercontent\.com$/.test(v)) return toast('Client ID 應該是 xxx.apps.googleusercontent.com 結尾', true);
+  localStorage.setItem('dsync_client_id', v); tokenClient = null; initTokenClient();
+  $('noCid').style.display = v ? 'none' : ''; closeModal('setModal'); toast('已儲存');
+}
+
+/* ---------- 啟動 ---------- */
+(async function boot() {
+  if (!window.showDirectoryPicker && !FAKE_PORT) $('noFsa').style.display = '';
+  if (!clientId() && !FAKE_PORT) $('noCid').style.display = '';
+  await openDB();
+  pairs = await pairAll();
+  if (!pairs.length) { pairs.push(newPairObj()); await pairPut(pairs[0]); }
+  cur = pairs.find((p) => p.id === localStorage.getItem('dsync_last')) || pairs[0];
+  showPair();
+  if (FAKE_PORT) showWho();
+  const t = setInterval(() => { if (window.google?.accounts?.oauth2) { clearInterval(t); initTokenClient(); } }, 400);
+  window.addEventListener('beforeunload', (e) => { if (running) { e.preventDefault(); e.returnValue = ''; } });
+  if (IS_LOCAL && QS.get('selftest')) { const s = document.createElement('script'); s.src = 'test/selftest.js?' + Date.now(); document.body.appendChild(s); }
+})();
+</script>
+</body>
+</html>
