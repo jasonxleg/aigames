@@ -24,6 +24,15 @@
             border-bottom:1px solid var(--line);align-items:center;flex-wrap:wrap}
   select{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
          border-radius:8px;padding:7px 10px;font-size:13px;outline:none}
+  /* 語言下拉選單：亮色醒目 */
+  #lang,#transLang{appearance:none;-webkit-appearance:none;
+         background:#fbbf24 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%231a1300' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 10px center;
+         color:#1a1300;border:2px solid #fde68a;font-weight:700;font-size:14px;
+         padding:7px 32px 7px 12px;cursor:pointer;box-shadow:0 0 10px rgba(251,191,36,.45)}
+  #lang:hover,#transLang:hover,#lang:focus,#transLang:focus{background-color:#fcd34d;box-shadow:0 0 14px rgba(251,191,36,.75)}
+  #lang option,#transLang option{background:#20242e;color:#e8ebf0;font-weight:600}
+  label.opt:has(#lang){color:var(--warn);font-weight:700;font-size:14px}
+  .transGroup{display:flex;align-items:center;gap:8px;padding-left:14px;border-left:1px solid var(--line)}
   label.opt{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;cursor:pointer}
   button{border:none;border-radius:9px;padding:9px 16px;font-size:14px;font-weight:600;
          cursor:pointer;transition:.15s;font-family:inherit}
@@ -117,23 +126,6 @@
   <span id="mobileNote" class="mobileNote">📱 手機收音中已暫停音量條，以釋放麥克風給辨識使用</span>
 </div>
 
-<div class="controls" id="transBar">
-  <label class="opt"><input type="checkbox" id="transChk"> 🌐 即時翻譯成</label>
-  <select id="transLang">
-    <option value="en">English</option>
-    <option value="ja">日本語</option>
-    <option value="ko">한국어</option>
-    <option value="zh-TW">中文（繁體）</option>
-    <option value="zh-CN">中文（简体）</option>
-    <option value="es">Español</option>
-    <option value="fr">Français</option>
-    <option value="de">Deutsch</option>
-    <option value="th">ไทย</option>
-    <option value="vi">Tiếng Việt</option>
-  </select>
-  <span class="hint">每段辨識完成自動翻譯</span>
-</div>
-
 <main>
   <div class="pane">
     <div class="paneHead">
@@ -158,6 +150,21 @@
   <button id="btnCopy" class="btn-sec">📋 複製</button>
   <button id="btnSave" class="btn-sec">💾 下載 .txt</button>
   <button id="btnClear" class="btn-sec">🗑️ 清除</button>
+  <span id="transBar" class="transGroup" title="每段辨識完成自動翻譯">
+    <label class="opt"><input type="checkbox" id="transChk"> 🌐 即時翻譯成</label>
+    <select id="transLang">
+      <option value="en">English</option>
+      <option value="ja">日本語</option>
+      <option value="ko">한국어</option>
+      <option value="zh-TW">中文（繁體）</option>
+      <option value="zh-CN">中文（简体）</option>
+      <option value="es">Español</option>
+      <option value="fr">Français</option>
+      <option value="de">Deutsch</option>
+      <option value="th">ไทย</option>
+      <option value="vi">Tiếng Việt</option>
+    </select>
+  </span>
   <span id="count" class="count">0 字</span>
 </footer>
 
