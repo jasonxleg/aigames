@@ -1,0 +1,1012 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>會議即時記錄 + 中英翻譯</title>
+<style>
+:root{
+  --bg:#0f1420; --panel:#171e2e; --panel2:#1e2739; --line:#2a3550; --text:#e6ebf5; --muted:#8d99b3;
+  --accent:#4f8cff; --me:#3ecf8e; --them:#f5a524; --danger:#ef5b5b; --tr:#9fc2ff;
+  --fs:16px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:var(--fs)/1.55 "Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif}
+button,select,input,textarea{font:inherit;color:inherit}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+button:hover{border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+button.stop{background:var(--danger);border-color:var(--danger);color:#fff;font-weight:700}
+select,input[type=text],input[type=password],input[type=number],textarea{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:6px 8px}
+.app{display:flex;flex-direction:column;height:100%}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:18px;margin:0 10px 0 0;white-space:nowrap}
+.timer{font-variant-numeric:tabular-nums;color:var(--muted);min-width:70px}
+.rec-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#555;margin-right:6px;vertical-align:middle}
+.rec-dot.on{background:var(--danger);animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.3}}
+.spacer{flex:1}
+.sources{display:flex;flex-wrap:wrap;gap:10px;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+.src{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;flex:1;min-width:300px}
+.src .tag{font-weight:700}
+.src.me .tag{color:var(--me)} .src.them .tag{color:var(--them)}
+.meter{flex:1;min-width:70px;height:8px;background:var(--bg);border-radius:4px;overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3ecf8e,#f5a524,#ef5b5b);transition:width .08s}
+.state{font-size:13px;color:var(--muted)}
+.state.ok{color:var(--me)} .state.err{color:var(--danger)}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 14px;border-bottom:1px solid var(--line)}
+.toolbar input[type=text]{min-width:160px}
+main{flex:1;display:flex;min-height:0}
+#list{flex:1;overflow-y:auto;padding:12px 14px 40px}
+.empty{color:var(--muted);text-align:center;margin-top:8vh;line-height:1.9}
+.empty b{color:var(--text)}
+.row{display:grid;grid-template-columns:64px 52px 1fr auto;gap:8px;padding:8px 6px;border-bottom:1px solid #1b2334;align-items:start}
+.row:hover{background:#151c2b}
+.row .t{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;padding-top:3px}
+.row .who{font-size:12px;font-weight:700;border-radius:6px;padding:2px 0;text-align:center}
+.row .who.me{background:#173c2e;color:var(--me)} .row .who.them{background:#3d2f12;color:var(--them)}
+.row .orig{white-space:pre-wrap;word-break:break-word}
+.row .tr{color:var(--tr);white-space:pre-wrap;word-break:break-word;margin-top:2px}
+.row .pending{color:var(--muted);font-style:italic}
+.row .err{color:var(--danger);font-size:13px}
+.row .ops{display:flex;gap:4px;opacity:0}
+.row:hover .ops{opacity:1}
+.row .ops button{padding:2px 6px;font-size:12px}
+.row.interim .orig{color:var(--muted)}
+.row mark{background:#5b4a00;color:inherit}
+.hide-orig .row .orig{display:none} .hide-tr .row .tr{display:none}
+aside{width:min(420px,40%);border-left:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:14px;display:none}
+aside.show{display:block}
+aside h2{font-size:16px;margin:0 0 8px}
+.md h1,.md h2,.md h3{font-size:16px;margin:14px 0 6px;color:var(--accent)}
+.md ul{padding-left:20px;margin:4px 0}
+.md p{margin:6px 0}
+.modal{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:10;padding:16px}
+.modal.show{display:flex}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:min(640px,100%);max-height:90vh;overflow-y:auto}
+.card h2{margin:0 0 12px;font-size:18px}
+.field{margin:12px 0}
+.field label{display:block;font-weight:700;margin-bottom:4px}
+.field .hint{font-size:13px;color:var(--muted);margin-top:3px}
+.field input[type=text],.field input[type=password],.field textarea,.field select{width:100%}
+.help li{margin:6px 0}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#000d;border:1px solid var(--line);border-radius:8px;padding:8px 14px;display:none;z-index:20;max-width:90vw}
+.toast.show{display:block}
+@media (max-width:760px){
+  .row{grid-template-columns:52px 44px 1fr}
+  .row .ops{display:none}
+  aside{position:fixed;inset:auto 0 0 0;width:100%;height:55%;border-left:0;border-top:1px solid var(--line);z-index:5}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>🎙️ 會議即時記錄 + 中英翻譯</h1>
+    <span class="timer"><span id="recDot" class="rec-dot"></span><span id="timer">00:00:00</span></span>
+    <button id="btnStart" class="primary">▶ 開始記錄</button>
+    <button id="btnStop" class="stop" disabled>⏹ 停止</button>
+    <span class="spacer"></span>
+    <button id="btnPip" title="浮在 Google Meet 上方的字幕視窗">📺 浮動字幕</button>
+    <button id="btnSummary">🧠 AI 會議摘要</button>
+    <button id="btnExport">💾 匯出</button>
+    <button id="btnNew" title="清空，開始新的會議">🗒️ 新會議</button>
+    <button id="btnSettings">⚙️ 設定</button>
+    <button id="btnHelp">❓ 使用說明</button>
+  </header>
+
+  <section class="sources">
+    <div class="src me">
+      <label><input type="checkbox" id="useMic" checked> <span class="tag">🗣️ 我（麥克風）</span></label>
+      <select id="micEngine" title="辨識引擎">
+        <option value="web">即時(Chrome 語音辨識，免費)</option>
+        <option value="gemini">Gemini(中英混講較準)</option>
+      </select>
+      <select id="micLang" title="我說的語言(Chrome 語音辨識一次只能一種)">
+        <option value="zh-TW">我說中文</option>
+        <option value="en-US">I speak English</option>
+      </select>
+      <div class="meter"><i id="lvMe"></i></div>
+      <span id="stMe" class="state">待命</span>
+    </div>
+    <div class="src them">
+      <label><input type="checkbox" id="useTab" checked> <span class="tag">👥 會議聲音（對方）</span></label>
+      <span class="state" title="擷取 Google Meet 分頁的聲音，交給 Gemini 辨識+翻譯">分頁/系統音訊 → Gemini</span>
+      <div class="meter"><i id="lvThem"></i></div>
+      <span id="stThem" class="state">待命</span>
+    </div>
+  </section>
+
+  <div class="toolbar">
+    <label>顯示
+      <select id="viewMode">
+        <option value="both">原文 + 翻譯</option>
+        <option value="orig">只看原文</option>
+        <option value="tr">只看翻譯</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="autoScroll" checked> 自動捲到最新</label>
+    <input type="text" id="search" placeholder="🔍 搜尋逐字稿…">
+    <span class="spacer"></span>
+    <span id="stats" class="state"></span>
+  </div>
+
+  <main>
+    <div id="list"></div>
+    <aside id="summaryPane">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <h2 style="flex:1">🧠 AI 會議摘要</h2>
+        <button id="btnCopySummary">複製</button>
+        <button id="btnCloseSummary">✕</button>
+      </div>
+      <div id="summaryBody" class="md"></div>
+    </aside>
+  </main>
+</div>
+
+<!-- 設定 -->
+<div id="dlgSettings" class="modal"><div class="card">
+  <h2>⚙️ 設定</h2>
+  <div class="field">
+    <label>Gemini API 金鑰</label>
+    <input type="password" id="apiKey" placeholder="貼上你的 Gemini API Key（只存在這台電腦的瀏覽器）" autocomplete="off">
+    <div class="hint">「會議聲音」辨識、AI 摘要需要它。到 Google AI Studio 免費申請。金鑰只存在本機瀏覽器 localStorage，不會寫進任何檔案。會議音訊會送到 Google Gemini 處理，機密會議請自行評估。</div>
+  </div>
+  <div class="field">
+    <label>Gemini 模型</label>
+    <select id="model">
+      <option value="auto">自動（gemini-3-flash-preview → 3-flash → 2.5-pro → 2.5-flash）</option>
+      <option value="gemini-3-flash-preview">gemini-3-flash-preview</option>
+      <option value="gemini-3-flash">gemini-3-flash</option>
+      <option value="gemini-2.5-pro">gemini-2.5-pro（較慢、較準）</option>
+      <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+    </select>
+  </div>
+  <div class="field">
+    <label>專有名詞 / 人名對照（選填）</label>
+    <textarea id="glossary" rows="3" placeholder="例如：OKR、Sprint、王經理=Manager Wang、天堂M"></textarea>
+    <div class="hint">讓辨識與翻譯把公司/產品用語寫對。</div>
+  </div>
+  <div class="field">
+    <label>每段最長秒數：<span id="maxSecVal"></span> 秒</label>
+    <input type="range" id="maxSec" min="5" max="25" step="1" style="width:100%">
+    <div class="hint">會在講話停頓處自動切段；連續講不停時最多這麼長切一刀。短 = 字幕快；長 = 句子完整、翻譯較好。</div>
+  </div>
+  <div class="field">
+    <label>收音靈敏度：<span id="sensVal"></span></label>
+    <input type="range" id="sens" min="1" max="10" step="1" style="width:100%">
+    <div class="hint">對方講話沒被抓到就調高；一直抓到雜音就調低。</div>
+  </div>
+  <div class="field">
+    <label>字體大小：<span id="fsVal"></span>px</label>
+    <input type="range" id="fontSize" min="13" max="26" step="1" style="width:100%">
+  </div>
+  <div class="field">
+    <label>沒有金鑰時的文字翻譯</label>
+    <div class="hint">「我（麥克風）」用 Chrome 語音辨識時，翻譯優先用 Gemini；沒填金鑰會改走免費 Google 翻譯（本機版經伺服器代理，GitHub Pages 版直連）。</div>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+    <button id="btnTestKey">🔌 測試金鑰</button>
+    <button id="btnCloseSettings" class="primary">完成</button>
+  </div>
+</div></div>
+
+<!-- 開頁先問金鑰 -->
+<div id="dlgKey" class="modal"><div class="card" style="width:min(520px,100%)">
+  <h2>🔑 請輸入 Gemini API 金鑰</h2>
+  <div class="field">
+    <input type="password" id="keyFirst" placeholder="貼上 API Key（AIza 開頭）" autocomplete="off">
+    <div class="hint">
+      聽「對方」的聲音、AI 會議摘要都需要它。<br>
+      還沒有？到 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--accent)">Google AI Studio</a> 用 Google 帳號登入 → Create API key（Gemini Pro 訂閱不等於 API 金鑰，要另外按這裡申請）。<br>
+      金鑰只存在這台電腦的瀏覽器，不會上傳到網站或 GitHub。
+    </div>
+    <div id="keyMsg" class="state" style="margin-top:8px"></div>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+    <button id="btnKeyLater">先不用（只記我的麥克風）</button>
+    <button id="btnKeySave" class="primary">儲存並測試</button>
+  </div>
+</div></div>
+
+<!-- 說明 -->
+<div id="dlgHelp" class="modal"><div class="card help">
+  <h2>❓ 怎麼在 Google Meet 用</h2>
+  <ol>
+    <li>先按 <b>⚙️ 設定</b> 貼上 Gemini API 金鑰（聽對方聲音必須）。</li>
+    <li>在 Chrome 另一個分頁開好 Google Meet 並進入會議。</li>
+    <li>回到這裡按 <b>▶ 開始記錄</b>。Chrome 會問要分享哪裡 → 選 <b>「Chrome 分頁」→ 選 Meet 那個分頁</b>，並確認 <b>「同時分享分頁音訊」有打勾</b>，按分享。<br><span class="state">（只是拿聲音，畫面不會被錄也不會傳出去。）</span></li>
+    <li>你自己的聲音走麥克風；對方的聲音走 Meet 分頁音訊。兩邊分開記，所以能標出「我 / 對方」。</li>
+    <li>按 <b>📺 浮動字幕</b>，會跳出一個永遠在最上層的小視窗，切回 Meet 也看得到翻譯。</li>
+    <li>結束後按 <b>🧠 AI 會議摘要</b> 產生中英摘要、決議、待辦，再 <b>💾 匯出</b> 成 Markdown / 文字檔。</li>
+  </ol>
+  <h2>小提醒</h2>
+  <ul>
+    <li><b>請戴耳機</b>：用喇叭時麥克風會再收到對方聲音，逐字稿會重複。</li>
+    <li>Zoom / Teams 桌面版：分享時改選 <b>「整個螢幕」並勾「分享系統音訊」</b>。</li>
+    <li>「我」用 Chrome 語音辨識：字幕最即時、免費，但一次只能一種語言（上方切「我說中文 / I speak English」）。中英夾雜很多就改用 Gemini 引擎。</li>
+    <li>逐字稿會自動存在這台電腦的瀏覽器，不小心關掉重開還在；按 🗒️ 新會議 才會清掉。</li>
+    <li>每列滑過去可以 ✏️ 修正原文、🔁 重新翻譯、🗑 刪除。</li>
+  </ul>
+  <div style="text-align:right;margin-top:12px"><button id="btnCloseHelp" class="primary">知道了</button></div>
+</div></div>
+
+<!-- 匯出 -->
+<div id="dlgExport" class="modal"><div class="card">
+  <h2>💾 匯出</h2>
+  <div style="display:flex;flex-wrap:wrap;gap:8px">
+    <button data-exp="md">Markdown (.md)</button>
+    <button data-exp="txt">純文字 (.txt)</button>
+    <button data-exp="srt">字幕檔 (.srt)</button>
+    <button data-exp="copy">📋 複製全部</button>
+  </div>
+  <div class="field">
+    <label><input type="checkbox" id="expTr" checked> 包含翻譯</label>
+    <label><input type="checkbox" id="expSum" checked> 包含 AI 摘要（若已產生）</label>
+  </div>
+  <div style="text-align:right"><button id="btnCloseExport" class="primary">關閉</button></div>
+</div></div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+'use strict';
+// ====== 開關：除錯 log ======
+const SHOW_LOG = true;
+const log = (...a) => { if (SHOW_LOG) console.log('[會議翻譯]', ...a); };
+
+// ====== Gemini 端點（依序嘗試；被下架就往下走） ======
+const GEMINI_MODELS = [
+  { id: 'gemini-3-flash-preview', ver: 'v1beta' },
+  { id: 'gemini-3-flash', ver: 'v1' },
+  { id: 'gemini-2.5-pro', ver: 'v1' },
+  { id: 'gemini-2.5-flash', ver: 'v1' },
+];
+
+// ====== 設定（localStorage；讀寫都包 try，私密視窗也不會壞） ======
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem('mt.' + k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } },
+  set(k, v) { try { localStorage.setItem('mt.' + k, JSON.stringify(v)); } catch (_) {} },
+};
+const cfg = Object.assign({
+  apiKey: '', model: 'auto', glossary: '', maxSec: 12, sens: 5, fontSize: 16,
+  micEngine: 'web', micLang: 'zh-TW', useMic: true, useTab: true, viewMode: 'both',
+}, LS.get('cfg', {}));
+const saveCfg = () => LS.set('cfg', cfg);
+
+// 執行環境：本機伺服器(localhost) 或 GitHub Pages 等純靜態網站(https)
+const IS_LOCAL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtT = ms => { const s = Math.max(0, Math.floor(ms / 1000)); return [s / 3600 | 0, (s / 60 | 0) % 60, s % 60].map(n => String(n).padStart(2, '0')).join(':'); };
+const isCJK = s => { const c = (s.match(/[\u3400-\u9fff\uf900-\ufaff]/g) || []).length; const l = (s.match(/[A-Za-z]/g) || []).length; return c > 0 && c * 2 >= l; };
+function toast(msg, ms = 2600) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast._h); toast._h = setTimeout(() => t.classList.remove('show'), ms); }
+
+// ====== 會議狀態 ======
+let session = LS.get('session', null) || { startedAt: 0, elapsedBefore: 0, entries: [], summary: '' };
+let runStart = 0;               // 本輪開始記錄的 Date.now()
+let running = false;
+let nextId = session.entries.reduce((m, e) => Math.max(m, e.id), 0) + 1;
+const elapsed = () => session.elapsedBefore + (running ? Date.now() - runStart : 0);
+let saveTimer = 0;
+function saveSession() { clearTimeout(saveTimer); saveTimer = setTimeout(() => LS.set('session', session), 400); }
+
+// ====================================================================
+// 1) 音訊切段器：任何 MediaStream → 偵測停頓切段 → 16kHz 單聲道 WAV
+// ====================================================================
+class Segmenter {
+  constructor(stream, opt) {
+    this.stream = stream; this.opt = opt;
+    this.floor = 0.004; this.inSeg = false; this.pre = []; this.bufs = [];
+  }
+  async start() {
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (this.ctx.state === 'suspended') await this.ctx.resume();
+    this.src = this.ctx.createMediaStreamSource(this.stream);
+    this.proc = this.ctx.createScriptProcessor(4096, 1, 1);
+    this.mute = this.ctx.createGain(); this.mute.gain.value = 0; // 只分析不播放，避免回授
+    this.src.connect(this.proc); this.proc.connect(this.mute); this.mute.connect(this.ctx.destination);
+    this.ratio = this.ctx.sampleRate / 16000;
+    this.bufMs = 4096 / this.ctx.sampleRate * 1000;
+    this.proc.onaudioprocess = e => this._onBuf(e.inputBuffer.getChannelData(0));
+    log(`1-${this.opt.name}. 切段器啟動，取樣率 ${this.ctx.sampleRate} → 16000，每塊 ${this.bufMs.toFixed(0)}ms`);
+  }
+  _onBuf(ch) {
+    // 降取樣到 16k（區間平均，兼當簡單低通）
+    const n = Math.floor(ch.length / this.ratio), out = new Float32Array(n);
+    let sq = 0;
+    for (let i = 0; i < n; i++) {
+      const a = Math.floor(i * this.ratio), b = Math.min(ch.length, Math.floor((i + 1) * this.ratio));
+      let s = 0; for (let j = a; j < b; j++) s += ch[j];
+      out[i] = s / Math.max(1, b - a); sq += out[i] * out[i];
+    }
+    const rms = Math.sqrt(sq / Math.max(1, n));
+    this.opt.onLevel && this.opt.onLevel(rms);
+    const sens = this.opt.sens ? this.opt.sens() : 5;           // 1~10
+    const minThr = 0.02 / sens;                                  // 靈敏度 5 → 0.004
+    const thr = Math.max(minThr, this.floor * 2.5);
+    const voiced = rms > thr;
+    if (!voiced) this.floor = this.floor * 0.97 + Math.min(rms, 0.05) * 0.03; // 背景噪音慢慢學
+
+    if (!this.inSeg) {
+      this.pre.push(out); if (this.pre.length > 4) this.pre.shift();   // 保留約 0.35 秒前導，避免切掉第一個字
+      if (voiced) {
+        this.inSeg = true; this.bufs = this.pre.slice(); this.pre = [];
+        this.voicedMs = this.bufMs; this.silentMs = 0;
+        this.segStartAt = this.opt.now() - this.bufs.length * this.bufMs;
+      }
+      return;
+    }
+    this.bufs.push(out);
+    if (voiced) { this.voicedMs += this.bufMs; this.silentMs = 0; } else this.silentMs += this.bufMs;
+    const dur = this.bufs.length * this.bufMs;
+    const maxMs = (this.opt.maxSec ? this.opt.maxSec() : 12) * 1000;
+    if ((this.silentMs >= 700 && dur >= 1500) || this.silentMs >= 1400 || dur >= maxMs) this.flush(dur >= maxMs ? '到上限' : '停頓');
+  }
+  flush(why) {
+    if (!this.inSeg) return;
+    this.inSeg = false;
+    const bufs = this.bufs; this.bufs = [];
+    if (this.voicedMs < 350) { log(`2-${this.opt.name}. 丟棄太短的聲音(${this.voicedMs.toFixed(0)}ms 人聲)`); return; }
+    const len = bufs.reduce((s, b) => s + b.length, 0), pcm = new Float32Array(len);
+    let o = 0; for (const b of bufs) { pcm.set(b, o); o += b.length; }
+    log(`2-${this.opt.name}. 切出一段(${why})：${(len / 16000).toFixed(1)} 秒，人聲 ${(this.voicedMs / 1000).toFixed(1)} 秒`);
+    this.opt.onSegment(encodeWav(pcm, 16000), this.segStartAt, len / 16);
+  }
+  stop() {
+    try { this.flush('停止'); } catch (_) {}
+    try { this.proc.disconnect(); this.src.disconnect(); this.mute.disconnect(); } catch (_) {}
+    try { this.ctx.close(); } catch (_) {}
+  }
+}
+
+function encodeWav(f32, rate) {
+  const buf = new ArrayBuffer(44 + f32.length * 2), v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + f32.length * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  w(36, 'data'); v.setUint32(40, f32.length * 2, true);
+  for (let i = 0; i < f32.length; i++) { const s = Math.max(-1, Math.min(1, f32[i])); v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true); }
+  return new Uint8Array(buf);
+}
+function b64(u8) { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
+
+// ====================================================================
+// 2) Gemini 呼叫：轉寫+翻譯 / 純文字翻譯 / 摘要
+// ====================================================================
+let workingModel = null;                 // 試成功的模型記起來，下次直接用
+const minimalCfg = {};                    // 哪些模型不吃 responseMimeType/thinking 設定
+function modelOrder() {
+  if (cfg.model !== 'auto') return GEMINI_MODELS.filter(m => m.id === cfg.model).concat(GEMINI_MODELS.filter(m => m.id !== cfg.model));
+  if (workingModel) return [workingModel].concat(GEMINI_MODELS.filter(m => m !== workingModel));
+  return GEMINI_MODELS;
+}
+async function gemini(parts, { json = true, temperature = 0.2 } = {}) {
+  if (!cfg.apiKey) throw new Error('尚未設定 Gemini API 金鑰');
+  let lastErr;
+  for (const m of modelOrder()) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const gen = { temperature };
+      if (!minimalCfg[m.id]) {
+        if (json) gen.responseMimeType = 'application/json';
+        if (m.id.startsWith('gemini-3')) gen.thinkingConfig = { thinkingLevel: 'low' }; // 字幕要快
+      }
+      const url = `https://generativelanguage.googleapis.com/${m.ver}/models/${m.id}:generateContent?key=${encodeURIComponent(cfg.apiKey)}`;
+      let r, j;
+      try {
+        r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: gen }) });
+        j = await r.json().catch(() => ({}));
+      } catch (e) { lastErr = new Error('連不到 Gemini：' + e.message); await sleep(800 * (attempt + 1)); continue; }
+      if (r.ok) {
+        workingModel = m;
+        const text = (j.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('');
+        log(`3. Gemini(${m.id}) 回應 ${text.length} 字`);
+        return text;
+      }
+      const msg = j.error?.message || ('HTTP ' + r.status);
+      lastErr = new Error(`${m.id}：${msg}`);
+      log(`3. Gemini(${m.id}) 失敗 ${r.status}：${msg}`);
+      if (r.status === 400 && !minimalCfg[m.id] && /responseMimeType|response_mime_type|thinking|Unknown name|Invalid JSON payload/i.test(msg)) { minimalCfg[m.id] = true; continue; }
+      if (r.status === 400 && /API key|API_KEY/i.test(msg)) throw new Error('API 金鑰無效，請到 ⚙️ 設定檢查');
+      if (r.status === 403) throw new Error('金鑰沒有權限（403）：' + msg);
+      if (r.status === 429 || r.status >= 500) { await sleep(1500 * (attempt + 1)); continue; }
+      break; // 404 / 下架 / 其他 → 換下一個模型
+    }
+  }
+  throw lastErr || new Error('Gemini 呼叫失敗');
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function parseJSON(text) {
+  const t = String(text).replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+  try { return JSON.parse(t); } catch (_) {}
+  const m = t.match(/\{[\s\S]*\}/); if (m) { try { return JSON.parse(m[0]); } catch (_) {} }
+  return null;
+}
+function recentContext(n = 4) {
+  return session.entries.filter(e => e.status === 'done' && e.text).slice(-n).map(e => `${e.who === 'me' ? '我' : '對方'}：${e.text}`).join('\n') || '（無）';
+}
+
+async function transcribeTranslate(wavU8, who) {
+  const prompt =
+`你是會議即時口譯員。請聽這段會議音訊（說話者：${who === 'me' ? '我' : '會議中的其他人'}）。
+1. 逐字轉寫說話內容，保持原本語言；中文一律用繁體中文（台灣用語）。
+2. 判斷主要語言 lang："zh"、"en"，或其他 ISO 639-1 代碼。
+3. 翻譯：lang 是 zh → 翻成自然的英文；其他語言 → 翻成繁體中文（台灣用語）。中英夾雜時依主要語言決定方向。
+如果沒有清楚的人聲（只有雜音、音樂、鍵盤聲、靜音），text 與 translation 都回空字串，絕對不要猜測或編造。
+專有名詞參考：${cfg.glossary || '（無）'}
+前文（只供理解上下文，不要重複轉寫）：
+${recentContext()}
+只輸出 JSON：{"text":"…","lang":"zh","translation":"…"}`;
+  const out = await gemini([{ text: prompt }, { inlineData: { mimeType: 'audio/wav', data: b64(wavU8) } }]);
+  const j = parseJSON(out);
+  if (!j) throw new Error('Gemini 回傳格式看不懂：' + out.slice(0, 80));
+  return { text: String(j.text || '').trim(), lang: String(j.lang || '').toLowerCase(), tr: String(j.translation || '').trim() };
+}
+
+async function translateText(text) {
+  const toEn = isCJK(text);
+  if (cfg.apiKey) {
+    const prompt =
+`把下面這句會議發言翻譯成${toEn ? '自然的英文' : '繁體中文（台灣用語）'}。專有名詞參考：${cfg.glossary || '（無）'}
+前文（只供理解）：
+${recentContext(3)}
+要翻譯的句子：${text}
+只輸出 JSON：{"translation":"…"}`;
+    const j = parseJSON(await gemini([{ text: prompt }]));
+    if (j && j.translation != null) return { tr: String(j.translation).trim(), lang: toEn ? 'zh' : 'en' };
+  }
+  // 備援：免費 Google 翻譯。本機伺服器模式走 /translate 代理；GitHub Pages 等純靜態網站沒有代理，改直連
+  const tl = toEn ? 'en' : 'zh-TW';
+  if (IS_LOCAL) {
+    try {
+      const r = await fetch(`/translate?tl=${tl}&q=${encodeURIComponent(text)}`);
+      if (r.ok) { const j = await r.json(); if (j.text != null) return { tr: j.text, lang: toEn ? 'zh' : 'en' }; }
+    } catch (_) {}
+  }
+  try {
+    const r = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${tl}&dt=t&q=${encodeURIComponent(text)}`);
+    const j = await r.json();
+    const tr = (Array.isArray(j) && Array.isArray(j[0]) ? j[0] : []).map(s => s[0]).join('');
+    log('4. 直連免費翻譯成功');
+    return { tr, lang: toEn ? 'zh' : 'en' };
+  } catch (e) {
+    throw new Error('免費翻譯連不上，請到 ⚙️ 設定貼上 Gemini 金鑰改用 Gemini 翻譯');
+  }
+}
+
+// 同時最多 3 個請求在飛；結果依時間排序顯示，不會亂序
+const queue = []; let inflight = 0;
+function enqueue(job) { queue.push(job); pump(); }
+function pump() {
+  while (inflight < 3 && queue.length) {
+    const job = queue.shift(); inflight++;
+    job().catch(e => log('工作失敗', e)).finally(() => { inflight--; pump(); render(); });
+  }
+  updateStats();
+}
+
+// ====================================================================
+// 3) 逐字稿條目
+// ====================================================================
+function addEntry(e) { e.id = nextId++; session.entries.push(e); session.entries.sort((a, b) => a.t - b.t); saveSession(); render(); return e; }
+function findEntry(id) { return session.entries.find(e => e.id === id); }
+
+function onAudioSegment(who, wav, startAt) {
+  const e = addEntry({ t: startAt, who, text: '', tr: '', lang: '', status: 'pending', wavLen: wav.length });
+  pendingAudio.set(e.id, wav);
+  enqueue(() => processAudio(e.id));
+}
+const pendingAudio = new Map();  // 失敗時可重試，成功即釋放
+async function processAudio(id) {
+  const e = findEntry(id); const wav = pendingAudio.get(id); if (!e || !wav) return;
+  try {
+    const r = await transcribeTranslate(wav, e.who);
+    pendingAudio.delete(id);
+    if (!r.text) { session.entries = session.entries.filter(x => x.id !== id); log('4. 這段沒有人聲，已略過'); }
+    else { Object.assign(e, { text: r.text, tr: r.tr, lang: r.lang, status: 'done', err: '' }); log(`4. ${e.who === 'me' ? '我' : '對方'}：${r.text} → ${r.tr}`); }
+  } catch (err) {
+    Object.assign(e, { status: 'err', err: err.message });
+    setSrcState(e.who, '⚠ ' + err.message, 'err');
+  }
+  saveSession(); render(); updatePip();
+}
+async function processText(id) {
+  const e = findEntry(id); if (!e) return;
+  try {
+    const r = await translateText(e.text);
+    Object.assign(e, { tr: r.tr, lang: e.lang || r.lang, status: 'done', err: '' });
+    log(`4. 翻譯：${e.text} → ${r.tr}`);
+  } catch (err) { Object.assign(e, { status: 'err', err: err.message }); }
+  saveSession(); render(); updatePip();
+}
+
+// ====================================================================
+// 4) 擷取來源：麥克風(Web Speech 或 Gemini) + 會議分頁音訊(Gemini)
+// ====================================================================
+let micSeg = null, tabSeg = null, micStream = null, tabStream = null, rec = null, interim = '', levelStream = null, levelSeg = null;
+function setSrcState(who, text, cls = '') { const el = $(who === 'me' ? 'stMe' : 'stThem'); el.textContent = text; el.className = 'state ' + cls; }
+function setLevel(who, rms) { $(who === 'me' ? 'lvMe' : 'lvThem').style.width = Math.min(100, Math.sqrt(rms) * 220) + '%'; }
+const segOpts = (who, name) => ({
+  name, now: elapsed, maxSec: () => cfg.maxSec, sens: () => cfg.sens,
+  onLevel: rms => setLevel(who, rms),
+  onSegment: (wav, at) => onAudioSegment(who, wav, at),
+});
+
+async function startTab() {
+  if (!cfg.apiKey) { setSrcState('them', '需要 Gemini 金鑰（⚙️ 設定）', 'err'); toast('聽會議聲音需要 Gemini 金鑰，請先到 ⚙️ 設定貼上'); return false; }
+  if (!navigator.mediaDevices?.getDisplayMedia) { setSrcState('them', '這個瀏覽器不支援', 'err'); return false; }
+  log('5. 要求分享分頁音訊…');
+  try {
+    tabStream = await navigator.mediaDevices.getDisplayMedia({
+      video: true, // Chrome 規定一定要有 video 才能拿音訊；拿到後馬上關掉畫面軌
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      systemAudio: 'include', selfBrowserSurface: 'exclude', preferCurrentTab: false,
+    });
+  } catch (e) { setSrcState('them', '已取消分享', 'err'); log('5. 使用者取消分享', e.message); return false; }
+  tabStream.getVideoTracks().forEach(t => t.stop());
+  const at = tabStream.getAudioTracks();
+  if (!at.length) {
+    setSrcState('them', '沒有拿到聲音：分享時要勾「分享分頁音訊」', 'err');
+    toast('沒有拿到聲音！請重新開始，分享 Meet 分頁時記得勾「同時分享分頁音訊」', 6000);
+    return false;
+  }
+  at[0].onended = () => { setSrcState('them', '分享已結束', 'err'); if (tabSeg) { tabSeg.stop(); tabSeg = null; } };
+  tabSeg = new Segmenter(new MediaStream(at), segOpts('them', '對方'));
+  await tabSeg.start();
+  setSrcState('them', '收音中 ✓', 'ok');
+  log('5. 分頁音訊擷取成功：', at[0].label);
+  return true;
+}
+
+async function startMic() {
+  if (cfg.micEngine === 'gemini') {
+    if (!cfg.apiKey) { setSrcState('me', '需要 Gemini 金鑰，或改用「即時」引擎', 'err'); return false; }
+    try { micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
+    catch (e) { setSrcState('me', '麥克風被拒：' + e.message, 'err'); return false; }
+    micSeg = new Segmenter(micStream, segOpts('me', '我'));
+    await micSeg.start();
+    setSrcState('me', '收音中 ✓（Gemini）', 'ok');
+    return true;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { setSrcState('me', '此瀏覽器不支援語音辨識，請用 Chrome 或改 Gemini 引擎', 'err'); return false; }
+  // 音量條另開一條麥克風串流（只看音量，不送出）
+  try { levelStream = await navigator.mediaDevices.getUserMedia({ audio: true }); levelSeg = new LevelOnly(levelStream, rms => setLevel('me', rms)); } catch (_) {}
+  rec = new SR(); rec.lang = cfg.micLang; rec.continuous = true; rec.interimResults = true;
+  let segStart = 0;
+  rec.onresult = ev => {
+    let fin = '', inter = '';
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const r = ev.results[i]; if (r.isFinal) fin += r[0].transcript; else inter += r[0].transcript;
+    }
+    if (!segStart && (fin || inter)) segStart = elapsed();
+    interim = inter;
+    if (fin.trim()) {
+      const e = addEntry({ t: segStart || elapsed(), who: 'me', text: fin.trim(), tr: '', lang: cfg.micLang.startsWith('zh') ? 'zh' : 'en', status: 'pending' });
+      segStart = inter ? elapsed() : 0;
+      enqueue(() => processText(e.id));
+    }
+    renderInterim(); updatePip();
+  };
+  rec.onerror = ev => { log('6. 語音辨識錯誤', ev.error); if (ev.error === 'not-allowed') { setSrcState('me', '麥克風被拒絕', 'err'); rec._dead = true; } };
+  rec.onend = () => { if (running && rec && !rec._dead) { try { rec.start(); } catch (_) {} } }; // Chrome 會自己斷，自動接回
+  rec.start();
+  setSrcState('me', `收音中 ✓（${cfg.micLang === 'zh-TW' ? '中文' : 'English'}）`, 'ok');
+  log('6. Chrome 語音辨識啟動，語言', cfg.micLang);
+  return true;
+}
+class LevelOnly {
+  constructor(stream, cb) {
+    this.ctx = new AudioContext(); const src = this.ctx.createMediaStreamSource(stream), an = this.ctx.createAnalyser();
+    an.fftSize = 1024; src.connect(an); const d = new Float32Array(an.fftSize);
+    const tick = () => { if (this.dead) return; an.getFloatTimeDomainData(d); let s = 0; for (const x of d) s += x * x; cb(Math.sqrt(s / d.length)); requestAnimationFrame(tick); };
+    tick();
+  }
+  stop() { this.dead = true; try { this.ctx.close(); } catch (_) {} }
+}
+
+async function start() {
+  if (running) return;
+  cfg.useMic = $('useMic').checked; cfg.useTab = $('useTab').checked; saveCfg();
+  if (!cfg.useMic && !cfg.useTab) { toast('至少要勾一個收音來源'); return; }
+  if (!session.startedAt) session.startedAt = Date.now();
+  running = true; runStart = Date.now();
+  log('0. 開始記錄');
+  // 分頁分享要「使用者手勢」，先問它（等使用者選完分頁再開麥克風）
+  let okTab = false, okMic = false;
+  if (cfg.useTab) okTab = await startTab();
+  if (cfg.useMic) okMic = await startMic();
+  if (!okTab && !okMic) { running = false; refreshButtons(); return; }
+  refreshButtons(); tickTimer();
+}
+function stop() {
+  if (!running) return;
+  session.elapsedBefore += Date.now() - runStart;
+  running = false;
+  if (rec) { rec._dead = true; try { rec.stop(); } catch (_) {} rec = null; }
+  interim = ''; renderInterim();
+  [micSeg, tabSeg, levelSeg].forEach(s => s && s.stop()); micSeg = tabSeg = levelSeg = null;
+  [micStream, tabStream, levelStream].forEach(s => s && s.getTracks().forEach(t => t.stop())); micStream = tabStream = levelStream = null;
+  setLevel('me', 0); setLevel('them', 0);
+  setSrcState('me', '已停止'); setSrcState('them', '已停止');
+  saveSession(); refreshButtons();
+  log('0. 停止記錄，累計', fmtT(session.elapsedBefore));
+}
+function refreshButtons() {
+  $('btnStart').disabled = running; $('btnStop').disabled = !running;
+  $('btnStart').textContent = session.entries.length && !running ? '▶ 繼續記錄' : '▶ 開始記錄';
+  $('recDot').classList.toggle('on', running);
+  ['useMic', 'useTab', 'micEngine', 'micLang'].forEach(id => $(id).disabled = running && id !== 'micLang');
+}
+function tickTimer() { $('timer').textContent = fmtT(elapsed()); if (running) setTimeout(tickTimer, 500); }
+
+// ====================================================================
+// 5) 畫面
+// ====================================================================
+let renderQueued = false;
+function render() { if (renderQueued) return; renderQueued = true; requestAnimationFrame(() => { renderQueued = false; renderNow(); }); }
+function hl(s, q) { const h = esc(s); if (!q) return h; const qe = esc(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); return h.replace(new RegExp(qe, 'gi'), m => '<mark>' + m + '</mark>'); }
+function renderNow() {
+  const list = $('list'), q = $('search').value.trim();
+  const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 60;
+  const items = session.entries.filter(e => !q || (e.text + ' ' + e.tr).toLowerCase().includes(q.toLowerCase()));
+  if (!session.entries.length && !interim) {
+    list.innerHTML = `<div class="empty">還沒有內容。<br>1. 先到 <b>⚙️ 設定</b> 貼上 Gemini 金鑰<br>2. 按 <b>▶ 開始記錄</b>，選 <b>Google Meet 分頁</b> 並勾「分享分頁音訊」<br>3. 開口說話，逐字稿與翻譯會出現在這裡<br><br>不懂就按 <b>❓ 使用說明</b></div>`;
+  } else {
+    list.innerHTML = items.map(e => {
+      const body = e.status === 'pending' && !e.text ? '<div class="pending">🎧 辨識中…</div>'
+        : `<div class="orig">${hl(e.text, q)}</div>` +
+          (e.status === 'pending' ? '<div class="tr pending">翻譯中…</div>' : '') +
+          (e.tr ? `<div class="tr">${hl(e.tr, q)}</div>` : '') +
+          (e.status === 'err' ? `<div class="err">⚠ ${esc(e.err)}</div>` : '');
+      return `<div class="row" data-id="${e.id}"><div class="t">${fmtT(e.t)}</div><div class="who ${e.who}">${e.who === 'me' ? '我' : '對方'}</div><div>${body}</div>
+        <div class="ops"><button data-op="edit" title="修正原文">✏️</button><button data-op="retry" title="重新辨識/翻譯">🔁</button><button data-op="del" title="刪除">🗑</button></div></div>`;
+    }).join('') + `<div id="interimRow"></div>`;
+    renderInterim();
+  }
+  if ($('autoScroll').checked && (atBottom || running)) list.scrollTop = list.scrollHeight;
+  updateStats(); updatePip();
+}
+function renderInterim() {
+  const el = $('interimRow'); if (!el) { if (interim) renderNow(); return; }
+  el.innerHTML = interim ? `<div class="row interim"><div class="t">${fmtT(elapsed())}</div><div class="who me">我</div><div><div class="orig">${esc(interim)} …</div></div></div>` : '';
+  if ($('autoScroll').checked) $('list').scrollTop = $('list').scrollHeight;
+}
+function updateStats() {
+  const n = session.entries.filter(e => e.status === 'done').length;
+  const p = session.entries.filter(e => e.status === 'pending').length;
+  const err = session.entries.filter(e => e.status === 'err').length;
+  $('stats').textContent = `${n} 句` + (p ? ` · 處理中 ${p}` : '') + (err ? ` · 失敗 ${err}` : '');
+}
+function applyView() {
+  document.body.classList.toggle('hide-orig', cfg.viewMode === 'tr');
+  document.body.classList.toggle('hide-tr', cfg.viewMode === 'orig');
+  document.documentElement.style.setProperty('--fs', cfg.fontSize + 'px');
+}
+
+$('list').addEventListener('click', ev => {
+  const b = ev.target.closest('button[data-op]'); if (!b) return;
+  const id = +b.closest('.row').dataset.id, e = findEntry(id); if (!e) return;
+  if (b.dataset.op === 'del') { session.entries = session.entries.filter(x => x.id !== id); pendingAudio.delete(id); }
+  else if (b.dataset.op === 'edit') {
+    const v = prompt('修正原文（改完會自動重新翻譯）：', e.text); if (v == null || !v.trim()) return;
+    e.text = v.trim(); e.status = 'pending'; enqueue(() => processText(id));
+  } else if (b.dataset.op === 'retry') {
+    e.status = 'pending'; e.err = '';
+    if (pendingAudio.has(id)) { e.text = ''; enqueue(() => processAudio(id)); } else if (e.text) enqueue(() => processText(id));
+  }
+  saveSession(); render();
+});
+
+// ====================================================================
+// 6) 浮動字幕（Document Picture-in-Picture，永遠在最上層）
+// ====================================================================
+let pipWin = null;
+async function openPip() {
+  if (pipWin && !pipWin.closed) { try { pipWin.focus(); } catch (_) {} return; }
+  try {
+    if ('documentPictureInPicture' in window) pipWin = await documentPictureInPicture.requestWindow({ width: 520, height: 260 });
+    else { pipWin = window.open('', 'mtpip', 'width=520,height=260'); toast('此瀏覽器不支援置頂子母視窗，改開一般小視窗'); }
+  } catch (e) { toast('開不了浮動字幕：' + e.message); return; }
+  if (!pipWin) return;
+  const d = pipWin.document;
+  d.head.innerHTML = `<meta charset="utf-8"><title>會議字幕</title><style>
+    body{margin:0;background:#0b0f18;color:#e6ebf5;font:18px/1.5 "Microsoft JhengHei",sans-serif;display:flex;flex-direction:column;height:100vh}
+    #bar{display:flex;gap:6px;padding:4px 8px;background:#151c2b;font-size:12px;align-items:center}
+    #bar button{background:#222c40;color:#e6ebf5;border:1px solid #33405c;border-radius:6px;font-size:12px;cursor:pointer}
+    #c{flex:1;overflow-y:auto;padding:8px 12px}
+    .l{margin:0 0 10px} .w{font-size:12px;font-weight:700;margin-right:6px} .me{color:#3ecf8e} .them{color:#f5a524}
+    .o{color:#9aa6bf;font-size:.8em} .tr{color:#fff;font-size:1.05em;font-weight:600}
+    .hideo .o{display:none}</style>`;
+  d.body.innerHTML = `<div id="bar"><span style="flex:1">🎙️ 會議字幕</span><button id="a">A−</button><button id="b">A+</button><button id="t">原文 開/關</button></div><div id="c"></div>`;
+  let fs = LS.get('pipFs', 18);
+  const setFs = () => { d.body.style.fontSize = fs + 'px'; LS.set('pipFs', fs); };
+  d.getElementById('a').onclick = () => { fs = Math.max(12, fs - 2); setFs(); };
+  d.getElementById('b').onclick = () => { fs = Math.min(40, fs + 2); setFs(); };
+  d.getElementById('t').onclick = () => d.body.classList.toggle('hideo');
+  setFs();
+  pipWin.addEventListener('pagehide', () => { pipWin = null; });
+  updatePip();
+  log('7. 浮動字幕已開啟');
+}
+function updatePip() {
+  if (!pipWin || pipWin.closed) return;
+  const c = pipWin.document.getElementById('c'); if (!c) return;
+  const last = session.entries.filter(e => e.text).slice(-6);
+  c.innerHTML = last.map(e => `<div class="l"><span class="w ${e.who}">${e.who === 'me' ? '我' : '對方'}</span><span class="o">${esc(e.text)}</span><div class="tr">${esc(e.tr || (e.status === 'pending' ? '…' : ''))}</div></div>`).join('')
+    + (interim ? `<div class="l"><span class="w me">我</span><span class="o">${esc(interim)} …</span></div>` : '');
+  c.scrollTop = c.scrollHeight;
+}
+
+// ====================================================================
+// 7) AI 摘要 / 匯出
+// ====================================================================
+function transcriptText(withTr = true) {
+  return session.entries.filter(e => e.text).map(e => `[${fmtT(e.t)}] ${e.who === 'me' ? '我' : '對方'}：${e.text}` + (withTr && e.tr ? `\n    ↳ ${e.tr}` : '')).join('\n');
+}
+async function makeSummary() {
+  const lines = session.entries.filter(e => e.text);
+  if (!lines.length) { toast('還沒有逐字稿可以摘要'); return; }
+  if (!cfg.apiKey) { toast('AI 摘要需要 Gemini 金鑰，請到 ⚙️ 設定'); return; }
+  $('summaryPane').classList.add('show');
+  $('summaryBody').innerHTML = '<p class="state">🧠 摘要產生中…（逐字稿越長越久）</p>';
+  log('8. 產生摘要，共', lines.length, '句');
+  const prompt =
+`以下是一場線上會議的逐字稿（「我」是使用者本人，「對方」是會議中其他人，可能不只一位）。請用 Markdown 產出：
+## 會議摘要
+（繁體中文，3~6 點重點）
+## 決議事項
+## 待辦事項
+（每項寫：誰 / 做什麼 / 期限；逐字稿沒提到就寫「未提及」）
+## 待釐清問題
+## English Summary
+（英文，3~6 bullet points）
+不要編造逐字稿沒有的內容。專有名詞參考：${cfg.glossary || '（無）'}
+
+逐字稿：
+${transcriptText(false)}`;
+  try {
+    session.summary = (await gemini([{ text: prompt }], { json: false, temperature: 0.3 })).trim();
+    saveSession(); showSummary();
+  } catch (e) { $('summaryBody').innerHTML = `<p class="state err">⚠ ${esc(e.message)}</p>`; }
+}
+function mdToHtml(md) {
+  const out = []; let inList = false;
+  for (const raw of String(md).split(/\r?\n/)) {
+    const line = raw.trimEnd();
+    const inline = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
+    const li = line.match(/^\s*(?:[-*+]|\d+[.)])\s+(.*)$/);
+    if (li) { if (!inList) { out.push('<ul>'); inList = true; } out.push('<li>' + inline(li[1]) + '</li>'); continue; }
+    if (inList) { out.push('</ul>'); inList = false; }
+    const h = line.match(/^(#{1,4})\s+(.*)$/);
+    if (h) out.push(`<h${Math.min(3, h[1].length)}>${inline(h[2])}</h${Math.min(3, h[1].length)}>`);
+    else if (line.trim()) out.push('<p>' + inline(line) + '</p>');
+  }
+  if (inList) out.push('</ul>');
+  return out.join('');
+}
+function showSummary() { $('summaryBody').innerHTML = mdToHtml(session.summary); $('summaryPane').classList.add('show'); }
+
+function buildExport(kind) {
+  const withTr = $('expTr').checked, withSum = $('expSum').checked && session.summary;
+  const date = new Date(session.startedAt || Date.now());
+  const ds = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  const lines = session.entries.filter(e => e.text);
+  if (kind === 'srt') {
+    return lines.map((e, i) => {
+      const end = lines[i + 1] ? Math.min(lines[i + 1].t, e.t + 8000) : e.t + 5000;
+      const ts = ms => fmtT(ms) + ',' + String(Math.floor(ms % 1000)).padStart(3, '0');
+      return `${i + 1}\n${ts(e.t)} --> ${ts(Math.max(end, e.t + 800))}\n${e.who === 'me' ? '我' : '對方'}：${e.text}${withTr && e.tr ? '\n' + e.tr : ''}\n`;
+    }).join('\n');
+  }
+  if (kind === 'md') {
+    return `# 會議記錄 ${ds}\n\n- 會議長度：${fmtT(elapsed())}\n- 句數：${lines.length}\n\n` +
+      (withSum ? session.summary + '\n\n---\n\n' : '') +
+      `## 逐字稿\n\n` + lines.map(e => `**[${fmtT(e.t)}] ${e.who === 'me' ? '我' : '對方'}**：${e.text}` + (withTr && e.tr ? `  \n> ${e.tr}` : '')).join('\n\n') + '\n';
+  }
+  return `會議記錄 ${ds}（長度 ${fmtT(elapsed())}）\n\n` + (withSum ? session.summary + '\n\n==========\n\n' : '') + transcriptText(withTr) + '\n';
+}
+function download(name, text) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\ufeff' + text], { type: 'text/plain;charset=utf-8' }));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+document.querySelectorAll('[data-exp]').forEach(b => b.onclick = async () => {
+  const k = b.dataset.exp;
+  if (!session.entries.some(e => e.text)) { toast('還沒有內容可以匯出'); return; }
+  const stamp = new Date(session.startedAt || Date.now()).toISOString().slice(0, 16).replace(/[-:T]/g, '');
+  if (k === 'copy') { try { await navigator.clipboard.writeText(buildExport('txt')); toast('已複製'); } catch (_) { toast('複製失敗，請改用下載'); } return; }
+  download(`會議記錄_${stamp}.${k}`, buildExport(k));
+  log('9. 匯出', k);
+});
+
+// ====================================================================
+// 8) 綁定 UI
+// ====================================================================
+function bindSettings() {
+  const map = { apiKey: 'value', model: 'value', glossary: 'value', maxSec: 'value', sens: 'value', fontSize: 'value' };
+  for (const k in map) {
+    const el = $(k); el.value = cfg[k];
+    el.addEventListener('input', () => {
+      cfg[k] = ['maxSec', 'sens', 'fontSize'].includes(k) ? +el.value : el.value.trim();
+      if (k === 'model') workingModel = null;
+      saveCfg(); labels(); applyView();
+    });
+  }
+  const labels = () => { $('maxSecVal').textContent = cfg.maxSec; $('sensVal').textContent = cfg.sens; $('fsVal').textContent = cfg.fontSize; };
+  labels();
+}
+function openModal(id) { $(id).classList.add('show'); }
+function closeModal(id) { $(id).classList.remove('show'); }
+document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); }));
+
+$('btnStart').onclick = start;
+$('btnStop').onclick = stop;
+$('btnPip').onclick = openPip;
+$('btnSummary').onclick = makeSummary;
+$('btnExport').onclick = () => openModal('dlgExport');
+$('btnCloseExport').onclick = () => closeModal('dlgExport');
+$('btnSettings').onclick = () => openModal('dlgSettings');
+$('btnCloseSettings').onclick = () => closeModal('dlgSettings');
+$('btnHelp').onclick = () => openModal('dlgHelp');
+$('btnCloseHelp').onclick = () => closeModal('dlgHelp');
+$('btnCloseSummary').onclick = () => $('summaryPane').classList.remove('show');
+$('btnCopySummary').onclick = async () => { try { await navigator.clipboard.writeText(session.summary || ''); toast('摘要已複製'); } catch (_) { toast('複製失敗'); } };
+$('btnNew').onclick = () => {
+  if (session.entries.length && !confirm('確定清空目前的逐字稿、開始新會議？\n（建議先 💾 匯出）')) return;
+  if (running) stop();
+  session = { startedAt: 0, elapsedBefore: 0, entries: [], summary: '' }; pendingAudio.clear();
+  LS.set('session', session); $('summaryPane').classList.remove('show'); $('timer').textContent = '00:00:00';
+  refreshButtons(); render();
+};
+$('btnTestKey').onclick = async () => {
+  $('btnTestKey').disabled = true; $('btnTestKey').textContent = '測試中…';
+  try { const t = await translateText('今天的會議到這裡結束，謝謝大家。'); toast(`✅ 可以用！模型 ${workingModel ? workingModel.id : '免費翻譯'}：${t.tr}`, 5000); }
+  catch (e) { toast('❌ ' + e.message, 6000); }
+  $('btnTestKey').disabled = false; $('btnTestKey').textContent = '🔌 測試金鑰';
+};
+['useMic', 'useTab', 'micEngine', 'micLang', 'viewMode'].forEach(id => {
+  const el = $(id);
+  if (el.type === 'checkbox') el.checked = cfg[id]; else el.value = cfg[id];
+  el.addEventListener('change', () => {
+    cfg[id] = el.type === 'checkbox' ? el.checked : el.value; saveCfg(); applyView(); render();
+    if (id === 'micLang' && rec) { // 執行中切語言：重開辨識
+      rec._dead = true; try { rec.stop(); } catch (_) {}
+      if (levelSeg) { levelSeg.stop(); levelSeg = null; } if (levelStream) { levelStream.getTracks().forEach(t => t.stop()); levelStream = null; }
+      rec = null; startMic();
+    }
+  });
+});
+$('search').addEventListener('input', render);
+window.addEventListener('beforeunload', e => { LS.set('session', session); if (running) { e.preventDefault(); e.returnValue = ''; } });
+
+bindSettings(); applyView(); refreshButtons(); render();
+if (session.elapsedBefore) $('timer').textContent = fmtT(session.elapsedBefore);
+if (session.summary) $('summaryBody').innerHTML = mdToHtml(session.summary);
+// 開網頁時沒有金鑰 → 先跳視窗問（每次開都問，直到填好為止）
+async function saveFirstKey() {
+  const v = $('keyFirst').value.trim();
+  if (!v) { $('keyMsg').textContent = '請先貼上金鑰'; $('keyMsg').className = 'state err'; return; }
+  cfg.apiKey = v; saveCfg(); $('apiKey').value = v; workingModel = null;
+  $('btnKeySave').disabled = true; $('keyMsg').className = 'state'; $('keyMsg').textContent = '測試中…';
+  log('1. 開頁輸入金鑰，測試中');
+  try {
+    const t = await translateText('今天的會議到這裡結束，謝謝大家。');
+    log('1. 金鑰可用，模型', workingModel && workingModel.id);
+    closeModal('dlgKey');
+    toast(`✅ 金鑰可以用（${workingModel ? workingModel.id : ''}）：${t.tr}`, 5000);
+    if (!LS.get('seenHelp', false)) { LS.set('seenHelp', true); openModal('dlgHelp'); }
+  } catch (e) {
+    $('keyMsg').textContent = '❌ ' + e.message + '（金鑰已存下，可之後到 ⚙️ 設定修改）'; $('keyMsg').className = 'state err';
+  }
+  $('btnKeySave').disabled = false;
+}
+$('btnKeySave').onclick = saveFirstKey;
+$('keyFirst').addEventListener('keydown', e => { if (e.key === 'Enter') saveFirstKey(); });
+$('btnKeyLater').onclick = () => {
+  closeModal('dlgKey');
+  $('useTab').checked = cfg.useTab = false; saveCfg();
+  toast('沒有金鑰：先只記錄你的麥克風（免費翻譯）。要聽對方聲音請到 ⚙️ 設定貼金鑰', 5000);
+  if (!LS.get('seenHelp', false)) { LS.set('seenHelp', true); openModal('dlgHelp'); }
+};
+if (!cfg.apiKey && location.hash !== '#selftest') { openModal('dlgKey'); setTimeout(() => $('keyFirst').focus(), 50); }
+else if (!LS.get('seenHelp', false) && location.hash !== '#selftest') { LS.set('seenHelp', true); openModal('dlgHelp'); }
+if (location.protocol === 'file:') toast('請用「開啟會議翻譯.bat」啟動，或放到 GitHub Pages(https) 開（file:// 無法使用麥克風與分頁音訊）', 8000);
+log('執行環境：', IS_LOCAL ? '本機伺服器' : location.protocol === 'https:' ? '線上網站(https)' : location.protocol);
+log('啟動完成，已載入', session.entries.length, '句逐字稿');
+
+// ====================================================================
+// 9) 自我測試：網址加 #selftest（假 Gemini + 合成語音脈衝），結果 POST 回伺服器
+// ====================================================================
+if (location.hash === '#selftest') (async () => {
+  const res = []; const ok = (name, cond, info = '') => { res.push({ name, pass: !!cond, info: String(info) }); };
+  try {
+    try { localStorage.clear(); } catch (_) {}
+    session = { startedAt: Date.now(), elapsedBefore: 0, entries: [], summary: '' };
+    cfg.apiKey = 'TEST'; cfg.maxSec = 6; cfg.sens = 5;
+    let calls = 0, sawAudio = 0, firstModel404 = true;
+    const realFetch = window.fetch;
+    window.fetch = async (url, opt) => {
+      url = String(url);
+      if (url.includes('generativelanguage')) {
+        calls++;
+        if (firstModel404 && url.includes('gemini-3-flash-preview')) { firstModel404 = false; return new Response(JSON.stringify({ error: { message: 'models/gemini-3-flash-preview is not found' } }), { status: 404 }); }
+        const body = JSON.parse(opt.body); const parts = body.contents[0].parts;
+        const audio = parts.find(p => p.inlineData);
+        let txt;
+        if (audio) { sawAudio++; const bytes = atob(audio.inlineData.data); txt = JSON.stringify({ text: bytes.slice(0, 4) === 'RIFF' ? `測試語句${sawAudio}` : 'BAD', lang: 'zh', translation: `test sentence ${sawAudio}` }); }
+        else if (/逐字稿：/.test(parts[0].text)) txt = '## 會議摘要\n- 重點 **一**\n- <img src=x onerror=alert(1)>\n## English Summary\n- point';
+        else txt = '```json\n{"translation":"Hello everyone"}\n```';
+        return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: txt }] } }] }), { status: 200 });
+      }
+      return realFetch(url, opt);
+    };
+    // WAV 編碼
+    const w = encodeWav(new Float32Array(16000), 16000);
+    ok('WAV 檔頭 RIFF/WAVE', String.fromCharCode(...w.slice(0, 4)) === 'RIFF' && String.fromCharCode(...w.slice(8, 12)) === 'WAVE');
+    ok('WAV 長度 = 44 + 2*樣本數', w.length === 44 + 32000, w.length);
+    ok('CJK 判斷', isCJK('今天開會 OK') && !isCJK('hello world 你'), '');
+    ok('parseJSON 去掉 ``` 包裝', parseJSON('```json\n{"a":1}\n```').a === 1);
+    ok('mdToHtml 會跳脫 HTML', !mdToHtml('- <script>').includes('<script>') && mdToHtml('## 標題').includes('<h2>'));
+
+    // 合成音訊：0.2s 靜音 → 1.2s 嗡聲 → 1.2s 靜音 → 1.5s 嗡聲 → 靜音
+    running = true; runStart = Date.now();
+    const ac = new AudioContext(); await ac.resume();
+    const dest = ac.createMediaStreamDestination();
+    const osc = ac.createOscillator(); osc.frequency.value = 220; const g = ac.createGain(); g.gain.value = 0;
+    osc.connect(g); g.connect(dest); osc.start();
+    const t0 = ac.currentTime + 0.2;
+    g.gain.setValueAtTime(0.3, t0); g.gain.setValueAtTime(0, t0 + 1.2);
+    g.gain.setValueAtTime(0.3, t0 + 2.4); g.gain.setValueAtTime(0, t0 + 3.9);
+    const segs = [];
+    const sg = new Segmenter(dest.stream, Object.assign(segOpts('them', '測試'), { onSegment: (wav, at, dur) => { segs.push({ at, dur }); onAudioSegment('them', wav, at); } }));
+    await sg.start();
+    const t1 = Date.now();
+    while (Date.now() - t1 < 9000 && !(segs.length >= 2 && session.entries.filter(e => e.status === 'done').length >= 2)) await sleep(200);
+    sg.stop(); osc.stop(); ac.close();
+    ok('切段器切出 2 段', segs.length === 2, JSON.stringify(segs));
+    ok('段長合理(0.8~3.5 秒)', segs.every(s => s.dur > 800 && s.dur < 3500), JSON.stringify(segs.map(s => s.dur | 0)));
+    const done = session.entries.filter(e => e.status === 'done');
+    ok('兩段都辨識+翻譯完成', done.length === 2 && done.every(x => x.tr.startsWith('test sentence')), JSON.stringify(done.map(e => [e.text, e.tr])));
+    ok('送出的音訊是 WAV', sawAudio >= 2 && !done.some(e => e.text === 'BAD'), sawAudio);
+    ok('模型 404 會自動換下一個', workingModel && workingModel.id === 'gemini-3-flash', workingModel && workingModel.id);
+    ok('時間戳依序', done.length < 2 || done[0].t <= done[1].t);
+
+    // 文字翻譯（Web Speech 路線）
+    const e = addEntry({ t: elapsed(), who: 'me', text: '大家好', tr: '', lang: 'zh', status: 'pending' });
+    await processText(e.id);
+    ok('文字翻譯(去掉```包裝)', findEntry(e.id).tr === 'Hello everyone', findEntry(e.id).tr);
+    running = false;
+
+    // 摘要
+    await makeSummary();
+    ok('摘要產生並跳脫', session.summary.includes('會議摘要') && !$('summaryBody').innerHTML.includes('<img') && $('summaryBody').innerHTML.includes('<b>一</b>'));
+
+    // 匯出
+    const md = buildExport('md'), srt = buildExport('srt'), txt = buildExport('txt');
+    ok('匯出 md 含逐字稿與翻譯', md.includes('## 逐字稿') && md.includes('大家好') && md.includes('Hello everyone') && md.includes('會議摘要'));
+    ok('匯出 srt 格式', /^1\n\d\d:\d\d:\d\d,\d{3} --> \d\d:\d\d:\d\d,\d{3}\n/.test(srt), srt.slice(0, 80));
+    ok('匯出 txt', txt.includes('對方：測試語句'));
+
+    // 畫面
+    renderNow();
+    ok('逐字稿列已畫出', document.querySelectorAll('#list .row').length >= 3, document.querySelectorAll('#list .row').length);
+    $('search').value = 'Hello'; renderNow();
+    ok('搜尋過濾+標示', document.querySelectorAll('#list .row').length === 1 && $('list').innerHTML.includes('<mark>'));
+    $('search').value = ''; renderNow();
+    // 存檔
+    LS.set('session', session);
+    ok('localStorage 會保存', (LS.get('session', {}).entries || []).length === session.entries.length);
+    ok('Gemini 呼叫次數合理', calls >= 4 && calls < 12, calls);
+  } catch (err) { ok('未預期例外', false, err.stack || err); }
+  const pass = res.filter(r => r.pass).length;
+  console.log(`自測 ${pass}/${res.length}`, res);
+  document.title = `SELFTEST ${pass}/${res.length}`;
+  try { await fetch('/__report', { method: 'POST', body: JSON.stringify({ pass, total: res.length, res }) }); } catch (_) {}
+})();
+</script>
+</body>
+</html>
